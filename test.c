@@ -109,6 +109,30 @@ bool ll_remove(LL *ll, void *something) {
 		break;
 	}
 }
+void ll_foreach(LL *ll, void pf(void *something)) {
+	LLNode *n = ll->head;
+	while (n != NULL) {
+		pf(n->data);
+		n = n->next;
+	}
+}
+void ll_map(LL *ll, void *pf(void *something)) {
+	LLNode *n = ll->head;
+	while (n != NULL) {
+		n->data = pf(n->data);
+		n = n->next;
+	}
+}
+LL *ll_filter(LL *ll, bool pf(void *something)) {
+	LL *filtered = ll_create();
+	LLNode *n = ll->head;
+	while (n != NULL) {
+		if (pf(n->data))
+			ll_add(filtered, n->data);
+		n = n->next;
+	}
+	return filtered;
+}
 void test_ll() {
 
 	// test creation
@@ -196,8 +220,9 @@ void test_ll() {
 
 int main(int argc, char *argv[]) {
 	if (argc == 2 && strcmp(argv[1], "tests") == 0) {
+		printf("Running tests\n");
 		test_ll();
-		printf("Tests passed\n");
+		printf("Tests finished\n");
 		exit(0);
 	}
 
