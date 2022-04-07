@@ -38,6 +38,12 @@ Class *newClass(int base) {
 	p->method1 = Class_method1;
 	return p;
 }
+void test_class_construct() {
+	Class *c = newClass(10);
+	int j = c->method1(c, 1, 2);
+	printf("j is now %i\n", j);
+	free(c);
+}
 
 
 
@@ -133,20 +139,32 @@ LL *ll_filter(LL *ll, bool pf(void *something)) {
 	}
 	return filtered;
 }
-void test_ll() {
+void ll_free(LL *ll) {
+	LLNode *n = ll->head;
+	while (n != NULL) {
+		LLNode *next = n->next;
+		free(n);
+		n = next;
+	}
+	free(ll);
+}
+void ll_unit_tests() {
+	LL *ll;
 
 	// test creation
-	LL *ll = ll_create();
+	ll = ll_create();
 	assert(ll != NULL);
 	assert(ll_length(ll) == 0);
 	assert(ll_empty(ll));
 	assert(ll->head == NULL);
 	assert(ll->tail == NULL);
+	ll_free(ll);
 
 	void *payload1 = (void *)"Data 1";
 	void *payload2 = (void *)"Data 2";
 	
 	// test first addition
+	ll = ll_create();
 	ll_add(ll, payload1);
 	assert(!ll_empty(ll));
 	assert(ll_length(ll) == 1);
@@ -159,8 +177,11 @@ void test_ll() {
 	assert(ll->tail->prev == NULL);
 	assert(ll->tail->next == NULL);
 	assert(ll->head->data == payload1);
+	ll_free(ll);
 
 	// test addition at the end
+	ll = ll_create();
+	ll_add(ll, payload1);
 	ll_add(ll, payload2);
 	assert(ll_contains(ll, payload2));
 	assert(!ll_empty(ll));
@@ -174,6 +195,7 @@ void test_ll() {
 	assert(ll->tail->prev == ll->head);
 	assert(ll->head->prev == NULL);
 	assert(ll->tail->next == NULL);
+	ll_free(ll);
 
 	// test deletion of head
 	ll = ll_create();
@@ -188,6 +210,7 @@ void test_ll() {
 	assert(ll->head->data == payload2);
 	assert(ll->head->next == NULL);
 	assert(ll->head->prev == NULL);
+	ll_free(ll);
 
 	// test deletion of tail
 	ll = ll_create();
@@ -202,6 +225,7 @@ void test_ll() {
 	assert(ll->head->data == payload1);
 	assert(ll->head->next == NULL);
 	assert(ll->head->prev == NULL);
+	ll_free(ll);
 
 	// test final deletion
 	ll = ll_create();
@@ -212,6 +236,7 @@ void test_ll() {
 	assert(!ll_contains(ll, payload1));
 	assert(ll->head == NULL);
 	assert(ll->tail == NULL);
+	ll_free(ll);
 }
 
 
@@ -221,33 +246,23 @@ void test_ll() {
 int main(int argc, char *argv[]) {
 	if (argc == 2 && strcmp(argv[1], "tests") == 0) {
 		printf("Running tests\n");
-		test_ll();
+		ll_unit_tests();
 		printf("Tests finished\n");
 		exit(0);
 	}
 
 	printf("Hello, mits!\n");
+	test_class_construct();
 
 	char *p = malloc(1000);
 	printf("Gotten a memory chunk!\n");
 	free(p);
-
-
-	Class *c = newClass(10);
-	int j = c->method1(c, 1, 2);
-	printf("j is now %i\n", j);
 
 	int i;
 	printf("sizeof(int) is %ld\n", sizeof(int));
 	printf("sizeof(short) is %lu\n", sizeof(short));
 	printf("sizeof(long) is %lu\n", sizeof(long));
 	printf("sizeof(long long) is %lu\n", sizeof(long long));
-
-
-	for (i = 0; i < 10; i++) {
-		printf("%d... ", i);
-	}
-	printf("done\n");
 }
 
 
