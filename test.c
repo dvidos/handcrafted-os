@@ -5,6 +5,9 @@
 #include <string.h>
 
 /**
+ * After many years, got the bug to write some C again. 
+ * This was mainly inspired by a guy writing their own bootloader to play tetris
+ *
  * Being used to modern languages,
  * I'm missing Garbage Collection, Classes syntax, Exceptions, maybe namespaces
  */
@@ -21,17 +24,13 @@
  *   printf("j is now %i\n", j);
  */
 typedef struct Class_struct Class;
-typedef int Class_pf_iii(Class *this, int arg1, int arg2);
-
 struct Class_struct {
 	int base;
-	Class_pf_iii *method1;
+	int (*method1)(Class *, int, int);
 };
-
 int Class_method1(Class *this, int arg1, int arg2) {
 	return this->base + arg1 + arg2;
 }
-
 Class *newClass(int base) {
 	Class *p = malloc(sizeof(Class));
 	p->base = base;
@@ -44,8 +43,6 @@ void test_class_construct() {
 	printf("j is now %i\n", j);
 	free(c);
 }
-
-
 
 
 
@@ -259,10 +256,10 @@ int main(int argc, char *argv[]) {
 	free(p);
 
 	int i;
-	printf("sizeof(int) is %ld\n", sizeof(int));
+	printf("sizeof(char) is %lu\n", sizeof(char));
 	printf("sizeof(short) is %lu\n", sizeof(short));
+	printf("sizeof(int) is %ld\n", sizeof(int));
 	printf("sizeof(long) is %lu\n", sizeof(long));
-	printf("sizeof(long long) is %lu\n", sizeof(long long));
 }
 
 
