@@ -50,9 +50,18 @@ void test_class_construct() {
  * Trying out creating a doubly linked list functionality
  * Mind you, this is a O(n) search operation
  */
-typedef struct LLNode_struct { struct LLNode_struct *next; struct LLNode_struct *prev; void *data; } LLNode;
-typedef struct { LLNode *head; LLNode *tail; int length; } LL;
-
+typedef struct LLNode_struct LLNode;
+typedef struct LL_struct LL;
+struct LLNode_struct {
+	LLNode *next;
+	LLNode *prev;
+	void *data;
+};
+struct LL_struct {
+	LLNode *head;
+	LLNode *tail;
+	int length;
+};
 LL *ll_create() {
 	LL *p = malloc(sizeof(LL));
 	p->head = NULL;
