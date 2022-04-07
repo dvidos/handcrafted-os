@@ -1,5 +1,7 @@
 CC = gcc
-CFLAGS = -I.
+
+# -g enables debug
+CFLAGS = -I. -g
 SOURCES = test.c
 
 
