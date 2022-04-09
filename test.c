@@ -14,6 +14,24 @@
 
 
 /**
+ * All great achievements in software were a transformation on the way we think
+ * A file system with seemingly random create/write/delete files on a flat disk
+ * An infinitely scrolling console, while on a simple 80x25 terminal display
+ * Windows, overlapping, on a flat GUI
+ * Message queues
+ * TCP/IP over a very unreliable network hardware infrastucture
+ * A multi user, multi process OS with inter-process communication
+ *
+ * What could the lowly me create in a few lines of C ?
+ * C++ is already taken. Cloud functions?
+ *
+ */
+
+
+
+
+
+/**
  * Sample class definition -- too c++ for my taste
  * Maybe the original file io struct is better design for C
  *
