@@ -3,6 +3,7 @@
 ; last two bytes need to have the values 0xAA55
 ; it is loaded by BIOS on memory address 0x7c00 to 0x7dff
 
+; square brackets convert a value to a memory pointer
 ; move a number to al
 ;   mov al, 2
 ; move whatever is contained in this address (literal pointer)
@@ -11,6 +12,14 @@
 ;   mov bx, 0x1234
 ;   mov al, [bx]
 
+; segments are there to allow us to address move then 64k of memory
+; four segment registers: cs (code), ds (data), ss (stack), es (extra)
+; each address is reference by the segment value, shifted left by a nibble (or multiplied by 16).
+; this allows us to address the full... 640K of memory!!!
+; e.g. if DS has 0x1000, then we can access addresses in the range of 0x10000 through 0x1FFFF
+; in that case "mov ax, [0x20]" is actually pointing to 0x10020
+; when we start up, all segment registers have the value 0x0000
+
 ; now, the "push" command diminishes the stack.
 ; the stack is pointed by sp. to set it up we can set the sp register
 ; choose an address well above, so pushing will not ruin our code
@@ -18,11 +27,14 @@
 ; maybe that's why they call it 16 bits real mode.
 ; (fun detail, the address we initially set the SP to is never written)
 ; pusha pushes 16 bytes (8 registers i guess)
+; in real mode, ss (the stack segment) can go only up to 0x9000, which allows addressing up to the 640kb we have
 
-    mov bp, 0x8000
+    mov bp, 0xffff  ; go to any address high enough, up to 0xffff actually!
     mov sp, bp
 
-; call and ret are just pushing the instruction pointer
+; call and ret are just pushing/popping the instruction pointer and jumping
+; we pass arguments and get returned values in registers
+; we use pusha and popa to preserve registers and avoid messing the caller's values
     
     mov bx, message  ; essentially move the address of the label
     call print_string
@@ -42,7 +54,19 @@
     call print_hex
     call print_crlf
 
-    mov dx, [0x7ffe]
+    mov dx, cs
+    call print_hex
+    call print_crlf
+
+    mov dx, ds
+    call print_hex
+    call print_crlf
+
+    mov dx, ss
+    call print_hex
+    call print_crlf
+
+    mov dx, es
     call print_hex
     call print_crlf
 
