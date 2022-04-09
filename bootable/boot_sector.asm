@@ -14,8 +14,10 @@
 ; now, the "push" command diminishes the stack.
 ; the stack is pointed by sp. to set it up we can set the sp register
 ; choose an address well above, so pushing will not ruin our code
-; any push operation will lower sp by two bytes (not one) and then store what we push
+; any push operation will lower sp by two bytes and write the two bytes at sp, sp+1
 ; maybe that's why they call it 16 bits real mode.
+; (fun detail, the address we initially set the SP to is never written)
+; pusha pushes 16 bytes (8 registers i guess)
 
     mov bp, 0x8000
     mov sp, bp
@@ -25,8 +27,26 @@
     mov bx, message  ; essentially move the address of the label
     call print_string
     call print_crlf
-    mov dx, 0xbabe
+
+    mov bx, sp_now_is
+    call print_string
+    mov dx, sp
     call print_hex
+    call print_crlf
+
+    push 0x12
+
+    mov bx, sp_now_is
+    call print_string
+    mov dx, sp
+    call print_hex
+    call print_crlf
+
+    mov dx, [0x7ffe]
+    call print_hex
+    call print_crlf
+
+
 
 
 ; Infinite loop (e9 fd ff)
@@ -36,6 +56,8 @@
 ; messages are zero terminated, to easily detect their end
 message:
     db 'Loading...', 0
+sp_now_is:
+    db 'SP = ', 0
 
 ; function to print a string.
 ; string to be printed must be pointed by bx
