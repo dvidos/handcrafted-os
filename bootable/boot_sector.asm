@@ -1,7 +1,7 @@
-[org 0x7C00]   
 ; boot sector is 512 bytes long,
-; last two bytes need to have the values 0xAA55
+; last two bytes need to have the values 0xAA55 for it to detect a bootable sector
 ; it is loaded by BIOS on memory address 0x7c00 to 0x7dff
+[org 0x7C00]   
 
 ; square brackets convert a value to a memory pointer
 ; move a number to al
@@ -29,44 +29,48 @@
 ; pusha pushes 16 bytes (8 registers i guess)
 ; in real mode, ss (the stack segment) can go only up to 0x9000, which allows addressing up to the 640kb we have
 
-    mov bp, 0xffff  ; go to any address high enough, up to 0xffff actually!
+    mov bp, 0x8000  ; go to any address high enough, up to 0xffff actually!
     mov sp, bp
 
 ; call and ret are just pushing/popping the instruction pointer and jumping
 ; we pass arguments and get returned values in registers
 ; we use pusha and popa to preserve registers and avoid messing the caller's values
     
-    mov bx, message  ; essentially move the address of the label
+    mov bx, hello_message  ; essentially move the address of the label
     call print_string
     call print_crlf
 
-    mov bx, sp_now_is
-    call print_string
-    mov dx, sp
-    call print_hex
+    ; dl should have the drive number
+    mov dh, 0
+    mov dl, dl
+    call print_hex 
     call print_crlf
 
-    push 0x12
+    ; jmp $
 
-    mov bx, sp_now_is
-    call print_string
-    mov dx, sp
+    ; let's load some more sectors, onto 0x9000 (remember stack at 0x8000)
+    mov dl, dl      ; drive to load, already set by BIOS
+    mov dh, 2       ; how many sectors to load
+    mov bp, 0x0000  ; make sure es has zero
+    mov es, bp
+    mov bx, 0x9000  ; es:bx point to where to load the sectors
+    call load_sectors
+
+    ; check byte in each segment
+    mov dx, 0
+    mov dl, [0x9000]
     call print_hex
     call print_crlf
-
-    mov dx, cs
+    mov dl, [0x9000 + 511]
     call print_hex
     call print_crlf
-
-    mov dx, ds
+    mov dl, [0x9000 + 512]
     call print_hex
     call print_crlf
-
-    mov dx, ss
+    mov dl, [0x9000 + 512 + 511]
     call print_hex
     call print_crlf
-
-    mov dx, es
+    mov dl, [0x9000 + 512 + 512]
     call print_hex
     call print_crlf
 
@@ -78,10 +82,10 @@
 
 
 ; messages are zero terminated, to easily detect their end
-message:
-    db 'Loading...', 0
-sp_now_is:
-    db 'SP = ', 0
+hello_message:
+    db 'Boot sector running', 0
+
+
 
 ; function to print a string.
 ; string to be printed must be pointed by bx
@@ -103,7 +107,7 @@ print_done:
 
 
 ; function to print a new line.
-; for some reason CR+LF is needed
+; for some reason CR+LF is needed for bios
 print_crlf:
     pusha
     mov ah, 0x0e
@@ -130,7 +134,7 @@ print_hex_nibble:
     add al, 0x30         ; add '0' to convert to ascii digit
     cmp al, 0x39         ; see if number or letter
     jle print_hex_skip_letter
-    add al, 0x40 - 0x39  ; add extra value to go upto A-F range
+    add al, 0x41 - 0x3a  ; add extra value to go upto A-F range
 print_hex_skip_letter:
     mov bx, print_hex_buffer + 5    ; point to last buffer byte
     sub bx, cx                      ; clever! subtract our index variable (cx)
@@ -151,8 +155,75 @@ print_hex_buffer:
 
 
 
+; function to load something from disk
+; dl = drive number, dh = number of sectors, ES:BX points to target address
+; see https://stanislavs.org/helppc/int_13-2.html
+load_sectors:
+    pusha
+    ; also save dx to allow us to compare values read
+    push dx
+
+    mov ah, 0x02    ; int 0x13, function 0x02, read
+    mov al, dh      ; number of sectors to read
+    mov cl, 0x02    ; start from sector 2, as sector 1 already loaded by BIOS
+    mov ch, 0x00    ; track/cylinder number
+    ; dl already contains drive number (0=fdd0, 1=fdd1, 0x80=hdd0, 0x81=hdd1 etc)
+    mov dh, 0x00    ; head number
+    ; es:bx already points to target memory area
+    int 0x13
+
+    ; on error, carry is set
+    jc load_sectors_disk_error
+    pop dx
+    cmp al, dh      ; see if we read all we wanted to
+    jne load_sectors_mismatch
+
+    popa
+    ret
+
+load_sectors_disk_error:
+   mov bx, disk_error_msg
+   call print_string
+   call print_crlf
+   ; error no will be in ah, dl arealdy contains the drive number
+   mov dh, ah
+   call print_hex
+   ; freeze, not much to do
+   jmp $
+
+load_sectors_mismatch:
+    mov bx, mismatch_msg
+    call print_string
+    call print_crlf
+    ; freeze, not much to do
+    jmp $
+
+
+disk_error_msg: db 'Disk error', 0
+mismatch_msg: db 'Incorrect sectors read', 0
+    
+
+
+
+
 ; Fill with 510 zeros minus the size of the previous code
 times 510-($-$$) db 0
 
-; Magic number
+; Magic number for BIOS to understand we are a bootable sector
+; must be the last two bytes of the sector
 dw 0xaa55 
+
+
+
+; BIOS only loads the first sector, the first 512 bytes.
+; So, for any code below these lines, we need to load it explicitely
+
+
+
+; fill another sector with a magic number
+times 512 db 0x22
+
+; and another one
+times 512 db 0x44
+
+

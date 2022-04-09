@@ -20,11 +20,12 @@ boot_sector: boot_sector.bin
 
 
 run: boot_sector.bin
-	qemu-system-x86_64 $?
+	# qemu-system-x86_64 $?
+	qemu-system-x86_64 -drive file=$?,format=raw,index=0,media=disk 
 
 
 view: boot_sector.bin
-	xxd $?
+	xxd $? | less
 
 
 
