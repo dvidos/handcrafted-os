@@ -4,6 +4,9 @@
 [org 0x7C00]
 [bits 16]
 
+KERNEL_OFFSET equ 0x1000  ; where to load the kernel
+
+
 ; square brackets convert a value to a memory pointer
 ; move a number to al
 ;   mov al, 2
@@ -37,44 +40,48 @@
 ; we pass arguments and get returned values in registers
 ; we use pusha and popa to preserve registers and avoid messing the caller's values
     
+    ; save the drive number that bios loaded us from
+    ; needed when loading the kernel from subsequent sectors
+    mov [boot_drive_no], dl
+
     mov bx, real_mode_message  ; essentially move the address of the label
     call print_string
     call print_crlf
 
-;    ; dl should have the drive number
-;    mov dh, 0
-;    mov dl, dl
-;    call print_hex 
-;    call print_crlf
-;
-;    ; jmp $
-;
-;    ; let's load some more sectors, onto 0x9000 (remember stack at 0x8000)
-;    mov dl, dl      ; drive to load, already set by BIOS
-;    mov dh, 2       ; how many sectors to load
-;    mov bp, 0x0000  ; make sure es has zero
-;    mov es, bp
-;    mov bx, 0x9000  ; es:bx point to where to load the sectors
-;    call load_sectors
+    mov bx, loading_kernel_message
+    call print_string
+    call print_crlf
 
+    ; load the kernel
+    mov bx, KERNEL_OFFSET    ; where to load the kernel
+    mov dh, 2                ; how many sectors to load
+    mov dl, [boot_drive_no]  ; from the same drive where the boot sector was
+    call load_sectors
+
+    ; now get to protected mode, so we can jump
+    mov bx, entering_pm_message
+    call print_string
+    call print_crlf
     call switch_to_pm
     jmp $  ; we will never reach this, the code will jump to protected_mode_started
     
 [bits 32]
 protected_mode_started:
     ; we will be jumped to here after we have switched to protected mode.
-    mov ebx, protected_mode_message
+    mov ebx, entered_pm_message
     call print_string_protected_mode
     jmp $
 
 
 
 
+boot_drive_no:
+    db 0 ; we will store 
 ; messages are zero terminated, to easily detect their end
-real_mode_message:
-    db 'Real mode code running', 0
-protected_mode_message:
-    db 'Protected mode code running', 0
+real_mode_message:       db 'Real mode code started', 0
+loading_kernel_message:  db 'Loading kernel...', 0
+entering_pm_message:     db 'Entering protected mode...', 0
+entered_pm_message: db 'Entered protected mode', 0
 
 
 
