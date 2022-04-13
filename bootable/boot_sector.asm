@@ -81,7 +81,7 @@ boot_drive_no:
 real_mode_message:       db 'Real mode code started', 0
 loading_kernel_message:  db 'Loading kernel...', 0
 entering_pm_message:     db 'Entering protected mode...', 0
-entered_pm_message: db 'Entered protected mode', 0
+entered_pm_message: db 'Entered protected mode!', 0
 
 
 

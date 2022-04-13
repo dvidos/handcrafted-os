@@ -21,4 +21,17 @@ again written in assembly, that will allow us to load a larger kernel.
 
 Finally, the kernel, written in C, will kick things off.
 
+------------------------------------------------------
+
+## history
+
+Early April 2022 I wrote a basic bootloader in assembly.
+It would enter protected mode and could load additional 
+sectors from disk. Upon trying to link a C generated 
+primitive kernel, I stumbled upon the reality world of 
+i386 vs i686 cross compilation issues.
+
+Therefore I started reading http://wiki.osdev.org/
+
+
 

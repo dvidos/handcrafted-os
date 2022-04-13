@@ -7,6 +7,13 @@
 #   $< is the target that caused the action
 #   $* is the plain filename, common to both extensions
 
+# using customly built cross compiler on path
+CC = i686-elf-gcc
+LD = i686-elf-ld
+AS = i686-elf-as
+
+
+
 .PHONY:
 
 
@@ -15,45 +22,30 @@ default: run
 
 
 
-
+# this was an effort for bios loading the first 512 bytes
+# currently it does not load and boot anything
 boot_sector.bin: boot_sector.asm
 	nasm -f bin $< -o $@
 
-kernel32.bin: kernel_entry32.o kernel32.o
-	@# kernel has special entrance in assembly
-	@# kernel load offset has to be updated in boot_sector as well
-	@# emulations supported can be 
-	ld -o $@ -Ttext 0x1000 $^ --oformat i386
 
-kernel64.bin: kernel_entry64.o kernel64.o
-	@# kernel has special entrance in assembly
-	@# kernel load offset has to be updated in boot_sector as well
-	@# emulations supported can be 
-	ld -o $@ -Ttext 0x1000 $^
+kernel.bin: multiboot.o kernel.o linker.ld
+	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib multiboot.o kernel.o -lgcc
 
-kernel_entry32.o: kernel_entry32.asm
-	nasm $< -f elf32 -o $@
+# this is a mutliboot attempt, taken from osdev.org
+multiboot.o: multiboot.s
+	$(AS) $< -o $@
 
-kernel_entry64.o: kernel_entry64.asm
-	nasm $< -f elf64 -o $@
+kernel.o: kernel.c
+	@#$(CC) -ffreestanding -c $< -o $@
+	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 
-kernel32.o: kernel.c
-	gcc -m32 -ffreestanding -c $< -o $@
-
-
-kernel64.o: kernel.c
-	gcc -m64 -ffreestanding -c $< -o $@
-
-os-image.bin: boot_sector.bin kernel64.bin
-	# just concatenate the binaries
-	cat $^ > $@
-
-view: os-image.bin
+view: kernel.bin
 	xxd $< | less
 
-run: os-image.bin
+run: kernel.bin
 	# simple format was: qemu-system-x86_64 $?
-	qemu-system-x86_64 -drive file=$?,format=raw,index=0,media=disk 
+	@#qemu-system-x86_64 -drive file=$?,format=raw,index=0,media=disk 
+	qemu-system-x86_64 -kernel kernel.bin
     
 clean:
 	rm -f *.o *.bin
