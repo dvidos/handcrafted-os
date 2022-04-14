@@ -20,18 +20,16 @@ AS = i686-elf-as
 # target to be executed when no arguments to make
 default: run
 
-
-
 # this was an effort for bios loading the first 512 bytes
 # currently it does not load and boot anything
 boot_sector.bin: boot_sector.asm
 	nasm -f bin $< -o $@
 
-
+# for info on putting this on an .iso image
+# and burning a USB stick, see https://wiki.osdev.org/Bare_Bones
 kernel.bin: multiboot.o kernel.o linker.ld
 	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib multiboot.o kernel.o -lgcc
 
-# this is a mutliboot attempt, taken from osdev.org
 multiboot.o: multiboot.s
 	$(AS) $< -o $@
 

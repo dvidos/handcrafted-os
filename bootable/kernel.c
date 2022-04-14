@@ -114,3 +114,16 @@ void kernel_main(void)
 }
 
 
+ /**
+ * Things to implement from here:
+ * 
+ * also can see chapters 14+ on https://github.com/cfenollosa/os-tutorial
+ * 
+ * - better code structure & make file
+ * - better screen handling (Cursor, scroll, etc)
+ * - keyboard entry
+ * - memory management (heap and -maybe- virtual memory)
+ * - disk managmenet of some partition?
+ * - multi processing and scheduler (+ timer)
+ * - interrupt description table and handlers
+ */
