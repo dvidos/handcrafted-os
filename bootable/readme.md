@@ -21,7 +21,6 @@ again written in assembly, that will allow us to load a larger kernel.
 
 Finally, the kernel, written in C, will kick things off.
 
-------------------------------------------------------
 
 ## history
 

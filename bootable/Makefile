@@ -22,18 +22,18 @@ default: run
 
 # this was an effort for bios loading the first 512 bytes
 # currently it does not load and boot anything
-boot_sector.bin: boot_sector.asm
+boot/boot_sector.bin: boot/boot_sector.asm
 	nasm -f bin $< -o $@
 
 # for info on putting this on an .iso image
 # and burning a USB stick, see https://wiki.osdev.org/Bare_Bones
-kernel.bin: multiboot.o kernel.o linker.ld
-	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib multiboot.o kernel.o -lgcc
+kernel.bin: boot/multiboot.o kernel/kernel.o linker.ld
+	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib boot/multiboot.o kernel/kernel.o -lgcc
 
-multiboot.o: multiboot.s
+boot/multiboot.o: boot/multiboot.s
 	$(AS) $< -o $@
 
-kernel.o: kernel.c
+kernel/kernel.o: kernel/kernel.c
 	@#$(CC) -ffreestanding -c $< -o $@
 	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 
