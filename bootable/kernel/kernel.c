@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "screen.h"
 #include "gdt.h"
+#include "idt.h"
 
 
 // Check if the compiler thinks you are targeting the wrong operating system.
@@ -42,9 +43,17 @@ void kernel_main(void)
     screen_init();
     screen_write("C kernel running\n");
 
-    screen_write("Preparing GDT...");
+    // code segment selector: 0x08 (8)
+    // data segment selector: 0x10 (16)
+    
+    screen_write("Initializing Global Descriptor Table...");
     init_gdt();
     screen_write(" done!\n");
+
+    screen_write("Initializing Interrupts Descriptor Table...");
+    init_idt(0x8);
+    screen_write(" done!\n");
+
 
     screen_write("Another line!\n");
     screen_write("Another line 1!\n");

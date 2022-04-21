@@ -32,7 +32,6 @@ extern void load_gdt_entries(void*, size_t);
 extern void reload_gdt_segments();
 
 
-// this method to populate the table defined elsewhere
 // +----------+----------------------+----------+----------+----------+----------+----------+----------+
 // | byte 7   |        byte 6        | byte 5   | byte 4   | byte 3   | byte 2   | byte 1   | byte 0   |
 // +----------+----------+-----------+----------+----------+----------+----------+----------+----------+
@@ -57,6 +56,9 @@ void populate_segment_descriptor(uint8_t *ptr, uint32_t base, uint32_t limit, ui
     ptr[7] = (base >> 24) & 0xFF;
 }
 
+
+// prepares and loads the Global Descriptor Table
+// this is needed for segmenting in protected mode
 void init_gdt() {
 
     // each gdt entry needs 8 bytes

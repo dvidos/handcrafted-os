@@ -10,3 +10,9 @@ int strlen(const char* str)
 		len++;
 	return len;
 }
+
+void memset(char *dest, uint8_t value, size_t size) {
+    while (size-- > 0) {
+        *(dest++) = value;
+    }
+}
