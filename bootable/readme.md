@@ -4,7 +4,7 @@
 
 An attempt to build a bootable... something.
 
-The itch to put together enough assembly and a little C 
+The itch to put together enough assembly and a little C
 to have a simple process running in a emulator or computer.
 
 Might even be able to make a bootable usb stick!
@@ -25,9 +25,9 @@ Finally, the kernel, written in C, will kick things off.
 ## history
 
 Early April 2022 I wrote a basic bootloader in assembly.
-It would enter protected mode and could load additional 
-sectors from disk. Upon trying to link a C generated 
-primitive kernel, I stumbled upon the reality world of 
+It would enter protected mode and could load additional
+sectors from disk. Upon trying to link a C generated
+primitive kernel, I stumbled upon the reality world of
 i386 vs i686 cross compilation issues.
 
 Therefore I started reading http://wiki.osdev.org/
@@ -36,7 +36,7 @@ Therefore I started reading http://wiki.osdev.org/
 ## things to implement (maybe in order)
 
 * a way to launch and run tests suites (qemu passes arguments through the -append argument)
-* std funcs, towards a library for user programs: 
+* std funcs, towards a library for user programs:
     * mem\*
     * str\*
     * atoi, itoa, atol, ltoa
@@ -73,9 +73,37 @@ is doing for linux as well.
 When the task has been performed, the response is sent back to the original sender, via IPC
 and the sender is awakened.
 
+It seems Tanembaum wanted the microkernel architecture because drivers are the main problem of
+today's computers, in the sense that they have to be priviledged, but they are also plagued with bugs.
+Therefore, minix3 has a mother task, that is responsible for spawning and respawning any drivers that fail.
 
+## brief overview
 
+It seems the kernel does (at least) the following things:
 
+* initializes things and makes available various functionalities to programs
+* maintains and runs the scheduler
+* maintains and runs the interrupt service routines
+* maintains a series of tasks / drivers, to abstract away things and offer uniform support, e.g.:
+    * memory allocation / freeing
+    * file system operations (in unix, even non-file operations happen through the file system)
+    * terminal abstraction and console i/o
+    * timers (sleep or wait for something)
+* offers the messaging mechanism, through a soft interrupt, to offer system calls
+    * file operations
+    * memory, clock operations
+    * processes operations (start, fork, kill, signal, etc)
+* offers useful abstractions over the hardware, e.g.
+    * multiple applications running at the same time
+    * infinite screen size on terminal, through scrolling
+    * many terminals, ALt+1 through Alt+6 etc
+    * random access R/W on files, on a flat, fixed size disk
+    * pseudo infinite memory through paging and caching out
 
+Also the following must be met:
 
-
+* stack set up before we launch the C function
+* known code segment of kernel, I see people do 0x0010 or 0x0100 as segment.
+* entering protected mode (boot loader actually)
+* GDT (general description table, for paging and access etc)
+* IDT (interrupt definition table, functions to handle interrupts)

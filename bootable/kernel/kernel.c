@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "screen.h"
+#include "gdt.h"
 
 
 // Check if the compiler thinks you are targeting the wrong operating system.
@@ -38,6 +39,8 @@
 
 void kernel_main(void)
 {
+    init_gdt();
+
 	screen_init();
 
 	screen_write("Hello, kernel World!\n");
@@ -46,5 +49,3 @@ void kernel_main(void)
     screen_write("Another line 1!\n");
     screen_write("Another line 2!\n");
 }
-
-
