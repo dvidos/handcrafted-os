@@ -39,12 +39,13 @@
 
 void kernel_main(void)
 {
+    screen_init();
+    screen_write("C kernel running\n");
+
+    screen_write("Preparing GDT...");
     init_gdt();
+    screen_write(" done!\n");
 
-	screen_init();
-
-	screen_write("Hello, kernel World!\n");
-    screen_write("This is your programmer calling...\n");
     screen_write("Another line!\n");
     screen_write("Another line 1!\n");
     screen_write("Another line 2!\n");

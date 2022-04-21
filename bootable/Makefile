@@ -45,7 +45,7 @@ kernel/%.o: kernel/%.c $(KERNEL_HEADERS)
 
 
 kernel/%.o: kernel/%.asm
-	nasm -f bin $< -o $@
+	nasm -f elf $< -o $@
 
 kernel/%.o: kernel/%.S
 	$(AS) $< -o $@
@@ -58,6 +58,3 @@ run: kernel.bin
 
 clean:
 	rm -f *.o *.bin boot/*.o kernel/*.o
-
-
-
