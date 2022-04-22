@@ -54,7 +54,8 @@ view: kernel.bin
 	xxd $< | less
 
 run: kernel.bin
-	qemu-system-x86_64 -kernel kernel.bin
+	@# qemu-system-x86_64 -kernel kernel.bin
+	qemu-system-i386 -kernel kernel.bin
 
 clean:
 	rm -f *.o *.bin boot/*.o kernel/*.o

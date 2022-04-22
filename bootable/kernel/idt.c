@@ -4,6 +4,7 @@
 
 
 // things pushed in the isr_stub we have in assembly
+// this is passed when isr_handler is called from our assembly stub
 typedef struct registers
 {
    uint32_t ds;                  // Data segment selector
@@ -170,26 +171,4 @@ void init_idt(uint16_t code_segment_selector) {
     idt_descriptor.size = sizeof(gates) - 1;
     idt_descriptor.offset = (uint32_t)gates;
     load_idt_descriptor((uint32_t)&idt_descriptor);
-}
-
-
-void isr_handler(registers_t regs) {
-    switch (regs.int_no) {
-        case 0x20:
-            // timer_handler(&regs);
-            break;
-        case 0x21:
-            // keyboard_handler(&regs);
-            break;
-        default:
-            // terminal_writestring("\nrecieved interrupt\taddress: ");
-            // terminal_writehex32((uint32_t)&regs);
-            // terminal_writestring("\tvalue: 0x");
-            // terminal_writehex32(regs.int_no);
-            // terminal_writestring("\terror: ");
-            // terminal_writehex32(regs.err_code);
-            // terminal_writestring("\n");
-    }
-
-    // PIC_sendEOI(regs.int_no);
 }
