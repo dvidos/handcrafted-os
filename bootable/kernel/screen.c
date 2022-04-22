@@ -146,4 +146,3 @@ void screen_write(const char* data)
 {
 	screen_writen(data, strlen(data));
 }
-

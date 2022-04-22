@@ -45,29 +45,32 @@ void kernel_main(void)
     screen_init();
     screen_write("C kernel running\n");
 
-    disable_interrupts();
+
+    disable_interrupts();  // interrupts are already disabled at this point
 
     screen_write("Initializing Programmable Interrupt Controller...");
     init_pic();
-    screen_write(" done!\n");
+    screen_write(" done\n");
 
     // code segment selector: 0x08 (8)
     // data segment selector: 0x10 (16)
     screen_write("Initializing Global Descriptor Table...");
     init_gdt();
-    screen_write(" done!\n");
+    screen_write(" done\n");
 
     screen_write("Initializing Interrupts Descriptor Table...");
     init_idt(0x8);
-    screen_write(" done!\n");
+    screen_write(" done\n");
+//    for(;;);
 
     enable_interrupts();
 
-    screen_write("Another line!\n");
-    screen_write("Another line 1!\n");
-    screen_write("Another line 2!\n");
-}
 
+
+    screen_write("Pausing forever...");
+    for(;;);
+    screen_write("This should never appear on screen...");
+}
 
 void isr_handler(registers_t regs) {
     screen_write("interrupt! ");
