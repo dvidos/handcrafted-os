@@ -1,6 +1,7 @@
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "string.h"
+#include "screen.h"
 
 
 // things pushed in the isr_stub we have in assembly
@@ -40,12 +41,30 @@ struct idt_gate_descriptor32 {
     uint16_t offset_hi;
 } __attribute__((packed));
 
-struct idt_descriptor {
+struct idt_gate_descriptor64 {
+    uint16_t offset_lo;
+    uint16_t segment_selector;
+    uint8_t  ist;
+    uint8_t  gate_type: 4;
+    uint8_t  zero: 1;
+    uint8_t  privilege_level: 2;
+    uint8_t  present: 1;
+    uint16_t offset_mid;
+    uint32_t offset_hi;
+    uint32_t reserved;
+} __attribute__((packed));
+
+struct idt_descriptor32 {
     uint16_t size;
     uint32_t offset;
 } __attribute__((packed));
 
-struct idt_descriptor idt_descriptor;
+struct idt_descriptor64 {
+    uint16_t size;
+    uint64_t offset;
+} __attribute__((packed));
+
+struct idt_descriptor32 idt_descriptor;
 struct idt_gate_descriptor32 gates[256];
 
 extern void isr0();
@@ -171,4 +190,11 @@ void init_idt(uint16_t code_segment_selector) {
     idt_descriptor.size = sizeof(gates) - 1;
     idt_descriptor.offset = (uint32_t)gates;
     load_idt_descriptor((uint32_t)&idt_descriptor);
+
+    printf("\n");
+    printf("Size of an IDT32 entry: %d\n", sizeof(struct idt_gate_descriptor32));
+    printf("Size of the IDT table: %d\n", sizeof(gates));
+    printf("Size of the IDT derscriptor: %d\n", sizeof(idt_descriptor));
+
+    asm("int $2"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
 }

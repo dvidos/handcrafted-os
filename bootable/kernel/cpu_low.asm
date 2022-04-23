@@ -14,3 +14,17 @@ get_cpuid_availability:
     popfd                                ;Restore original EFLAGS
     and eax,0x00200000                   ;eax = zero if ID bit can't be changed, else non-zero
     ret
+
+
+; given that CPUID capability exists, get whether cpu supports long mode
+[GLOBAL get_long_mode_capability]
+get_long_mode_capability:
+    mov eax, 0x80000000         ; Set the A-register to 0x80000000.
+    cpuid                       ; CPU identification.
+    cmp eax, 0x80000001         ; Compare the A-register with 0x80000001.
+    jb no_long_mode_capability  ; It is less, there is no long mode.
+    mov eax, 1                  ; C gets return values from AL, AX, EAX, RAX
+    ret
+no_long_mode_capability:
+    mov eax, 0
+    ret

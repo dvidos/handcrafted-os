@@ -22,7 +22,16 @@ isr_common_stub:
    mov fs, ax
    mov gs, ax
 
-   call isr_handler
+   ; as a debugging aid
+   ; try to print something at top of screen.
+   mov byte [gs:0xb8000], '['
+   mov byte [gs:0xb8002], 'I'
+   mov byte [gs:0xb8004], 'N'
+   mov byte [gs:0xb8006], 'T'
+   mov byte [gs:0xb8008], ']'
+;   hlt
+
+    call isr_handler
 
    pop eax        ; reload the original data segment descriptor
    mov ds, ax
@@ -34,6 +43,10 @@ isr_common_stub:
    add esp, 8     ; Cleans up the pushed error code and pushed ISR number
    sti
    iret           ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+
+
+
+
 
 %macro ISR_NOERRCODE 1  ; define a macro, taking one parameter
   [GLOBAL isr%1]        ; %1 accesses the first parameter.
