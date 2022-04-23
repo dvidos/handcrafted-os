@@ -1,6 +1,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
+#include <limits.h>
 #include "string.h"
 #include "ports.h"
 
@@ -145,4 +147,136 @@ void screen_writen(const char* data, int size)
 void screen_write(const char* data)
 {
 	screen_writen(data, strlen(data));
+}
+
+void screen_puts(const char* data)
+{
+	screen_writen(data, strlen(data));
+}
+
+
+
+
+void _print_aligned(char *buffer, int width, char padder, bool pad_right) {
+    width -= strlen(buffer);
+
+    if (!pad_right) {
+        while (width-- > 0)
+            screen_putchar(padder);
+    }
+
+    screen_puts(buffer);
+
+    if (pad_right) {
+        while (width-- > 0)
+            screen_putchar(padder);
+    }
+}
+
+// supports:
+//   s: string
+//   c: char
+//   d, i: signed int in decimal
+//   u: unsigned int in decimal
+//   x: unsigned int in hex
+//   o: unsigned int in octal
+//   b: unsigned int in binary
+//   p: pointer (unsigned int)
+//   -: align left / pad right
+//   0: pad with zeros, instead of spaces
+//   <num>: width of padding
+// maybe implemented in the huture:
+//   h: short int flag
+//   l: long int flag
+//   f: float
+//   e: scientific
+//   .<num>: floating point precision
+void printf(const char *format, ...) {
+
+    bool pad_right = false;
+    char padder = ' ';
+    int width = 0;
+    long l;
+    unsigned long ul;
+    char *ptr;
+    char buffer[32];
+
+    va_list args;
+    va_start(args, format);
+
+    while (*format) {
+        if (*format != '%') {
+            screen_putchar(*format);
+            format++;
+            continue;
+        }
+
+        // so definitely a '%'. let's see the next
+        format++;
+        if (*format == '-') {
+            pad_right = true;
+            format++;
+        }
+        if (*format == '0') {
+            padder = '0';
+            format++;
+        }
+        while (*format >= '0' && *format <= '9') {
+            width = width * 10 + (*format - '0');
+            format++;
+        }
+
+        switch (*format) {
+            case 'c':
+                buffer[0] = (char)va_arg(args, int);
+                buffer[1] = '\0';
+                _print_aligned(buffer, width, padder, pad_right);
+                break;
+            case 's':
+                ptr = va_arg(args, char *);
+                _print_aligned(ptr, width, padder, pad_right);
+                break;
+            case 'd': // signed decimal
+            case 'i': // fallthrough
+                l = (long)va_arg(args, int);
+                ltoa(l, buffer, 10);
+                _print_aligned(buffer, width, padder, pad_right);
+                break;
+            case 'u': // unsigned decimal
+                ul = (unsigned int)va_arg(args, unsigned int);
+                ultoa(ul, buffer, 10);
+                _print_aligned(buffer, width, padder, pad_right);
+                break;
+            case 'x': // hex
+                ul = (unsigned long)va_arg(args, unsigned int);
+                ultoa(ul, buffer, 16);
+                _print_aligned(buffer, width, padder, pad_right);
+                break;
+            case 'o': // octal
+                ul = (unsigned long)va_arg(args, unsigned int);
+                ultoa(ul, buffer, 8);
+                _print_aligned(buffer, width, padder, pad_right);
+                break;
+            case 'b': // binary
+                ul = (unsigned long)va_arg(args, unsigned int);
+                ultoa(ul, buffer, 2);
+                _print_aligned(buffer, width, padder, pad_right);
+                break;
+            case 'p': // pointer
+                ul = (unsigned long)va_arg(args, void *);
+                ultoa(ul, buffer, 16);
+                _print_aligned(buffer, width, padder, pad_right);
+                break;
+            case '%':
+                screen_putchar(*format);
+                break;
+            default:
+                screen_putchar('%');
+                screen_putchar(*format);
+                break;
+        }
+
+        format++;
+    }
+    va_end(args);
 }

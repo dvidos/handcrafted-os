@@ -42,33 +42,44 @@
 
 void kernel_main(void)
 {
-    screen_init();
-    screen_write("C kernel running\n");
-
-
     disable_interrupts();  // interrupts are already disabled at this point
 
-    screen_write("Initializing Programmable Interrupt Controller...");
-    init_pic();
-    screen_write(" done\n");
 
-    // code segment selector: 0x08 (8)
-    // data segment selector: 0x10 (16)
-    screen_write("Initializing Global Descriptor Table...");
-    init_gdt();
-    screen_write(" done\n");
+    screen_init();
+    printf("C kernel running, kernel_main() is at 0x%p\n", (void *)kernel_main);
 
-    screen_write("Initializing Interrupts Descriptor Table...");
-    init_idt(0x8);
-    screen_write(" done\n");
-//    for(;;);
+    // printf("sizeof(char)      is %d\n", sizeof(char)); // 2
+    // printf("sizeof(short)     is %d\n", sizeof(short)); // 2
+    // printf("sizeof(int)       is %d\n", sizeof(int));   // 4
+    // printf("sizeof(long)      is %d\n", sizeof(long));  // 4 (was expecting 8!)
+    // printf("sizeof(long long) is %d\n", sizeof(long long));  // 4 (was expecting 8!)
+    // printf("17 in formats %%i [%i], %%x [%x], %%o [%o], %%b [%b]\n", 17, 17, 17, 17);
+    // int snum = 3000000000;
+    // unsigned int unum = 3000000000;
+    // printf("signed int:   %%i [%i], %%u [%u], %%x [%x]\n", snum, snum, snum);
+    // printf("unsigned int: %%i [%i], %%u [%u], %%x [%x]\n", unum, unum, unum);
 
-    enable_interrupts();
+    // screen_write("Initializing Programmable Interrupt Controller...");
 
+    // init_pic();
+    // screen_write(" done\n");
+    //
+    // // code segment selector: 0x08 (8)
+    // // data segment selector: 0x10 (16)
+    // screen_write("Initializing Global Descriptor Table...");
+    // init_gdt();
+    // screen_write(" done\n");
+    //
+    // screen_write("Initializing Interrupts Descriptor Table...");
+    // init_idt(0x8);
+    // screen_write(" done\n");
+    // for(;;);
 
+    // enable_interrupts();
 
     screen_write("Pausing forever...");
-    for(;;);
+    for(;;)
+        asm("hlt");
     screen_write("This should never appear on screen...");
 }
 
