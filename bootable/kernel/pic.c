@@ -2,18 +2,17 @@
 #include "ports.h"
 #include "bits.h"
 
+// see https://wiki.osdev.org/8259_PIC
 
-#define PIC1            0x20    // IO base address for master PIC
-#define PIC2            0xA0    // IO base address for slave PIC
-#define PIC1_COMMAND    PIC1
-#define PIC1_DATA       (PIC1+1)
-#define PIC2_COMMAND    PIC2
-#define PIC2_DATA       (PIC2+1)
+#define PIC1_CMD    0x20       // IO base address for master PIC
+#define PIC1_DATA   (PIC1_CMD+1)
+#define PIC2_CMD    0xA0       // IO base address for slave PIC
+#define PIC2_DATA   (PIC2_CMD+1)
 
-#define PIC_EOI         0x20		// End-of-interrupt command code
+#define EOI_CMD     0x20       // End-of-interrupt command code
 
-/* reinitialize the PIC controllers, giving them specified vector offsets
-   rather than 8h and 70h, as configured by default */
+// reinitialize the PIC controllers, giving them specified vector offsets
+// rather than 8h and 70h, as configured by default
 
 #define ICW1_ICW4           0x01    // ICW4 (not) needed
 #define ICW1_SINGLE         0x02    // Single (cascade) mode
@@ -32,28 +31,28 @@
 
 
 static inline void io_wait(void) {
-    /* TODO: This is probably fragile. */
-    asm volatile ( "jmp 1f\n\t"
-                   "1:jmp 2f\n\t"
-                   "2:" );
+    (void)port_byte_in(0);
+    // asm volatile ( "jmp 1f\n\t"
+    //                "1:jmp 2f\n\t"
+    //                "2:" );
 }
 
 /*
 arguments:
-	offset1 - vector offset for master PIC
-		vectors on the master become offset1..offset1+7
-	offset2 - same for slave PIC: offset2..offset2+7
+    offset1 - vector offset for master PIC
+              vectors on the master become offset1..offset1+7
+    offset2 - same for slave PIC: offset2..offset2+7
 */
 void pic_remap(int offset1, int offset2)
 {
-    unsigned char a1, a2;
-	a1 = port_byte_in(PIC1_DATA);                        // save masks
-	a2 = port_byte_in(PIC2_DATA);
+    unsigned char pic1_mask, pic2_mask;
+	pic1_mask = port_byte_in(PIC1_DATA);                        // save masks
+	pic2_mask = port_byte_in(PIC2_DATA);
 
-	port_byte_out(PIC1_COMMAND, ICW1_INIT + ICW1_ICW4);  // starts the initialization sequence (in cascade mode)
+	port_byte_out(PIC1_CMD, ICW1_INIT + ICW1_ICW4);  // starts the initialization sequence (in cascade mode)
 	io_wait();
 
-	port_byte_out(PIC2_COMMAND, ICW1_INIT + ICW1_ICW4);
+	port_byte_out(PIC2_CMD, ICW1_INIT + ICW1_ICW4);
 	io_wait();
 
 	port_byte_out(PIC1_DATA, offset1);                 // ICW2: Master PIC vector offset
@@ -74,39 +73,40 @@ void pic_remap(int offset1, int offset2)
 	port_byte_out(PIC2_DATA, ICW4_8086);
 	io_wait();
 
-	port_byte_out(PIC1_DATA, a1);   // restore saved masks.
-	port_byte_out(PIC2_DATA, a2);
+	port_byte_out(PIC1_DATA, pic1_mask);   // restore saved masks.
+	port_byte_out(PIC2_DATA, pic2_mask);
 }
 
 void pic_send_eoi(unsigned char irq) {
 	if (irq >= 8)
-		port_byte_out(PIC2_COMMAND,PIC_EOI);
+		port_byte_out(PIC2_CMD, EOI_CMD);
 
-	port_byte_out(PIC1_COMMAND,PIC_EOI);
+	port_byte_out(PIC1_CMD, EOI_CMD);
 }
 
 /* Helper func */
-static uint16_t __pic_get_irq_reg(int ocw3) {
+static uint16_t __pic_get_irq_register(int ocw3) {
     /* OCW3 to PIC CMD to get the register values.  PIC2 is chained, and
      * represents IRQs 8-15.  PIC1 is IRQs 0-7, with 2 being the chain */
-    port_byte_out(PIC1_COMMAND, ocw3);
-    port_byte_out(PIC2_COMMAND, ocw3);
-    return (port_byte_in(PIC2_COMMAND) << 8) | port_byte_in(PIC1_COMMAND);
+    port_byte_out(PIC1_CMD, ocw3);
+    port_byte_out(PIC2_CMD, ocw3);
+    return (port_byte_in(PIC2_CMD) << 8) | port_byte_in(PIC1_CMD);
 }
 
 /* Returns the combined value of the cascaded PICs irq request register */
-uint16_t pic_get_irr(void) {
-    return __pic_get_irq_reg(PIC_READ_IRR);
+uint16_t pic_get_ieq_request_register(void) {
+    return __pic_get_irq_register(PIC_READ_IRR);
 }
 
 /* Returns the combined value of the cascaded PICs in-service register */
-uint16_t pic_get_isr(void) {
-    return __pic_get_irq_reg(PIC_READ_ISR);
+uint16_t pic_get_in_service_register(void) {
+    return __pic_get_irq_register(PIC_READ_ISR);
 }
 
-void irq_set_mask(uint8_t irq_line) {
+// setting a mask on an IRQ line will cause the PIC to ingnore that irq_line
+// setting a mask on the slave PIC will cause all IRQs from that PIC to be ignored
+void irq_set_mask_bit(uint8_t irq_line) {
     uint16_t port;
-    uint8_t value;
 
     if(irq_line < 8) {
         port = PIC1_DATA;
@@ -114,13 +114,14 @@ void irq_set_mask(uint8_t irq_line) {
         port = PIC2_DATA;
         irq_line -= 8;
     }
-    value = SET_BIT(port_byte_in(port), irq_line);
+
+    uint8_t value = port_byte_in(port);
+    value = SET_BIT(value, irq_line);
     port_byte_out(port, value);
 }
 
-void irq_clear_mask(uint8_t irq_line) {
+void irq_clear_mask_bit(uint8_t irq_line) {
     uint16_t port;
-    uint8_t value;
 
     if(irq_line < 8) {
         port = PIC1_DATA;
@@ -128,15 +129,24 @@ void irq_clear_mask(uint8_t irq_line) {
         port = PIC2_DATA;
         irq_line -= 8;
     }
-    value = CLEAR_BIT(port_byte_in(port), irq_line);
+
+    uint8_t value = port_byte_in(port);
+    value = CLEAR_BIT(value, irq_line);
     port_byte_out(port, value);
 }
 
 
 void init_pic() {
+
+    // instead of IRQs 0..7, to avoid collision with CPU errors (0..x1F),
+    // we remap them to 0x20..0x27, hence the 0x20 offset
+    // similarly, for the second PIC, we remap them to 0x28..0x2F, hance the 0x28 offset
     pic_remap(0x20, 0x28);
+
+    // start by ignoring all lines
     for (uint8_t i = 0; i < 32; i++)
-        irq_set_mask(i);
-    irq_clear_mask(0x00);
-    irq_clear_mask(0x01);
+        irq_set_mask_bit(i);
+
+    //irq_clear_mask_bit(0);  // timer
+    irq_clear_mask_bit(1);  // keyboard
 }

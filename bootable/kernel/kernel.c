@@ -44,9 +44,11 @@ void kernel_main(void)
 {
     disable_interrupts();  // interrupts are already disabled at this point
 
-
     screen_init();
     printf("C kernel running, kernel_main() is at 0x%p\n", (void *)kernel_main);
+
+    uint32_t r = get_cpuid_availability();
+    printf("get_cpuid_availability() returned 0x%08x\n", r);
 
     // printf("sizeof(char)      is %d\n", sizeof(char)); // 2
     // printf("sizeof(short)     is %d\n", sizeof(short)); // 2
@@ -59,23 +61,23 @@ void kernel_main(void)
     // printf("signed int:   %%i [%i], %%u [%u], %%x [%x]\n", snum, snum, snum);
     // printf("unsigned int: %%i [%i], %%u [%u], %%x [%x]\n", unum, unum, unum);
 
-    // screen_write("Initializing Programmable Interrupt Controller...");
 
-    // init_pic();
-    // screen_write(" done\n");
-    //
-    // // code segment selector: 0x08 (8)
-    // // data segment selector: 0x10 (16)
-    // screen_write("Initializing Global Descriptor Table...");
-    // init_gdt();
-    // screen_write(" done\n");
-    //
-    // screen_write("Initializing Interrupts Descriptor Table...");
-    // init_idt(0x8);
-    // screen_write(" done\n");
-    // for(;;);
+    screen_write("Initializing Interrupts Descriptor Table...");
+    init_idt(0x8);
+    screen_write(" done\n");
 
-    // enable_interrupts();
+    screen_write("Initializing Programmable Interrupt Controller...");
+    init_pic();
+    screen_write(" done\n");
+
+    // code segment selector: 0x08 (8)
+    // data segment selector: 0x10 (16)
+    screen_write("Initializing Global Descriptor Table...");
+    init_gdt();
+    screen_write(" done\n");
+
+
+    enable_interrupts();
 
     screen_write("Pausing forever...");
     for(;;)
@@ -84,7 +86,7 @@ void kernel_main(void)
 }
 
 void isr_handler(registers_t regs) {
-    screen_write("interrupt! ");
+    // screen_write("interrupt! ");
 
     switch (regs.int_no) {
         case 0x20:
@@ -103,5 +105,5 @@ void isr_handler(registers_t regs) {
             // terminal_writestring("\n");
     }
 
-    // PIC_sendEOI(regs.int_no);
+    pic_send_eoi(regs.int_no);
 }

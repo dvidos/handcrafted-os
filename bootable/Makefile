@@ -11,6 +11,7 @@
 CC = i686-elf-gcc
 LD = i686-elf-ld
 AS = i686-elf-as
+EMU = qemu-system-i386
 
 KERNEL_FILES = $(wildcard kernel/*.c)
 KERNEL_HEADERS = $(wildcard kernel/*.h)
@@ -56,7 +57,7 @@ view: kernel.bin
 
 run: kernel.bin
 	@# qemu-system-x86_64 -kernel kernel.bin
-	qemu-system-i386 -kernel kernel.bin
+	$(EMU) -kernel kernel.bin
 
 clean:
 	rm -f *.o *.bin boot/*.o kernel/*.o
