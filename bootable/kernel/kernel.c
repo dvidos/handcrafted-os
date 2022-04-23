@@ -79,10 +79,10 @@ void kernel_main(void)
     screen_write(" done\n");
 
     //for(;;);
-    asm("int $3"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
+    //asm("int $3"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
 
 
-    //enable_interrupts();
+    enable_interrupts();
     // test_isrs();
 
     screen_write("Pausing forever...");
