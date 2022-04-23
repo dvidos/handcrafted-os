@@ -22,17 +22,14 @@ isr_common_stub:
    mov fs, ax
    mov gs, ax
 
-   ; as a debugging aid
-   ; try to print something at top of screen.
-   mov byte [gs:0xb8000], '['
-   mov byte [gs:0xb8002], 'I'
-   mov byte [gs:0xb8004], 'N'
-   mov byte [gs:0xb8006], 'T'
-   mov byte [gs:0xb8008], ']'
-;   hlt
+   ; as a debugging aid, try to print something at top of screen, then halt
+   ; mov byte [gs:0xb8000], '['
+   ; mov byte [gs:0xb8002], '!'
+   ; mov byte [gs:0xb8004], ']'
+   ;   hlt
 
-    call isr_handler
-
+   call isr_handler
+   
    pop eax        ; reload the original data segment descriptor
    mov ds, ax
    mov es, ax

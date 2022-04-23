@@ -135,6 +135,11 @@ void set_gate(uint8_t entry, uint32_t offset, uint16_t selector, uint8_t gate_ty
 // prepares and loads the Interrupt Descriptor Table
 void init_idt(uint16_t code_segment_selector) {
 
+    // printf("\n");
+    // printf("Size of an IDT32 entry: %d\n", sizeof(struct idt_gate_descriptor32)); // 8
+    // printf("Size of the IDT table: %d\n", sizeof(gates));                         // 2048
+    // printf("Size of the IDT derscriptor: %d\n", sizeof(idt_descriptor));          // 6
+
     memset((char *)gates, 0, sizeof(gates));
 
     set_gate( 0, (uint32_t)isr0,  code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
@@ -190,11 +195,4 @@ void init_idt(uint16_t code_segment_selector) {
     idt_descriptor.size = sizeof(gates) - 1;
     idt_descriptor.offset = (uint32_t)gates;
     load_idt_descriptor((uint32_t)&idt_descriptor);
-
-    printf("\n");
-    printf("Size of an IDT32 entry: %d\n", sizeof(struct idt_gate_descriptor32));
-    printf("Size of the IDT table: %d\n", sizeof(gates));
-    printf("Size of the IDT derscriptor: %d\n", sizeof(idt_descriptor));
-
-    asm("int $2"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
 }

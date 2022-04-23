@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
-
+#include "string.h"
+#include "screen.h"
 
 // Each define here is for a specific flag in the descriptor.
 // Refer to the intel documentation for a description of what each one does.
@@ -26,10 +27,34 @@
 
 #define BYTES_PER_DESCRIPTOR       8
 
-// this method defined in assembly - expecting 2 args of 4 bytes each
-extern void load_gdt_entries(void*, size_t);
-// this method defined in assemble as well.
-extern void reload_gdt_segments();
+struct gdt_segment_descriptor32 {
+    uint16_t limit_low16;
+    uint16_t base_low16;
+    uint8_t  base_3rd_byte;
+    uint8_t  access;
+    uint8_t  limit_high_4bits: 4;
+    uint8_t  flags: 4;
+    uint8_t  base_4th_byte: 1;
+} __attribute__((packed));
+
+struct gdt_descriptor32 {
+    uint16_t size;
+    uint32_t offset;
+} __attribute__((packed));
+
+struct gdt_descriptor64 {
+    uint16_t size;
+    uint64_t offset;
+} __attribute__((packed));
+
+struct gdt_segment_descriptor32 descriptors[3];
+struct gdt_descriptor32 gdt;
+
+
+// this method defined in assembly
+extern void load_gdt_descriptor(uint32_t);
+
+
 
 
 // +----------+----------------------+----------+----------+----------+----------+----------+----------+
@@ -40,20 +65,19 @@ extern void reload_gdt_segments();
 // | 4th byte | 4 bits   | hi 4 bits | 8 bits   | 3rd byte | 2nd byte | low byte | 2nd byte | low byte |
 // +----------+----------+-----------+----------+----------+----------+----------+----------+----------+
 // see also https://github.com/programmingmind/OS/blob/master/tables.c
-void populate_segment_descriptor(uint8_t *ptr, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags) {
+void set_descriptor(uint8_t entry, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags) {
     if (limit > 65536) {
         limit = limit >> 12; // now measuring in 4kb chunks instead of bytes
         flags |= FLAGS_GRANULARITY(1);
     }
 
-    ptr[0] = limit & 0xFF;
-    ptr[1] = (limit >> 8) & 0xFF;
-    ptr[2] = base & 0xFF;
-    ptr[3] = (base >> 8) & 0xFF;
-    ptr[4] = (base >> 16) & 0xFF;
-    ptr[5] = access;
-    ptr[6] = ((flags & 0x0F) << 4) | ((limit >> 16) & 0x0F);
-    ptr[7] = (base >> 24) & 0xFF;
+    descriptors[entry].limit_low16 = limit & 0xFFFF;
+    descriptors[entry].base_low16 = base & 0xFFFF;
+    descriptors[entry].base_3rd_byte = (base >> 16) & 0xFF;
+    descriptors[entry].access = access;
+    descriptors[entry].limit_high_4bits = (limit >> 16) & 0x0F;
+    descriptors[entry].flags = flags;
+    descriptors[entry].base_4th_byte = (base >> 24) & 0xFF;
 }
 
 
@@ -61,29 +85,30 @@ void populate_segment_descriptor(uint8_t *ptr, uint32_t base, uint32_t limit, ui
 // this is needed for segmenting in protected mode
 void init_gdt() {
 
-    // each gdt entry needs 8 bytes
-    // we'll create two segments for now
-    // segment 0x8 (decimal 8) will be our code segment (e.g. "jmp 0x8:some_func")
-    // segment 0x10 (decimal 16) will be our data segment (e.g. "mov eax 0x10:some_label")
-    uint8_t gdt_buffer[3 * BYTES_PER_DESCRIPTOR];
+    memset((char *)descriptors, 0, sizeof(descriptors));
 
     // first entry always zero
-    populate_segment_descriptor(gdt_buffer + 0, 0, 0, ACCESS_PRESENT(0), 0);
+    set_descriptor(0, 0, 0, ACCESS_PRESENT(0), 0);
 
-    // our code entry
-    populate_segment_descriptor(gdt_buffer + (BYTES_PER_DESCRIPTOR * 1),
+    // segment 0x8 (decimal 8) will be our code segment (e.g. "jmp 0x8:some_func")
+    set_descriptor(1,
         0,
         0xffffffff,  // 4 GB
         ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(1) | ACCESS_CODE_READABLE(1),
         FLAGS_SIZE(1));
 
-    // our data entry
-    populate_segment_descriptor(gdt_buffer + (BYTES_PER_DESCRIPTOR * 2),
+    // segment 0x10 (decimal 16) will be our data segment (e.g. "mov eax 0x10:some_label")
+    set_descriptor(2,
         0,
         0xffffffff,  // 4 GB
         ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(0) | ACCESS_DATA_WRITABLE(1),
         FLAGS_SIZE(1));
 
-    load_gdt_entries((void *)gdt_buffer, (size_t)sizeof(gdt_buffer));
-    reload_gdt_segments();
+    // printf("Size of GDT segment descriptor: %d\n", sizeof(struct gdt_segment_descriptor32));  // 8
+    // printf("Size of all descriptors: %d\n", sizeof(descriptors));                             // 24
+    // printf("Size of GDT descriptor: %d\n", sizeof(struct gdt_descriptor32));                  // 6
+
+    gdt.size = sizeof(descriptors);
+    gdt.offset = (uint32_t)descriptors;
+    load_gdt_descriptor((uint32_t)&gdt);
 }

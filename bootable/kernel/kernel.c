@@ -64,6 +64,12 @@ void kernel_main(void)
     // printf("unsigned int: %%i [%i], %%u [%u], %%x [%x]\n", unum, unum, unum);
 
 
+    // code segment selector: 0x08 (8)
+    // data segment selector: 0x10 (16)
+    screen_write("Initializing Global Descriptor Table...");
+    init_gdt();
+    screen_write(" done\n");
+
     screen_write("Initializing Interrupts Descriptor Table...");
     init_idt(0x8);
     screen_write(" done\n");
@@ -72,14 +78,11 @@ void kernel_main(void)
     init_pic();
     screen_write(" done\n");
 
-    // code segment selector: 0x08 (8)
-    // data segment selector: 0x10 (16)
-    screen_write("Initializing Global Descriptor Table...");
-    init_gdt();
-    screen_write(" done\n");
+    //for(;;);
+    asm("int $3"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
 
 
-    enable_interrupts();
+    //enable_interrupts();
     // test_isrs();
 
     screen_write("Pausing forever...");
@@ -90,8 +93,6 @@ void kernel_main(void)
 
 void isr_handler(registers_t regs) {
     // screen_write("interrupt! ");
-    screen_write("** hi level handler **\n");
-
     printf("DS : %08x\n", regs.ds);
     printf("CS : %08x\n", regs.cs);
     printf("EDI: %08x\n", regs.edi);
