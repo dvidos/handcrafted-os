@@ -6,6 +6,7 @@
 #include "idt.h"
 #include "pic.h"
 #include "cpu.h"
+#include "keyboard.h"
 
 
 // Check if the compiler thinks you are targeting the wrong operating system.
@@ -78,6 +79,7 @@ void kernel_main(void)
     init_pic();
     screen_write(" done\n");
 
+
     //for(;;);
     //asm("int $3"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
 
@@ -92,33 +94,13 @@ void kernel_main(void)
 }
 
 void isr_handler(registers_t regs) {
-    // screen_write("interrupt! ");
-    printf("DS : %08x\n", regs.ds);
-    printf("CS : %08x\n", regs.cs);
-    printf("EDI: %08x\n", regs.edi);
-    printf("ESI: %08x\n", regs.esi);
-    printf("EBP: %08x\n", regs.ebp);
-    printf("ESP: %08x\n", regs.esp);
-    printf("EBX: %08x\n", regs.ebx);
-    printf("EDX: %08x\n", regs.edx);
-    printf("ECX: %08x\n", regs.ecx);
-    printf("EAX: %08x\n", regs.eax);
-    printf("INT_NO  : 0x%x\n", regs.int_no);
-    printf("ERR_CODE: 0x%x\n", regs.err_code);
-    printf("EIP     : %08x\n", regs.eip);
-    printf("EFLAGS  : %08x\n", regs.eflags);
-    printf("USERRESP: %08x\n", regs.useresp);
-    printf("SS      : %08x\n", regs.ss);
-
-    for(;;)
-        asm("hlt");
-
     switch (regs.int_no) {
         case 0x20:
+            // printf("tmr");
             // timer_handler(&regs);
             break;
         case 0x21:
-            // keyboard_handler(&regs);
+            keyboard_handler(&regs);
             break;
         default:
             // terminal_writestring("\nrecieved interrupt\taddress: ");

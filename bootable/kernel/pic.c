@@ -147,6 +147,6 @@ void init_pic() {
     for (uint8_t i = 0; i < 32; i++)
         irq_set_mask_bit(i);
 
-    //irq_clear_mask_bit(0);  // timer
+    irq_clear_mask_bit(0);  // timer
     irq_clear_mask_bit(1);  // keyboard
 }
