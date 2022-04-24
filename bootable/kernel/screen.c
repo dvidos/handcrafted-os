@@ -53,20 +53,20 @@ static void set_cursor_offset(int offset) {
 #define VGA_HEIGHT 25
 
 
-static inline uint8_t vga_entry_color(uint8_t fg, uint8_t bg)
-{
-	return fg | bg << 4;
-}
-
-static inline int get_offset(int col, int row) { return 2 * (row * VGA_WIDTH + col); }
-static inline int get_offset_row(int offset) { return offset / (2 * VGA_WIDTH); }
-static inline int get_offset_col(int offset) { return (offset - (get_offset_row(offset) * 2 * VGA_WIDTH)) / 2; }
-
-
 uint8_t screen_row;
 uint8_t screen_column;
 uint8_t screen_color;
-uint8_t* screen_memory;
+uint8_t *screen_memory;
+
+static inline uint8_t vga_entry_color(uint8_t fg, uint8_t bg) { return fg | bg << 4; }
+
+static inline void put_char(int col, int row, uint8_t chr) { screen_memory[(row * VGA_WIDTH + col) * 2] = chr; }
+static inline uint8_t get_char(int col, int row) { return screen_memory[(row * VGA_WIDTH + col) * 2]; }
+static inline void put_color(int col, int row, uint8_t color) { screen_memory[(row * VGA_WIDTH + col) * 2 + 1] = color; }
+static inline uint8_t get_color(int col, int row) { return screen_memory[(row * VGA_WIDTH + col) * 2 + 1]; }
+
+static inline int get_offset(int col, int row) { return 2 * (row * VGA_WIDTH + col); }
+static inline int get_row_col(int *col, int *row, int offset) { *col = offset % (VGA_WIDTH*2); *row = offset / (VGA_WIDTH*2); }
 
 
 void screen_init(void)
@@ -96,11 +96,11 @@ static void screen_putentryat(char c, uint8_t color, uint8_t col, uint8_t row)
 
 static void screen_scroll() {
     for (int i = 0; i < (VGA_WIDTH * (VGA_HEIGHT - 1)) * 2; i += 2) {
-        screen_memory[i] = screen_memory[i + VGA_WIDTH];
-        screen_memory[i + 1] = screen_memory[i + 1 + VGA_WIDTH];
+        screen_memory[i] = screen_memory[i + (VGA_WIDTH * 2)];
+        screen_memory[i + 1] = screen_memory[i + 1 + (VGA_WIDTH * 2)];
     }
-    for (int i = 0; i < VGA_WIDTH; i += 2) {
-        screen_memory[(VGA_HEIGHT - 1) + i] = ' ';
+    for (int i = 0; i < VGA_WIDTH * 2; i += 2) {
+        screen_memory[((VGA_HEIGHT - 1) * VGA_WIDTH) * 2 + i] = ' ';
     }
 }
 
