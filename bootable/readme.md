@@ -107,3 +107,35 @@ Also the following must be met:
 * entering protected mode (boot loader actually)
 * GDT (general description table, for paging and access etc)
 * IDT (interrupt definition table, functions to handle interrupts)
+
+## the list
+
+### things to do
+
+* timers
+* bootloader, iso image & boot from usb stick
+* multi tasking (exec, fork, etc)
+* scheduler
+* messages between tasks
+* file system driver (read / write some filesystem)
+* libc for usermode
+* loading and executing programs
+* user mode file system operations (open, read, write, close etc)
+* primitive tools (mini shell, vi, mini c compiler etc)
+* greek language keyboard mapping and utf8 support, even in console
+* tests
+* kernel console, with various capabilities:
+    * show memory map (fragmentation etc)
+    * dump processes tables and info
+    * start/stop processes etc
+    * read and write specific memory address or port (byte, word, long)
+    * maybe send messages (IPC) directly to tasks
+    * report uptime, run tests or benchmarks, etc
+
+### things done
+
+* bootsector code (frozen for now, working with the kernel arg of qemu)
+* global descriptor table
+* interrupt descriptor table
+* keyboard driver
+* screen driver

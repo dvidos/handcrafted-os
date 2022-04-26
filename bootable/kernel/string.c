@@ -17,6 +17,13 @@ void memset(char *dest, uint8_t value, size_t size) {
     }
 }
 
+
+void memcpy(char *dest, char *source, size_t size) {
+    while (size-- > 0) {
+        *dest++ = *source++;
+    }
+}
+
 void reverse(char *buffer, int len) {
     // reverse the buffer in place
     int left = 0;
