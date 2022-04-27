@@ -107,13 +107,7 @@ void isr_handler(registers_t regs) {
             keyboard_handler(&regs);
             break;
         default:
-            // terminal_writestring("\nrecieved interrupt\taddress: ");
-            // terminal_writehex32((uint32_t)&regs);
-            // terminal_writestring("\tvalue: 0x");
-            // terminal_writehex32(regs.int_no);
-            // terminal_writestring("\terror: ");
-            // terminal_writehex32(regs.err_code);
-            // terminal_writestring("\n");
+            printf("Received interrupt %d, error %d\n", regs.int_no, regs.err_code);
     }
 
     pic_send_eoi(regs.int_no);

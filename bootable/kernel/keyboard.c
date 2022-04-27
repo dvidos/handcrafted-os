@@ -243,7 +243,7 @@ void keyboard_handler(registers_t* regs) {
         // if (printable != 0)
         //     printf("%c", printable == 13 ? '\n' : printable);
 
-        if (queue_length >= KEY_QUEUE_SIZE) {
+        if (queue_length == KEY_QUEUE_SIZE - 1) {
             // just lose this keypress
         } else {
             // assume we are in stopped interrupts mode
