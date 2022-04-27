@@ -7,6 +7,7 @@
 #include "pic.h"
 #include "cpu.h"
 #include "keyboard.h"
+#include "timer.h"
 
 
 // Check if the compiler thinks you are targeting the wrong operating system.
@@ -79,6 +80,10 @@ void kernel_main(void)
     init_pic();
     screen_write(" done\n");
 
+    screen_write("Initializing Programmable Interval Timer...");
+    init_timer(1000);
+    screen_write(" done\n");
+
 
     //for(;;);
     //asm("int $3"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
@@ -96,8 +101,7 @@ void kernel_main(void)
 void isr_handler(registers_t regs) {
     switch (regs.int_no) {
         case 0x20:
-            // printf("tmr");
-            // timer_handler(&regs);
+            timer_handler(&regs);
             break;
         case 0x21:
             keyboard_handler(&regs);
