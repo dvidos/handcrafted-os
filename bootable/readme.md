@@ -112,7 +112,6 @@ Also the following must be met:
 
 ### things to do
 
-* timers
 * bootloader, iso image & boot from usb stick
 * multi tasking (exec, fork, etc)
 * scheduler
@@ -131,11 +130,20 @@ Also the following must be met:
     * read and write specific memory address or port (byte, word, long)
     * maybe send messages (IPC) directly to tasks
     * report uptime, run tests or benchmarks, etc
+* the four main tasks that user mode code can use (also described in Minix Book)
+    * process management (fork, exec, exit, etc)
+    * I/O device management
+    * memory management (malloc etc)
+    * file management
+* other topics
+    * Real time clock - reading, writing (see https://wiki.osdev.org/CMOS)
+    * Beeper control for fun (maybe from PIT channel 2)
 
 ### things done
 
 * bootsector code (frozen for now, working with the kernel arg of qemu)
 * global descriptor table
 * interrupt descriptor table
-* keyboard driver
 * screen driver
+* keyboard driver
+* timers
