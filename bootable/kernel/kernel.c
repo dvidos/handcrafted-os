@@ -30,31 +30,31 @@
 
 // these two defined in the linker.ld script
 // use their *addresses*, not their values!
-uint32_t __kernel_start_address;
-uint32_t __kernel_end_address;
+uint8_t kernel_start_address;
+uint8_t kernel_end_address;
 
-void dump_boot_info(multiboot_info_t* mbd);
+
+
+void dump_multiboot_info(multiboot_info_t* mbi);
 
 
 // arguments from the multiboot loader, normally left by GRUB
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
-void kernel_main(multiboot_info_t* mbd, unsigned int magic)
+void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 {
     disable_interrupts();  // interrupts are already disabled at this point
 
     screen_init();
-    printf("C kernel running\n");
+    printf("C kernel running, loaded at 0x%x - 0x%x (size of %u bytes)\n",
+        (uint32_t)&kernel_start_address,
+        (uint32_t)&kernel_end_address,
+        (uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address
+    );
 
-    if (magic == 0x2BADB002) {
-        printf("Bootloader info detected\n", magic);
-        dump_boot_info(mbd);
+    if (boot_magic == 0x2BADB002) {
+        printf("Bootloader info detected:\n");
+        dump_multiboot_info(mbi);
     }
-
-
-    printf("Kernel start at 0x%x (decimal %u)\n", (uint32_t)&__kernel_start_address, (uint32_t)&__kernel_start_address);
-    printf("Kernel end   at 0x%x (decimal %u)\n", (uint32_t)&__kernel_end_address, (uint32_t)&__kernel_end_address);
-    size_t kernel_size = (size_t)(&__kernel_end_address) - (size_t)(&__kernel_start_address);
-    printf("Kernel size %d bytes\n", kernel_size);
 
     // uint32_t r = get_cpuid_availability();
     // printf("get_cpuid_availability() returned 0x%08x\n", r);
@@ -90,7 +90,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic)
     screen_write(" done\n");
 
     screen_write("Initializing memory...");
-    init_memory(((void *)&__kernel_end_address) + 1024);
+    init_memory(boot_magic, mbi, &kernel_start_address, &kernel_end_address);
     screen_write(" done\n");
 
     enable_interrupts();
@@ -120,29 +120,27 @@ void isr_handler(registers_t regs) {
     pic_send_eoi(regs.int_no);
 }
 
-void dump_boot_info(multiboot_info_t* mbd) {
-    printf("Multiboot information\n");
-    printf("- flags:       0x%08x\n", mbd->flags);
-    if (mbd->flags & MULTIBOOT_INFO_MEMORY) {
-        printf("- mem lower:   %u KB\n", mbd->mem_lower);
-        printf("- mem upper:   %u KB\n", mbd->mem_upper);
+void dump_multiboot_info(multiboot_info_t* mbi) {
+    printf("- flags:       0x%08x\n", mbi->flags);
+    if (mbi->flags & MULTIBOOT_INFO_MEMORY) {
+        printf("- mem lower:   %u KB\n", mbi->mem_lower);
+        printf("- mem upper:   %u KB\n", mbi->mem_upper);
     }
-    if (mbd->flags & MULTIBOOT_INFO_BOOTDEV) {
-        printf("- boot device: 0x%x\n", mbd->boot_device);
+    if (mbi->flags & MULTIBOOT_INFO_BOOTDEV) {
+        printf("- boot device: 0x%x\n", mbi->boot_device);
     }
-    if (mbd->flags & MULTIBOOT_INFO_CMDLINE) {
-        printf("- cmd line:    \"%s\" (at 0x%08x)\n", mbd->cmdline, mbd->cmdline);
+    if (mbi->flags & MULTIBOOT_INFO_CMDLINE) {
+        printf("- cmd line:    \"%s\" (at 0x%08x)\n", mbi->cmdline, mbi->cmdline);
     }
-    if (mbd->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
-        printf("- boot loader: \"%s\" (at 0x%08x)\n", mbd->boot_loader_name, mbd->boot_loader_name);
+    if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
+        printf("- boot loader: \"%s\" (at 0x%08x)\n", mbi->boot_loader_name, mbi->boot_loader_name);
     }
-    if (mbd->flags & MULTIBOOT_INFO_MEM_MAP) {
-        printf("- mmap length: %u\n", mbd->mmap_length);
-        printf("- mmap addr:   0x%08x\n", mbd->mmap_addr);
+    if (mbi->flags & MULTIBOOT_INFO_MEM_MAP) {
+        printf("- memory map:  0x%08x (size %u bytes)\n", mbi->mmap_addr, mbi->mmap_length);
 
         uint64_t total_available = 0;
-        int size = mbd->mmap_length;
-        multiboot_memory_map_t *entry = (multiboot_memory_map_t *)mbd->mmap_addr;
+        int size = mbi->mmap_length;
+        multiboot_memory_map_t *entry = (multiboot_memory_map_t *)mbi->mmap_addr;
         printf("    Address              Length               Type\n");
         // ntf("  0x12345678:12345678  0x12345678:12345678  0x12345678")
         while (size > 0) {
@@ -181,6 +179,5 @@ void dump_boot_info(multiboot_info_t* mbd) {
             entry++;
         }
         printf("    Total %u MB available memory\n", (uint32_t)(total_available / (1024 * 1024)));
-
     }
 }

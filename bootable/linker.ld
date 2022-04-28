@@ -9,6 +9,7 @@ SECTIONS
 	/* Begin putting sections at 1 MiB, a conventional place for kernels to be
 	   loaded at by the bootloader. */
 	. = 1M;
+    kernel_start_address = .;
 
 	/* First put the multiboot header, as it is required to be put very early
 	   early in the image or the bootloader won't recognize the file format.
@@ -41,8 +42,5 @@ SECTIONS
 	/* The compiler may produce other sections, by default it will put them in
 	   a segment with the same name. Simply add stuff here as needed. */
 
-
-    /* Hopefully this symbol will contain the end of the kernel
-       see https://forum.osdev.org/viewtopic.php?t=8463 */
-   __kernel_end_address = .;
+   kernel_end_address = .;
 }

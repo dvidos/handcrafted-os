@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include "multiboot.h"
 
 
 
@@ -7,7 +8,7 @@
  see also https://wiki.osdev.org/Detecting_Memory_(x86)
  it seems people avoid very low memory (< 1MB)
  there also seems to be a hole around 15M - 16M.
- 
+
 
  should be able to grab a page (?) of memory to give to a process
  should be able to malloc/free at will
@@ -16,11 +17,9 @@
 */
 
 
+void init_memory(unsigned int boot_magic, multiboot_info_t* mbi, void *kernel_start, void *kernel_end) {
 
-void *memory_start;
 
-void init_memory(void *free_memory_start) {
-    memory_start = free_memory_start;
 }
 
 /*
