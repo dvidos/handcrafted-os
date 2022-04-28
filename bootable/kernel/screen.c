@@ -213,6 +213,9 @@ void printf(const char *format, ...) {
 
         // so definitely a '%'. let's see the next
         format++;
+        padder = ' ';
+        width = 0;
+        pad_right = false;
         if (*format == '-') {
             pad_right = true;
             format++;

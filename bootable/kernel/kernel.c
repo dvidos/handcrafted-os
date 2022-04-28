@@ -8,6 +8,8 @@
 #include "cpu.h"
 #include "keyboard.h"
 #include "timer.h"
+#include "memory.h"
+#include "multiboot.h"
 
 
 // Check if the compiler thinks you are targeting the wrong operating system.
@@ -26,33 +28,36 @@
 #endif
 
 
+// these two defined in the linker.ld script
+// use their *addresses*, not their values!
+uint32_t __kernel_start_address;
+uint32_t __kernel_end_address;
 
-/**
- * Things to implement from here:
- *
- * also can see chapters 14+ on https://github.com/cfenollosa/os-tutorial
- *
- * - better code structure & make file
- * - better screen handling (Cursor, scroll, etc)
- * - keyboard entry
- * - memory management (heap and -maybe- virtual memory)
- * - disk managmenet of some partition?
- * - multi processing and scheduler (+ timer)
- * - interrupt description table and handlers
- */
+void dump_boot_info(multiboot_info_t* mbd);
 
 
-extern void test_isrs();
-
-void kernel_main(void)
+// arguments from the multiboot loader, normally left by GRUB
+// see https://wiki.osdev.org/Detecting_Memory_(x86)
+void kernel_main(multiboot_info_t* mbd, unsigned int magic)
 {
     disable_interrupts();  // interrupts are already disabled at this point
 
     screen_init();
-    printf("C kernel running, kernel_main() is at 0x%p\n", (void *)kernel_main);
+    printf("C kernel running\n");
 
-    uint32_t r = get_cpuid_availability();
-    printf("get_cpuid_availability() returned 0x%08x\n", r);
+    if (magic == 0x2BADB002) {
+        printf("Bootloader info detected\n", magic);
+        dump_boot_info(mbd);
+    }
+
+
+    printf("Kernel start at 0x%x (decimal %u)\n", (uint32_t)&__kernel_start_address, (uint32_t)&__kernel_start_address);
+    printf("Kernel end   at 0x%x (decimal %u)\n", (uint32_t)&__kernel_end_address, (uint32_t)&__kernel_end_address);
+    size_t kernel_size = (size_t)(&__kernel_end_address) - (size_t)(&__kernel_start_address);
+    printf("Kernel size %d bytes\n", kernel_size);
+
+    // uint32_t r = get_cpuid_availability();
+    // printf("get_cpuid_availability() returned 0x%08x\n", r);
 
     // printf("sizeof(char)      is %d\n", sizeof(char)); // 2
     // printf("sizeof(short)     is %d\n", sizeof(short)); // 2
@@ -84,13 +89,15 @@ void kernel_main(void)
     init_timer(1000);
     screen_write(" done\n");
 
-
-    //for(;;);
-    //asm("int $3"); // this caused our asm handler to print the "?" or "[INT]" in video memory.
-
+    screen_write("Initializing memory...");
+    init_memory(((void *)&__kernel_end_address) + 1024);
+    screen_write(" done\n");
 
     enable_interrupts();
-    // test_isrs();
+
+
+
+
 
     screen_write("Pausing forever...");
     for(;;)
@@ -111,4 +118,69 @@ void isr_handler(registers_t regs) {
     }
 
     pic_send_eoi(regs.int_no);
+}
+
+void dump_boot_info(multiboot_info_t* mbd) {
+    printf("Multiboot information\n");
+    printf("- flags:       0x%08x\n", mbd->flags);
+    if (mbd->flags & MULTIBOOT_INFO_MEMORY) {
+        printf("- mem lower:   %u KB\n", mbd->mem_lower);
+        printf("- mem upper:   %u KB\n", mbd->mem_upper);
+    }
+    if (mbd->flags & MULTIBOOT_INFO_BOOTDEV) {
+        printf("- boot device: 0x%x\n", mbd->boot_device);
+    }
+    if (mbd->flags & MULTIBOOT_INFO_CMDLINE) {
+        printf("- cmd line:    \"%s\" (at 0x%08x)\n", mbd->cmdline, mbd->cmdline);
+    }
+    if (mbd->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
+        printf("- boot loader: \"%s\" (at 0x%08x)\n", mbd->boot_loader_name, mbd->boot_loader_name);
+    }
+    if (mbd->flags & MULTIBOOT_INFO_MEM_MAP) {
+        printf("- mmap length: %u\n", mbd->mmap_length);
+        printf("- mmap addr:   0x%08x\n", mbd->mmap_addr);
+
+        uint64_t total_available = 0;
+        int size = mbd->mmap_length;
+        multiboot_memory_map_t *entry = (multiboot_memory_map_t *)mbd->mmap_addr;
+        printf("    Address              Length               Type\n");
+        // ntf("  0x12345678:12345678  0x12345678:12345678  0x12345678")
+        while (size > 0) {
+            char *type;
+            switch (entry->type) {
+                case MULTIBOOT_MEMORY_AVAILABLE:
+                    type = "Available";
+                    break;
+                case MULTIBOOT_MEMORY_RESERVED:
+                    type = "Reserved";
+                    break;
+                case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
+                    type = "Reclaimable";
+                    break;
+                case MULTIBOOT_MEMORY_NVS:
+                    type = "NVS";
+                    break;
+                case MULTIBOOT_MEMORY_BADRAM:
+                    type = "Bad RAM";
+                    break;
+                default:
+                    type = "Unknown";
+                    break;
+            }
+            if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
+                printf("    0x%08x:%08x  0x%08x:%08x  %s\n",
+                    (uint32_t)(entry->addr >> 32),
+                    (uint32_t)(entry->addr & 0xFFFFFFFF),
+                    (uint32_t)(entry->len >> 32),
+                    (uint32_t)(entry->len & 0xFFFFFFFF),
+                    type
+                );
+                total_available += entry->len;
+            }
+            size -= sizeof(multiboot_memory_map_t);
+            entry++;
+        }
+        printf("    Total %u MB available memory\n", (uint32_t)(total_available / (1024 * 1024)));
+
+    }
 }
