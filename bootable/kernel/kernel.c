@@ -36,7 +36,7 @@ uint8_t kernel_end_address;
 
 
 void dump_multiboot_info(multiboot_info_t* mbi);
-
+void dump_heap();
 
 // arguments from the multiboot loader, normally left by GRUB
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
@@ -45,15 +45,15 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     disable_interrupts();  // interrupts are already disabled at this point
 
     screen_init();
-    printf("C kernel running, loaded at 0x%x - 0x%x (size of %u bytes)\n",
+    printf("C kernel running, loaded at 0x%x - 0x%x (size of %u KB)\n",
         (uint32_t)&kernel_start_address,
         (uint32_t)&kernel_end_address,
-        (uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address
+        ((uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address) / 1024
     );
 
     if (boot_magic == 0x2BADB002) {
-        printf("Bootloader info detected:\n");
-        dump_multiboot_info(mbi);
+        printf("Bootloader info detected\n");
+        // dump_multiboot_info(mbi);
     }
 
     // uint32_t r = get_cpuid_availability();
@@ -63,7 +63,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // printf("sizeof(short)     is %d\n", sizeof(short)); // 2
     // printf("sizeof(int)       is %d\n", sizeof(int));   // 4
     // printf("sizeof(long)      is %d\n", sizeof(long));  // 4 (was expecting 8!)
-    // printf("sizeof(long long) is %d\n", sizeof(long long));  // 4 (was expecting 8!)
+    // printf("sizeof(long long) is %d\n", sizeof(long long)); // 8
+    // printf("sizeof(void *) is %d\n", sizeof(void *));  // 4
     // printf("17 in formats %%i [%i], %%x [%x], %%o [%o], %%b [%b]\n", 17, 17, 17, 17);
     // int snum = 3000000000;
     // unsigned int unum = 3000000000;
@@ -90,13 +91,12 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     screen_write(" done\n");
 
     screen_write("Initializing memory...");
-    init_memory(boot_magic, mbi, &kernel_start_address, &kernel_end_address);
+    init_memory(boot_magic, mbi, (uint32_t)&kernel_start_address, (uint32_t)&kernel_end_address);
     screen_write(" done\n");
 
+
+    // dump_heap();
     enable_interrupts();
-
-
-
 
 
     screen_write("Pausing forever...");

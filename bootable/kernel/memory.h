@@ -3,9 +3,8 @@
 
 #include "multiboot.h"
 
-void init_memory(unsigned int boot_magic, multiboot_info_t* mbi, void *kernel_start, void *kernel_end);
 
-
+void init_memory(unsigned int boot_magic, multiboot_info_t* mbi, uint32_t kernel_start, uint32_t kernel_end);
 
 
 

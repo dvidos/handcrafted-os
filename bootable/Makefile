@@ -11,7 +11,7 @@
 CC = i686-elf-gcc
 LD = i686-elf-ld
 AS = i686-elf-as
-EMU = qemu-system-i386 -m 512
+EMU = qemu-system-i386 -m 1G
 
 KERNEL_FILES = $(wildcard kernel/*.c)
 KERNEL_HEADERS = $(wildcard kernel/*.h)

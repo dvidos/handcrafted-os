@@ -7,7 +7,7 @@ ENTRY(_start)
 SECTIONS
 {
 	/* Begin putting sections at 1 MiB, a conventional place for kernels to be
-	   loaded at by the bootloader. */
+	   loaded at by the bootloader. 100k works for loading on low memory as well */
 	. = 1M;
     kernel_start_address = .;
 
