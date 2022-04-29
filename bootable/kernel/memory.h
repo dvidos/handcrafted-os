@@ -5,6 +5,8 @@
 
 
 void init_memory(unsigned int boot_magic, multiboot_info_t* mbi, uint32_t kernel_start, uint32_t kernel_end);
+void *malloc(size_t size);
+void free(void *address);
 
 
 

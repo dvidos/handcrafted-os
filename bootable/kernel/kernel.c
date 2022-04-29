@@ -99,6 +99,17 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     enable_interrupts();
 
 
+    // char *p1 = malloc(4096);
+    // char *p2 = malloc(2048);
+    // char *p3 = malloc(4096);
+    // char *p5 = malloc(4096000);
+    // free(p1);
+    // printf("-------third--------\n");
+    // free(p2);
+    // free(p3);
+    // free(p5);
+    // dump_heap();
+
     screen_write("Pausing forever...");
     for(;;)
         asm("hlt");

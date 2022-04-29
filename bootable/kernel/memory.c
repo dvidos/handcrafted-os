@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "multiboot.h"
 #include "screen.h"
+#include "string.h"
 
 
 
@@ -37,22 +38,25 @@
 #define LOW_MEM_SAFE_TOP     0x7FFFF  // beyond that, video memory etc
 #define HIGH_MEM_SAFE_TOP    0xFEBFFFFF // about 4gb, above that various devices and dragons
 
+
 static void claim_usable_memory_area(uint32_t area_start, uint32_t area_end, uint32_t kernel_start, uint32_t kernel_end);
-static void consider_memory_block(uint32_t start, uint32_t end);
+static void consider_block_header(uint32_t start, uint32_t end);
 
 // simplest thing
-struct memory_block {
+struct block_header {
     uint32_t size;
     uint16_t magic: 15;
     uint16_t used: 1;
-    struct memory_block *next;
+    struct block_header *next;
 } __attribute__((packed));
+
+typedef struct block_header block_header_t;
 
 // easy to walk
 // allocate what's needed
 // consolidate adjascent free space
 
-static struct memory_block *mem_bottom = NULL;
+static block_header_t *mem_bottom = NULL;
 
 
 void init_memory(unsigned int boot_magic, multiboot_info_t* mbi, uint32_t kernel_start, uint32_t kernel_end) {
@@ -100,17 +104,17 @@ static void claim_usable_memory_area(uint32_t area_start, uint32_t area_end, uin
             // area below kernel
             start = max(area_start, LOW_MEM_SAFE_START);
             end = min(min(area_end, kernel_start), LOW_MEM_SAFE_TOP);
-            consider_memory_block(start, end);
+            consider_block_header(start, end);
 
             // area above kernel
             start = max(max(area_start, kernel_end), LOW_MEM_SAFE_START);
             end = min(area_end, LOW_MEM_SAFE_TOP);
-            consider_memory_block(start, end);
+            consider_block_header(start, end);
         } else {
             // whole area, no kernel here
             start = max(area_start, LOW_MEM_SAFE_START);
             end = min(area_end, LOW_MEM_SAFE_TOP);
-            consider_memory_block(start, end);
+            consider_block_header(start, end);
         }
 
     } else if (area_start >= ONE_MEGABYTE) {
@@ -121,36 +125,36 @@ static void claim_usable_memory_area(uint32_t area_start, uint32_t area_end, uin
             // area below kernel
             start = max(area_start, ONE_MEGABYTE);
             end = min(min(area_end, kernel_start), HIGH_MEM_SAFE_TOP);
-            consider_memory_block(start, end);
+            consider_block_header(start, end);
 
             // area above kernel
             start = max(max(area_start, kernel_end), ONE_MEGABYTE);
             end = min(area_end, HIGH_MEM_SAFE_TOP);
-            consider_memory_block(start, end);
+            consider_block_header(start, end);
         } else {
             // whole area, no kernel here
             start = area_start;
             end = min(area_end, HIGH_MEM_SAFE_TOP);
-            consider_memory_block(start, end);
+            consider_block_header(start, end);
         }
     }
 }
 
-static void consider_memory_block(uint32_t start, uint32_t end) {
+static void consider_block_header(uint32_t start, uint32_t end) {
     // printf("-- considering block 0x%x to 0x%x, len %i\n", start, end, end - start);
     if (start > end || end - start < 4096)
         return;
 
-    struct memory_block *block = (struct memory_block *)(uint32_t)start;
+    block_header_t *block = (block_header_t *)(uint32_t)start;
     block->used = 0;
     block->magic = MEM_MAGIC;
-    block->size = (end - start) - sizeof(struct memory_block);
+    block->size = (end - start) - sizeof(block_header_t);
     block->next = NULL;
 
     if (mem_bottom == NULL) {
         mem_bottom = block;
     } else {
-        struct memory_block *tail = mem_bottom;
+        block_header_t *tail = mem_bottom;
         while (tail->next != NULL) {
             tail = tail->next;
         }
@@ -159,7 +163,7 @@ static void consider_memory_block(uint32_t start, uint32_t end) {
 }
 
 void dump_heap() {
-    struct memory_block *p = mem_bottom;
+    block_header_t *p = mem_bottom;
     char *type;
     printf("  Address          Length  Type\n");
     //        0x00000000  00000000 KB  Used...
@@ -189,21 +193,98 @@ void dump_heap() {
     printf("Total used memory %u KB (%u blocks)\n", (uint32_t)used_mem, used_blocks);
     printf("Total free memory %u KB (%u blocks)\n", (uint32_t)free_mem, free_blocks);
 }
-/*
-char *malloc(size_t size) {
 
+/**
+ * Very simple strategy:
+ * walk the blocks, until we find a free, large enough
+ * split the block (create a new free block, return current block)
+ * this allocates lowest memory first
+ */
+void *malloc(size_t size) {
+
+    block_header_t *block = mem_bottom;
+    size = max(size, 1024);
+
+    while (block != NULL) {
+        if (block->used || block->size < size + sizeof(block_header_t)) {
+            block = block->next;
+            continue;
+        }
+
+        // it'd be useful to disable interrupts...
+        block_header_t *new_free_block = ((void *)block) + sizeof(block_header_t) + size;
+        new_free_block->size = block->size - size - sizeof(block_header_t);
+        new_free_block->used = 0;
+        new_free_block->magic = MEM_MAGIC;
+        new_free_block->next = block->next;
+
+        // existing block is now smaller, and will be used.
+        block->size = size;
+        block->used = 1;
+        block->next = new_free_block;
+
+        void *ptr = ((void *)block) + sizeof(block_header_t);
+        memset(ptr, 0, size);
+        return ptr;
+    }
+
+    return NULL;
 }
 
-char *calloc(int elements, int element_size) {
+/**
+ * Again simple logic
+ * check magic numbers,
+ * free the block,
+ * consolidate with next and prev, if applicable
+ */
+void free(void *address) {
+    // we need to walk the heap (performance is left for the future),
+    // find the address, mark it as free, find next, check magic, consolidate if free
+    block_header_t *block = ((void *)address) - sizeof(block_header_t);
+    if (block->magic != MEM_MAGIC) {
+        printf("Block freed at %p has corrupted magic number!\n", block);
+        // should terminate current process, but not kernel
+    }
+    block->used = 0; // easiest operation ever!
+
+    if (block->next != NULL) {
+        if (block->next->magic != MEM_MAGIC) {
+            printf("Block after freed one at %p has corrupted magic number!\n", block);
+        }
+
+        // see if we can consolidate
+        if (block->next->used == 0) {
+            block->size = block->size + sizeof(block_header_t) + block->next->size;
+            block->next = block->next->next;
+        }
+    }
+
+    // we should check if the previous block is also free, to consolitate with that...
+    block_header_t *prev = mem_bottom;
+    while (prev->next != block && prev->next != NULL) {
+        prev = prev->next;
+    }
+    // be careful, it has to be continuous memory area
+    // therefore, adding the header size + block size should give us the address of our block
+    if (prev != NULL
+        && prev->used == 0
+        && ((uint32_t)prev) + sizeof(block_header_t) + prev->size == (uint32_t)block) {
+        prev->size = prev->size + sizeof(block_header_t) + block->size;
+        prev->next = block->next;
+    }
+}
+
+/*
+void *calloc(int elements, int element_size) {
 return malloc(elements * element_size);
 }
 
-char *realloc(char *address, size_t new_size) {
+void *realloc(void *address, size_t new_size) {
     // expand or shrink the block
     // in place if possible, otherwise copy to new block
 }
 
-void free(char *address) {
+void free(void *address) {
 
 }
 */
