@@ -71,6 +71,6 @@ struct key_event {
 
 
 void keyboard_handler(registers_t* regs);
-
+void wait_keyboard_event(struct key_event *event);
 
 #endif

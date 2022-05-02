@@ -110,6 +110,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // free(p5);
     // dump_heap();
 
+    printf("Starting konsole...");
+    konsole();
+
     screen_write("Pausing forever...");
     for(;;)
         asm("hlt");

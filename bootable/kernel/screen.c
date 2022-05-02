@@ -124,6 +124,11 @@ static void screen_putchar(char c)
         screen_column = 0;
     } else if (c == '\r') {
         screen_column = 0;
+    } else if (c == '\b') {
+        if (screen_column > 0)
+            screen_column--;
+    } else if (c == '\t') {
+        screen_column = ((screen_column / 8) + 1) * 8;
     } else {
         screen_putentryat(c, screen_color, screen_column, screen_row);
     	if (++screen_column == VGA_WIDTH) {
@@ -237,7 +242,7 @@ void printf(const char *format, ...) {
                 break;
             case 's':
                 ptr = va_arg(args, char *);
-                _print_aligned(ptr, width, padder, pad_right);
+                _print_aligned(ptr == NULL ? "(null)" : ptr, width, padder, pad_right);
                 break;
             case 'd': // signed decimal
             case 'i': // fallthrough

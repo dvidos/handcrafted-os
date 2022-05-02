@@ -55,9 +55,22 @@ kernel/%.o: kernel/%.S
 view: kernel.bin
 	xxd $< | less
 
-run: kernel.bin
+# the brug + iso image stuff is from the Barebones article
+# https://wiki.osdev.org/Bare_Bones
+# can be copied to a usb stick, _very carefully_ by doing:
+# "sudo dd if=kernel.iso of=/dev/sdx && sync"
+kernel.iso: kernel.bin
+	cp kernel.bin iso/boot
+	grub-mkrescue -o $@ iso
+
+
+run: kernel.iso
 	@# qemu-system-x86_64 -kernel kernel.bin
-	$(EMU) -kernel kernel.bin
+	@#$(EMU) -kernel kernel.bin
+	$(EMU) -cdrom kernel.iso
+
 
 clean:
 	rm -f *.o *.bin boot/*.o kernel/*.o
+
+

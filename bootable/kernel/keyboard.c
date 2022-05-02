@@ -8,40 +8,45 @@
 #include "keyboard.h"
 
 
-static bool extended = false;
-static bool left_ctrl = false;
-static bool right_ctrl = false;
-static bool left_shift = false;
-static bool right_shift = false;
-static bool left_alt = false;
-static bool right_alt = false;
-static bool caps_lock = false;
-static bool num_lock = false;
+static volatile bool extended = false;
+static volatile bool left_ctrl = false;
+static volatile bool right_ctrl = false;
+static volatile bool left_shift = false;
+static volatile bool right_shift = false;
+static volatile bool left_alt = false;
+static volatile bool right_alt = false;
+static volatile bool caps_lock = false;
+static volatile bool num_lock = false;
 
 #define KEY_QUEUE_SIZE    256
-struct key_event events_queue[KEY_QUEUE_SIZE];
-static uint8_t queue_head = 0;
-static uint8_t queue_length = 0; // easier to tell when empty, instead of a tail pointer
+static volatile struct key_event events_queue[KEY_QUEUE_SIZE];
+static volatile uint8_t queue_head = 0;
+static volatile uint8_t queue_length = 0; // easier to tell when empty, instead of a tail pointer
 
 bool keyboard_has_key() {
     return (queue_length > 0);
 }
 
-bool keyboard_get_key(struct key_event *evt) {
+void wait_keyboard_event(struct key_event *event) {
 
     // interrupts should be off when we remove from queue
     // we append at the end, we remove from the head
-    disable_interrupts();
-    if (queue_length == 0) {
-        enable_interrupts();
-        return false;
+
+    while (true) {
+        while (queue_length == 0);
+        disable_interrupts();
+        if (queue_length == 0) {
+            // they got us, we need to loop again
+            enable_interrupts();
+            continue;
+        }
+        break;
     }
 
-    memcpy((char *)evt, (char *)&events_queue[queue_head], sizeof(struct key_event));
+    memcpy((char *)event, (char *)&events_queue[queue_head], sizeof(struct key_event));
     queue_head++;
     queue_length--;
     enable_interrupts();
-    return true;
 }
 
 struct scancode_info {
