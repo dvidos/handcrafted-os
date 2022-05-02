@@ -24,6 +24,13 @@ int strcmp(char *a, char *b) {
     return (int)(*b - *a);
 }
 
+void strcpy(char *target, char *source) {
+    while (*source != '\0') {
+        *target++ = *source++;
+    }
+    *target = *source; // final null char
+}
+
 void memset(char *dest, uint8_t value, size_t size) {
     while (size-- > 0) {
         *(dest++) = value;

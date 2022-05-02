@@ -3,6 +3,7 @@
 #include "string.h"
 #include "screen.h"
 #include "keyboard.h"
+#include "ports.h"
 
 /**
  * konsole is an interactive shell like thing,
@@ -11,6 +12,7 @@
  */
 
 char command[1024] = {0,};
+char prev_command[1024] = {0,};
 int command_len = 0;
 
 typedef int (*runnable_command_ptr)(int argc, char *argv[]);
@@ -28,7 +30,7 @@ static int do_outb(int argc, char *argv[]);
 static int do_inw(int argc, char *argv[]);
 static int do_outw(int argc, char *argv[]);
 static int do_mem_dump(int argc, char *argv[]);
-static void get_command();
+static void get_command(char *prompt);
 static void run_command();
 
 struct action actions[] = {
@@ -52,13 +54,15 @@ struct action actions[] = {
 
 void konsole() {
     while (true) {
-        printf("\n> ");
-        get_command();
+        get_command("> ");
         run_command();
     }
 }
 
 static int do_help(int argc, char *argv[]) {
+    (void)argc;
+    (void)argv;
+
     // print list of commands and maybe brief usage
     printf("Execute arbitrary commands and functions in kernel space\n");
     printf("Each command has one or more arguments\n");
@@ -125,7 +129,8 @@ static int do_say(int argc, char *argv[]) {
         printf("argv[%d] = \"%s\"\n", i, argv[i]);
     }
     for (int i = 0; i < argc; i++) {
-        printf("atoi(\"%s\") --> %d\n", argv[i], atoi(argv[i]));
+        int parsed = atoi(argv[i]);
+        printf("atoi(\"%s\") --> %d (%bb, 0%o, 0x%x)\n", argv[i], parsed, parsed, parsed, parsed);
     }
     return 0;
 }
@@ -135,17 +140,20 @@ static char printable(char c) {
 }
 
 static int do_mem_dump(int argc, char *argv[]) {
-    // expecting: address, length
-    // format: 00005d70: 6172 0073 7472 696e 672e 6300 6b65 7962  ar.string.c.keyb
-    if (argc < 2) {
+    if (argc > 2) {
         printf("Expecting address as first argument, length (bytes) as the second\n");
+        printf("Address defaults to succeeding previously viewed\n");
+        printf("Length defaults to 256 bytes");
         return 1;
     }
-    uint32_t address = (uint32_t)atoi(argv[0]);
-    int len = atoi(argv[1]);
-    char *ptr = (char *)address;
+
+    static uint32_t next_address = 0;
+    uint32_t address = argc > 0 ? (uint32_t)atoi(argv[0]) : next_address;
+    int len = argc == 2 ? atoi(argv[1]) : 256;
+    unsigned char *ptr = (unsigned char *)address;
     while (len > 0) {
-        printf("%08p: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c\n",
+        // using xxd's format, seems nice
+        printf("%08p: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
             ptr,
             ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5], ptr[6], ptr[7],
             ptr[8], ptr[9], ptr[10], ptr[11], ptr[12], ptr[13], ptr[14], ptr[15],
@@ -157,10 +165,12 @@ static int do_mem_dump(int argc, char *argv[]) {
         ptr += 16;
         len -= 16;
     }
+
+    next_address = (uint32_t)ptr;
     return 0;
 }
 
-static void get_command() {
+static void get_command(char *prompt) {
     // honor backspace, Ctrl+U (delete all), Ctrl+L (clear),
     // maybe do history with arrow keys.
     // maybe do auto completion with tab.
@@ -169,27 +179,36 @@ static void get_command() {
     // collect key presseses, until enter is pressed
     memset(command, 0, sizeof(command));
     command_len = 0;
+    printf("%s", prompt);
     while (true) {
         wait_keyboard_event(&event);
         if (event.special_key == KEY_ENTER) {
+            strcpy(prev_command, command);
             printf("\r\n");
             return;
+        } else if (event.special_key == KEY_UP && strlen(prev_command) > 0) {
+            strcpy(command, prev_command);
+            command_len = strlen(command);
+            printf("\r%79s\r%s%s", " ", prompt, command);
         } else if (event.special_key == KEY_ESCAPE) {
-            printf(" (esc)\n");
             command_len = 0;
             command[command_len] = '\0';
-        } else if (event.special_key == KEY_BACKSPACE && command_len > 0) {
-            command[--command_len] = '\0';
-            printf("\b \b");
+            printf(" (esc)\n%s", prompt);
+        } else if (event.special_key == KEY_BACKSPACE) {
+            if (command_len > 0) {
+                command[--command_len] = '\0';
+                printf("\b \b");
+            }
         } else if (event.ctrl_down) {
             switch (event.printable) {
                 case 'l':
                     screen_clear();
+                    printf("%s%s", prompt, command);
                     break;
                 case 'u':
                     command_len = 0;
                     command[command_len] = '\0';
-                    printf("\r                                                      \r");
+                    printf("\r%79s\r%s%s", " ", prompt, command);
                     break;
             }
         } else if (event.printable) {
@@ -208,7 +227,7 @@ static void run_command() {
 
     char *argv[16];
     int argc = 0;
-    memset(argv, 0, sizeof(argv));
+    memset((char *)argv, 0, sizeof(argv));
     while (argc < 16) {
         char *p = strtok(NULL, " ");
         if (p == NULL)

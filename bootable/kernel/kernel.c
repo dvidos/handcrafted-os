@@ -10,6 +10,7 @@
 #include "timer.h"
 #include "memory.h"
 #include "multiboot.h"
+#include "konsole.h"
 
 
 // Check if the compiler thinks you are targeting the wrong operating system.
@@ -110,7 +111,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // free(p5);
     // dump_heap();
 
-    printf("Starting konsole...");
+    printf("Starting konsole...\n");
     konsole();
 
     screen_write("Pausing forever...");
