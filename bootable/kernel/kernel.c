@@ -39,6 +39,8 @@ uint8_t kernel_end_address;
 void dump_multiboot_info(multiboot_info_t* mbi);
 void dump_heap();
 
+multiboot_info_t saved_multiboot_info;
+
 // arguments from the multiboot loader, normally left by GRUB
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
 void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
@@ -54,7 +56,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     if (boot_magic == 0x2BADB002) {
         printf("Bootloader info detected\n");
-        // dump_multiboot_info(mbi);
+        memcpy((char *)&saved_multiboot_info, (char *)mbi, sizeof(multiboot_info_t));
+    } else {
+        printf("No bootloader info detected\n");
+        memset((char *)&saved_multiboot_info, 0, sizeof(multiboot_info_t));
     }
 
     // uint32_t r = get_cpuid_availability();
@@ -95,21 +100,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_memory(boot_magic, mbi, (uint32_t)&kernel_start_address, (uint32_t)&kernel_end_address);
     screen_write(" done\n");
 
-
-    // dump_heap();
     enable_interrupts();
-
-
-    // char *p1 = malloc(4096);
-    // char *p2 = malloc(2048);
-    // char *p3 = malloc(4096);
-    // char *p5 = malloc(4096000);
-    // free(p1);
-    // printf("-------third--------\n");
-    // free(p2);
-    // free(p3);
-    // free(p5);
-    // dump_heap();
 
     printf("Starting konsole...\n");
     konsole();
@@ -133,66 +124,4 @@ void isr_handler(registers_t regs) {
     }
 
     pic_send_eoi(regs.int_no);
-}
-
-void dump_multiboot_info(multiboot_info_t* mbi) {
-    printf("- flags:       0x%08x\n", mbi->flags);
-    if (mbi->flags & MULTIBOOT_INFO_MEMORY) {
-        printf("- mem lower:   %u KB\n", mbi->mem_lower);
-        printf("- mem upper:   %u KB\n", mbi->mem_upper);
-    }
-    if (mbi->flags & MULTIBOOT_INFO_BOOTDEV) {
-        printf("- boot device: 0x%x\n", mbi->boot_device);
-    }
-    if (mbi->flags & MULTIBOOT_INFO_CMDLINE) {
-        printf("- cmd line:    \"%s\" (at 0x%08x)\n", mbi->cmdline, mbi->cmdline);
-    }
-    if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
-        printf("- boot loader: \"%s\" (at 0x%08x)\n", mbi->boot_loader_name, mbi->boot_loader_name);
-    }
-    if (mbi->flags & MULTIBOOT_INFO_MEM_MAP) {
-        printf("- memory map:  0x%08x (size %u bytes)\n", mbi->mmap_addr, mbi->mmap_length);
-
-        uint64_t total_available = 0;
-        int size = mbi->mmap_length;
-        multiboot_memory_map_t *entry = (multiboot_memory_map_t *)mbi->mmap_addr;
-        printf("    Address              Length               Type\n");
-        // ntf("  0x12345678:12345678  0x12345678:12345678  0x12345678")
-        while (size > 0) {
-            char *type;
-            switch (entry->type) {
-                case MULTIBOOT_MEMORY_AVAILABLE:
-                    type = "Available";
-                    break;
-                case MULTIBOOT_MEMORY_RESERVED:
-                    type = "Reserved";
-                    break;
-                case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
-                    type = "Reclaimable";
-                    break;
-                case MULTIBOOT_MEMORY_NVS:
-                    type = "NVS";
-                    break;
-                case MULTIBOOT_MEMORY_BADRAM:
-                    type = "Bad RAM";
-                    break;
-                default:
-                    type = "Unknown";
-                    break;
-            }
-            if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-                printf("    0x%08x:%08x  0x%08x:%08x  %s\n",
-                    (uint32_t)(entry->addr >> 32),
-                    (uint32_t)(entry->addr & 0xFFFFFFFF),
-                    (uint32_t)(entry->len >> 32),
-                    (uint32_t)(entry->len & 0xFFFFFFFF),
-                    type
-                );
-                total_available += entry->len;
-            }
-            size -= sizeof(multiboot_memory_map_t);
-            entry++;
-        }
-        printf("    Total %u MB available memory\n", (uint32_t)(total_available / (1024 * 1024)));
-    }
 }
