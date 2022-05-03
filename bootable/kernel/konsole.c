@@ -174,19 +174,21 @@ static int do_mem_dump(int argc, char *argv[]) {
 }
 
 static int do_boot_info(int argc, char *argv[]) {
+    (void)argc;
+    (void)argv;
+
+    bool all = argc == 0;
 
     multiboot_info_t *mbi = &saved_multiboot_info;
     // printf("- flags:       0x%08x\n", mbi->flags);
 
-    if (mbi->flags & MULTIBOOT_INFO_MEMORY) {
+    if (all && mbi->flags & MULTIBOOT_INFO_MEMORY) {
         printf("Lower Memory:    0 KB - %u KB\n", mbi->mem_lower);
         // the mem_upper is s maximally the address of the first upper memory hole minus 1 megabyte. It is not guaranteed to be this value.
         printf("Upper Memory: 1024 KB - %u KB\n", mbi->mem_upper);
-    } else {
-        printf("Memory information missing\n");
     }
 
-    if (mbi->flags & MULTIBOOT_INFO_BOOTDEV) {
+    if (all && mbi->flags & MULTIBOOT_INFO_BOOTDEV) {
         // boot device is four bytes.
         // msb is the drive number (x00 for first floppy, x80 for first hard drive)
         // second msb is the number of partition.
@@ -198,84 +200,85 @@ static int do_boot_info(int argc, char *argv[]) {
             (mbi->boot_device >> 16) & 0xFF,
             (mbi->boot_device >>  8) & 0xFF,
             (mbi->boot_device >>  0) & 0xFF);
-    } else {
-        printf("Boot device information missing\n");
     }
 
-    if (mbi->flags & MULTIBOOT_INFO_CMDLINE) {
+    if (all && mbi->flags & MULTIBOOT_INFO_CMDLINE) {
         printf("Kernel command line: \"%s\"\n", mbi->cmdline);
     }
 
-    if (mbi->flags & MULTIBOOT_INFO_MODS) {
+    if (all && mbi->flags & MULTIBOOT_INFO_MODS) {
         printf("Modules info provided, not shown yet\n");
     }
 
-    if (mbi->flags & MULTIBOOT_INFO_AOUT_SYMS) {
-        printf("a.out symbols tabsize: 0x%08x\n", mbi->u.aout_sym.tabsize);
-        printf("a.out symbols strsize: 0x%08x\n", mbi->u.aout_sym.tabsize);
-        printf("a.out symbols addr:    0x%08x\n", mbi->u.aout_sym.addr);
-        // printf("a.out symbols reserved: 0x%08x\n", mbi->u.aout_sym.reserved);
+    if (all && mbi->flags & MULTIBOOT_INFO_AOUT_SYMS) {
+        printf("a.out symbols tabsize 0x%x, strsize 0x%x, addr 0x%x\n",
+            mbi->u.aout_sym.tabsize,
+            mbi->u.aout_sym.strsize,
+            mbi->u.aout_sym.addr);
     }
 
-    if (mbi->flags & MULTIBOOT_INFO_ELF_SHDR) {
-        printf("ELF num   0x%08x\n", mbi->u.elf_sec.num);
-        printf("ELF size  0x%08x\n", mbi->u.elf_sec.size);
-        printf("ELF addr  0x%08x\n", mbi->u.elf_sec.addr);
-        printf("ELF shndx 0x%08x\n", mbi->u.elf_sec.shndx);
+    if (all && mbi->flags & MULTIBOOT_INFO_ELF_SHDR) {
+        printf("ELF num 0x%x, size 0x%x, addr 0x%x, shndx 0x%x\n",
+            mbi->u.elf_sec.num,
+            mbi->u.elf_sec.size,
+            mbi->u.elf_sec.addr,
+            mbi->u.elf_sec.shndx);
     }
 
     if (mbi->flags & MULTIBOOT_INFO_MEM_MAP) {
-        printf("BIOS Memory Map\n");
+        if (argc == 1 && strcmp(argv[0], "mmap") == 0) {
+            printf("BIOS Memory Map\n");
 
-        uint64_t total_available = 0;
-        int size = mbi->mmap_length;
-        multiboot_memory_map_t *entry = (multiboot_memory_map_t *)mbi->mmap_addr;
-        printf("  Address              Length               Type\n");
-        // ntf("  0x12345678:12345678  0x12345678:12345678  Available")
-        while (size > 0) {
-            char *type;
-            switch (entry->type) {
-                case MULTIBOOT_MEMORY_AVAILABLE:
-                    type = "Available";
-                    break;
-                case MULTIBOOT_MEMORY_RESERVED:
-                    type = "Reserved";
-                    break;
-                case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
-                    type = "Reclaimable";
-                    break;
-                case MULTIBOOT_MEMORY_NVS:
-                    type = "NVS";
-                    break;
-                case MULTIBOOT_MEMORY_BADRAM:
-                    type = "Bad RAM";
-                    break;
-                default:
-                    type = "Unknown";
-                    break;
+            uint64_t total_available = 0;
+            int size = mbi->mmap_length;
+            multiboot_memory_map_t *entry = (multiboot_memory_map_t *)mbi->mmap_addr;
+            printf("  Address              Length               Type\n");
+            // ntf("  0x12345678:12345678  0x12345678:12345678  Available")
+            while (size > 0) {
+                char *type;
+                switch (entry->type) {
+                    case MULTIBOOT_MEMORY_AVAILABLE:
+                        type = "Available";
+                        break;
+                    case MULTIBOOT_MEMORY_RESERVED:
+                        type = "Reserved";
+                        break;
+                    case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
+                        type = "Reclaimable";
+                        break;
+                    case MULTIBOOT_MEMORY_NVS:
+                        type = "NVS";
+                        break;
+                    case MULTIBOOT_MEMORY_BADRAM:
+                        type = "Bad RAM";
+                        break;
+                    default:
+                        type = "Unknown";
+                        break;
+                }
+                printf("  0x%08x:%08x  0x%08x:%08x  %s\n",
+                    (uint32_t)(entry->addr >> 32),
+                    (uint32_t)(entry->addr & 0xFFFFFFFF),
+                    (uint32_t)(entry->len >> 32),
+                    (uint32_t)(entry->len & 0xFFFFFFFF),
+                    type
+                );
+                if (entry->type == MULTIBOOT_MEMORY_AVAILABLE)
+                    total_available += entry->len;
+                size -= sizeof(multiboot_memory_map_t);
+                entry++;
             }
-            printf("  0x%08x:%08x  0x%08x:%08x  %s\n",
-                (uint32_t)(entry->addr >> 32),
-                (uint32_t)(entry->addr & 0xFFFFFFFF),
-                (uint32_t)(entry->len >> 32),
-                (uint32_t)(entry->len & 0xFFFFFFFF),
-                type
-            );
-            if (entry->type == MULTIBOOT_MEMORY_AVAILABLE)
-                total_available += entry->len;
-            size -= sizeof(multiboot_memory_map_t);
-            entry++;
+            printf("Total available memory %u MB\n", (uint32_t)(total_available / (1024 * 1024)));
+        } else {
+            printf("Memory map available - use \"mmap\" as first argument to see it\n");
         }
-        printf("Total available memory %u MB\n", (uint32_t)(total_available / (1024 * 1024)));
     }
 
-    if (mbi->flags & MULTIBOOT_INFO_DRIVE_INFO) {
+    if (all && mbi->flags & MULTIBOOT_INFO_DRIVE_INFO) {
         printf("Drives info at 0x%08x, %u bytes long\n", mbi->drives_addr, mbi->drives_length);
-    } else {
-        printf("Drives info missing\n");
     }
 
-    if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
+    if (all && mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
         printf("Boot loader \"%s\"\n", mbi->boot_loader_name);
     }
 

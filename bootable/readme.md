@@ -153,15 +153,15 @@ Also the following must be met:
 ## OS structure
 
 Maybe, if we take the idea of pipes in unix and extend it to the idea of microservices of today,
-where instead of stdout/stderr we have logging output with various info/error levels, 
+where instead of stdout/stderr we have logging output with various info/error levels,
 where we have no only plain text data, but also json, yaml, xml (bliah), csv, and other formats,
 maybe we could emulate a villabe of microservices, where each one can be one tool to do thing,
-each one would have internal storage, transparent, like file access, but without needing to care 
+each one would have internal storage, transparent, like file access, but without needing to care
 about uid/guid and file and folder names etc, everything being isolated,
 then maybe we could have filters and converters and enrichers and hydrators, and tees, and data sinks
 and data sources and maybe something useful along the way (like responding to user input).
 
-Essentially, maybe something between the Cloud Functions that Google advertises and maybe the pipes 
+Essentially, maybe something between the Cloud Functions that Google advertises and maybe the pipes
 that the guys implemented back in the day. Some semantic way of piping together the flow of some information,
 and maybe not for a single execution (like a shell command execution), but for being resident up there,
 so that whenever a process spurted out some data, the connected services would receive and process
@@ -174,3 +174,9 @@ Just an idea.
 
 
 
+# notes
+
+* before version 2.5, where it adopted special instructions to move control to kernel mode,
+linux was using interrupt x80 for syscalls (open, close, read etc) where the number of syscall to execute
+was placed on EAX, before executing INT. this from wikipedia: https://en.wikipedia.org/wiki/System_call
+(that page has a nice list of categorized syscalls)
