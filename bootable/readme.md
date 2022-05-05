@@ -170,13 +170,47 @@ etc, etc until we got the desired result.
 Just an idea.
 
 
+## sources of knowledge / reference
+
+* [OSDev.org](https://wiki.osdev.org/Main_Page) for the most part
+* Minix1 (mostly for an 8086) ([github repo](https://github.com/gdevic/minix1))
+* Minix3 (for 386) ([github repo](https://github.com/Stichting-MINIX-Research-Foundation/minix))
+* The Lions Book (unix v6) ([online pdf](http://worrydream.com/refs/Lions%20-%20A%20Commentary%20on%20the%20Sixth%20Edition%20UNIX%20Operating%20System.pdf), [online code](http://www.v6.cuzuco.com/v6.pdf))
+* Linux 0.01 ([github repo](https://github.com/zavg/linux-0.01))
+* Linux Kernel Map (though much modern and complex) [link](https://makelinux.github.io/kernel/map/)
+
+## possible folder organization
+
+project root
+- docs
+    - (various documents)
+- boot_disk  (boot disk contents)
+    - home
+    - boot
+    - bin
+    - ...other folders
+- src
+    - kernel (kernel, builds kernel.bin)
+        - bootload
+        - pmode
+        - memory
+        - hdd
+        - filesys
+        - screen
+        - timers
+        - procs
+        - sched
+    - user  (user land)
+        - utils (e.g. mini vim)
+        - libc  (for user utils)
+- build.sh (build script)
 
 
-
-
-# notes
+# various unrelated notes
 
 * before version 2.5, where it adopted special instructions to move control to kernel mode,
 linux was using interrupt x80 for syscalls (open, close, read etc) where the number of syscall to execute
 was placed on EAX, before executing INT. this from wikipedia: https://en.wikipedia.org/wiki/System_call
 (that page has a nice list of categorized syscalls)
+* if i want to access usb for storage, maybe I need to write a usb stack.
+there is some implementation [here](https://github.com/thepowersgang/acess2/blob/master/KernelLand/Modules/USB/MSC/main.c), that I found from old OSDev page, it's an abandoned project.

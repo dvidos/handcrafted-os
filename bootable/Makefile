@@ -59,6 +59,8 @@ view: kernel.bin
 # https://wiki.osdev.org/Bare_Bones
 # can be copied to a usb stick, _very carefully_ by doing:
 # "sudo dd if=kernel.iso of=/dev/sdx && sync"
+# can be mounted for inspection (RO) by doing:
+# sudo mount ./kernel.iso /mnt/p1 -o loop
 kernel.iso: kernel.bin
 	cp kernel.bin iso/boot
 	grub-mkrescue -o $@ iso
