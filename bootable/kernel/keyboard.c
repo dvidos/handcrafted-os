@@ -162,7 +162,7 @@ void init_keyboard() {
 void keyboard_handler(registers_t* regs) {
     (void)regs;
 
-    uint8_t scancode = port_byte_in(0x60);
+    uint8_t scancode = inb(0x60);
     // printf("0x%x ", scancode);
     if (scancode == 0xE0) {
         extended = true;

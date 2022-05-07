@@ -31,7 +31,7 @@
 
 
 static inline void io_wait(void) {
-    (void)port_byte_in(0);
+    (void)inb(0);
     // asm volatile ( "jmp 1f\n\t"
     //                "1:jmp 2f\n\t"
     //                "2:" );
@@ -46,51 +46,51 @@ arguments:
 void pic_remap(int offset1, int offset2)
 {
     unsigned char pic1_mask, pic2_mask;
-	pic1_mask = port_byte_in(PIC1_DATA);                        // save masks
-	pic2_mask = port_byte_in(PIC2_DATA);
+	pic1_mask = inb(PIC1_DATA);                        // save masks
+	pic2_mask = inb(PIC2_DATA);
 
-	port_byte_out(PIC1_CMD, ICW1_INIT + ICW1_ICW4);  // starts the initialization sequence (in cascade mode)
+	outb(PIC1_CMD, ICW1_INIT + ICW1_ICW4);  // starts the initialization sequence (in cascade mode)
 	io_wait();
 
-	port_byte_out(PIC2_CMD, ICW1_INIT + ICW1_ICW4);
+	outb(PIC2_CMD, ICW1_INIT + ICW1_ICW4);
 	io_wait();
 
-	port_byte_out(PIC1_DATA, offset1);                 // ICW2: Master PIC vector offset
+	outb(PIC1_DATA, offset1);                 // ICW2: Master PIC vector offset
 	io_wait();
 
-	port_byte_out(PIC2_DATA, offset2);                 // ICW2: Slave PIC vector offset
+	outb(PIC2_DATA, offset2);                 // ICW2: Slave PIC vector offset
 	io_wait();
 
-	port_byte_out(PIC1_DATA, 4);                       // ICW3: tell Master PIC that there is a slave PIC at IRQ2 (0000 0100)
+	outb(PIC1_DATA, 4);                       // ICW3: tell Master PIC that there is a slave PIC at IRQ2 (0000 0100)
 	io_wait();
 
-	port_byte_out(PIC2_DATA, 2);                       // ICW3: tell Slave PIC its cascade identity (0000 0010)
+	outb(PIC2_DATA, 2);                       // ICW3: tell Slave PIC its cascade identity (0000 0010)
 	io_wait();
 
-	port_byte_out(PIC1_DATA, ICW4_8086);
+	outb(PIC1_DATA, ICW4_8086);
 	io_wait();
 
-	port_byte_out(PIC2_DATA, ICW4_8086);
+	outb(PIC2_DATA, ICW4_8086);
 	io_wait();
 
-	port_byte_out(PIC1_DATA, pic1_mask);   // restore saved masks.
-	port_byte_out(PIC2_DATA, pic2_mask);
+	outb(PIC1_DATA, pic1_mask);   // restore saved masks.
+	outb(PIC2_DATA, pic2_mask);
 }
 
 void pic_send_eoi(unsigned char irq) {
 	if (irq >= 8)
-		port_byte_out(PIC2_CMD, EOI_CMD);
+		outb(PIC2_CMD, EOI_CMD);
 
-	port_byte_out(PIC1_CMD, EOI_CMD);
+	outb(PIC1_CMD, EOI_CMD);
 }
 
 /* Helper func */
 static uint16_t __pic_get_irq_register(int ocw3) {
     /* OCW3 to PIC CMD to get the register values.  PIC2 is chained, and
      * represents IRQs 8-15.  PIC1 is IRQs 0-7, with 2 being the chain */
-    port_byte_out(PIC1_CMD, ocw3);
-    port_byte_out(PIC2_CMD, ocw3);
-    return (port_byte_in(PIC2_CMD) << 8) | port_byte_in(PIC1_CMD);
+    outb(PIC1_CMD, ocw3);
+    outb(PIC2_CMD, ocw3);
+    return (inb(PIC2_CMD) << 8) | inb(PIC1_CMD);
 }
 
 /* Returns the combined value of the cascaded PICs irq request register */
@@ -115,9 +115,9 @@ void irq_set_mask_bit(uint8_t irq_line) {
         irq_line -= 8;
     }
 
-    uint8_t value = port_byte_in(port);
+    uint8_t value = inb(port);
     value = SET_BIT(value, irq_line);
-    port_byte_out(port, value);
+    outb(port, value);
 }
 
 void irq_clear_mask_bit(uint8_t irq_line) {
@@ -130,9 +130,9 @@ void irq_clear_mask_bit(uint8_t irq_line) {
         irq_line -= 8;
     }
 
-    uint8_t value = port_byte_in(port);
+    uint8_t value = inb(port);
     value = CLEAR_BIT(value, irq_line);
-    port_byte_out(port, value);
+    outb(port, value);
 }
 
 

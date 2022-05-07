@@ -88,7 +88,7 @@ static int do_inb(int argc, char *argv[]) {
         return 1;
     }
     int port = atoi(argv[0]);
-    uint8_t value = port_byte_in(port);
+    uint8_t value = inb(port);
     printf("0x%x", value);
     return 0;
 }
@@ -100,7 +100,7 @@ static int do_outb(int argc, char *argv[]) {
     }
     int port = atoi(argv[0]);
     uint8_t value = atoi(argv[1]) & 0xFF;
-    port_byte_out(port, value);
+    outb(port, value);
     return 0;
 }
 
@@ -110,7 +110,7 @@ static int do_inw(int argc, char *argv[]) {
         return 1;
     }
     int port = atoi(argv[0]);
-    uint16_t value = port_word_in(port);
+    uint16_t value = inw(port);
     printf("0x%x", value);
     return 0;
 }
@@ -122,7 +122,7 @@ static int do_outw(int argc, char *argv[]) {
     }
     int port = atoi(argv[0]);
     uint16_t value = atoi(argv[1]) & 0xFFFF;
-    port_byte_out(port, value);
+    outb(port, value);
     return 0;
 }
 

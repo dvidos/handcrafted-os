@@ -49,9 +49,9 @@ void init_timer(uint32_t frequency) {
 
     uint32_t divisor = 1193180 / frequency;
     uint8_t mode = ACCESS_LO_HI_BYTE | MODE_SQUARE_WAVE_GENERATOR;
-    port_byte_out(MODE_COMMAND_PORT, mode);
-    port_byte_out(CHANNEL_0_DATA_PORT, (uint8_t)(divisor & 0xFF));
-    port_byte_out(CHANNEL_0_DATA_PORT, (uint8_t)((divisor >> 8) & 0xFF));
+    outb(MODE_COMMAND_PORT, mode);
+    outb(CHANNEL_0_DATA_PORT, (uint8_t)(divisor & 0xFF));
+    outb(CHANNEL_0_DATA_PORT, (uint8_t)((divisor >> 8) & 0xFF));
 }
 
 void timer_handler(registers_t *regs) {

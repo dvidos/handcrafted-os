@@ -15,13 +15,13 @@ int strlen(const char* str)
 int strcmp(char *a, char *b) {
     while (*a != '\0' && *b != '\0') {
         if (*a != *b) {
-            return (int)(*b - *a);
+            return (int)(*a - *b);
         }
         a++;
         b++;
     }
     // either one or both are '\0'
-    return (int)(*b - *a);
+    return (int)(*a - *b);
 }
 
 void strcpy(char *target, char *source) {
@@ -43,6 +43,36 @@ void memcpy(char *dest, char *source, size_t size) {
         *dest++ = *source++;
     }
 }
+
+int memcmp(char *a, char *b, size_t size) {
+    while (size-- > 0) {
+        if (*a != *b)
+            return (int)(*a - *b);
+    }
+    return 0;
+}
+
+char *memmove(char *dest, char *source, size_t size) {
+    char *d = dest;
+    char *s = source;
+
+    if (dest > source && dest < (source + size)) {
+        // if destination resides inside source, 
+        // we must go from end to start
+        d += size - 1;
+        s += size - 1;
+        while (size-- > 0) {
+            *d-- = *s--;
+        }
+    } else {
+        while (size-- > 0) {
+            *d++ = *s++;
+        }
+    }
+
+    return dest;
+}
+
 
 void reverse(char *buffer, int len) {
     // reverse the buffer in place
@@ -123,11 +153,11 @@ char *strtok(char *str, char *delimiters) {
         if (next == NULL) // user has not called us with valid string yet
             return NULL;
         str = next;
-        //printf("strtok(): Continuing at... [%s]\n", str);
+        // printf("strtok(): Continuing at... [%s]\n", str);
     }
 
     // skip over delimiters in the start of the string
-    //printf("strtok(): Skipping over delimiters [%s]\n", delimiters);
+    // printf("strtok(): Skipping over delimiters [%s]\n", delimiters);
     while (*str != '\0' && strchr(delimiters, *str) != NULL)
         str++;
     if (*str == '\0') {
@@ -135,7 +165,7 @@ char *strtok(char *str, char *delimiters) {
     }
 
     // find the next delimiter, we are on a non-delimiter character
-    //printf("strtok(): Start of token is [%c]\n", *str);
+    // printf("strtok(): Start of token is [%c]\n", *str);
     char *end = str;
     while (true) {
         if (*end == '\0') {
@@ -143,7 +173,7 @@ char *strtok(char *str, char *delimiters) {
             return str;
         } else if (strchr(delimiters, *end) != NULL) {
             // we found a delimiter
-            //printf("strtok(): Found delimiter [%c]\n", *end);
+            // printf("strtok(): Found delimiter [%c]\n", *end);
             *end = '\0';
             next = end + 1; // save for later
             return str;

@@ -9,6 +9,7 @@
 #include "keyboard.h"
 #include "timer.h"
 #include "memory.h"
+#include "string.h"
 #include "multiboot.h"
 #include "konsole.h"
 
@@ -101,6 +102,15 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     screen_write(" done\n");
 
     enable_interrupts();
+
+    if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
+        printf("Running tests...\n");
+        extern void run_tests();
+        run_tests();
+        screen_write("Tests finished, pausing forever...");
+        for(;;)
+            asm("hlt");
+    }
 
     printf("Starting konsole...\n");
     konsole();

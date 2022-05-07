@@ -1,6 +1,9 @@
 #ifndef _SCREEN_H
 #define _SCREEN_H
 
+#include <stdint.h>
+
+
 void screen_init(void);
 void screen_setcolor(uint8_t color);
 void screen_clear();

@@ -4,11 +4,11 @@
 
 
 
-void port_byte_out(uint16_t port, uint8_t data) {
+void outb(uint16_t port, uint8_t data) {
     __asm__("out %%al, %%dx" : : "a" (data), "d" (port));
 }
 
-uint8_t port_byte_in(uint16_t port) {
+uint8_t inb(uint16_t port) {
     uint8_t result;
 
     // format: __asm__("assembly" : output operands : input operands)
@@ -17,11 +17,11 @@ uint8_t port_byte_in(uint16_t port) {
     return result;
 }
 
-void port_word_out(uint16_t port, uint16_t data) {
+void outw(uint16_t port, uint16_t data) {
     __asm__("out %%ax, %%dx" : : "a" (data), "d" (port));
 }
 
-uint16_t port_word_in(uint16_t port) {
+uint16_t inw(uint16_t port) {
     uint16_t result;
 
     // format: __asm__("assembly" : output operands : input operands)
