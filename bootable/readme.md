@@ -112,7 +112,6 @@ Also the following must be met:
 
 ### things to do
 
-* cli/sti and spinlock methods
 * ata disk driver (detect, implement R/W operations)
 * multi tasking (exec, fork, etc)
 * scheduler
@@ -121,16 +120,8 @@ Also the following must be met:
 * libc for usermode
 * loading and executing programs
 * user mode file system operations (open, read, write, close etc)
-* primitive tools (mini shell, mini vi etc)
+* primitive tools (tiny shell, ls, cat, echo, tiny vi etc)
 * greek language keyboard mapping and utf8 support, even in console
-* tests
-* kernel console, with various capabilities:
-    * show memory map (fragmentation etc)
-    * dump processes tables and info
-    * start/stop processes etc
-    * read and write specific memory address or port (byte, word, long)
-    * maybe send messages (IPC) directly to tasks
-    * report uptime, run tests or benchmarks, etc
 * the four main tasks that user mode code can use (also described in Minix Book)
     * process management (fork, exec, exit, etc)
     * I/O device management
@@ -139,10 +130,25 @@ Also the following must be met:
 * other topics
     * Real time clock - reading, writing (see https://wiki.osdev.org/CMOS)
     * Beeper control for fun (maybe from PIT channel 2)
+* kernel monitor
+    * have a low level hotkey (e.g. Ctrl+Alt+Shift+M) to toggle some area of the screen to be used for kernel monitoring
+    * maybe it can have pages, left and right or something like that
+    * programs should not even be aware of it
+
+
 
 ### things done
 
+* reading real time clock
+* tests
+* cli/sti and spinlock methods
 * started kernel console, nice to play with it!
+    * show memory map (fragmentation etc)
+    * dump processes tables and info
+    * start/stop processes etc
+    * read and write specific memory address or port (byte, word, long)
+    * maybe send messages (IPC) directly to tasks
+    * report uptime, run tests or benchmarks, etc
 * bootloader, iso image & booted from usb stick
 * bootsector code (frozen for now, working with the kernel arg of qemu)
 * global descriptor table

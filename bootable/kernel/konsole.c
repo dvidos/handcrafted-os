@@ -5,6 +5,7 @@
 #include "keyboard.h"
 #include "ports.h"
 #include "multiboot.h"
+#include "clock.h"
 
 /**
  * konsole is an interactive shell like thing,
@@ -33,6 +34,7 @@ static int do_inw(int argc, char *argv[]);
 static int do_outw(int argc, char *argv[]);
 static int do_mem_dump(int argc, char *argv[]);
 static int do_boot_info(int argc, char *argv[]);
+static int do_rtc(int argc, char *argv[]);
 static void get_command(char *prompt);
 static void run_command();
 
@@ -52,6 +54,7 @@ struct action actions[] = {
     // {"hdump", "Do memory heap dump, malloc blocks", do_heap_dump},
     {"bootinfo", "Show information from multiboot spec", do_boot_info},
     // {"pdump", "Show information about OS processes", do_proc_dump},
+    {"rtc", "Real Time Clock", do_rtc},
 };
 
 
@@ -370,4 +373,18 @@ static void run_command() {
     if (return_value != 0) {
         printf("\nProcess exited with exit value %d", return_value);
     }
+}
+
+static int do_rtc(int argc, char *argv[]) {
+    clock_time_t time;
+    get_real_time_clock(&time);
+
+    char *days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+    char *months[] = {"?", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
+    printf("The date and time is: %s, %d %s %d, %02d:%02d:%02d\n", 
+        days[time.dow], time.days, months[time.months], time.years, 
+        time.hours, time.minutes, time.seconds);
+    
+    return 0;
 }

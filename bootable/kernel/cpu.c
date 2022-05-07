@@ -6,6 +6,7 @@
 #define INTERRUPT_ENABLE_FLAG 0x00000200 // Interrupt Enable
 
 
+// stop interrupts in current CPU only
 inline void cli(void) {
     __asm__ volatile("cli");
 };
@@ -40,7 +41,9 @@ void pushcli(void) {
     if (cli_depth == 0)
         zero_depth_enabled = interrupts_enabled();
 
-    cli();
+    // we must cli() unconditionally, if we checked 
+    // and then cleared, then we'd have a race condition!
+    cli(); 
     cli_depth++;
 }
 
