@@ -64,6 +64,19 @@
                    based on which page faults have been fired.
 
    In conclusion though, I think the only real drive for paging is swapping...
+
+   Apparently, the kernel needs to allocate physical memory for a processes
+   When it does that, it applies paging, to map the process' virtual address
+   space to the physical memory it has "allocated". To know what is allocated
+   and what not, the kernel has to have some housekeeping method, e.g.
+   a linked list of free pages or something similar. If it keeps a list
+   of free pages, it can take some out of there and put them in the list
+   of allocated pages for a process or for the kernel itself.
+
+   Essentially, we ask the paging allocator to allocate a page for us,
+   (it can be any physical address)
+   and we give it the virtual address space we want it to be mapped to.
+   Upon exiting the process, we free the page, back to the unallocated list.
 */
 
 

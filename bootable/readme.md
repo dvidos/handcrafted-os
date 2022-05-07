@@ -9,7 +9,7 @@ to have a simple process running in a emulator or computer.
 
 Might even be able to make a bootable usb stick!
 
-Following this guy: https://dev.to/frosnerd/writing-my-own-boot-loader-3mld
+~Following this guy: [https://dev.to/frosnerd/writing-my-own-boot-loader-3mld](https://dev.to/frosnerd/writing-my-own-boot-loader-3mld)~ outgrew this idea, now following mostly [OSDEv.org](https://osdev.org/)
 
 ## description
 
@@ -112,15 +112,16 @@ Also the following must be met:
 
 ### things to do
 
-* bootloader, iso image & boot from usb stick
+* cli/sti and spinlock methods
+* ata disk driver (detect, implement R/W operations)
 * multi tasking (exec, fork, etc)
 * scheduler
-* messages between tasks
+* messages between tasks (IPC)
 * file system driver (read / write some filesystem)
 * libc for usermode
 * loading and executing programs
 * user mode file system operations (open, read, write, close etc)
-* primitive tools (mini shell, vi, mini c compiler etc)
+* primitive tools (mini shell, mini vi etc)
 * greek language keyboard mapping and utf8 support, even in console
 * tests
 * kernel console, with various capabilities:
@@ -141,12 +142,14 @@ Also the following must be met:
 
 ### things done
 
+* started kernel console, nice to play with it!
+* bootloader, iso image & booted from usb stick
 * bootsector code (frozen for now, working with the kernel arg of qemu)
 * global descriptor table
 * interrupt descriptor table
 * screen driver
 * keyboard driver
-* timers
+* timers (ticks, pause)
 
 
 
@@ -178,6 +181,7 @@ Just an idea.
 * The Lions Book (unix v6) ([online pdf](http://worrydream.com/refs/Lions%20-%20A%20Commentary%20on%20the%20Sixth%20Edition%20UNIX%20Operating%20System.pdf), [online code](http://www.v6.cuzuco.com/v6.pdf))
 * Linux 0.01 ([github repo](https://github.com/zavg/linux-0.01))
 * Linux Kernel Map (though much modern and complex) [link](https://makelinux.github.io/kernel/map/)
+* MIT's course OS xv6, for a RISK machine ([pdf](https://pdos.csail.mit.edu/6.828/2021/xv6/book-riscv-rev2.pdf), [code repo](https://github.com/mit-pdos/xv6-riscv)). An abandonned x86 version is [here](https://github.com/mit-pdos/xv6-public)
 
 ## possible folder organization
 
@@ -214,3 +218,7 @@ was placed on EAX, before executing INT. this from wikipedia: https://en.wikiped
 (that page has a nice list of categorized syscalls)
 * if i want to access usb for storage, maybe I need to write a usb stack.
 there is some implementation [here](https://github.com/thepowersgang/acess2/blob/master/KernelLand/Modules/USB/MSC/main.c), that I found from old OSDev page, it's an abandoned project.
+* it seems a program has heap space allocated to it (similarly to how it has code, data and stack space allocated to it), and that this heap space can be changed in size dynamically. this was originally done through the brk/sbrk methods, later with the mmap method.
+therefore it seems there is some usefulness to mamory paging after all... :-)
+* [this](https://github.com/mit-pdos/xv6-public/blob/master/spinlock.c) file has some nice cli/sti, pushcli/popsti,
+as well as spinlock code. Although the repo is weird, lots of little gems in there! :-)
