@@ -46,7 +46,7 @@
 #define PRIORITY_LOW    0
 
 #define NUM_PRIORITIES  3    // 0=highest, n=lowest
-#define NUM_PROCESSES   128
+#define NUM_PROCESSES   64
 
 
 typedef uint16_t pid_t;
@@ -69,6 +69,7 @@ struct process_list_struct {
     uint16_t count;
 };
 typedef struct process_list_struct process_list_t;
+
 
 bool _list_empty(process_list_t *list);
 int _process_index(process_list_t *list, process_t *target);

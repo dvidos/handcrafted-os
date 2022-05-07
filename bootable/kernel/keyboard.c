@@ -5,6 +5,7 @@
 #include "ports.h"
 #include "idt.h"
 #include "cpu.h"
+#include "lock.h"
 #include "keyboard.h"
 
 
@@ -22,6 +23,7 @@ static volatile bool num_lock = false;
 static volatile struct key_event events_queue[KEY_QUEUE_SIZE];
 static volatile uint8_t queue_head = 0;
 static volatile uint8_t queue_length = 0; // easier to tell when empty, instead of a tail pointer
+static volatile lock_t queue_lock = 0;
 
 bool keyboard_has_key() {
     return (queue_length > 0);
@@ -29,24 +31,19 @@ bool keyboard_has_key() {
 
 void wait_keyboard_event(struct key_event *event) {
 
-    // interrupts should be off when we remove from queue
-    // we append at the end, we remove from the head
+    while (queue_length == 0);
 
-    while (true) {
-        while (queue_length == 0);
-        disable_interrupts();
-        if (queue_length == 0) {
-            // they got us, we need to loop again
-            enable_interrupts();
-            continue;
-        }
-        break;
+    acquire(&queue_lock);
+    if (queue_length == 0) {
+        // somebody got to the last event before us
+        memset((char *)event, 0, sizeof(struct key_event));
+    } else {
+        // we can unqueue the event
+        memcpy((char *)event, (char *)&events_queue[queue_head], sizeof(struct key_event));
+        queue_head++;
+        queue_length--;
     }
-
-    memcpy((char *)event, (char *)&events_queue[queue_head], sizeof(struct key_event));
-    queue_head++;
-    queue_length--;
-    enable_interrupts();
+    release(&queue_lock);
 }
 
 struct scancode_info {
@@ -252,6 +249,7 @@ void keyboard_handler(registers_t* regs) {
             // just lose this keypress
         } else {
             // assume we are in stopped interrupts mode
+            acquire(&queue_lock);
             uint8_t index = (queue_head + queue_length) % KEY_QUEUE_SIZE;
             events_queue[index].printable = printable;
             events_queue[index].special_key = special_key;
@@ -259,6 +257,7 @@ void keyboard_handler(registers_t* regs) {
             events_queue[index].alt_down = left_alt || right_alt;
             events_queue[index].shift_down = left_shift || right_shift;
             queue_length++;
+            release(&queue_lock);
         }
     }
 

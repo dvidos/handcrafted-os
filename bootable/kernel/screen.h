@@ -13,5 +13,7 @@ void screen_puts(const char* data);
 void screen_putchar(const char c);
 
 void printf(char *format, ...);
+void panic(char *message);
+
 
 #endif

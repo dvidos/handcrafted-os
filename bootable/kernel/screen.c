@@ -288,3 +288,12 @@ void printf(const char *format, ...) {
     }
     va_end(args);
 }
+
+
+void panic(char *message) {
+    cli();
+    printf("Kernel panic: ");
+    printf(message);
+    for (;;)
+        __asm__ volatile("hlt");    
+}

@@ -3,8 +3,14 @@
 
 #include <stdint.h>
 
-#define disable_interrupts()   asm volatile ("cli")
-#define enable_interrupts()    asm volatile ("sti")
+void cli(void);
+void sti(void);
+
+void pushcli(void);
+void popcli(void);
+
+
+
 
 // a non-zero means CPUID is supported
 extern uint32_t get_cpuid_availability();

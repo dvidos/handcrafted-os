@@ -48,7 +48,7 @@ void run_tests() {
     strcpy(buffer,        "0123456789abcdefghijklmnopqrstuvwxyz");
     memmove(&buffer[5], &buffer[10], 10);
     assert(strcmp(buffer, "01234abcdefghijfghijklmnopqrstuvwxyz") == 0);
-    strcpy(buffer, "0123456789abcdefghijklmnopqrstuvwxyz");
+    strcpy(buffer,        "0123456789abcdefghijklmnopqrstuvwxyz");
     memmove(&buffer[10], &buffer[5], 10);
     assert(strcmp(buffer, "012345678956789abcdeklmnopqrstuvwxyz") == 0);
 

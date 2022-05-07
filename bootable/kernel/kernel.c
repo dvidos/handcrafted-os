@@ -46,7 +46,7 @@ multiboot_info_t saved_multiboot_info;
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
 void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 {
-    disable_interrupts();  // interrupts are already disabled at this point
+    cli();  // interrupts are already disabled at this point
 
     screen_init();
     printf("C kernel running, loaded at 0x%x - 0x%x (size of %u KB)\n",
@@ -101,7 +101,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_memory(boot_magic, mbi, (uint32_t)&kernel_start_address, (uint32_t)&kernel_end_address);
     screen_write(" done\n");
 
-    enable_interrupts();
+    sti();
 
     if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
         printf("Running tests...\n");
