@@ -149,4 +149,6 @@ void init_pic() {
 
     irq_clear_mask_bit(0);  // timer
     irq_clear_mask_bit(1);  // keyboard
+    irq_clear_mask_bit(2);  // the slave / chained PIC
+    irq_clear_mask_bit(8);  // real time clock
 }

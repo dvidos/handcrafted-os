@@ -35,6 +35,7 @@ static int do_outw(int argc, char *argv[]);
 static int do_mem_dump(int argc, char *argv[]);
 static int do_boot_info(int argc, char *argv[]);
 static int do_rtc(int argc, char *argv[]);
+static int do_sizes(int argc, char *argv[]);
 static void get_command(char *prompt);
 static void run_command();
 
@@ -55,6 +56,7 @@ struct action actions[] = {
     {"bootinfo", "Show information from multiboot spec", do_boot_info},
     // {"pdump", "Show information about OS processes", do_proc_dump},
     {"rtc", "Real Time Clock", do_rtc},
+    {"sizes", "Variable sizes in memory", do_sizes},
 };
 
 
@@ -79,7 +81,7 @@ static int do_help(int argc, char *argv[]) {
     for (int i = 0; i < len; i++) {
         if (strcmp(actions[i].cmd, "help") == 0 || strcmp(actions[i].cmd, "?") == 0)
             continue;
-        printf("%s\n\t%s\n", actions[i].cmd, actions[i].descr);
+        printf("- %-12s %s\n", actions[i].cmd, actions[i].descr);
     }
 
     return 0;
@@ -376,6 +378,8 @@ static void run_command() {
 }
 
 static int do_rtc(int argc, char *argv[]) {
+    (void)argc; (void)argv;
+
     clock_time_t time;
     get_real_time_clock(&time);
 
@@ -385,6 +389,29 @@ static int do_rtc(int argc, char *argv[]) {
     printf("The date and time is: %s, %d %s %d, %02d:%02d:%02d\n", 
         days[time.dow], time.days, months[time.months], time.years, 
         time.hours, time.minutes, time.seconds);
+
+    uint32_t secs = get_uptime_in_seconds();
+    uint32_t up_days = secs / (24*60*60);
+    secs = secs % (24*60*60);
+    uint32_t hours = secs / 3600;
+    secs = secs % 3600;
+    uint32_t mins = secs / 60;
+    secs = secs % 60;
+    printf("Uptime is %d days, %dh, %dm, %ds\n", up_days, hours, mins, secs);
+
+    return 0;
+}
+
+static int do_sizes(int argc, char *argv[]) {
+    (void)argc; (void)argv;
+
+    printf("sizeof(char)      is %d\n", sizeof(char)); // 2
+    printf("sizeof(short)     is %d\n", sizeof(short)); // 2
+    printf("sizeof(int)       is %d\n", sizeof(int));   // 4
+    printf("sizeof(long)      is %d\n", sizeof(long));  // 4 (was expecting 8!)
+    printf("sizeof(long long) is %d\n", sizeof(long long)); // 8
+    printf("sizeof(void *) is %d\n", sizeof(void *));  // 4
+    printf("sizeof(size_t) is %d\n", sizeof(size_t));  // 4
     
     return 0;
 }
