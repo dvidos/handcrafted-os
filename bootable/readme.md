@@ -128,7 +128,6 @@ Also the following must be met:
     * memory management (malloc etc)
     * file management
 * other topics
-    * Real time clock - reading, writing (see https://wiki.osdev.org/CMOS)
     * Beeper control for fun (maybe from PIT channel 2)
 * kernel monitor
     * have a low level hotkey (e.g. Ctrl+Alt+Shift+M) to toggle some area of the screen to be used for kernel monitoring
@@ -139,7 +138,7 @@ Also the following must be met:
 
 ### things done
 
-* reading real time clock
+* reading real time clock + interrupt every second.
 * tests
 * cli/sti and spinlock methods
 * started kernel console, nice to play with it!
@@ -227,4 +226,5 @@ there is some implementation [here](https://github.com/thepowersgang/acess2/blob
 * it seems a program has heap space allocated to it (similarly to how it has code, data and stack space allocated to it), and that this heap space can be changed in size dynamically. this was originally done through the brk/sbrk methods, later with the mmap method.
 therefore it seems there is some usefulness to mamory paging after all... :-)
 * [this](https://github.com/mit-pdos/xv6-public/blob/master/spinlock.c) file has some nice cli/sti, pushcli/popsti,
-as well as spinlock code. Although the repo is weird, lots of little gems in there! :-)
+as well as spinlock code. Although the repo is weird, lots of little gems in there! :-) also 
+[this one](https://github.com/tiqwab/xv6-x86_64), for 64 bits

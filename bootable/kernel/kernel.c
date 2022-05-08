@@ -88,6 +88,15 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     printf("Initializing memory...\n");
     init_memory(boot_magic, mbi, (uint32_t)&kernel_start_address, (uint32_t)&kernel_end_address);
 
+    size_t start = (size_t)&kernel_end_address;
+    size_t end = 2 * 1024 * 1024;
+    size_t num_pages = (end - start) / 4096;
+    if (start >= end)
+        panic("No good space for kernel pages");
+    printf("Claiming kernel memory pages from %p to %p (%d pages)\n", start, end, num_pages);
+    init_kernel_pages(start, end);
+    
+
     printf("Enabling interrupts...\n");
     sti();
     enable_nmi();
