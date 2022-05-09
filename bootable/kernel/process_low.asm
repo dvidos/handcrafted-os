@@ -24,50 +24,35 @@
 ;
 ; see https://github.com/mit-pdos/xv6-public/blob/master/swtch.S as well
 ;
-[global switch_context_low_level]
-switch_context_low_level:
-    ; we expect two pointers to be passed, if they are passed in the stack,
-    ; I think [ESP+4] should be the first pointer, [ESP+8] the second.
-    ; [ESP] (without modifiers) should point to the return address, which is pushed last
-    ;
-    ; another way I saw it (in x86_64 arch) was one arg pointed by ESI, the other by EDI
-    ; https://github.com/tiqwab/xv6-x86_64/blob/5a5ec6c3f0d44a14674248ba1cdf201f3da93ee1/kern/swtch.S
-    ; 
-    ; to walk the structure,
-    ; one trick I saw is that people make ESP point to the C struct,
-    ; then push or pop the registers one by one, therefore ESP acts 
-    ; as the incremented pointer into the structure items.
-
-    ; an idea to experiment: 1:save register to stack, 
-    ; 2:have register point to the struct, 3:save all state to struct
-    ; 4:retrieve register to save in struct
+[global grab_some_registers]
+grab_some_registers:
     push ebp
     mov ebp, esp
 
-    mov eax, [ebp+8]  ; [ebp+8] is the address of prev!!!!!
-    mov eax, [ebp+12] ; [ebp+12] is the address of next!!!!!
+    ; these lines have been verified.
+    ;                         ; [ebp+4] is the return address
+    ; mov eax, [ebp+8]        ; [ebp+8] is the address of first argument!!
+    ; mov eax, [ebp+12]       ; [ebp+12] is the address of next argument!!
+    ; mov dword [eax], 44h    ; eax points to the first dword in the structure
+    ; mov dword [eax+4], 55h  ; eax+4 points to the second dword in the structure etc
     
-    mov eax, [ebp+8]        ; load the prev structure first
-    mov dword [eax], 22h    ; eax points to the first dword in the structure
-    mov dword [eax+4], 33h  ; eax+4 points to the second dword in the structure
+    mov bx, 22h
+    mov cx, 33h
+    mov dx, 44h
 
-    mov eax, [ebp+12]       ; load the next structure first
-    mov dword [eax], 44h    ; eax points to the first dword in the structure
-    mov dword [eax+4], 55h  ; eax+4 points to the second dword in the structure
+    push eax                ; store this, we'll need a work register
+    mov eax, [ebp+8]         ; store EAX in structure base address
+    mov [eax+4], ebx
+    mov [eax+8], ecx
+    mov [eax+12], edx
+    mov [eax+16], esp
+    mov [eax+20], ebp ; bp is already globbed
+    mov [eax+24], esi
+    mov [eax+28], edi
 
-    
-    ; mov eax, [ebp+4]   ; eax now points to prev
-    ; mov dword [eax], 55h
-    ; mov dword [eax+4], 66h
-
-    ; mov eax, [ebp+8]   ; eax not points to next
-    ; mov dword [eax], 77h
-    ; mov dword [eax+4], 88h
-
-    
+    pop eax
     pop ebp
     ret
-
 
     ; another idea is: save the current SP in memory, 
     ; then reload a new SS:ESP pointer to a new stack block. 
@@ -110,6 +95,54 @@ switch_context_low_level:
 ; 
 ; interrupts use IRET instead of RET, that pops another 4 bytes off the stack,
 ; as the EFLAGS were pushed when calling the interrupt handler
+;
+; nice explanation of stack and stack frames with EBP: https://wiki.osdev.org/Stack
 
 
+
+[global simpler_context_switch]
+simpler_context_switch:
+    ; i think it boils down to this:
+    ;   1. push a bunch of things in the stack,
+    ;   2. save current SP to a location pointed by an argument of the C kernel,
+    ;   3. give SP the value that C kernel passed to us,
+    ;   4. pop the bunch of things in the opposite order.
+    ; this method expects two arguments:
+    ;   1. a pointer to a location where to save the last ESP of this process
+    ;   2. a pointer to a value to set ESP to, possibly returning to a different caller
+
+    push ebp     ; [ebp+4] return address, +8 first arg, +12 second arg
+    mov ebp, esp
+
+    ; save values to the stack, to preserve for next time
+    push 0xDDDDDDDD
+    mov eax, 0x11111111
+    mov ecx, 0x22222222
+    mov edx, 0x33333333
+    mov ebx, 0x44444444
+    pusha     ; pushes EAX, ECX, EDX, EBX, original ESP, EBP, ESI, and EDI.
+    pushfd    ; pushes 32bits flags
+    push 0xEEEEEEEE
+
+    ; having pushed EAX we can use it for work.
+    mov eax, [ebp+8]   ; EAX now contains the address of location to save ESP to
+    mov [eax], esp     ; set the value to point to current SP
+
+    ; now we can load the other ESP
+    mov eax, [ebp+12]  ; eax now contains the pointer to the value to set ESP to
+    mov esp, [eax]     ; set the new stack pointer
+
+    ; restore whatever we had saved before
+    pop eax
+    popfd
+    popa
+    pop eax
+    
+    ; clean up stack framew
+    mov esp, ebp
+    pop ebp
+
+    ; we will now return to whoever called the switching function,
+    ; the first time that the SP was saved.
+    ret
 

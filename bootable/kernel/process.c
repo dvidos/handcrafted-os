@@ -314,9 +314,22 @@
 // and is used to prepare the target return
 // the magic is when we manually prepare SP and IP for first execution
 struct switchable_context {
-    uint32_t sp;
-    uint32_t ip;
+    uint32_t eax;
+    uint32_t ebx;
+    uint32_t ecx;
+    uint32_t edx;
+    uint32_t esp;
+    uint32_t ebp;
+    uint32_t esi;
+    uint32_t edi;
+    uint32_t eip; // i think we'll set this through the return address
+    uint32_t eflags;
+    uint32_t cs;
+    uint32_t ds;
+    uint32_t ss;
+    uint32_t es;
 };
+char buffer[512];
 
 // tiniest kernel process that can work
 struct kernel_proc {
@@ -358,25 +371,52 @@ void test_process_switching() {
     current_running_proc_index = 0; // it doesn't matter which
     //switch_to_another_process();
 
+    // struct switchable_context *p;
+    // printf("Address of test_switching() is 0x%08p\n", test_process_switching);
+    // printf("Address of prev is 0x%08p\n", &kernel_procs[0].context);
+    // printf("Address of next is 0x%08p\n", &kernel_procs[1].context);
+    // extern uint32_t grab_some_registers(struct switchable_context *prev, struct switchable_context *next);
+    // uint32_t retval = grab_some_registers(
+    //     &kernel_procs[0].context,
+    //     &kernel_procs[1].context
+    // );
+    // p = &kernel_procs[0].context;
+    // printf("Retval is          0x%08x\n", retval);
+    // printf("Context now has:\n"
+    //         "\tEAX 0x%08x\n" "\tEBX 0x%08x\n" "\tECX 0x%08x\n" "\tEDX 0x%08x\n"
+    //         "\tESP 0x%08x\n" "\tEBP 0x%08x\n" "\tESI 0x%08x\n" "\tEDI 0x%08x\n"
+    //         "\tEIP 0x%08x\n"
+    //         "\teflags 0x%08x\n"
+    //         "\tCS  0x%08x\n" "\tDS  0x%08x\n" "\tSS  0x%08x\n" "\tES  0x%08x\n",
+    //     p->eax, p->ebx, p->ecx, p->edx,
+    //     p->esp, p->ebp, p->esi, p->edi,
+    //     p->eip,
+    //     p->eflags,
+    //     p->cs, p->ds, p->ss, p->es);
 
-    register long esp asm ("esp");
-    //register long eip asm ("eip");
-    printf("Inside test_switching, ESP 0x%08x, EIP 0x%08x\n", esp, 0);
 
-    printf("Address of prev is 0x%08p\n", &kernel_procs[0].context);
-    printf("Address of next is 0x%08p\n", &kernel_procs[1].context);
+    register long esp1 asm ("esp");
+    printf("ESP is currently  0x%08x\n", esp1);
 
-    extern uint32_t switch_context_low_level(struct context *prev, struct context *next);
-    uint32_t retval = switch_context_low_level(
-        &kernel_procs[0].context,
-        &kernel_procs[1].context
-    );
-    printf("Retval is          0x%08x\n", retval);
-    printf("Context #0 now is  0x%08x 0x%08x\n", kernel_procs[0].context.sp, kernel_procs[0].context.ip);
-    printf("Context #1 now is  0x%08x 0x%08x\n", kernel_procs[1].context.sp, kernel_procs[1].context.ip);
+    extern void simpler_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr);
+    uint32_t *esp_ptr = NULL;
+    printf("Before context switch esp_ptr=%p\n", esp_ptr);
+    simpler_context_switch(&esp_ptr, &esp_ptr);
+    // we cannot call any function before copying the memory,
+    // or else the stack will be gobbled
+    for (int i = 0; i < 64; i++)
+        buffer[i] = *(((char *)esp_ptr) + i);
+    printf("After  context switch esp_ptr=%p\n", esp_ptr);
+    printf("After  context switch [esp_ptr] value=0x%08x\n", *esp_ptr);
+    printf("This buffer grows downward, to the last value of the ESP we were given\n");
+    memdump(buffer + 63, 64, true);
+    // we should make a struct to be able to see / mingle with returned values.
+    // then we'd be able to initialize a process
+    // the return address is somewhere in the stack, before the EBP being pushed.
+    
 
 }
-void switch_to_another_process() {
+void schedule_another_process() {
     // we should save the return stack into the proc table
     kernel_procs[current_running_proc_index].running = false;
 
@@ -404,7 +444,7 @@ void switch_to_another_process() {
 void sleep_for(uint32_t milliseconds) {
     kernel_procs[current_running_proc_index].milliseconds_to_wake = milliseconds;
     kernel_procs[current_running_proc_index].running = false;
-    switch_to_another_process();
+    schedule_another_process();
 }
 void process_a_main() {
     int i = 0;
