@@ -297,3 +297,29 @@ void panic(char *message) {
     for (;;)
         __asm__ volatile("hlt");    
 }
+
+
+static inline char dot(char c) {
+    return (c >= ' ' && 'c' <= '~' ? c : '.');
+}
+
+void dumpmem(void *address, int bytes, bool decreasing) {
+    unsigned char *ptr = (unsigned char *)address;
+    int dir = decreasing ? -1 : 1;
+    while (bytes > 0) {
+        // using xxd's format, seems nice
+        printf("%08p: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
+            ptr,
+            ptr[0], ptr[1 * dir], ptr[2 * dir], ptr[3 * dir], 
+            ptr[4 * dir], ptr[5 * dir], ptr[6 * dir], ptr[7 * dir],
+            ptr[8 * dir], ptr[9 * dir], ptr[10 * dir], ptr[11 * dir], 
+            ptr[12 * dir], ptr[13 * dir], ptr[14 * dir], ptr[15 * dir],
+            dot(ptr[0]), dot(ptr[1 * dir]), dot(ptr[2 * dir]), dot(ptr[3 * dir]),
+            dot(ptr[4 * dir]), dot(ptr[5 * dir]), dot(ptr[6 * dir]), dot(ptr[7 * dir]),
+            dot(ptr[8 * dir]), dot(ptr[9 * dir]), dot(ptr[10 * dir]), dot(ptr[11 * dir]),
+            dot(ptr[12 * dir]), dot(ptr[13 * dir]), dot(ptr[14 * dir]), dot(ptr[15 * dir])
+        );
+        ptr += 16 * dir;
+        bytes -= 16;
+    }
+}
