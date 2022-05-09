@@ -24,52 +24,18 @@
 ;
 ; see https://github.com/mit-pdos/xv6-public/blob/master/swtch.S as well
 ;
-[global grab_some_registers]
-grab_some_registers:
-    push ebp
-    mov ebp, esp
 
-    ; these lines have been verified.
-    ;                         ; [ebp+4] is the return address
-    ; mov eax, [ebp+8]        ; [ebp+8] is the address of first argument!!
-    ; mov eax, [ebp+12]       ; [ebp+12] is the address of next argument!!
-    ; mov dword [eax], 44h    ; eax points to the first dword in the structure
-    ; mov dword [eax+4], 55h  ; eax+4 points to the second dword in the structure etc
-    
-    mov bx, 22h
-    mov cx, 33h
-    mov dx, 44h
+; another idea is: save the current SP in memory, 
+; then reload a new SS:ESP pointer to a new stack block. 
+; The caller's EIP is stored in the original stack (it remains somewhere)
+; and the new EIP is already pushed in the new stack 
+; and will be popped off when the function returns.
 
-    push eax                ; store this, we'll need a work register
-    mov eax, [ebp+8]         ; store EAX in structure base address
-    mov [eax+4], ebx
-    mov [eax+8], ecx
-    mov [eax+12], edx
-    mov [eax+16], esp
-    mov [eax+20], ebp ; bp is already globbed
-    mov [eax+24], esi
-    mov [eax+28], edi
-
-    pop eax
-    pop ebp
-    ret
-
-    ; another idea is: save the current SP in memory, 
-    ; then reload a new SS:ESP pointer to a new stack block. 
-    ; The caller's EIP is stored in the original stack (it remains somewhere)
-    ; and the new EIP is already pushed in the new stack 
-    ; and will be popped off when the function returns.
-
-    ; essentially, I think that what we do is the following:
-    ; push things in the stack, return a pointer to that stack 
-    ; that snapshot in time, to be later resumed.
-    ; then load a new value onto SS:ESP, a pointer 
-    ; that was previously loaded.
-
-
-
-
-
+; essentially, I think that what we do is the following:
+; push things in the stack, return a pointer to that stack 
+; that snapshot in time, to be later resumed.
+; then load a new value onto SS:ESP, a pointer 
+; that was previously loaded.
 
 ; keep in mind that when we dump stack, we should dump 
 ; in a *decreasing* order of bytes, therefore deper nested things 
@@ -100,13 +66,14 @@ grab_some_registers:
 
 
 
+
+; it boils down to this:
+;   1. push a bunch of things in the stack,
+;   2. save current SP to a location pointed by an argument of the C kernel,
+;   3. give SP the value that C kernel passed to us,
+;   4. pop the bunch of things in the opposite order.
 [global simpler_context_switch]
 simpler_context_switch:
-    ; i think it boils down to this:
-    ;   1. push a bunch of things in the stack,
-    ;   2. save current SP to a location pointed by an argument of the C kernel,
-    ;   3. give SP the value that C kernel passed to us,
-    ;   4. pop the bunch of things in the opposite order.
     ; this method expects two arguments:
     ;   1. a pointer to a location where to save the last ESP of this process
     ;   2. a pointer to a value to set ESP to, possibly returning to a different caller
@@ -115,14 +82,9 @@ simpler_context_switch:
     mov ebp, esp
 
     ; save values to the stack, to preserve for next time
-    push 0xDDDDDDDD
-    mov eax, 0x11111111
-    mov ecx, 0x22222222
-    mov edx, 0x33333333
-    mov ebx, 0x44444444
-    pusha     ; pushes EAX, ECX, EDX, EBX, original ESP, EBP, ESI, and EDI.
     pushfd    ; pushes 32bits flags
-    push 0xEEEEEEEE
+    pusha     ; pushes EAX, ECX, EDX, EBX, original ESP, EBP, ESI, and EDI.
+    ; if we push something else here, we need to update the revelant C structure
 
     ; having pushed EAX we can use it for work.
     mov eax, [ebp+8]   ; EAX now contains the address of location to save ESP to
@@ -133,16 +95,47 @@ simpler_context_switch:
     mov esp, [eax]     ; set the new stack pointer
 
     ; restore whatever we had saved before
-    pop eax
-    popfd
     popa
-    pop eax
+    popfd
     
-    ; clean up stack framew
+    ; clean up stack frame
     mov esp, ebp
     pop ebp
 
-    ; we will now return to whoever called the switching function,
-    ; the first time that the SP was saved.
+    ; we will now return to a differrent caller:
+    ; whoever called the switching function when the first SP was saved.
     ret
 
+
+
+
+
+; this method evolved from testing things out
+; by returning EAX, I managed to inderstand how to reference the arguments
+[global grab_some_registers]
+grab_some_registers:
+    push ebp
+    mov ebp, esp
+
+    ; these lines have been verified.
+    ;                         ; [ebp+4] is the return address
+    ; mov eax, [ebp+8]        ; [ebp+8] is the address of first argument!!
+    ; mov eax, [ebp+12]       ; [ebp+12] is the address of next argument!!
+    ; mov dword [eax], 44h    ; eax points to the first dword in the structure
+    ; mov dword [eax+4], 55h  ; eax+4 points to the second dword in the structure etc
+    ;                         ; [ebp-offset] negative offsets are local variables
+    
+    push eax                ; store this, we'll need a work register
+    mov eax, [ebp+8]         ; store EAX in structure base address
+    mov [eax+4], ebx
+    mov [eax+8], ecx
+    mov [eax+12], edx
+    mov [eax+16], esp
+    mov [eax+20], ebp        ; bp is already globbed though
+    mov [eax+24], esi
+    mov [eax+28], edi
+
+    pop eax
+    pop ebp
+    mov esp, ebp       ; this cleans up the SP, no matter how many things we.ve push
+    ret

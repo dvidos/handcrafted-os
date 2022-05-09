@@ -309,26 +309,36 @@
 
 // /////////////////////////////////////////////////////////////////////
 
-
-// this is being preserved when switching 
-// and is used to prepare the target return
-// the magic is when we manually prepare SP and IP for first execution
-struct switchable_context {
-    uint32_t eax;
-    uint32_t ebx;
-    uint32_t ecx;
-    uint32_t edx;
-    uint32_t esp;
-    uint32_t ebp;
-    uint32_t esi;
+/**
+ * this is being preserved when switching and is used to prepare the target return
+ * first entries in the structure are what has been pushed last,
+ * or first entries is what will be popped first
+ * see assembly function "simpler_context_switch" 
+ * the structure allows us to prepare new stack snapshot for starting new processes
+ */
+struct switched_stack_snapshot {
+    // these are explicitly pushed by us
     uint32_t edi;
-    uint32_t eip; // i think we'll set this through the return address
+    uint32_t esi;
+    uint32_t ebp;
+    uint32_t esp;
+    uint32_t ebx;
+    uint32_t edx;
+    uint32_t ecx;
+    uint32_t eax;
     uint32_t eflags;
-    uint32_t cs;
-    uint32_t ds;
-    uint32_t ss;
-    uint32_t es;
-};
+    uint32_t ebp_upon_entry;
+
+    // this one is not pushed by our code, but by whoever calls our switch() method
+    uint32_t return_address; 
+    uint32_t r12;
+    uint32_t r13;
+    uint32_t r14;
+    uint32_t r15;
+    uint32_t r16;
+} __attribute__((packed));
+typedef struct switched_stack_snapshot switched_stack_snapshot_t;
+switched_stack_snapshot_t snapshot;
 char buffer[512];
 
 // tiniest kernel process that can work
@@ -337,7 +347,7 @@ struct kernel_proc {
     uint32_t milliseconds_to_wake;
     bool ready;
     bool running;
-    struct switchable_context context;
+    switched_stack_snapshot_t *snapshot;
 };
 struct kernel_proc kernel_procs[16];
 int current_running_proc_index = 0;
@@ -355,7 +365,7 @@ void test_process_switching() {
     // so that when returning from the interrupt, we'll get back to the main()
     // as if the process_main() had called the interrupt and we are now returning.
 
-    memset(kernel_procs, 0, sizeof(kernel_procs));
+    memset((char *)kernel_procs, 0, sizeof(kernel_procs));
 
     kernel_procs[0].stack_page = allocate_kernel_page();
     // prepare the context to "return" to main_a
@@ -404,16 +414,53 @@ void test_process_switching() {
     simpler_context_switch(&esp_ptr, &esp_ptr);
     // we cannot call any function before copying the memory,
     // or else the stack will be gobbled
-    for (int i = 0; i < 64; i++)
-        buffer[i] = *(((char *)esp_ptr) + i);
+    // for (int i = 0; i < 64; i++)
+    //     buffer[i] = *(((char *)esp_ptr) + i);
+    char *p = (char *)&snapshot;
+    for (int i = 0; i < sizeof(snapshot); i++) {
+        *p++ = *(((char *)esp_ptr) + i);
+    }
     printf("After  context switch esp_ptr=%p\n", esp_ptr);
-    printf("After  context switch [esp_ptr] value=0x%08x\n", *esp_ptr);
-    printf("This buffer grows downward, to the last value of the ESP we were given\n");
-    memdump(buffer + 63, 64, true);
+    // printf("This buffer grows downward, to the last value of the ESP we were given\n");
+    // memdump(buffer + 63, 64, true);
+    printf("Saved switch stack snapshot:\n"
+        "edi    0x%08x\n"
+        "esi    0x%08x\n"
+        "ebp    0x%08x\n"
+        "esp    0x%08x\n"
+        "ebx    0x%08x\n"
+        "edx    0x%08x\n"
+        "ecx    0x%08x\n"
+        "eax    0x%08x\n"
+        "eflags 0x%08x\n"
+        "ebp_upon_entry 0x%08x\n"
+        "return_address 0x%08x\n"
+        "r12 0x%08x\n"
+        "r13 0x%08x\n"
+        "r14 0x%08x\n"
+        "r15 0x%08x\n"
+        "r16 0x%08x\n",
+        snapshot.edi,
+        snapshot.esi,
+        snapshot.ebp,
+        snapshot.esp,
+        snapshot.ebx,
+        snapshot.edx,
+        snapshot.ecx,
+        snapshot.eax,
+        snapshot.eflags,
+        snapshot.ebp_upon_entry,
+        snapshot.return_address,
+        snapshot.r12,
+        snapshot.r13,
+        snapshot.r14,
+        snapshot.r15,
+        snapshot.r16
+    );
     // we should make a struct to be able to see / mingle with returned values.
     // then we'd be able to initialize a process
     // the return address is somewhere in the stack, before the EBP being pushed.
-    
+
 
 }
 void schedule_another_process() {
@@ -440,6 +487,7 @@ void schedule_another_process() {
     }
 
     // we may have found something, maybe not.
+    (void)idx;
 }
 void sleep_for(uint32_t milliseconds) {
     kernel_procs[current_running_proc_index].milliseconds_to_wake = milliseconds;
