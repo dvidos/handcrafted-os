@@ -356,7 +356,25 @@ void test_process_switching() {
 
     // kick it off!
     current_running_proc_index = 0; // it doesn't matter which
-    switch_to_another_process();
+    //switch_to_another_process();
+
+
+    register long esp asm ("esp");
+    //register long eip asm ("eip");
+    printf("Inside test_switching, ESP 0x%08x, EIP 0x%08x\n", esp, 0);
+
+    printf("Address of prev is 0x%08p\n", &kernel_procs[0].context);
+    printf("Address of next is 0x%08p\n", &kernel_procs[1].context);
+
+    extern uint32_t switch_context_low_level(struct context *prev, struct context *next);
+    uint32_t retval = switch_context_low_level(
+        &kernel_procs[0].context,
+        &kernel_procs[1].context
+    );
+    printf("Retval is          0x%08x\n", retval);
+    printf("Context #0 now is  0x%08x 0x%08x\n", kernel_procs[0].context.sp, kernel_procs[0].context.ip);
+    printf("Context #1 now is  0x%08x 0x%08x\n", kernel_procs[1].context.sp, kernel_procs[1].context.ip);
+
 }
 void switch_to_another_process() {
     // we should save the return stack into the proc table
@@ -380,6 +398,8 @@ void switch_to_another_process() {
             }
         }
     }
+
+    // we may have found something, maybe not.
 }
 void sleep_for(uint32_t milliseconds) {
     kernel_procs[current_running_proc_index].milliseconds_to_wake = milliseconds;
@@ -400,5 +420,4 @@ void process_b_main() {
         sleep_for(410);
     }
 }
-
 
