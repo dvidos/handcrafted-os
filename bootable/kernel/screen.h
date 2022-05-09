@@ -15,7 +15,7 @@ void screen_putchar(const char c);
 
 void printf(char *format, ...);
 void panic(char *message);
-void dumpmem(void *address, int bytes, bool decreasing);
+void memdump(void *address, int bytes, bool decreasing);
 
 
 #endif

@@ -157,7 +157,7 @@ void isr_handler(registers_t regs) {
 //     printf("Upon entry to sub2() ESP1 is 0x%08x\n", esp1);
 
 //     printf("Stack Dump (downwards)\n");
-//     dumpmem((void *)((esp + 0x80) & ~0xF), 16 * 10, true);
+//     memdump((void *)((esp + 0x80) & ~0xF), 16 * 10, true);
 // }
 // void sub1(int magic) {
 //     uint32_t a = 0x55555555;

@@ -303,7 +303,7 @@ static inline char dot(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-void dumpmem(void *address, int bytes, bool decreasing) {
+void memdump(void *address, int bytes, bool decreasing) {
     unsigned char *ptr = (unsigned char *)address;
     int dir = decreasing ? -1 : 1;
     while (bytes > 0) {
