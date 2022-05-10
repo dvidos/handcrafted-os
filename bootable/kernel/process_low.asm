@@ -78,8 +78,15 @@ simpler_context_switch:
     ;   1. a pointer to a location where to save the last ESP of this process
     ;   2. a pointer to a value to set ESP to, possibly returning to a different caller
 
-    push ebp     ; [ebp+4] return address, +8 first arg, +12 second arg
-    mov ebp, esp
+    
+    ; we want to avoid pushing EBP, because we think it ruins our switching
+    ; when it is popped at the other side, especially on the first execution.
+    ; so we try this:
+    mov eax, [esp+4]  ; hopefully the first argument, since we pushed no EBP
+    mov edx, [esp+8]  ; hopefully the second argument
+
+    ; push ebp     ; [ebp+4] return address, +8 first arg, +12 second arg
+    ; mov ebp, esp
 
     ; save values to the stack, to preserve for next time
     pushfd    ; pushes 32bits flags
@@ -92,18 +99,14 @@ simpler_context_switch:
     push edi
     ; if we push something else here, we need to update the revelant C structure
 
-    ; having pushed EAX we can use it for work.
-    mov eax, [ebp+8]   ; EAX now contains the address of location to save ESP to
     cmp eax, 0         ; don't save if a null pointer is given
     je no_old_esp
     mov [eax], esp     ; set the value to point to current SP
 no_old_esp:
 
-    ; now we can load the other ESP
-    mov eax, [ebp+12]  ; eax now contains the pointer to the value to set ESP to
-    cmp eax, 0
+    cmp edx, 0
     je no_new_esp
-    mov esp, [eax]     ; set the new stack pointer
+    mov esp, [edx]     ; set the new stack pointer
 no_new_esp:
 
     ; restore whatever we had saved before
@@ -117,12 +120,13 @@ no_new_esp:
     popfd
     
     ; clean up stack frame
-    mov esp, ebp
-    pop ebp
+    ; mov esp, ebp
+    ; pop ebp
 
     ; we will now return to a differrent caller:
     ; whoever called the switching function when the first SP was saved.
     ret
+
 
 
 

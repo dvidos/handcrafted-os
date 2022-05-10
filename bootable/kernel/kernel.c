@@ -116,7 +116,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     printf("Testing task switching...\n");
     extern void test_switching_context_functionality();
-    test_switching_context_functionality();
+    // test_switching_context_functionality();
     extern void test_switching_start();
     test_switching_start();
 

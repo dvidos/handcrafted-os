@@ -352,7 +352,6 @@ struct switched_stack_snapshot {
     uint32_t ecx;
     uint32_t eax;
     uint32_t eflags;
-    uint32_t ebp_upon_entry;
     // this one is not pushed by our code, but by whoever calls our assembly method
     uint32_t return_address; 
 } __attribute__((packed));
@@ -379,11 +378,8 @@ void schedule_another_process();
 
 void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name) {
     char *stack_ptr = allocate_kernel_page();
-    printf("Allocated kernel page at %u\n", stack_ptr);
     proc->stack_page = stack_ptr;
     proc->esp = (uint32_t)(stack_ptr + kernel_page_size() - sizeof(switched_stack_snapshot_t) - 64);
-    printf("Stack esp - page = %u\n", proc->esp - (uint32_t)proc->stack_page);
-    // proc->esp = proc->esp & ~0x4; // align to four bytes
     proc->stack_snapshot->return_address = (uint32_t)entry_point;
     proc->name = name;
 }
@@ -400,20 +396,20 @@ void process_b_main() {
     }
 }
 void schedule_another_process() {
-    acquire(&scheduling_lock);
+//    acquire(&scheduling_lock);
     int old_run_index = run_index;
     run_index = (run_index + 1) % 2;
     uint32_t old_esp;
     printf("Will go to proc %d ESP of 0x%x\n", run_index, kernel_procs[run_index].esp);
-    // simpler_context_switch(
-    //     &old_esp,  // where to save current task's ESP
-    //     &kernel_procs[run_index].esp
-    // );
+    simpler_context_switch(
+        &old_esp,  // where to save current task's ESP
+        &kernel_procs[run_index].esp
+    );
     if (old_run_index >= 0 && old_esp > 0) {
         kernel_procs[old_run_index].esp = old_esp;
         printf("Saving old ESP of 0x%x to proc %d\n", old_esp, old_run_index);
     }
-    release(&scheduling_lock);
+//    release(&scheduling_lock);
 }
 void test_switching_start() {
     memset((char *)kernel_procs, 0, sizeof(kernel_procs));
@@ -463,7 +459,6 @@ void test_switching_context_functionality() {
         "ecx            0x%08x\n"
         "eax            0x%08x\n"
         "eflags         0x%08x\n"
-        "ebp_upon_entry 0x%08x\n"
         "return_address 0x%08x\n",
         snapshot.edi,
         snapshot.esi,
@@ -473,7 +468,6 @@ void test_switching_context_functionality() {
         snapshot.ecx,
         snapshot.eax,
         snapshot.eflags,
-        snapshot.ebp_upon_entry,
         snapshot.return_address
     );
 }
