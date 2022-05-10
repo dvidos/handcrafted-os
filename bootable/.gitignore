@@ -3,6 +3,7 @@
 *.bin
 *.iso
 kernel/*.o
-.vscode/
+.vscode/*
+
 
 

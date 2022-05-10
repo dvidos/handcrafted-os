@@ -115,8 +115,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // konsole();
 
     printf("Testing task switching...\n");
-    extern void test_process_switching();
-    test_process_switching();
+    extern void test_switching_context_functionality();
+    test_switching_context_functionality();
+    extern void test_switching_start();
+    test_switching_start();
 
     screen_write("Pausing forever...");
     for(;;)
@@ -124,12 +126,15 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     screen_write("This should never appear on screen...");
 }
 
+
 void isr_handler(registers_t regs) {
     // don't forget we have mapped IRQs 0+ to 0x20+
     // to avoid the first 0x1F interrupts that are CPU faults in protected mode
     switch (regs.int_no) {
         case 0x20:
             timer_handler(&regs);
+            extern void test_switching_tick();
+            test_switching_tick();
             break;
         case 0x21:
             keyboard_handler(&regs);

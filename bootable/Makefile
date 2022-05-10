@@ -43,7 +43,7 @@ boot/multiboot.o: boot/multiboot.S
 
 kernel/%.o: kernel/%.c $(KERNEL_HEADERS) Makefile
 	@# -O0 disables optimizations (for loops etc), default was -O2
-	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O0 -Wall -Wextra -Wunused-function
+	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O3 -Wall -Wextra -Wunused-function
 
 
 kernel/%.o: kernel/%.asm

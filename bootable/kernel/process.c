@@ -5,6 +5,7 @@
 #include "string.h"
 #include "lock.h"
 #include "memory.h"
+#include "timer.h"
 
 
 
@@ -307,205 +308,160 @@
 
 
 
+
+
+
+
+
+
+
 // /////////////////////////////////////////////////////////////////////
+ /**
+ * this method, written in assembly, performs a task switch
+ * it takes two pointers to a uint32_t value
+ * - first, it pushes a lot of registers on the stack, 
+ * - then saves the ESP into the location pointed by the first argument.
+ * - then it takes the value pointed by the second argument and sets ESP
+ * - then it pops registers in the reverse order.
+ * it will return to the caller whose ESP was saved as the second argument
+ * 
+ * if both pointers point to the same address, no apparent change will happen
+ *
+ * After the call, the old_esp value will point to the bottom of the saved stack
+ * The stack_snapshot structure maps fields to what should be there in memory
+ * if we make a stack_snapshot pointer to point to that value, we can see what's pushed
+ * If we prepare such a structure, we can create a new task to switch to.
+ * The way things are pushed and the stack_snapshot struct must be kept in sync
+ */
+extern void simpler_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr);
 
 /**
- * this is being preserved when switching and is used to prepare the target return
+ * this is what's pushed when switching and is used to prepare the target return
  * first entries in the structure are what has been pushed last,
  * or first entries is what will be popped first
- * see assembly function "simpler_context_switch" 
  * the structure allows us to prepare new stack snapshot for starting new processes
+ * see relevant assembly function
  */
 struct switched_stack_snapshot {
     // these are explicitly pushed by us
     uint32_t edi;
     uint32_t esi;
     uint32_t ebp;
-    uint32_t esp;
     uint32_t ebx;
     uint32_t edx;
     uint32_t ecx;
     uint32_t eax;
     uint32_t eflags;
     uint32_t ebp_upon_entry;
-
-    // this one is not pushed by our code, but by whoever calls our switch() method
+    // this one is not pushed by our code, but by whoever calls our assembly method
     uint32_t return_address; 
-    uint32_t r12;
-    uint32_t r13;
-    uint32_t r14;
-    uint32_t r15;
-    uint32_t r16;
 } __attribute__((packed));
 typedef struct switched_stack_snapshot switched_stack_snapshot_t;
-switched_stack_snapshot_t snapshot;
-char buffer[512];
+
 
 // tiniest kernel process that can work
 struct kernel_proc {
+    char *name;
     void *stack_page;
-    uint32_t milliseconds_to_wake;
-    bool ready;
-    bool running;
-    switched_stack_snapshot_t *snapshot;
+    union { // two views of the same piece of information
+        uint32_t esp;
+        switched_stack_snapshot_t *stack_snapshot;
+    };
 };
-struct kernel_proc kernel_procs[16];
-int current_running_proc_index = 0;
-// maybe we'll need context for the scheduler as well
+typedef struct kernel_proc kernel_proc_t;
+kernel_proc_t kernel_procs[2];
+int run_index = 0;
+typedef void (* func_ptr)();
+volatile lock_t scheduling_lock = 0;
+
+void schedule_another_process();
 
 
-void test_process_switching() {
-    // launch two processes
-    // use the timer interrupt to switch between them
-    // implement the sleep() method as well.
-
-    // this is a kernel process, no code/data/bss needed
-    // we need to allocate one stack page for each process and grab its address
-    // we need to prepare the initial stack frame,
-    // so that when returning from the interrupt, we'll get back to the main()
-    // as if the process_main() had called the interrupt and we are now returning.
-
-    memset((char *)kernel_procs, 0, sizeof(kernel_procs));
-
-    kernel_procs[0].stack_page = allocate_kernel_page();
-    // prepare the context to "return" to main_a
-    kernel_procs[0].running = false;
-    kernel_procs[0].ready = true;
-
-    kernel_procs[1].stack_page = allocate_kernel_page();
-    // prepare the context to "return" to main_b
-    kernel_procs[1].running = false;
-    kernel_procs[1].ready = true;
-
-    // kick it off!
-    current_running_proc_index = 0; // it doesn't matter which
-    //switch_to_another_process();
-
-    // struct switchable_context *p;
-    // printf("Address of test_switching() is 0x%08p\n", test_process_switching);
-    // printf("Address of prev is 0x%08p\n", &kernel_procs[0].context);
-    // printf("Address of next is 0x%08p\n", &kernel_procs[1].context);
-    // extern uint32_t grab_some_registers(struct switchable_context *prev, struct switchable_context *next);
-    // uint32_t retval = grab_some_registers(
-    //     &kernel_procs[0].context,
-    //     &kernel_procs[1].context
-    // );
-    // p = &kernel_procs[0].context;
-    // printf("Retval is          0x%08x\n", retval);
-    // printf("Context now has:\n"
-    //         "\tEAX 0x%08x\n" "\tEBX 0x%08x\n" "\tECX 0x%08x\n" "\tEDX 0x%08x\n"
-    //         "\tESP 0x%08x\n" "\tEBP 0x%08x\n" "\tESI 0x%08x\n" "\tEDI 0x%08x\n"
-    //         "\tEIP 0x%08x\n"
-    //         "\teflags 0x%08x\n"
-    //         "\tCS  0x%08x\n" "\tDS  0x%08x\n" "\tSS  0x%08x\n" "\tES  0x%08x\n",
-    //     p->eax, p->ebx, p->ecx, p->edx,
-    //     p->esp, p->ebp, p->esi, p->edi,
-    //     p->eip,
-    //     p->eflags,
-    //     p->cs, p->ds, p->ss, p->es);
-
-
-    register long esp1 asm ("esp");
-    printf("ESP is currently  0x%08x\n", esp1);
-
-    extern void simpler_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr);
-    uint32_t *esp_ptr = NULL;
-    printf("Before context switch esp_ptr=%p\n", esp_ptr);
-    simpler_context_switch(&esp_ptr, &esp_ptr);
-    // we cannot call any function before copying the memory,
-    // or else the stack will be gobbled
-    // for (int i = 0; i < 64; i++)
-    //     buffer[i] = *(((char *)esp_ptr) + i);
-    char *p = (char *)&snapshot;
-    for (int i = 0; i < sizeof(snapshot); i++) {
-        *p++ = *(((char *)esp_ptr) + i);
-    }
-    printf("After  context switch esp_ptr=%p\n", esp_ptr);
-    // printf("This buffer grows downward, to the last value of the ESP we were given\n");
-    // memdump(buffer + 63, 64, true);
-    printf("Saved switch stack snapshot:\n"
-        "edi    0x%08x\n"
-        "esi    0x%08x\n"
-        "ebp    0x%08x\n"
-        "esp    0x%08x\n"
-        "ebx    0x%08x\n"
-        "edx    0x%08x\n"
-        "ecx    0x%08x\n"
-        "eax    0x%08x\n"
-        "eflags 0x%08x\n"
-        "ebp_upon_entry 0x%08x\n"
-        "return_address 0x%08x\n"
-        "r12 0x%08x\n"
-        "r13 0x%08x\n"
-        "r14 0x%08x\n"
-        "r15 0x%08x\n"
-        "r16 0x%08x\n",
-        snapshot.edi,
-        snapshot.esi,
-        snapshot.ebp,
-        snapshot.esp,
-        snapshot.ebx,
-        snapshot.edx,
-        snapshot.ecx,
-        snapshot.eax,
-        snapshot.eflags,
-        snapshot.ebp_upon_entry,
-        snapshot.return_address,
-        snapshot.r12,
-        snapshot.r13,
-        snapshot.r14,
-        snapshot.r15,
-        snapshot.r16
-    );
-    // we should make a struct to be able to see / mingle with returned values.
-    // then we'd be able to initialize a process
-    // the return address is somewhere in the stack, before the EBP being pushed.
-
-
-}
-void schedule_another_process() {
-    // we should save the return stack into the proc table
-    kernel_procs[current_running_proc_index].running = false;
-
-    // find the next process to run
-    int kernel_procs_len = sizeof(kernel_procs) / sizeof(kernel_procs[0]);
-    int idx = (current_running_proc_index + 1) % kernel_procs_len;
-    for (int i = 0; i < kernel_procs_len; i++) {
-        struct kernel_proc proc = kernel_procs[i];
-        if (proc.ready) {
-            if (proc.milliseconds_to_wake > 0) {
-                proc.milliseconds_to_wake--;
-                // we'll not pick up this one
-            } else {
-                // we found it!
-                proc.running = true;
-                current_running_proc_index = i;
-                // we should set up the return stack
-                break;
-            }
-        }
-    }
-
-    // we may have found something, maybe not.
-    (void)idx;
-}
-void sleep_for(uint32_t milliseconds) {
-    kernel_procs[current_running_proc_index].milliseconds_to_wake = milliseconds;
-    kernel_procs[current_running_proc_index].running = false;
-    schedule_another_process();
+void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name) {
+    char *stack_ptr = allocate_kernel_page();
+    proc->stack_page = stack_ptr;
+    proc->esp = (uint32_t)(char *)stack_ptr + 4096 - sizeof(switched_stack_snapshot_t) - 64;
+    proc->stack_snapshot->return_address = (uint32_t)entry_point;
+    proc->name = name;
 }
 void process_a_main() {
     int i = 0;
     while (1) {
         printf("I'm process A, i is %d\n", i++);
-        sleep_for(500);
     }
 }
 void process_b_main() {
     int i = 1000;
     while (1) {
         printf("I'm process B, i is %d\n", i++);
-        sleep_for(410);
+    }
+}
+void schedule_another_process() {
+    acquire(&scheduling_lock);
+    int old_run_index = run_index;
+    run_index = (run_index + 1) % 2;
+    uint32_t old_esp;
+    simpler_context_switch(
+        &old_esp,  // where to save current task's ESP
+        &kernel_procs[run_index].esp
+    );
+    if (old_run_index >= 0)
+        kernel_procs[old_run_index].esp = old_esp;
+    release(&scheduling_lock);
+}
+void test_switching_start() {
+    memset((char *)kernel_procs, 0, sizeof(kernel_procs));
+    create_kernel_process(&kernel_procs[0], process_a_main, "Proc_A");
+    create_kernel_process(&kernel_procs[1], process_b_main, "Proc_B");
+    run_index = 0;
+    printf("Procs initialized, leacing scheduling to interrupt\n");
+}
+
+static int switching_ticks = 0;
+void test_switching_tick() {
+    // schedule something new, every 100 msecs
+    if (++switching_ticks > 700) {
+        switching_ticks = 0;
+        // schedule_another_process();
+        printf("(Tick)");
     }
 }
 
+
+
+
+void test_switching_context_functionality() {
+    switched_stack_snapshot_t snapshot;
+    uint32_t esp = 0;
+    printf("Before context switch ESP=%08x\n", esp);
+    simpler_context_switch(&esp, &esp);
+    // save things so we can print them
+    // don't call any methods, or we'll overwrite the stack!!!!
+    char *p = (char *)&snapshot;
+    for (uint32_t i = 0; i < sizeof(snapshot); i++) {
+        *p++ = *(((char *)esp) + i);
+    }
+    printf("After  context switch ESP=%08x\n", esp);
+    printf("Saved switch stack snapshot:\n"
+        "edi            0x%08x\n"
+        "esi            0x%08x\n"
+        "ebp            0x%08x\n"
+        "ebx            0x%08x\n"
+        "edx            0x%08x\n"
+        "ecx            0x%08x\n"
+        "eax            0x%08x\n"
+        "eflags         0x%08x\n"
+        "ebp_upon_entry 0x%08x\n"
+        "return_address 0x%08x\n",
+        snapshot.edi,
+        snapshot.esi,
+        snapshot.ebp,
+        snapshot.ebx,
+        snapshot.edx,
+        snapshot.ecx,
+        snapshot.eax,
+        snapshot.eflags,
+        snapshot.ebp_upon_entry,
+        snapshot.return_address
+    );
+}

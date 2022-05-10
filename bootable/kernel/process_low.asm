@@ -83,19 +83,37 @@ simpler_context_switch:
 
     ; save values to the stack, to preserve for next time
     pushfd    ; pushes 32bits flags
-    pusha     ; pushes EAX, ECX, EDX, EBX, original ESP, EBP, ESI, and EDI.
+    push eax
+    push ecx
+    push edx
+    push ebx
+    push ebp
+    push esi
+    push edi
     ; if we push something else here, we need to update the revelant C structure
 
     ; having pushed EAX we can use it for work.
     mov eax, [ebp+8]   ; EAX now contains the address of location to save ESP to
+    cmp eax, 0         ; don't save if a null pointer is given
+    je no_old_esp
     mov [eax], esp     ; set the value to point to current SP
+no_old_esp:
 
     ; now we can load the other ESP
     mov eax, [ebp+12]  ; eax now contains the pointer to the value to set ESP to
+    cmp eax, 0
+    je no_new_esp
     mov esp, [eax]     ; set the new stack pointer
+no_new_esp:
 
     ; restore whatever we had saved before
-    popa
+    pop edi
+    pop esi
+    pop ebp
+    pop ebx
+    pop edx
+    pop ecx
+    pop eax
     popfd
     
     ; clean up stack frame
