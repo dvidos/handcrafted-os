@@ -316,6 +316,10 @@ void init_kernel_pages(size_t start, size_t end) {
     }
 }
 
+size_t kernel_page_size() {
+    return PGSIZE;
+}
+
 void *allocate_kernel_page() {
     if (first_free_page == NULL)
         panic("No more free pakes to allocate for kernel");

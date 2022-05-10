@@ -379,8 +379,11 @@ void schedule_another_process();
 
 void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name) {
     char *stack_ptr = allocate_kernel_page();
+    printf("Allocated kernel page at %u\n", stack_ptr);
     proc->stack_page = stack_ptr;
-    proc->esp = (uint32_t)(char *)stack_ptr + 4096 - sizeof(switched_stack_snapshot_t) - 64;
+    proc->esp = (uint32_t)(stack_ptr + kernel_page_size() - sizeof(switched_stack_snapshot_t) - 64);
+    printf("Stack esp - page = %u\n", proc->esp - (uint32_t)proc->stack_page);
+    // proc->esp = proc->esp & ~0x4; // align to four bytes
     proc->stack_snapshot->return_address = (uint32_t)entry_point;
     proc->name = name;
 }
@@ -401,12 +404,15 @@ void schedule_another_process() {
     int old_run_index = run_index;
     run_index = (run_index + 1) % 2;
     uint32_t old_esp;
-    simpler_context_switch(
-        &old_esp,  // where to save current task's ESP
-        &kernel_procs[run_index].esp
-    );
-    if (old_run_index >= 0)
+    printf("Will go to proc %d ESP of 0x%x\n", run_index, kernel_procs[run_index].esp);
+    // simpler_context_switch(
+    //     &old_esp,  // where to save current task's ESP
+    //     &kernel_procs[run_index].esp
+    // );
+    if (old_run_index >= 0 && old_esp > 0) {
         kernel_procs[old_run_index].esp = old_esp;
+        printf("Saving old ESP of 0x%x to proc %d\n", old_esp, old_run_index);
+    }
     release(&scheduling_lock);
 }
 void test_switching_start() {
@@ -414,16 +420,22 @@ void test_switching_start() {
     create_kernel_process(&kernel_procs[0], process_a_main, "Proc_A");
     create_kernel_process(&kernel_procs[1], process_b_main, "Proc_B");
     run_index = 0;
-    printf("Procs initialized, leacing scheduling to interrupt\n");
+    printf("Process list:\n");
+    for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
+        kernel_proc_t p = kernel_procs[i];
+        printf("PID %d: %-10s  ESP x%08x, Stack x%08x, Entry x%08x\n", i, 
+            p.name, p.esp, p.stack_page, p.stack_snapshot->return_address);
+    }
+    for (;;) 
+        asm("hlt");
 }
 
 static int switching_ticks = 0;
 void test_switching_tick() {
     // schedule something new, every 100 msecs
-    if (++switching_ticks > 700) {
+    if (++switching_ticks > 1000) {
         switching_ticks = 0;
-        // schedule_another_process();
-        printf("(Tick)");
+        schedule_another_process();
     }
 }
 
