@@ -333,7 +333,7 @@
  * If we prepare such a structure, we can create a new task to switch to.
  * The way things are pushed and the stack_snapshot struct must be kept in sync
  */
-extern void simpler_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr);
+extern void low_level_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr);
 
 /**
  * this is what's pushed when switching and is used to prepare the target return
@@ -369,6 +369,7 @@ struct kernel_proc {
 };
 typedef struct kernel_proc kernel_proc_t;
 kernel_proc_t kernel_procs[2];
+kernel_proc_t booted_thread;
 int run_index = 0;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
@@ -385,23 +386,37 @@ void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name
 }
 void process_a_main() {
     int i = 0;
-    while (1) {
-        printf("I'm process A, i is %d\n", i++);
+    while (true) {
+        printf("Proc-A: I am process A, I = %d\n", i);
+        low_level_context_switch(
+            &kernel_procs[0].esp,
+            &booted_thread.esp
+        );
     }
+    for (;;) asm("hlt");
 }
 void process_b_main() {
     int i = 1000;
-    while (1) {
-        printf("I'm process B, i is %d\n", i++);
+    while (i < 1010) {
+        printf("This is B, i is %d\n", i++);
     }
+    printf("B, out\n");
+    for (;;) asm("hlt");
 }
 void schedule_another_process() {
 //    acquire(&scheduling_lock);
     int old_run_index = run_index;
     run_index = (run_index + 1) % 2;
     uint32_t old_esp;
-    printf("Will go to proc %d ESP of 0x%x\n", run_index, kernel_procs[run_index].esp);
-    simpler_context_switch(
+    printf("Will go to proc %d, ESP of 0x%x\n", run_index, kernel_procs[run_index].esp);
+
+    // completely unintiutive, but immensely important:
+    // before and after this call, we are in a different stack frame.
+    // the values of all arguments and local variables are different!!!!!
+    // for example, after the switch, the "old" becomes whatever was used 
+    // to switch out the thing we are going to switch in!!!!
+    // so, be careful what the expectations are before and after calling this method.
+    low_level_context_switch(
         &old_esp,  // where to save current task's ESP
         &kernel_procs[run_index].esp
     );
@@ -412,15 +427,29 @@ void schedule_another_process() {
 //    release(&scheduling_lock);
 }
 void test_switching_start() {
+    // we should not neglect the original task that has been running since boot
+    // this is what we will switch "from" into whatever other task we want to spawn.
+    // this way we always have a "from" to switch from...
+    create_kernel_process(&booted_thread, NULL, "Booted");
+
     memset((char *)kernel_procs, 0, sizeof(kernel_procs));
     create_kernel_process(&kernel_procs[0], process_a_main, "Proc_A");
     create_kernel_process(&kernel_procs[1], process_b_main, "Proc_B");
-    run_index = 0;
+    run_index = -1;
     printf("Process list:\n");
     for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
         kernel_proc_t p = kernel_procs[i];
         printf("PID %d: %-10s  ESP x%08x, Stack x%08x, Entry x%08x\n", i, 
             p.name, p.esp, p.stack_page, p.stack_snapshot->return_address);
+    }
+
+    // let's switch ourselves and the new task
+    while (true) {
+        printf("Boot thread: Starting proc A\n");
+        low_level_context_switch(
+            &booted_thread.esp,  // where to save current task's ESP
+            &kernel_procs[0].esp
+        );
     }
     for (;;) 
         asm("hlt");
@@ -428,10 +457,22 @@ void test_switching_start() {
 
 static int switching_ticks = 0;
 void test_switching_tick() {
-    // schedule something new, every 100 msecs
     if (++switching_ticks > 1000) {
         switching_ticks = 0;
-        schedule_another_process();
+        printf("(tick)");
+        //schedule_another_process();
+
+        // after the schedule_another_process() is called,
+        // the task is kicking in,
+        // we never return here, therefore the IRQ is never acknowledged,
+        // therefore it never fires a second time!
+        // some discussion here: https://www.reddit.com/r/osdev/comments/i69bv4/problems_with_preempting_from_timer_interrupt/
+        // we could have similar issue when holding a lock, as we "return" into the task,
+        // therefore we never release the lock.
+        // what to do, what to do!!!
+        // what idea is that, the first time, instead of returning into the task,
+        // we return to a piece of code of ours that can run the task.
+        // maybe this has good info: https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial
     }
 }
 
@@ -442,7 +483,7 @@ void test_switching_context_functionality() {
     switched_stack_snapshot_t snapshot;
     uint32_t esp = 0;
     printf("Before context switch ESP=%08x\n", esp);
-    simpler_context_switch(&esp, &esp);
+    low_level_context_switch(&esp, &esp);
     // save things so we can print them
     // don't call any methods, or we'll overwrite the stack!!!!
     char *p = (char *)&snapshot;

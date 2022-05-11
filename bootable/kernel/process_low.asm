@@ -72,8 +72,8 @@
 ;   2. save current SP to a location pointed by an argument of the C kernel,
 ;   3. give SP the value that C kernel passed to us,
 ;   4. pop the bunch of things in the opposite order.
-[global simpler_context_switch]
-simpler_context_switch:
+[global low_level_context_switch]
+low_level_context_switch:
     ; this method expects two arguments:
     ;   1. a pointer to a location where to save the last ESP of this process
     ;   2. a pointer to a value to set ESP to, possibly returning to a different caller
