@@ -360,7 +360,7 @@ typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 
 
 // tiniest kernel process that can work
-enum proc_state { READY, RUNNING, BLOCKED };
+enum proc_state { READY, RUNNING, SLEEPING, BLOCKED };
 struct kernel_proc {
     char *name;
     struct kernel_proc *next;
@@ -373,6 +373,7 @@ struct kernel_proc {
     uint64_t cpu_ticks_last;
     enum proc_state state;
     int block_reason;
+    uint64_t sleep_until;
 };
 typedef struct kernel_proc kernel_proc_t;
 struct proc_list {
@@ -384,6 +385,9 @@ kernel_proc_t kernel_procs[4];
 kernel_proc_t *running_proc;
 proc_list_t ready_list;
 proc_list_t blocked_list;
+proc_list_t sleeping_list;
+volatile int postpone_switching_tasks = 0;
+volatile bool tasks_pending_switching = false;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
 
@@ -431,32 +435,80 @@ void unlist(proc_list_t *list, kernel_proc_t *proc) {
         trailing = trailing->next;
     
     if (trailing == NULL)
-        return; // we could not find it
+        return; // we could not find entry
     
     trailing->next = proc->next;
     if (list->tail == proc)
         list->tail = trailing;
     proc->next = NULL;
 }
-
+void lock_scheduler() {
+    pushcli();
+    postpone_switching_tasks++;
+}
+void unlock_scheduler() {
+    postpone_switching_tasks--;
+    if (postpone_switching_tasks == 0) {
+        if (tasks_pending_switching) {
+            tasks_pending_switching = false;
+            schedule();
+        }
+    }
+    popcli();
+}
 // this is how the running task can block itself
 void block_me(int reason) {
-    pushcli();
+    lock_scheduler();
     running_proc->state = BLOCKED;
     running_proc->block_reason = reason;
     append(&blocked_list, running_proc);
-    schedule();
-    popcli();
+    schedule(); // allow someone else to run
+    unlock_scheduler();
 }
 void unblock_task(kernel_proc_t *proc) {
-    pushcli();
+    lock_scheduler();
     unlist(&blocked_list, proc);
     proc->state = READY;
     proc->block_reason = 0;
     prepend(&ready_list, proc);
-    popcli();
+    unlock_scheduler();
 }
+void sleep_me_until(uint64_t msecs_since_boot) {
+    if (msecs_since_boot <= timer_get_uptime_msecs())
+        return;
+    lock_scheduler();
+    running_proc->state = SLEEPING;
+    running_proc->sleep_until = msecs_since_boot;
+    append(&sleeping_list, running_proc);
+    schedule(); // allow someone else to run
+    unlock_scheduler();
+}
+void wake_sleeping_tasks() {
+    if (sleeping_list.head == NULL)
+        return;
+    lock_scheduler();
 
+    // move everything to a temp list, then deal with one task at a time
+    proc_list_t temp_list;
+    temp_list.head = sleeping_list.head;
+    temp_list.tail = sleeping_list.tail;
+    sleeping_list.head = NULL;
+    sleeping_list.tail = NULL;
+    uint64_t now = timer_get_uptime_msecs();
+
+    kernel_proc_t *proc = dequeue(&temp_list);
+    while (proc != NULL) {
+        if (now >= proc->sleep_until) {
+            proc->state = READY;
+            prepend(&ready_list, proc);
+        } else {
+            append(&sleeping_list, proc);
+        }
+        proc = dequeue(&temp_list);
+    }
+    
+    unlock_scheduler();
+}
 void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name) {
     char *stack_ptr = allocate_kernel_page();
     proc->stack_page = stack_ptr;
@@ -468,53 +520,59 @@ void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name
     proc->state = READY;
 }
 void process_a_main() {
-    popcli(); // unlock the scheduler in our first execution
+    unlock_scheduler(); // unlock the scheduler in our first execution
 
     int i = 0;
     while (true) {
         printf("A");
-        pushcli();
+        sleep_me_until(timer_get_uptime_msecs() + 250);
+        lock_scheduler();
         schedule();
-        popcli();
+        unlock_scheduler();
         block_me(i);
         i++;
     }
     for (;;) asm("hlt");
 }
 void process_b_main() {
-    popcli(); // unlock the scheduler in our first execution
+    unlock_scheduler(); // unlock the scheduler in our first execution
 
     int i = 1000;
     while (true) {
         printf("B");
-        pushcli();
+        sleep_me_until(timer_get_uptime_msecs() + 500);
+        lock_scheduler();
         schedule();
-        popcli();
+        unlock_scheduler();
     }
     for (;;) asm("hlt");
 }
 void idle_main() {
-    popcli(); // unlock the scheduler in our first execution
+    unlock_scheduler(); // unlock the scheduler in our first execution
 
     while (true) {
-        printf("i");
-        pushcli();
+        //printf("i");
+        lock_scheduler();
         schedule();
-        popcli();
+        unlock_scheduler();
         // asm("hlt");
     }
 }
 
 // caller is responsible for locking interrupts before calling us
 void schedule() {
-    // acquire(&scheduling_lock);
+    // allow locking of switching, to allow multiple tasks to be unlbocked
+    if (postpone_switching_tasks > 0) {
+        tasks_pending_switching = true;
+        return;
+    }
 
-    kernel_proc_t *previous = running_proc;
     kernel_proc_t *next = dequeue(&ready_list);
     if (next == NULL)
         return; // nothing to switch to
     
-    // if it was running, put back to the ready list
+    // if task was running, put back to the ready list
+    kernel_proc_t *previous = running_proc;
     if (previous->state == RUNNING) {
         previous->state = READY;
         append(&ready_list, previous);
@@ -544,8 +602,6 @@ void schedule() {
 
     // current pointer now has the current step.
     running_proc->cpu_ticks_last = timer_get_uptime_msecs();
-
-    // release(&scheduling_lock);
 }
 void test_switching_start() {
     // we should not neglect the original task that has been running since boot
@@ -554,6 +610,7 @@ void test_switching_start() {
     memset((char *)kernel_procs, 0, sizeof(kernel_procs));
     memset((char *)&ready_list, 0, sizeof(ready_list));
     memset((char *)&blocked_list, 0, sizeof(blocked_list));
+    memset((char *)&sleeping_list, 0, sizeof(sleeping_list));
     create_kernel_process(&kernel_procs[0], 0x00, "Booted");
     create_kernel_process(&kernel_procs[1], process_a_main, "Proc_A");
     create_kernel_process(&kernel_procs[2], process_b_main, "Proc_B");
@@ -569,16 +626,16 @@ void test_switching_start() {
     // assuming we work as a task, we will be switched in multiple times
     int delay = 0;
     while (true) {
-        printf("R");
+        printf("r");
+        sleep_me_until(timer_get_uptime_msecs() + 300);
 
-        pushcli();
+        lock_scheduler();
         schedule();
-        popcli();
+        unlock_scheduler();
 
-        if (++delay > 30) {
+        if (++delay > 10) {
             printf("\n");
             dump_process_table();
-            timer_pause_blocking(3000);
             delay = 0;
 
             if (kernel_procs[1].state == BLOCKED)
@@ -589,24 +646,25 @@ void test_switching_start() {
 
 static int switching_ticks = 0;
 void test_switching_tick() {
-    if (++switching_ticks > 1000) {
-        switching_ticks = 0;
-        printf("(tick)");
+    wake_sleeping_tasks();
+    // if (++switching_ticks > 1000) {
+    //     switching_ticks = 0;
+    //     printf("(tick)");
         
-        // schedule_another_process();
+    //     // schedule_another_process();
 
-        // the task is kicking in,
-        // after the schedule_another_process() is called,
-        // we never return here, therefore the IRQ is never acknowledged,
-        // therefore it never fires a second time!
-        // some discussion here: https://www.reddit.com/r/osdev/comments/i69bv4/problems_with_preempting_from_timer_interrupt/
-        // we could have similar issue when holding a lock, as we "return" into the task,
-        // therefore we never release the lock.
-        // what to do, what to do!!!
-        // what idea is that, the first time, instead of returning into the task,
-        // we return to a piece of code of ours that can run the task.
-        // maybe this has good info: https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial
-    }
+    //     // the task is kicking in,
+    //     // after the schedule_another_process() is called,
+    //     // we never return here, therefore the IRQ is never acknowledged,
+    //     // therefore it never fires a second time!
+    //     // some discussion here: https://www.reddit.com/r/osdev/comments/i69bv4/problems_with_preempting_from_timer_interrupt/
+    //     // we could have similar issue when holding a lock, as we "return" into the task,
+    //     // therefore we never release the lock.
+    //     // what to do, what to do!!!
+    //     // what idea is that, the first time, instead of returning into the task,
+    //     // we return to a piece of code of ours that can run the task.
+    //     // maybe this has good info: https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial
+    // }
 }
 
 
@@ -614,13 +672,14 @@ void dump_process_table() {
     char *states[] = {
         "READY",
         "RUNNING",
+        "SLEEPING",
         "BLOCKED"
     };
     printf("Process list:\n");
-    printf("* i Name       ESP      Entry    State     Blk    CPU  \n");
+    printf("* i Name       ESP      Entry    State      Blk    CPU  \n");
     for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
         kernel_proc_t proc = kernel_procs[i];
-        printf("%c %d %-10s %08x %08x %-7s %3d %6us\n", 
+        printf("%c %d %-10s %08x %08x %-8s %3d %6us\n", 
             (running_proc == &proc) ? '*' : ' ',
             i, 
             proc.name, 
