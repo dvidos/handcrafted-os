@@ -7,6 +7,7 @@
 #include "memory.h"
 #include "timer.h"
 #include "cpu.h"
+#include "clock.h"
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
@@ -389,9 +390,13 @@ proc_list_t blocked_list;
 proc_list_t sleeping_list;
 volatile int postpone_switching_tasks = 0;
 volatile bool tasks_pending_switching = false;
-uint32_t next_wakeup_time;
+volatile bool process_switching_initialized = false;
+uint64_t next_wake_up_time;
+uint64_t next_switching_time = 0;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
+#define DEFAULT_TASK_TIMESLICE_MSECS   50
+
 
 void schedule();
 void dump_process_table();
@@ -487,9 +492,9 @@ void sleep_me_for(int milliseconds) {
     running_proc->wake_up_time = timer_get_uptime_msecs() + milliseconds;
 
     // keep the earliest wake up time, useful for fast comparison
-    next_wakeup_time = (next_wakeup_time == 0)
-        ? next_wakeup_time = running_proc->wake_up_time
-        : min(next_wakeup_time, running_proc->wake_up_time);
+    next_wake_up_time = (next_wake_up_time == 0)
+        ? next_wake_up_time = running_proc->wake_up_time
+        : min(next_wake_up_time, running_proc->wake_up_time);
     
     append(&sleeping_list, running_proc);
     schedule(); // allow someone else to run
@@ -510,7 +515,7 @@ void wake_sleeping_tasks() {
     uint64_t now = timer_get_uptime_msecs();
 
     // update the next wake_up_time
-    next_wakeup_time = 0;
+    next_wake_up_time = 0;
     kernel_proc_t *proc = dequeue(&temp_list);
     while (proc != NULL) {
         if (now >= proc->wake_up_time) {
@@ -518,9 +523,9 @@ void wake_sleeping_tasks() {
             prepend(&ready_list, proc);
         } else {
             append(&sleeping_list, proc);
-            next_wakeup_time = (next_wakeup_time == 0)
+            next_wake_up_time = (next_wake_up_time == 0)
                 ? proc->wake_up_time
-                : min(next_wakeup_time, proc->wake_up_time);
+                : min(next_wake_up_time, proc->wake_up_time);
         }
         proc = dequeue(&temp_list);
     }
@@ -540,40 +545,31 @@ void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name
 void process_a_main() {
     unlock_scheduler(); // unlock the scheduler in our first execution
 
-    int i = 0;
+    int i = 10;
     while (true) {
-        printf("A");
+        printf("This is A, i=%d\n", i);
         sleep_me_for(250);
-        lock_scheduler();
-        schedule();
-        unlock_scheduler();
+        printf("A, becoming blocked\n");
         block_me(i);
-        i++;
+        i += 10;
     }
-    for (;;) asm("hlt");
 }
 void process_b_main() {
     unlock_scheduler(); // unlock the scheduler in our first execution
 
     int i = 1000;
     while (true) {
-        printf("B");
+        printf("This is B, i is %d\n", i);
         sleep_me_for(500);
-        lock_scheduler();
-        schedule();
-        unlock_scheduler();
     }
-    for (;;) asm("hlt");
 }
 void idle_main() {
     unlock_scheduler(); // unlock the scheduler in our first execution
 
+    // this task must not sleep or block
     while (true) {
-        //printf("i");
-        lock_scheduler();
-        schedule();
-        unlock_scheduler();
-        // asm("hlt");
+        // printf("i");
+        asm("hlt");
     }
 }
 
@@ -589,7 +585,7 @@ void schedule() {
     if (next == NULL)
         return; // nothing to switch to
     
-    // if task was running, put back to the ready list
+    // if current task is running (as opposed to be blocked or sleeping), put back to the ready list
     kernel_proc_t *previous = running_proc;
     if (previous->state == RUNNING) {
         previous->state = READY;
@@ -602,6 +598,7 @@ void schedule() {
     // mark the new running proc, "next" variable will have a different value afterwards
     running_proc = next;
     running_proc->state = RUNNING;
+    next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
     /**
      * -------------------------------------------------------------------
@@ -618,7 +615,6 @@ void schedule() {
         &running_proc->esp
     );
 
-    // current pointer now has the current step.
     running_proc->cpu_ticks_last = timer_get_uptime_msecs();
 }
 void test_switching_start() {
@@ -645,33 +641,45 @@ void test_switching_start() {
     append(&ready_list, &kernel_procs[2]);
     append(&ready_list, &kernel_procs[3]);
 
+    // we can start the automated scheduling
+    process_switching_initialized = true;
+
     // assuming we work as a task, we will be switched in multiple times
     int delay = 0;
     while (true) {
-        printf("r");
+        clock_time_t t;
+        get_real_time_clock(&t);
+        printf("This is the root task, time is %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
         sleep_me_for(300);
 
-        lock_scheduler();
-        schedule();
-        unlock_scheduler();
-
-        if (++delay > 10) {
+        if (++delay > 5) {
             printf("\n");
             dump_process_table();
             delay = 0;
 
-            if (kernel_procs[1].state == BLOCKED)
+            if (kernel_procs[1].state == BLOCKED) {
+                printf("(unblocking A)");
                 unblock_task(&kernel_procs[1]);
+            }
         }
     }
 }
 
-static int switching_ticks = 0;
 void test_switching_tick() {
-    if (next_wakeup_time != 0) {
-        if (timer_get_uptime_msecs() > next_wakeup_time)
-            wake_sleeping_tasks();
+    if (!process_switching_initialized)
+        return;
+    
+    lock_scheduler();
+    uint64_t uptime_msecs = timer_get_uptime_msecs();
+    if (next_wake_up_time > 0 && uptime_msecs >= next_wake_up_time) {
+        wake_sleeping_tasks();
     }
+    if (next_switching_time > 0 && uptime_msecs >= next_switching_time) {
+        // i think that to be able to switch during IRQ, our first switching must be 
+        // done through IRQ, meaning, all the new task stacks should return to the IRQ handler.
+        schedule();
+    }
+    unlock_scheduler();
 }
 
 
