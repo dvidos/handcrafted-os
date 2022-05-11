@@ -366,11 +366,12 @@ struct kernel_proc {
         uint32_t esp;
         switched_stack_snapshot_t *stack_snapshot;
     };
+    struct kernel_proc *next;
 };
 typedef struct kernel_proc kernel_proc_t;
-kernel_proc_t kernel_procs[2];
+kernel_proc_t kernel_procs[4];
 kernel_proc_t booted_thread;
-int run_index = 0;
+int current_running_index = 0;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
 
@@ -387,28 +388,32 @@ void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name
 void process_a_main() {
     int i = 0;
     while (true) {
-        printf("Proc-A: I am process A, I = %d\n", i);
-        low_level_context_switch(
-            &kernel_procs[0].esp,
-            &booted_thread.esp
-        );
+        printf("A");
+        schedule_another_process();
     }
     for (;;) asm("hlt");
 }
 void process_b_main() {
     int i = 1000;
-    while (i < 1010) {
-        printf("This is B, i is %d\n", i++);
+    while (true) {
+        printf("B");
+        schedule_another_process();
     }
-    printf("B, out\n");
     for (;;) asm("hlt");
 }
+void idle_main() {
+    while (true) {
+        printf("i");
+        schedule_another_process();
+        // asm("hlt");
+    }
+}
 void schedule_another_process() {
-//    acquire(&scheduling_lock);
-    int old_run_index = run_index;
-    run_index = (run_index + 1) % 2;
-    uint32_t old_esp;
-    printf("Will go to proc %d, ESP of 0x%x\n", run_index, kernel_procs[run_index].esp);
+    // acquire(&scheduling_lock);
+
+    int num_procs = sizeof(kernel_procs) / sizeof(kernel_procs[0]);
+    int old_index = current_running_index;
+    current_running_index = (current_running_index + 1) % num_procs;
 
     // completely unintiutive, but immensely important:
     // before and after this call, we are in a different stack frame.
@@ -416,26 +421,24 @@ void schedule_another_process() {
     // for example, after the switch, the "old" becomes whatever was used 
     // to switch out the thing we are going to switch in!!!!
     // so, be careful what the expectations are before and after calling this method.
+
     low_level_context_switch(
-        &old_esp,  // where to save current task's ESP
-        &kernel_procs[run_index].esp
+        &kernel_procs[old_index].esp,
+        &kernel_procs[current_running_index].esp
     );
-    if (old_run_index >= 0 && old_esp > 0) {
-        kernel_procs[old_run_index].esp = old_esp;
-        printf("Saving old ESP of 0x%x to proc %d\n", old_esp, old_run_index);
-    }
-//    release(&scheduling_lock);
+
+    // release(&scheduling_lock);
 }
 void test_switching_start() {
     // we should not neglect the original task that has been running since boot
     // this is what we will switch "from" into whatever other task we want to spawn.
     // this way we always have a "from" to switch from...
-    create_kernel_process(&booted_thread, NULL, "Booted");
-
     memset((char *)kernel_procs, 0, sizeof(kernel_procs));
-    create_kernel_process(&kernel_procs[0], process_a_main, "Proc_A");
-    create_kernel_process(&kernel_procs[1], process_b_main, "Proc_B");
-    run_index = -1;
+    create_kernel_process(&kernel_procs[0], 0x00, "Booted");
+    create_kernel_process(&kernel_procs[1], process_a_main, "Proc_A");
+    create_kernel_process(&kernel_procs[2], process_b_main, "Proc_B");
+    create_kernel_process(&kernel_procs[3], idle_main, "Idle");
+
     printf("Process list:\n");
     for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
         kernel_proc_t p = kernel_procs[i];
@@ -443,16 +446,15 @@ void test_switching_start() {
             p.name, p.esp, p.stack_page, p.stack_snapshot->return_address);
     }
 
-    // let's switch ourselves and the new task
+    // this task has 0x00 ESP for now, it will be the first to be switched out
+
+    // assuming we work as a task, we will be switched in multiple times
+    current_running_index = 0;
     while (true) {
-        printf("Boot thread: Starting proc A\n");
-        low_level_context_switch(
-            &booted_thread.esp,  // where to save current task's ESP
-            &kernel_procs[0].esp
-        );
+        printf("R");
+        schedule_another_process();
+        // asm("hlt");
     }
-    for (;;) 
-        asm("hlt");
 }
 
 static int switching_ticks = 0;
@@ -460,7 +462,7 @@ void test_switching_tick() {
     if (++switching_ticks > 1000) {
         switching_ticks = 0;
         printf("(tick)");
-        //schedule_another_process();
+        // schedule_another_process();
 
         // after the schedule_another_process() is called,
         // the task is kicking in,
