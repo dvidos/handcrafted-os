@@ -8,7 +8,7 @@
 #include "timer.h"
 #include "cpu.h"
 
-
+#define min(a, b)   ((a) < (b) ? (a) : (b))
 
 
 
@@ -373,7 +373,7 @@ struct kernel_proc {
     uint64_t cpu_ticks_last;
     enum proc_state state;
     int block_reason;
-    uint64_t sleep_until;
+    uint64_t wake_up_time;
 };
 typedef struct kernel_proc kernel_proc_t;
 struct proc_list {
@@ -383,11 +383,13 @@ struct proc_list {
 typedef struct proc_list proc_list_t;
 kernel_proc_t kernel_procs[4];
 kernel_proc_t *running_proc;
+kernel_proc_t *idle_task;
 proc_list_t ready_list;
 proc_list_t blocked_list;
 proc_list_t sleeping_list;
 volatile int postpone_switching_tasks = 0;
 volatile bool tasks_pending_switching = false;
+uint32_t next_wakeup_time;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
 
@@ -471,14 +473,24 @@ void unblock_task(kernel_proc_t *proc) {
     proc->state = READY;
     proc->block_reason = 0;
     prepend(&ready_list, proc);
+
+    // if only the idle task is running, we can preempt it
+    if (running_proc == idle_task)
+        schedule();
     unlock_scheduler();
 }
-void sleep_me_until(uint64_t msecs_since_boot) {
-    if (msecs_since_boot <= timer_get_uptime_msecs())
+void sleep_me_for(int milliseconds) {
+    if (milliseconds <= 0)
         return;
     lock_scheduler();
     running_proc->state = SLEEPING;
-    running_proc->sleep_until = msecs_since_boot;
+    running_proc->wake_up_time = timer_get_uptime_msecs() + milliseconds;
+
+    // keep the earliest wake up time, useful for fast comparison
+    next_wakeup_time = (next_wakeup_time == 0)
+        ? next_wakeup_time = running_proc->wake_up_time
+        : min(next_wakeup_time, running_proc->wake_up_time);
+    
     append(&sleeping_list, running_proc);
     schedule(); // allow someone else to run
     unlock_scheduler();
@@ -489,6 +501,7 @@ void wake_sleeping_tasks() {
     lock_scheduler();
 
     // move everything to a temp list, then deal with one task at a time
+    // tasks are either put back into the sleeping list, or in the ready list.
     proc_list_t temp_list;
     temp_list.head = sleeping_list.head;
     temp_list.tail = sleeping_list.tail;
@@ -496,13 +509,18 @@ void wake_sleeping_tasks() {
     sleeping_list.tail = NULL;
     uint64_t now = timer_get_uptime_msecs();
 
+    // update the next wake_up_time
+    next_wakeup_time = 0;
     kernel_proc_t *proc = dequeue(&temp_list);
     while (proc != NULL) {
-        if (now >= proc->sleep_until) {
+        if (now >= proc->wake_up_time) {
             proc->state = READY;
             prepend(&ready_list, proc);
         } else {
             append(&sleeping_list, proc);
+            next_wakeup_time = (next_wakeup_time == 0)
+                ? proc->wake_up_time
+                : min(next_wakeup_time, proc->wake_up_time);
         }
         proc = dequeue(&temp_list);
     }
@@ -525,7 +543,7 @@ void process_a_main() {
     int i = 0;
     while (true) {
         printf("A");
-        sleep_me_until(timer_get_uptime_msecs() + 250);
+        sleep_me_for(250);
         lock_scheduler();
         schedule();
         unlock_scheduler();
@@ -540,7 +558,7 @@ void process_b_main() {
     int i = 1000;
     while (true) {
         printf("B");
-        sleep_me_until(timer_get_uptime_msecs() + 500);
+        sleep_me_for(500);
         lock_scheduler();
         schedule();
         unlock_scheduler();
@@ -616,6 +634,10 @@ void test_switching_start() {
     create_kernel_process(&kernel_procs[2], process_b_main, "Proc_B");
     create_kernel_process(&kernel_procs[3], idle_main, "Idle");
 
+    // needed for preemptive unblockings
+    idle_task = &kernel_procs[3];
+
+    // we must mark the correct status of current task, to enable smooth return
     running_proc = &kernel_procs[0];
     running_proc->state = RUNNING;
 
@@ -627,7 +649,7 @@ void test_switching_start() {
     int delay = 0;
     while (true) {
         printf("r");
-        sleep_me_until(timer_get_uptime_msecs() + 300);
+        sleep_me_for(300);
 
         lock_scheduler();
         schedule();
@@ -646,25 +668,10 @@ void test_switching_start() {
 
 static int switching_ticks = 0;
 void test_switching_tick() {
-    wake_sleeping_tasks();
-    // if (++switching_ticks > 1000) {
-    //     switching_ticks = 0;
-    //     printf("(tick)");
-        
-    //     // schedule_another_process();
-
-    //     // the task is kicking in,
-    //     // after the schedule_another_process() is called,
-    //     // we never return here, therefore the IRQ is never acknowledged,
-    //     // therefore it never fires a second time!
-    //     // some discussion here: https://www.reddit.com/r/osdev/comments/i69bv4/problems_with_preempting_from_timer_interrupt/
-    //     // we could have similar issue when holding a lock, as we "return" into the task,
-    //     // therefore we never release the lock.
-    //     // what to do, what to do!!!
-    //     // what idea is that, the first time, instead of returning into the task,
-    //     // we return to a piece of code of ours that can run the task.
-    //     // maybe this has good info: https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial
-    // }
+    if (next_wakeup_time != 0) {
+        if (timer_get_uptime_msecs() > next_wakeup_time)
+            wake_sleeping_tasks();
+    }
 }
 
 

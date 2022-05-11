@@ -112,8 +112,11 @@ Also the following must be met:
 
 ### things to do
 
-* ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * multi tasking (exec, fork, etc)
+* own repository
+* document with brief paragraph describing kernel's concerns (e.g. memory, keyboard, screen, 
+locking, task switching, idt, gdt, boot info, etc)
+* ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * scheduler
 * messages between tasks (IPC)
 * file system driver (read / write some filesystem)
