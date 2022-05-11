@@ -6,6 +6,7 @@
 #include "lock.h"
 #include "memory.h"
 #include "timer.h"
+#include "cpu.h"
 
 
 
@@ -384,7 +385,7 @@ proc_list_t ready_list;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
 
-void schedule_another_process();
+void schedule();
 void dump_process_table();
 
 void enqueue(proc_list_t *list, kernel_proc_t *proc) {
@@ -421,29 +422,43 @@ void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name
     proc->state = READY;
 }
 void process_a_main() {
+    popcli(); // unlock the scheduler in our first execution
+
     int i = 0;
     while (true) {
         printf("A");
-        schedule_another_process();
+        pushcli();
+        schedule();
+        popcli();
     }
     for (;;) asm("hlt");
 }
 void process_b_main() {
+    popcli(); // unlock the scheduler in our first execution
+
     int i = 1000;
     while (true) {
         printf("B");
-        schedule_another_process();
+        pushcli();
+        schedule();
+        popcli();
     }
     for (;;) asm("hlt");
 }
 void idle_main() {
+    popcli(); // unlock the scheduler in our first execution
+
     while (true) {
         printf("i");
-        schedule_another_process();
+        pushcli();
+        schedule();
+        popcli();
         // asm("hlt");
     }
 }
-void schedule_another_process() {
+
+// caller is responsible for locking interrupts before calling us
+void schedule() {
     // acquire(&scheduling_lock);
 
     kernel_proc_t *previous = running_proc;
@@ -500,7 +515,11 @@ void test_switching_start() {
     int delay = 0;
     while (true) {
         printf("R");
-        schedule_another_process();
+
+        pushcli();
+        schedule();
+        popcli();
+
         if (++delay > 3000) {
             printf("\n");
             dump_process_table();
@@ -515,10 +534,11 @@ void test_switching_tick() {
     if (++switching_ticks > 1000) {
         switching_ticks = 0;
         printf("(tick)");
+        
         // schedule_another_process();
 
-        // after the schedule_another_process() is called,
         // the task is kicking in,
+        // after the schedule_another_process() is called,
         // we never return here, therefore the IRQ is never acknowledged,
         // therefore it never fires a second time!
         // some discussion here: https://www.reddit.com/r/osdev/comments/i69bv4/problems_with_preempting_from_timer_interrupt/
