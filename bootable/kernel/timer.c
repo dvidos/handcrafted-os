@@ -36,17 +36,19 @@
 #define DIGIT_FOUR_DIGIT_BCD               (0x1)
 
 // this will take thousands of years to overflow
-volatile uint64_t ticks = 0;
+volatile uint64_t milliseconds_since_boot = 0;
 
 
 
-void init_timer(uint32_t frequency) {
+void init_timer() {
 
     // we are using the Programmable Interval Timer (PIT)
     // it's working at 1.193182 MHz and we give it a prescaler value
     // when the prescaler reaches zero, it triggers IRQ zero
     // see https://wiki.osdev.org/Programmable_Interval_Timer
 
+    // aim for millisecond frequency. In practive this will drift a bit.
+    uint32_t frequency = 1000;
     uint32_t divisor = 1193180 / frequency;
     uint8_t mode = ACCESS_LO_HI_BYTE | MODE_SQUARE_WAVE_GENERATOR;
     outb(MODE_COMMAND_PORT, mode);
@@ -54,16 +56,16 @@ void init_timer(uint32_t frequency) {
     outb(CHANNEL_0_DATA_PORT, (uint8_t)((divisor >> 8) & 0xFF));
 }
 
-void timer_handler(registers_t *regs) {
-    ticks++;
+void timer_interrupt_handler(registers_t *regs) {
+    milliseconds_since_boot++;
     ((void)regs);
 }
 
-uint64_t timer_get_uptime_ticks() {
-    return ticks;
+uint64_t timer_get_uptime_msecs() {
+    return milliseconds_since_boot;
 }
 
-void pause(int milliseconds) {
-    uint64_t target = ticks + milliseconds;
-    while (ticks < target);
+void timer_pause_blocking(int msecs) {
+    uint64_t target = milliseconds_since_boot + msecs;
+    while (milliseconds_since_boot < target);
 }

@@ -3,11 +3,11 @@
 
 #include "idt.h"
 
-void init_timer(uint32_t frequency);
-void timer_handler(registers_t *regs);
-uint64_t timer_get_uptime_ticks();
+void init_timer();
+void timer_interrupt_handler(registers_t *regs);
+uint64_t timer_get_uptime_msecs();
 
-void pause(int milliseconds);
+void timer_pause_blocking(int milliseconds);
 
 
 #endif

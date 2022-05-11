@@ -81,7 +81,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_pic();
 
     printf("Initializing Programmable Interval Timer...\n");
-    init_timer(1000);
+    init_timer();
 
     printf("Initializing Real Time Clock...\n");
     init_real_time_clock(15);
@@ -132,7 +132,7 @@ void isr_handler(registers_t regs) {
     // to avoid the first 0x1F interrupts that are CPU faults in protected mode
     switch (regs.int_no) {
         case 0x20:
-            timer_handler(&regs);
+            timer_interrupt_handler(&regs);
             extern void test_switching_tick();
             test_switching_tick();
             break;

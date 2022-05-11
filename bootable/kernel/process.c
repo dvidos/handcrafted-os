@@ -359,6 +359,7 @@ typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 
 
 // tiniest kernel process that can work
+enum proc_state { READY, RUNNING, BLOCKED };
 struct kernel_proc {
     char *name;
     void *stack_page;
@@ -366,16 +367,47 @@ struct kernel_proc {
         uint32_t esp;
         switched_stack_snapshot_t *stack_snapshot;
     };
+    uint64_t cpu_ticks_total;
+    uint64_t cpu_ticks_last;
+    enum proc_state state;
     struct kernel_proc *next;
 };
 typedef struct kernel_proc kernel_proc_t;
+struct proc_list {
+    kernel_proc_t *head;
+    kernel_proc_t *tail;
+};
+typedef struct proc_list proc_list_t;
 kernel_proc_t kernel_procs[4];
-kernel_proc_t booted_thread;
-int current_running_index = 0;
+kernel_proc_t *running_proc;
+proc_list_t ready_list;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
 
 void schedule_another_process();
+void dump_process_table();
+
+void enqueue(proc_list_t *list, kernel_proc_t *proc) {
+    if (list->head == NULL) {
+        list->head = proc;
+        list->tail = proc;
+        proc->next = NULL;
+    } else {
+        list->tail->next = proc;
+        list->tail = proc;
+        proc->next = NULL;
+    }
+}
+kernel_proc_t *dequeue(proc_list_t *list) {
+    if (list->head == NULL)
+        return NULL;
+    kernel_proc_t *proc = list->head;
+    list->head = proc->next;
+    if (list->head == NULL)
+        list->tail = NULL;
+    proc->next = NULL;
+    return proc;
+}
 
 
 void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name) {
@@ -384,6 +416,9 @@ void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name
     proc->esp = (uint32_t)(stack_ptr + kernel_page_size() - sizeof(switched_stack_snapshot_t) - 64);
     proc->stack_snapshot->return_address = (uint32_t)entry_point;
     proc->name = name;
+    proc->cpu_ticks_total = 0;
+    proc->cpu_ticks_last = 0;
+    proc->state = READY;
 }
 void process_a_main() {
     int i = 0;
@@ -411,21 +446,37 @@ void idle_main() {
 void schedule_another_process() {
     // acquire(&scheduling_lock);
 
-    int num_procs = sizeof(kernel_procs) / sizeof(kernel_procs[0]);
-    int old_index = current_running_index;
-    current_running_index = (current_running_index + 1) % num_procs;
+    kernel_proc_t *previous = running_proc;
+    kernel_proc_t *next = dequeue(&ready_list);
+    if (next == NULL)
+        return; // nothing to switch to
+    previous->state = READY;
+    enqueue(&ready_list, previous);
 
-    // completely unintiutive, but immensely important:
-    // before and after this call, we are in a different stack frame.
-    // the values of all arguments and local variables are different!!!!!
-    // for example, after the switch, the "old" becomes whatever was used 
-    // to switch out the thing we are going to switch in!!!!
-    // so, be careful what the expectations are before and after calling this method.
+    // before switching, some house keeping
+    previous->cpu_ticks_total += (timer_get_uptime_msecs() - previous->cpu_ticks_last);
 
+    // mark the new running proc, "next" will have a different value afterwards
+    running_proc = next;
+    running_proc->state = RUNNING;
+
+    /**
+     * -------------------------------------------------------------------
+     * completely unintiutive, but immensely important:
+     * before and after this call, we are in a different stack frame.
+     * the values of all arguments and local variables are different!!!!!
+     * for example, after the switch, the "old" becomes whatever was used 
+     * to switch out the thing we are going to switch in!!!!
+     * so, be careful what the expectations are before and after calling this method.
+     * -------------------------------------------------------------------
+     */
     low_level_context_switch(
-        &kernel_procs[old_index].esp,
-        &kernel_procs[current_running_index].esp
+        &previous->esp,
+        &running_proc->esp
     );
+
+    // current pointer now has the current step.
+    running_proc->cpu_ticks_last = timer_get_uptime_msecs();
 
     // release(&scheduling_lock);
 }
@@ -434,26 +485,28 @@ void test_switching_start() {
     // this is what we will switch "from" into whatever other task we want to spawn.
     // this way we always have a "from" to switch from...
     memset((char *)kernel_procs, 0, sizeof(kernel_procs));
+    memset((char *)&ready_list, 0, sizeof(ready_list));
     create_kernel_process(&kernel_procs[0], 0x00, "Booted");
     create_kernel_process(&kernel_procs[1], process_a_main, "Proc_A");
     create_kernel_process(&kernel_procs[2], process_b_main, "Proc_B");
     create_kernel_process(&kernel_procs[3], idle_main, "Idle");
 
-    printf("Process list:\n");
-    for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
-        kernel_proc_t p = kernel_procs[i];
-        printf("PID %d: %-10s  ESP x%08x, Stack x%08x, Entry x%08x\n", i, 
-            p.name, p.esp, p.stack_page, p.stack_snapshot->return_address);
-    }
-
-    // this task has 0x00 ESP for now, it will be the first to be switched out
+    running_proc = &kernel_procs[0];
+    enqueue(&ready_list, &kernel_procs[1]);
+    enqueue(&ready_list, &kernel_procs[2]);
+    enqueue(&ready_list, &kernel_procs[3]);
 
     // assuming we work as a task, we will be switched in multiple times
-    current_running_index = 0;
+    int delay = 0;
     while (true) {
         printf("R");
         schedule_another_process();
-        // asm("hlt");
+        if (++delay > 3000) {
+            printf("\n");
+            dump_process_table();
+            timer_pause_blocking(3000);
+            delay = 0;
+        }
     }
 }
 
@@ -479,7 +532,28 @@ void test_switching_tick() {
 }
 
 
-
+void dump_process_table() {
+    char *states[] = {
+        "READY",
+        "RUNNING",
+        "BLOCKED"
+    };
+    printf("Process list:\n");
+    printf("* i Name        ESP       Stack     Entry     State         CPU  \n");
+    for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
+        kernel_proc_t proc = kernel_procs[i];
+        printf("%c %d %-10s  %08x  %08x  %08x  %-8s  %6us\n", 
+            (running_proc == &proc) ? '*' : ' ',
+            i, 
+            proc.name, 
+            proc.esp, 
+            proc.stack_page, 
+            proc.stack_snapshot->return_address,
+            (char *)states[(int)proc.state],
+            (proc.cpu_ticks_total / 1000)
+        );
+    }
+}
 
 void test_switching_context_functionality() {
     switched_stack_snapshot_t snapshot;
