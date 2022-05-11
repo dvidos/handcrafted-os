@@ -363,6 +363,7 @@ typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 enum proc_state { READY, RUNNING, BLOCKED };
 struct kernel_proc {
     char *name;
+    struct kernel_proc *next;
     void *stack_page;
     union { // two views of the same piece of information
         uint32_t esp;
@@ -371,7 +372,7 @@ struct kernel_proc {
     uint64_t cpu_ticks_total;
     uint64_t cpu_ticks_last;
     enum proc_state state;
-    struct kernel_proc *next;
+    int block_reason;
 };
 typedef struct kernel_proc kernel_proc_t;
 struct proc_list {
@@ -382,13 +383,14 @@ typedef struct proc_list proc_list_t;
 kernel_proc_t kernel_procs[4];
 kernel_proc_t *running_proc;
 proc_list_t ready_list;
+proc_list_t blocked_list;
 typedef void (* func_ptr)();
 volatile lock_t scheduling_lock = 0;
 
 void schedule();
 void dump_process_table();
 
-void enqueue(proc_list_t *list, kernel_proc_t *proc) {
+void append(proc_list_t *list, kernel_proc_t *proc) {
     if (list->head == NULL) {
         list->head = proc;
         list->tail = proc;
@@ -397,6 +399,16 @@ void enqueue(proc_list_t *list, kernel_proc_t *proc) {
         list->tail->next = proc;
         list->tail = proc;
         proc->next = NULL;
+    }
+}
+void prepend(proc_list_t *list, kernel_proc_t *proc) {
+    if (list->head == NULL) {
+        list->head = proc;
+        list->tail = proc;
+        proc->next = NULL;
+    } else {
+        proc->next = list->head;
+        list->head = proc;
     }
 }
 kernel_proc_t *dequeue(proc_list_t *list) {
@@ -409,7 +421,41 @@ kernel_proc_t *dequeue(proc_list_t *list) {
     proc->next = NULL;
     return proc;
 }
+void unlist(proc_list_t *list, kernel_proc_t *proc) {
+    if (list->head == proc) {
+        dequeue(list);
+        return;
+    }
+    kernel_proc_t *trailing = list->head;
+    while (trailing != NULL && trailing->next != proc)
+        trailing = trailing->next;
+    
+    if (trailing == NULL)
+        return; // we could not find it
+    
+    trailing->next = proc->next;
+    if (list->tail == proc)
+        list->tail = trailing;
+    proc->next = NULL;
+}
 
+// this is how the running task can block itself
+void block_me(int reason) {
+    pushcli();
+    running_proc->state = BLOCKED;
+    running_proc->block_reason = reason;
+    append(&blocked_list, running_proc);
+    schedule();
+    popcli();
+}
+void unblock_task(kernel_proc_t *proc) {
+    pushcli();
+    unlist(&blocked_list, proc);
+    proc->state = READY;
+    proc->block_reason = 0;
+    prepend(&ready_list, proc);
+    popcli();
+}
 
 void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name) {
     char *stack_ptr = allocate_kernel_page();
@@ -430,6 +476,8 @@ void process_a_main() {
         pushcli();
         schedule();
         popcli();
+        block_me(i);
+        i++;
     }
     for (;;) asm("hlt");
 }
@@ -465,13 +513,17 @@ void schedule() {
     kernel_proc_t *next = dequeue(&ready_list);
     if (next == NULL)
         return; // nothing to switch to
-    previous->state = READY;
-    enqueue(&ready_list, previous);
+    
+    // if it was running, put back to the ready list
+    if (previous->state == RUNNING) {
+        previous->state = READY;
+        append(&ready_list, previous);
+    }
 
     // before switching, some house keeping
     previous->cpu_ticks_total += (timer_get_uptime_msecs() - previous->cpu_ticks_last);
 
-    // mark the new running proc, "next" will have a different value afterwards
+    // mark the new running proc, "next" variable will have a different value afterwards
     running_proc = next;
     running_proc->state = RUNNING;
 
@@ -501,15 +553,18 @@ void test_switching_start() {
     // this way we always have a "from" to switch from...
     memset((char *)kernel_procs, 0, sizeof(kernel_procs));
     memset((char *)&ready_list, 0, sizeof(ready_list));
+    memset((char *)&blocked_list, 0, sizeof(blocked_list));
     create_kernel_process(&kernel_procs[0], 0x00, "Booted");
     create_kernel_process(&kernel_procs[1], process_a_main, "Proc_A");
     create_kernel_process(&kernel_procs[2], process_b_main, "Proc_B");
     create_kernel_process(&kernel_procs[3], idle_main, "Idle");
 
     running_proc = &kernel_procs[0];
-    enqueue(&ready_list, &kernel_procs[1]);
-    enqueue(&ready_list, &kernel_procs[2]);
-    enqueue(&ready_list, &kernel_procs[3]);
+    running_proc->state = RUNNING;
+
+    append(&ready_list, &kernel_procs[1]);
+    append(&ready_list, &kernel_procs[2]);
+    append(&ready_list, &kernel_procs[3]);
 
     // assuming we work as a task, we will be switched in multiple times
     int delay = 0;
@@ -520,11 +575,14 @@ void test_switching_start() {
         schedule();
         popcli();
 
-        if (++delay > 3000) {
+        if (++delay > 30) {
             printf("\n");
             dump_process_table();
             timer_pause_blocking(3000);
             delay = 0;
+
+            if (kernel_procs[1].state == BLOCKED)
+                unblock_task(&kernel_procs[1]);
         }
     }
 }
@@ -559,17 +617,17 @@ void dump_process_table() {
         "BLOCKED"
     };
     printf("Process list:\n");
-    printf("* i Name        ESP       Stack     Entry     State         CPU  \n");
+    printf("* i Name       ESP      Entry    State     Blk    CPU  \n");
     for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
         kernel_proc_t proc = kernel_procs[i];
-        printf("%c %d %-10s  %08x  %08x  %08x  %-8s  %6us\n", 
+        printf("%c %d %-10s %08x %08x %-7s %3d %6us\n", 
             (running_proc == &proc) ? '*' : ' ',
             i, 
             proc.name, 
             proc.esp, 
-            proc.stack_page, 
             proc.stack_snapshot->return_address,
             (char *)states[(int)proc.state],
+            proc.block_reason,
             (proc.cpu_ticks_total / 1000)
         );
     }
