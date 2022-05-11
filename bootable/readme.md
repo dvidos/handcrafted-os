@@ -137,7 +137,13 @@ locking, task switching, idt, gdt, boot info, etc)
     * maybe it can have pages, left and right or something like that
     * programs should not even be aware of it
 
+## Dreamland wish list (push the envelope)
 
+* Multiple entries in a task or app, similarly to how Android is doing. 
+* Something similar to Google Cloud functions: implement a small thing, configure when it is to be called (e.g. when a message of x becomes available, or when we boot or etc etc) and have it run.
+* Kafka pipelines emulation would be easily implementable with shell pipes.
+* Better handling of individual chunks of information, e.g. json objects with headers. Instead of just reading one stream of bytes, read a stream of those objects.
+* If we can have an editor and a compiler, edit, compile and run software on this new os, it will be amazing!
 
 ### things done
 
