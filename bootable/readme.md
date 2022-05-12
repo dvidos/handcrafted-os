@@ -112,7 +112,9 @@ Also the following must be met:
 
 ### things to do
 
-* multi tasking (exec, fork, etc)
+* multi tasking
+* kernel memory manager (kalloc, kfree) - then update mutlitask.c to use dynamic memory
+* load and execute executables
 * own repository
 * document with brief paragraph describing kernel's concerns (e.g. memory, keyboard, screen, 
 locking, task switching, idt, gdt, boot info, etc)

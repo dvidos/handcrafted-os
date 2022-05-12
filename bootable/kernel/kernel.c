@@ -13,6 +13,7 @@
 #include "string.h"
 #include "multiboot.h"
 #include "konsole.h"
+#include "process.h"
 
 
 
@@ -109,18 +110,15 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         screen_write("Tests finished, pausing forever...");
         for(;;)
             asm("hlt");
+    } else if (strcmp((char *)saved_multiboot_info.cmdline, "console") == 0) {
+        printf("Starting konsole...\n");
+        konsole();
     }
 
-    // printf("Starting konsole...\n");
-    // konsole();
+    init_multitasking();
+    // create desired tasks here, enter_multitasking() will never return
+    start_multitasking();
 
-    printf("Testing task switching...\n");
-    extern void test_switching_context_functionality();
-    // test_switching_context_functionality();
-    extern void test_switching_start();
-    test_switching_start();
-
-    screen_write("Pausing forever...");
     for(;;)
         asm("hlt");
     screen_write("This should never appear on screen...");
@@ -133,8 +131,7 @@ void isr_handler(registers_t regs) {
     switch (regs.int_no) {
         case 0x20:
             timer_interrupt_handler(&regs);
-            extern void test_switching_tick();
-            test_switching_tick();
+            multitasking_timer_ticked();
             break;
         case 0x21:
             keyboard_handler(&regs);
@@ -146,35 +143,7 @@ void isr_handler(registers_t regs) {
             printf("Received interrupt %d (0x%x), error %d\n", regs.int_no, regs.int_no, regs.err_code);
     }
 
+    // we need to send end-of-interrupt acknowledgement 
+    // to the PIC, to enable subsequent interrupts
     pic_send_eoi(regs.int_no);
 }
-
-// void sub2(int a, int b, int c) {
-//     uint32_t a1 = 0x11111111;
-//     uint32_t a2 = 0x22222222;
-//     uint32_t esp = 0x33333333;
-//     uint32_t a3 = 0x44444444;
-//     register long esp1 asm ("esp");
-
-//     asm("\t movl %%esp,%0" : "=r"(esp));
-
-//     printf("Upon entry to sub2() ESP  is 0x%08x\n", esp);
-//     printf("Upon entry to sub2() ESP1 is 0x%08x\n", esp1);
-
-//     printf("Stack Dump (downwards)\n");
-//     memdump((void *)((esp + 0x80) & ~0xF), 16 * 10, true);
-// }
-// void sub1(int magic) {
-//     uint32_t a = 0x55555555;
-//     uint32_t esp = 0x66666666;
-//     uint32_t d = 0x77777777;
-
-//     // 0x10BFB8, subcalling gives smaller SP values
-//     asm("\t movl %%esp,%0" : "=r"(esp));
-
-//     printf("sub1() address is 0x%08p\n", sub1);
-//     printf("sub2() address is 0x%08p\n", sub2);
-//     printf("Upon entry to sub1() ESP is 0x%08x\n", esp);
-
-//     sub2(0x99AABBCC, 0x55667788, 0x11223344);
-// }
