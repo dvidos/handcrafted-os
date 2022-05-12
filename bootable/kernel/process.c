@@ -119,6 +119,7 @@ struct process {
     char *name;
     struct process *next;
     void *stack_page;
+    func_ptr entry_point;
     union { // two views of the same piece of information
         uint32_t esp;
         void *stack_snapshot;
@@ -137,7 +138,8 @@ struct proc_list {
 };
 typedef struct proc_list proc_list_t;
 
-process_t kernel_procs[4];
+
+process_t kernel_procs[8];
 process_t *running_proc;
 process_t *idle_task;
 proc_list_t ready_list;
@@ -316,13 +318,26 @@ void terminate_me() {
     unlock_scheduler();
 }
 
+static void task_main_wrapper() {
+    // unlock the scheduler in our first execution
+    unlock_scheduler(); 
+
+    // call the entry point method
+    running_proc->entry_point();
+
+    // terminate and later free the process
+    terminate_me();
+}
+
 // a way to create process
 void create_process(void *process, func_ptr entry_point, char *name) {
     process_t *p = (process_t *)process;
     char *stack_ptr = allocate_kernel_page();
     p->stack_page = stack_ptr;
     p->esp = (uint32_t)(stack_ptr + kernel_page_size() - sizeof(switched_stack_snapshot_t) - 64);
-    ((switched_stack_snapshot_t *)p->stack_snapshot)->return_address = (uint32_t)entry_point;
+    // ((switched_stack_snapshot_t *)p->stack_snapshot)->return_address = (uint32_t)entry_point;
+    ((switched_stack_snapshot_t *)p->stack_snapshot)->return_address = (uint32_t)task_main_wrapper;
+    p->entry_point = entry_point;
     p->name = name;
     p->cpu_ticks_total = 0;
     p->cpu_ticks_last = 0;
@@ -330,7 +345,6 @@ void create_process(void *process, func_ptr entry_point, char *name) {
 }
 
 void process_a_main() {
-    unlock_scheduler(); // unlock the scheduler in our first execution
 
     int i = 10;
     while (true) {
@@ -344,20 +358,33 @@ void process_a_main() {
 }
 
 void process_b_main() {
-    unlock_scheduler(); // unlock the scheduler in our first execution
-
-    int i = 1000;
-    while (true) {
+    for (int i = 0; i < 10; i++) {
         printf("This is B, i is %d\n", i++);
-        sleep_me_for(50);
-        if (i > 1100)
-            terminate_me();
+        sleep_me_for(500);
+    }
+}
+void process_c_main() {
+    for (int i = 0; i < 10; i++) {
+        printf("Task C here, this is the %d time\n", i);
+        sleep_me_for(1000);
+    }
+}
+void process_d_main() {
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            printf("%d + %d = %d\n", i, j, i + j);
+            sleep_me_for(100);
+        }
+    }
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            printf("%d * %d = %d\n", i, j, i * j);
+            sleep_me_for(100);
+        }
     }
 }
 
 static void idle_task_main() {
-    unlock_scheduler(); // unlock the scheduler in our first execution
-
     // this task must not sleep or block
     while (true) {
 
@@ -430,20 +457,24 @@ void init_multitasking() {
     memset((char *)&sleeping_list, 0, sizeof(sleeping_list));
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
     create_process(&kernel_procs[0], 0x00, "Booted");
-    create_process(&kernel_procs[1], process_a_main, "Proc_A");
-    create_process(&kernel_procs[2], process_b_main, "Proc_B");
-    create_process(&kernel_procs[3], idle_task_main, "Idle");
+    create_process(&kernel_procs[1], idle_task_main, "Idle");
+    create_process(&kernel_procs[2], process_a_main, "Proc_A");
+    create_process(&kernel_procs[3], process_b_main, "Proc_B");
+    create_process(&kernel_procs[4], process_c_main, "C");
+    create_process(&kernel_procs[5], process_d_main, "C");
 
-    // needed for preemptive unblockings
-    idle_task = &kernel_procs[3];
+    // identify the idle task to allow for preemptive unblocks
+    idle_task = &kernel_procs[1];
 
-    // we must mark the correct status of current task, to enable smooth return
+    // we must mark the correct status of current task, to enable smooth switch to other tasks
     running_proc = &kernel_procs[0];
     running_proc->state = RUNNING;
 
     append(&ready_list, &kernel_procs[1]);
     append(&ready_list, &kernel_procs[2]);
     append(&ready_list, &kernel_procs[3]);
+    append(&ready_list, &kernel_procs[4]);
+    append(&ready_list, &kernel_procs[5]);
 }
 
 // this will never return
@@ -498,10 +529,10 @@ void dump_process_table() {
         "TERMINATED"
     };
     printf("Process list:\n");
-    printf("i Name       ESP      Entry    State      Blk    CPU\n");
+    printf("i  Name       ESP      EIP      State      Blk    CPU\n");
     for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
         process_t proc = kernel_procs[i];
-        printf("%d %-10s %08x %08x %-10s %3d %4us\n", 
+        printf("%-2d %-10s %08x %08x %-10s %3d %4us\n", 
             i, 
             proc.name, 
             proc.esp, 
