@@ -361,7 +361,7 @@ typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 
 
 // tiniest kernel process that can work
-enum proc_state { READY, RUNNING, SLEEPING, BLOCKED };
+enum proc_state { READY, RUNNING, SLEEPING, BLOCKED, TERMINATED };
 struct kernel_proc {
     char *name;
     struct kernel_proc *next;
@@ -388,6 +388,7 @@ kernel_proc_t *idle_task;
 proc_list_t ready_list;
 proc_list_t blocked_list;
 proc_list_t sleeping_list;
+proc_list_t terminated_list;
 volatile int postpone_switching_tasks = 0;
 volatile bool tasks_pending_switching = false;
 volatile bool process_switching_initialized = false;
@@ -473,6 +474,8 @@ void block_me(int reason) {
     unlock_scheduler();
 }
 void unblock_task(kernel_proc_t *proc) {
+    if (proc->state != BLOCKED)
+        return;
     lock_scheduler();
     unlist(&blocked_list, proc);
     proc->state = READY;
@@ -532,6 +535,13 @@ void wake_sleeping_tasks() {
     
     unlock_scheduler();
 }
+void terminate_me() {
+    lock_scheduler();
+    running_proc->state = TERMINATED;
+    append(&terminated_list, running_proc);
+    schedule();
+    unlock_scheduler();
+}
 void create_kernel_process(kernel_proc_t *proc, func_ptr entry_point, char *name) {
     char *stack_ptr = allocate_kernel_page();
     proc->stack_page = stack_ptr;
@@ -547,11 +557,12 @@ void process_a_main() {
 
     int i = 10;
     while (true) {
-        printf("This is A, i=%d\n", i);
-        sleep_me_for(250);
+        printf("This is A, i=%d\n", i++);
+        sleep_me_for(100);
         printf("A, becoming blocked\n");
         block_me(i);
-        i += 10;
+        if (i > 15)
+            terminate_me();
     }
 }
 void process_b_main() {
@@ -559,8 +570,10 @@ void process_b_main() {
 
     int i = 1000;
     while (true) {
-        printf("This is B, i is %d\n", i);
-        sleep_me_for(500);
+        printf("This is B, i is %d\n", i++);
+        sleep_me_for(50);
+        if (i > 1100)
+            terminate_me();
     }
 }
 void idle_main() {
@@ -568,7 +581,17 @@ void idle_main() {
 
     // this task must not sleep or block
     while (true) {
-        // printf("i");
+
+        // maybe not ideal for an idle task, 
+        // but maybe we can use it for some housekeeping
+        while (terminated_list.head != NULL) {
+            kernel_proc_t *proc = dequeue(&terminated_list);
+            // clean up things here or in a function
+            if (proc->stack_page != NULL)
+                free_kernel_page(proc->stack_page);
+            // free process entry too if it is not static
+        }
+        
         asm("hlt");
     }
 }
@@ -625,6 +648,7 @@ void test_switching_start() {
     memset((char *)&ready_list, 0, sizeof(ready_list));
     memset((char *)&blocked_list, 0, sizeof(blocked_list));
     memset((char *)&sleeping_list, 0, sizeof(sleeping_list));
+    memset((char *)&terminated_list, 0, sizeof(terminated_list));
     create_kernel_process(&kernel_procs[0], 0x00, "Booted");
     create_kernel_process(&kernel_procs[1], process_a_main, "Proc_A");
     create_kernel_process(&kernel_procs[2], process_b_main, "Proc_B");
@@ -650,7 +674,7 @@ void test_switching_start() {
         clock_time_t t;
         get_real_time_clock(&t);
         printf("This is the root task, time is %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
-        sleep_me_for(300);
+        sleep_me_for(1000);
 
         if (++delay > 5) {
             printf("\n");
@@ -688,14 +712,14 @@ void dump_process_table() {
         "READY",
         "RUNNING",
         "SLEEPING",
-        "BLOCKED"
+        "BLOCKED",
+        "TERMINATED"
     };
     printf("Process list:\n");
-    printf("* i Name       ESP      Entry    State      Blk    CPU  \n");
+    printf("i Name       ESP      Entry    State      Blk    CPU\n");
     for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
         kernel_proc_t proc = kernel_procs[i];
-        printf("%c %d %-10s %08x %08x %-8s %3d %6us\n", 
-            (running_proc == &proc) ? '*' : ' ',
+        printf("%d %-10s %08x %08x %-10s %3d %4us\n", 
             i, 
             proc.name, 
             proc.esp, 
