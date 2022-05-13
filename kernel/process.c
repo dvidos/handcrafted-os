@@ -9,6 +9,7 @@
 #include "cpu.h"
 #include "clock.h"
 #include "process.h"
+#include "proclist.h"
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
@@ -68,77 +69,6 @@
 
 
 
-
-
- /**
- * this method, written in assembly, performs a task switch
- * it takes two pointers to a uint32_t value
- * - first, it pushes a lot of registers on the stack, 
- * - then saves the ESP into the location pointed by the first argument.
- * - then it takes the value pointed by the second argument and sets ESP
- * - then it pops registers in the reverse order.
- * it will return to the caller whose ESP was saved as the second argument
- * 
- * if both pointers point to the same address, no apparent change will happen
- *
- * After the call, the old_esp value will point to the bottom of the saved stack
- * The stack_snapshot structure maps fields to what should be there in memory
- * if we make a stack_snapshot pointer to point to that value, we can see what's pushed
- * If we prepare such a structure, we can create a new task to switch to.
- * The way things are pushed and the stack_snapshot struct must be kept in sync
- */
-extern void low_level_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr);
-
-/**
- * this is what's pushed when switching and is used to prepare the target return
- * first entries in the structure are what has been pushed last,
- * or first entries is what will be popped first
- * the structure allows us to prepare new stack snapshot for starting new processes
- * see relevant assembly function
- */
-struct switched_stack_snapshot {
-    // these are explicitly pushed by us
-    uint32_t edi;
-    uint32_t esi;
-    uint32_t ebp;
-    uint32_t ebx;
-    uint32_t edx;
-    uint32_t ecx;
-    uint32_t eax;
-    uint32_t eflags;
-    // this one is not pushed by our code, but by whoever calls our assembly method
-    uint32_t return_address; 
-} __attribute__((packed));
-typedef struct switched_stack_snapshot switched_stack_snapshot_t;
-
-// state of a process. corresponding lists exist
-enum process_state { READY, RUNNING, SLEEPING, BLOCKED, TERMINATED };
-
-// the fundamental process information for multi tasking
-struct process {
-    char *name;
-    struct process *next;
-    void *stack_buffer;
-    func_ptr entry_point;
-    union { // two views of the same piece of information
-        uint32_t esp;
-        void *stack_snapshot;
-    };
-    uint64_t cpu_ticks_total;
-    uint64_t cpu_ticks_last;
-    enum process_state state;
-    int block_reason;
-    uint64_t wake_up_time;
-};
-typedef struct process process_t;
-
-// a process list and associated methods, allow O(1) for most operations
-struct proc_list {
-    process_t *head;
-    process_t *tail;
-};
-typedef struct proc_list proc_list_t;
-
 process_t *running_proc;
 process_t *idle_task;
 process_t *initial_task;
@@ -153,65 +83,15 @@ uint64_t next_wake_up_time;
 uint64_t next_switching_time = 0;
 #define DEFAULT_TASK_TIMESLICE_MSECS   50
 
+
+
 static void schedule();
-void dump_process_table();
 
 
-// add a process at the end of the list. O(1)
-void append(proc_list_t *list, process_t *proc) {
-    if (list->head == NULL) {
-        list->head = proc;
-        list->tail = proc;
-        proc->next = NULL;
-    } else {
-        list->tail->next = proc;
-        list->tail = proc;
-        proc->next = NULL;
-    }
+process_t *running_process() {
+    return running_proc;
 }
 
-// add a process at the start of the list. O(1)
-void prepend(proc_list_t *list, process_t *proc) {
-    if (list->head == NULL) {
-        list->head = proc;
-        list->tail = proc;
-        proc->next = NULL;
-    } else {
-        proc->next = list->head;
-        list->head = proc;
-    }
-}
-
-// extract a process from the start of the list. O(1)
-process_t *dequeue(proc_list_t *list) {
-    if (list->head == NULL)
-        return NULL;
-    process_t *proc = list->head;
-    list->head = proc->next;
-    if (list->head == NULL)
-        list->tail = NULL;
-    proc->next = NULL;
-    return proc;
-}
-
-// remove an element from the list. O(n)
-void unlist(proc_list_t *list, process_t *proc) {
-    if (list->head == proc) {
-        dequeue(list);
-        return;
-    }
-    process_t *trailing = list->head;
-    while (trailing != NULL && trailing->next != proc)
-        trailing = trailing->next;
-    
-    if (trailing == NULL)
-        return; // we could not find entry
-    
-    trailing->next = proc->next;
-    if (list->tail == proc)
-        list->tail = trailing;
-    proc->next = NULL;
-}
 
 void lock_scheduler() {
     pushcli();
@@ -240,6 +120,9 @@ void block_me(int reason) {
     schedule(); // allow someone else to run
     unlock_scheduler();
 }
+
+// this is how a task can get blocked
+
 
 // this is how someone can unblock a different process
 void unblock_process(process_t *proc) {
@@ -323,6 +206,7 @@ static void task_main_wrapper() {
     unlock_scheduler(); 
 
     // call the entry point method
+    // only the running task would execute this method
     running_proc->entry_point();
 
     // terminate and later free the process
@@ -336,8 +220,7 @@ process_t *create_process(func_ptr entry_point, char *name) {
     char *stack_ptr = kalloc(stack_size);
     p->stack_buffer = stack_ptr;
     p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t) - 64);
-    // ((switched_stack_snapshot_t *)p->stack_snapshot)->return_address = (uint32_t)entry_point;
-    ((switched_stack_snapshot_t *)p->stack_snapshot)->return_address = (uint32_t)task_main_wrapper;
+    p->stack_snapshot->return_address = (uint32_t)task_main_wrapper;
     p->entry_point = entry_point;
     p->name = name;
     p->cpu_ticks_total = 0;
@@ -475,28 +358,6 @@ void multitasking_timer_ticked() {
 }
 
 
-
-static void dump_process(process_t *p);
-static void dump_process_list(proc_list_t *list);
-
-void dump_process_table() {
-    printf("Process list:\n");
-    printf("Name       ESP      EIP      State      Blk    CPU\n");
-    dump_process(running_proc);
-    dump_process_list(&ready_list);
-    dump_process_list(&blocked_list);
-    dump_process_list(&sleeping_list);
-    dump_process_list(&terminated_list);
-}
-
-static void dump_process_list(proc_list_t *list) {
-    process_t *proc = list->head;
-    while (proc != NULL) {
-        dump_process(proc);
-        proc = proc->next;
-    }
-}
-
 static void dump_process(process_t *proc) {
     char *states[] = {
         "READY",
@@ -513,4 +374,22 @@ static void dump_process(process_t *proc) {
         proc->block_reason,
         (proc->cpu_ticks_total / 1000)
     );
+}
+
+static void dump_process_list(proc_list_t *list) {
+    process_t *proc = list->head;
+    while (proc != NULL) {
+        dump_process(proc);
+        proc = proc->next;
+    }
+}
+
+void dump_process_table() {
+    printf("Process list:\n");
+    printf("Name       ESP      EIP      State      Blk    CPU\n");
+    dump_process(running_proc);
+    dump_process_list(&ready_list);
+    dump_process_list(&blocked_list);
+    dump_process_list(&sleeping_list);
+    dump_process_list(&terminated_list);
 }
