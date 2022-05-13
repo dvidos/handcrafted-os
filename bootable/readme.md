@@ -199,6 +199,7 @@ Just an idea.
 * Linux Kernel Map (though much modern and complex) [link](https://makelinux.github.io/kernel/map/)
 * MIT's course OS xv6, for a RISK machine ([pdf](https://pdos.csail.mit.edu/6.828/2021/xv6/book-riscv-rev2.pdf), [code repo](https://github.com/mit-pdos/xv6-riscv)). An abandonned x86 version is [here](https://github.com/mit-pdos/xv6-public)
 * [The Little book about OS development](https://littleosbook.github.io/)
+* [Intel 80386 Programmer's Reference Manual](https://logix.cz/michal/doc/i386/), an unofficial copy with nicely explained, low level information and details.
 
 ## possible folder organization
 
