@@ -1,2 +1,9 @@
-out
+
+*.o
+*.bin
+*.iso
+kernel/*.o
+.vscode/*
+
+
 
