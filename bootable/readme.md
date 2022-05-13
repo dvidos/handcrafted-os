@@ -112,14 +112,10 @@ Also the following must be met:
 
 ### things to do
 
-* multi tasking
-* kernel memory manager (kalloc, kfree) - then update mutlitask.c to use dynamic memory
-* load and execute executables
+* semaphores with tasks sleeping and waking (from [here](https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial#Step_5:_Race_Conditions_and_Locking_Version_1))
 * own repository
-* document with brief paragraph describing kernel's concerns (e.g. memory, keyboard, screen, 
-locking, task switching, idt, gdt, boot info, etc)
+* load and execute executables
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
-* scheduler
 * messages between tasks (IPC)
 * file system driver (read / write some filesystem)
 * libc for usermode
@@ -139,16 +135,13 @@ locking, task switching, idt, gdt, boot info, etc)
     * maybe it can have pages, left and right or something like that
     * programs should not even be aware of it
 
-## Dreamland wish list (push the envelope)
-
-* Multiple entries in a task or app, similarly to how Android is doing. 
-* Something similar to Google Cloud functions: implement a small thing, configure when it is to be called (e.g. when a message of x becomes available, or when we boot or etc etc) and have it run.
-* Kafka pipelines emulation would be easily implementable with shell pipes.
-* Better handling of individual chunks of information, e.g. json objects with headers. Instead of just reading one stream of bytes, read a stream of those objects.
-* If we can have an editor and a compiler, edit, compile and run software on this new os, it will be amazing!
-
 ### things done
 
+* document with brief paragraph describing kernel's concerns (e.g. memory, keyboard, screen, 
+locking, task switching, idt, gdt, boot info, etc)
+* kernel memory manager (kalloc, kfree) - then update mutlitask.c to use dynamic memory
+* scheduler
+* multi tasking
 * reading real time clock + interrupt every second.
 * tests
 * cli/sti and spinlock methods
@@ -166,6 +159,14 @@ locking, task switching, idt, gdt, boot info, etc)
 * screen driver
 * keyboard driver
 * timers (ticks, pause)
+
+### Dreamland wish list (push the envelope)
+
+* Multiple entries in a task or app, similarly to how Android is doing. 
+* Something similar to Google Cloud functions: implement a small thing, configure when it is to be called (e.g. when a message of x becomes available, or when we boot or etc etc) and have it run.
+* Kafka pipelines emulation would be easily implementable with shell pipes.
+* Better handling of individual chunks of information, e.g. json objects with headers. Instead of just reading one stream of bytes, read a stream of those objects.
+* If we can have an editor and a compiler, edit, compile and run software on this new os, it will be amazing!
 
 
 
