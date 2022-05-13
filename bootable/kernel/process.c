@@ -508,7 +508,7 @@ static void dump_process(process_t *proc) {
     printf("%-10s %08x %08x %-10s %3d %4us\n", 
         proc->name, 
         proc->esp, 
-        ((switched_stack_snapshot_t *)proc->stack_snapshot)->return_address,
+        proc->entry_point,
         (char *)states[(int)proc->state],
         proc->block_reason,
         (proc->cpu_ticks_total / 1000)
