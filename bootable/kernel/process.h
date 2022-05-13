@@ -11,9 +11,11 @@ void multitasking_timer_ticked();  // this expected to be called from IRQ handle
 // utility tools
 void dump_process_table();
 
-// actions to create tasks
+// actions to manipulate tasks
+typedef struct process process_t;
 typedef void (* func_ptr)();
-void create_process(void *process, func_ptr entry_point, char *name);
+process_t *create_process(func_ptr entry_point, char *name);
+void start_process(process_t *process);
 
 // actions that a running task can use
 void block_me(int reason);

@@ -13,7 +13,6 @@
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
 
-
  /*
  processes created by kernel, shell, user running programs, etc.
  main mechanism is fork().
@@ -71,7 +70,6 @@
 
 
 
-// /////////////////////////////////////////////////////////////////////
  /**
  * this method, written in assembly, performs a task switch
  * it takes two pointers to a uint32_t value
@@ -113,12 +111,14 @@ struct switched_stack_snapshot {
 } __attribute__((packed));
 typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 
-
+// state of a process. corresponding lists exist
 enum process_state { READY, RUNNING, SLEEPING, BLOCKED, TERMINATED };
+
+// the fundamental process information for multi tasking
 struct process {
     char *name;
     struct process *next;
-    void *stack_page;
+    void *stack_buffer;
     func_ptr entry_point;
     union { // two views of the same piece of information
         uint32_t esp;
@@ -132,21 +132,21 @@ struct process {
 };
 typedef struct process process_t;
 
+// a process list and associated methods, allow O(1) for most operations
 struct proc_list {
     process_t *head;
     process_t *tail;
 };
 typedef struct proc_list proc_list_t;
 
-
-process_t kernel_procs[8];
 process_t *running_proc;
 process_t *idle_task;
+process_t *initial_task;
 proc_list_t ready_list;
 proc_list_t blocked_list;
 proc_list_t sleeping_list;
 proc_list_t terminated_list;
-volatile int postpone_switching_tasks = 0;
+volatile int switching_postpone_depth = 0;
 volatile bool task_switching_pending = false;
 volatile bool process_switching_enabled = false;
 uint64_t next_wake_up_time;
@@ -215,12 +215,12 @@ void unlist(proc_list_t *list, process_t *proc) {
 
 void lock_scheduler() {
     pushcli();
-    postpone_switching_tasks++;
+    switching_postpone_depth++;
 }
 
 void unlock_scheduler() {
-    postpone_switching_tasks--;
-    if (postpone_switching_tasks == 0) {
+    switching_postpone_depth--;
+    if (switching_postpone_depth == 0) {
         // if there was a need to switch, while postponed,
         // do it before we enable interrupts again
         if (task_switching_pending) {
@@ -330,11 +330,12 @@ static void task_main_wrapper() {
 }
 
 // a way to create process
-void create_process(void *process, func_ptr entry_point, char *name) {
-    process_t *p = (process_t *)process;
-    char *stack_ptr = allocate_kernel_page();
-    p->stack_page = stack_ptr;
-    p->esp = (uint32_t)(stack_ptr + kernel_page_size() - sizeof(switched_stack_snapshot_t) - 64);
+process_t *create_process(func_ptr entry_point, char *name) {
+    int stack_size = 4096;
+    process_t *p = (process_t *)kalloc(sizeof(process_t));
+    char *stack_ptr = kalloc(stack_size);
+    p->stack_buffer = stack_ptr;
+    p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t) - 64);
     // ((switched_stack_snapshot_t *)p->stack_snapshot)->return_address = (uint32_t)entry_point;
     ((switched_stack_snapshot_t *)p->stack_snapshot)->return_address = (uint32_t)task_main_wrapper;
     p->entry_point = entry_point;
@@ -342,47 +343,10 @@ void create_process(void *process, func_ptr entry_point, char *name) {
     p->cpu_ticks_total = 0;
     p->cpu_ticks_last = 0;
     p->state = READY;
+
+    return p;
 }
 
-void process_a_main() {
-
-    int i = 10;
-    while (true) {
-        printf("This is A, i=%d\n", i++);
-        sleep_me_for(100);
-        printf("A, becoming blocked\n");
-        block_me(i);
-        if (i > 15)
-            terminate_me();
-    }
-}
-
-void process_b_main() {
-    for (int i = 0; i < 10; i++) {
-        printf("This is B, i is %d\n", i++);
-        sleep_me_for(500);
-    }
-}
-void process_c_main() {
-    for (int i = 0; i < 10; i++) {
-        printf("Task C here, this is the %d time\n", i);
-        sleep_me_for(1000);
-    }
-}
-void process_d_main() {
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
-            printf("%d + %d = %d\n", i, j, i + j);
-            sleep_me_for(100);
-        }
-    }
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
-            printf("%d * %d = %d\n", i, j, i * j);
-            sleep_me_for(100);
-        }
-    }
-}
 
 static void idle_task_main() {
     // this task must not sleep or block
@@ -393,9 +357,9 @@ static void idle_task_main() {
         while (terminated_list.head != NULL) {
             process_t *proc = dequeue(&terminated_list);
             // clean up things here or in a function
-            if (proc->stack_page != NULL)
-                free_kernel_page(proc->stack_page);
-            // free process entry too if it is not static
+            if (proc->stack_buffer != NULL)
+                kfree(proc->stack_buffer);
+            kfree(proc);
         }
         
         asm("hlt");
@@ -405,7 +369,7 @@ static void idle_task_main() {
 // caller is responsible for locking interrupts before calling us
 static void schedule() {
     // allow locking of switching, to allow multiple tasks to be unlbocked
-    if (postpone_switching_tasks > 0) {
+    if (switching_postpone_depth > 0) {
         task_switching_pending = true;
         return;
     }
@@ -451,36 +415,32 @@ void init_multitasking() {
     // we should not neglect the original task that has been running since boot
     // this is what we will switch "from" into whatever other task we want to spawn.
     // this way we always have a "from" to switch from...
-    memset((char *)kernel_procs, 0, sizeof(kernel_procs));
     memset((char *)&ready_list, 0, sizeof(ready_list));
     memset((char *)&blocked_list, 0, sizeof(blocked_list));
     memset((char *)&sleeping_list, 0, sizeof(sleeping_list));
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
-    create_process(&kernel_procs[0], 0x00, "Booted");
-    create_process(&kernel_procs[1], idle_task_main, "Idle");
-    create_process(&kernel_procs[2], process_a_main, "Proc_A");
-    create_process(&kernel_procs[3], process_b_main, "Proc_B");
-    create_process(&kernel_procs[4], process_c_main, "C");
-    create_process(&kernel_procs[5], process_d_main, "C");
 
-    // identify the idle task to allow for preemptive unblocks
-    idle_task = &kernel_procs[1];
+    // at least two tasks: 
+    // 1. this one, that has to be marked as RUNNING, to be swapped out
+    // 2. an idle one, that will never block or sleep, to be aggressively preempted
+    initial_task = create_process(NULL, "Initial");
+    idle_task = create_process(idle_task_main, "Idle");
 
-    // we must mark the correct status of current task, to enable smooth switch to other tasks
-    running_proc = &kernel_procs[0];
+    running_proc = initial_task;
     running_proc->state = RUNNING;
+    append(&ready_list, idle_task);
+}
 
-    append(&ready_list, &kernel_procs[1]);
-    append(&ready_list, &kernel_procs[2]);
-    append(&ready_list, &kernel_procs[3]);
-    append(&ready_list, &kernel_procs[4]);
-    append(&ready_list, &kernel_procs[5]);
+void start_process(process_t *process) {
+    append(&ready_list, process);
 }
 
 // this will never return
 void start_multitasking() {
-    process_switching_enabled = true;
+    // flag to our interrupt handler that we can start scheduling
     // after a while, the timer will switch us out and will switch something else in.
+    process_switching_enabled = true;
+
 
     int delay = 0;
     while (true) {
@@ -493,11 +453,6 @@ void start_multitasking() {
             printf("\n");
             dump_process_table();
             delay = 0;
-
-            if (kernel_procs[1].state == BLOCKED) {
-                printf("(unblocking A)");
-                unblock_process(&kernel_procs[1]);
-            }
         }
     }
 }
@@ -520,7 +475,29 @@ void multitasking_timer_ticked() {
 }
 
 
+
+static void dump_process(process_t *p);
+static void dump_process_list(proc_list_t *list);
+
 void dump_process_table() {
+    printf("Process list:\n");
+    printf("Name       ESP      EIP      State      Blk    CPU\n");
+    dump_process(running_proc);
+    dump_process_list(&ready_list);
+    dump_process_list(&blocked_list);
+    dump_process_list(&sleeping_list);
+    dump_process_list(&terminated_list);
+}
+
+static void dump_process_list(proc_list_t *list) {
+    process_t *proc = list->head;
+    while (proc != NULL) {
+        dump_process(proc);
+        proc = proc->next;
+    }
+}
+
+static void dump_process(process_t *proc) {
     char *states[] = {
         "READY",
         "RUNNING",
@@ -528,18 +505,12 @@ void dump_process_table() {
         "BLOCKED",
         "TERMINATED"
     };
-    printf("Process list:\n");
-    printf("i  Name       ESP      EIP      State      Blk    CPU\n");
-    for (int i = 0; i < sizeof(kernel_procs) / sizeof(kernel_procs[0]); i++) {
-        process_t proc = kernel_procs[i];
-        printf("%-2d %-10s %08x %08x %-10s %3d %4us\n", 
-            i, 
-            proc.name, 
-            proc.esp, 
-            ((switched_stack_snapshot_t *)proc.stack_snapshot)->return_address,
-            (char *)states[(int)proc.state],
-            proc.block_reason,
-            (proc.cpu_ticks_total / 1000)
-        );
-    }
+    printf("%-10s %08x %08x %-10s %3d %4us\n", 
+        proc->name, 
+        proc->esp, 
+        ((switched_stack_snapshot_t *)proc->stack_snapshot)->return_address,
+        (char *)states[(int)proc->state],
+        proc->block_reason,
+        (proc->cpu_ticks_total / 1000)
+    );
 }

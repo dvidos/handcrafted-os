@@ -322,7 +322,7 @@ size_t kernel_page_size() {
 
 void *allocate_kernel_page() {
     if (first_free_page == NULL)
-        panic("No more free pakes to allocate for kernel");
+        panic("No more free pages to allocate for kernel");
     void *ptr = (void *)first_free_page;
     first_free_page = first_free_page->next_free_page;
     return ptr;

@@ -9,7 +9,7 @@
 #include "keyboard.h"
 #include "timer.h"
 #include "clock.h"
-#include "memory.h"
+#include "kheap.h"
 #include "string.h"
 #include "multiboot.h"
 #include "konsole.h"
@@ -37,13 +37,13 @@
 // use their *addresses*, not their values!
 uint8_t kernel_start_address;
 uint8_t kernel_end_address;
-
-
-
-void dump_multiboot_info(multiboot_info_t* mbi);
-void dump_heap();
-
 multiboot_info_t saved_multiboot_info;
+
+void process_a_main();
+void process_b_main();
+void process_c_main();
+void process_d_main();
+
 
 // arguments from the multiboot loader, normally left by GRUB
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
@@ -68,8 +68,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         memset((char *)&saved_multiboot_info, 0, sizeof(multiboot_info_t));
     }
 
-
-
     // code segment selector: 0x08 (8)
     // data segment selector: 0x10 (16)
     printf("Initializing Global Descriptor Table...\n");
@@ -87,21 +85,14 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     printf("Initializing Real Time Clock...\n");
     init_real_time_clock(15);
 
-    // printf("Initializing memory...\n");
-    // init_memory(boot_magic, mbi, (uint32_t)&kernel_start_address, (uint32_t)&kernel_end_address);
-
-    size_t start = (size_t)&kernel_end_address;
-    size_t end = 2 * 1024 * 1024;
-    size_t num_pages = (end - start) / 4096;
-    if (start >= end)
-        panic("No good space for kernel pages");
-    printf("Claiming kernel memory pages from %p to %p (%d pages)\n", start, end, num_pages);
-    init_kernel_pages(start, end);
-    
+    printf("Initializing Kernel Heap...\n");
+    // we will reserve from kernel code end, till 2 MB, for kernel heap
+    init_kernel_heap(&kernel_end_address + 128, (char *)0x1FFFFF);
 
     printf("Enabling interrupts...\n");
     sti();
     enable_nmi();
+
 
     if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
         printf("Running tests...\n");
@@ -116,14 +107,62 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     }
 
     init_multitasking();
-    // create desired tasks here, enter_multitasking() will never return
+
+    // create desired tasks here, 
+    start_process(create_process(process_a_main, "Task A"));
+    start_process(create_process(process_b_main, "Task B"));
+    start_process(create_process(process_c_main, "Task C"));
+    start_process(create_process(process_d_main, "Task D"));
+
+    // start_multitasking() will never return
     start_multitasking();
 
+
+    printf("Freeze");
     for(;;)
         asm("hlt");
     screen_write("This should never appear on screen...");
 }
 
+void process_a_main() {
+
+    int i = 10;
+    while (true) {
+        printf("This is A, i=%d\n", i++);
+        sleep_me_for(100);
+        printf("A, becoming blocked\n");
+        block_me(i);
+        if (i > 15)
+            terminate_me();
+    }
+}
+
+void process_b_main() {
+    for (int i = 0; i < 10; i++) {
+        printf("This is B, i is %d\n", i++);
+        sleep_me_for(500);
+    }
+}
+void process_c_main() {
+    for (int i = 0; i < 10; i++) {
+        printf("Task C here, this is the %d time\n", i);
+        sleep_me_for(1000);
+    }
+}
+void process_d_main() {
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            printf("%d + %d = %d\n", i, j, i + j);
+            sleep_me_for(100);
+        }
+    }
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            printf("%d * %d = %d\n", i, j, i * j);
+            sleep_me_for(100);
+        }
+    }
+}
 
 void isr_handler(registers_t regs) {
     // don't forget we have mapped IRQs 0+ to 0x20+

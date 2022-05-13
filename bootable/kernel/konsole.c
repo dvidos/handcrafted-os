@@ -6,6 +6,7 @@
 #include "ports.h"
 #include "multiboot.h"
 #include "clock.h"
+#include "kheap.h"
 
 /**
  * konsole is an interactive shell like thing,
@@ -36,6 +37,7 @@ static int do_mem_dump(int argc, char *argv[]);
 static int do_boot_info(int argc, char *argv[]);
 static int do_rtc(int argc, char *argv[]);
 static int do_sizes(int argc, char *argv[]);
+static int do_kheap(int argc, char *argv[]);
 static void get_command(char *prompt);
 static void run_command();
 
@@ -57,6 +59,7 @@ struct action actions[] = {
     // {"pdump", "Show information about OS processes", do_proc_dump},
     {"rtc", "Real Time Clock", do_rtc},
     {"sizes", "Variable sizes in memory", do_sizes},
+    {"kheap", "Dump kernel heap", do_kheap}
 };
 
 
@@ -413,5 +416,10 @@ static int do_sizes(int argc, char *argv[]) {
     printf("sizeof(void *) is %d\n", sizeof(void *));  // 4
     printf("sizeof(size_t) is %d\n", sizeof(size_t));  // 4
     
+    return 0;
+}
+static int do_kheap(int argc, char *argv[]) {
+    (void)argc; (void)argv;
+    kernel_heap_dump();
     return 0;
 }
