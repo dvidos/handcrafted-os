@@ -1,6 +1,6 @@
 
 
-# bootable
+# handcrafted opreating system
 
 An attempt to build a bootable... something.
 
