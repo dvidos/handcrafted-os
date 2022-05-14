@@ -157,7 +157,7 @@ uint32_t kernel_heap_free_size() {
 void kernel_heap_dump() {
     memory_block_t *block = kernel_heap.list_head;
     klog("  Address         Size  Type  Magic  Prev        Next\n");
-    //        0x00000000  00000000  Used  XXXX   0xXXXXXXXX  0xXXXXXXXX
+    //      0x00000000  00000000  Used  XXXX   0xXXXXXXXX  0xXXXXXXXX
     uint32_t free_mem = 0;
     uint32_t used_mem = 0;
     uint32_t free_blocks = 0;
@@ -171,7 +171,7 @@ void kernel_heap_dump() {
             free_mem += block->size;
             free_blocks++;
         }
-        klog("  0x%08x  %8u  %s  %x   %08x  %08x\n",
+        klog("  0x%08x  %8u  %s  %x   0x%08x  0x%08x\n",
             (uint32_t)block,
             block->size,
             block->used ? "Used" : "Free",

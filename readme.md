@@ -112,7 +112,6 @@ Also the following must be met:
 
 ### things to do
 
-* semaphores with tasks sleeping and waking (from [here](https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial#Step_5:_Race_Conditions_and_Locking_Version_1))
 * load and execute executables
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * messages between tasks (IPC)
@@ -136,6 +135,7 @@ Also the following must be met:
 
 ### things done
 
+* semaphores with tasks sleeping and waking (from [here](https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial#Step_5:_Race_Conditions_and_Locking_Version_1))
 * own repository
 * document with brief paragraph describing kernel's concerns (e.g. memory, keyboard, screen, 
 locking, task switching, idt, gdt, boot info, etc)

@@ -71,10 +71,13 @@
 
 
 
+#define DEFAULT_TASK_TIMESLICE_MSECS   50
+#define PROCESS_PRIORITY_LEVELS         3
+
 process_t *running_proc = NULL;
 process_t *idle_task = NULL;
 process_t *initial_task = NULL;
-proc_list_t ready_list;
+proc_list_t ready_lists[PROCESS_PRIORITY_LEVELS];
 proc_list_t blocked_list;
 proc_list_t terminated_list;
 volatile int switching_postpone_depth = 0;
@@ -82,7 +85,7 @@ volatile bool task_switching_pending = false;
 volatile bool process_switching_enabled = false;
 uint64_t next_wake_up_time;
 uint64_t next_switching_time = 0;
-#define DEFAULT_TASK_TIMESLICE_MSECS   50
+
 char *process_state_names[] = { "READY", "RUNNING", "BLOCKED", "TERMINATED" };
 char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE" };
 
@@ -137,10 +140,10 @@ void unblock_process(process_t *proc) {
     proc->state = READY;
     proc->block_reason = 0;
     proc->block_channel = NULL;
-    prepend(&ready_list, proc);
+    prepend(&ready_lists[proc->priority], proc);
     klog("K: process %s unblocked and added to ready list\n", proc->name);
 
-    // if only the idle task is running, we can preempt it
+    // if only the idle task is running, we can it
     if (running_proc == idle_task)
         schedule();
     unlock_scheduler();
@@ -200,7 +203,7 @@ static void wake_sleeping_tasks() {
             proc->state = READY;
             proc->block_reason = 0;
             proc->block_channel = NULL;
-            prepend(&ready_list, proc);
+            prepend(&ready_lists[proc->priority], proc);
         } else {
             append(&blocked_list, proc);
             next_wake_up_time = (next_wake_up_time == 0)
@@ -237,7 +240,12 @@ static void task_entry_point_wrapper() {
 }
 
 // a way to create process
-process_t *create_process(func_ptr entry_point, char *name) {
+process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
+    if (priority >= PROCESS_PRIORITY_LEVELS) {
+        klog("K: priority %d requested when we only have %d levels\n", priority, PROCESS_PRIORITY_LEVELS);
+        return NULL;
+    }
+
     int stack_size = 4096;
     process_t *p = (process_t *)kalloc(sizeof(process_t));
     char *stack_ptr = kalloc(stack_size);
@@ -246,6 +254,7 @@ process_t *create_process(func_ptr entry_point, char *name) {
     p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t) - 64);
     p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
     p->entry_point = entry_point;
+    p->priority = priority;
     p->name = name;
     p->cpu_ticks_total = 0;
     p->cpu_ticks_last = 0;
@@ -281,7 +290,14 @@ static void schedule() {
         return;
     }
 
-    process_t *next = dequeue(&ready_list);
+    // extract high priority tasks first
+    process_t *next = NULL;
+    for (int priority = 0; priority < PROCESS_PRIORITY_LEVELS; priority++) {
+        next = dequeue(&ready_lists[priority]);
+        if (next != NULL)
+            break;
+    }
+
     if (next == NULL)
         return; // nothing to switch to
     
@@ -289,7 +305,7 @@ static void schedule() {
     process_t *previous = running_proc;
     if (previous->state == RUNNING) {
         previous->state = READY;
-        append(&ready_list, previous);
+        append(&ready_lists[previous->priority], previous);
     }
 
     // before switching, some house keeping
@@ -325,23 +341,31 @@ void init_multitasking() {
     // we should not neglect the original task that has been running since boot
     // this is what we will switch "from" into whatever other task we want to spawn.
     // this way we always have a "from" to switch from...
-    memset((char *)&ready_list, 0, sizeof(ready_list));
+    memset((char *)&ready_lists, 0, sizeof(ready_lists));
     memset((char *)&blocked_list, 0, sizeof(blocked_list));
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
 
     // at least two tasks: 
     // 1. this one, that has to be marked as RUNNING, to be swapped out
     // 2. an idle one, that will never block or sleep, to be aggressively preempted
-    initial_task = create_process(NULL, "Initial");
-    idle_task = create_process(idle_task_main, "Idle");
+    initial_task = create_process(NULL, "Initial", 1);
+    idle_task = create_process(idle_task_main, "Idle", PROCESS_PRIORITY_LEVELS - 1);
 
     running_proc = initial_task;
     running_proc->state = RUNNING;
-    append(&ready_list, idle_task);
+
+    // idle task is by definition the lowest priority
+    append(&ready_lists[idle_task->priority], idle_task);
 }
 
 void start_process(process_t *process) {
-    append(&ready_list, process);
+    lock_scheduler();
+    append(&ready_lists[process->priority], process);
+
+    // if running task is lower priority (e.g. idle task), preempt it
+    if (running_proc != NULL && process->priority < running_proc->priority)
+        schedule();
+    unlock_scheduler();
 }
 
 // this will never return
@@ -407,7 +431,9 @@ void dump_process_table() {
     klog("Process list:\n");
     klog("Name       ESP      EIP      State      Blck Reasn    CPU\n");
     dump_process(running_proc);
-    dump_process_list(&ready_list);
+    for (int pri = 0; pri < PROCESS_PRIORITY_LEVELS; pri++) {
+        dump_process_list(&ready_lists[pri]);
+    }
     dump_process_list(&blocked_list);
     dump_process_list(&terminated_list);
 }

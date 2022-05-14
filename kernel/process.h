@@ -42,6 +42,7 @@ struct process {
     struct process *next; // each process can only belong to one list
     void *stack_buffer;
     func_ptr entry_point;
+    uint8_t  priority;
     union { // two views of the same piece of information
         uint32_t esp;
         switched_stack_snapshot_t *stack_snapshot;
@@ -86,7 +87,7 @@ void multitasking_timer_ticked();  // this expected to be called from IRQ handle
 void dump_process_table();
 
 // actions to manipulate tasks
-process_t *create_process(func_ptr entry_point, char *name);
+process_t *create_process(func_ptr entry_point, char *name, uint8_t priority);
 void start_process(process_t *process);
 
 // actions that a running task can use

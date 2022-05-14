@@ -140,6 +140,34 @@ IRQ, not by calling `schedule()` on the main thread.
 Given that timesharing is implemented by the IRQ timer handler, all is left to most 
 operations is manipulating the process lists (blocking, waking, terminating etc)
 
+In the code, there is a `running_process` pointer, that always holds the running process.
+We maintain a series of `ready_list`, for different priorities. Highest priority is zero. We maintain the `blocked_list`, for all blocked tasks (there will be a lot, but appending to the end of the list maintains some degree of FIFO fairness). Finally, there is the `terminated_list`, for tasks that have 
+terminated (and will be cleaned up by the idle process).
+
+A piece of code that wants to trigger a task switch, must frame the `schedule()` call with
+`lock_scheduler()` and `unlock_scheduler`. That is, it's the responsibility of 
+the caller to lock the scheduler. 
+Don't forget that it's a different task that unlocks the scheduler.
+
+There are a few methods a task can use to update its status:
+
+  * `yield()` voluntarily giving up the CPU
+  * `sleep()` blocks the task for a number of milliseconds
+  * `exit()` terminates the task with an exit code
+  * `block()` blocks the task for a specific reason and an optional channel
+
+For extra functionality, there are the following methods:
+
+  * `create_process()` allocates and initializes a new process and returns it
+  * `start_process()` adds the process to the ready list, to be switched in soon
+  * `running_process()` returns the running_process
+  * `lock_scheduler()` and `unlock_scheduler()` for whenever we will effect changes to the running status of the tasks
+  * `unblock_process()` unblocks a task and puts it on the `ready_list`
+  * `acquire_semaphore()` either allows the task to claim the semaphore, or blocks until the semaphore is available. `release_semaphore()` releases and possibly unblocks pending processes
+  * `acquire_mutex()` and `release_mutex()` are identical to semaphores, with a limit of one.
+
+
+
 ### hdd
 
 (ATA PIO is slow, DMA for later)

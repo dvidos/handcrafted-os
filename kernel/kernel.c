@@ -41,6 +41,9 @@ uint8_t kernel_start_address;
 uint8_t kernel_end_address;
 multiboot_info_t saved_multiboot_info;
 
+mutex_t shared_memory_mutex;
+char shared_memory[256];
+
 void process_a_main();
 void process_b_main();
 void process_c_main();
@@ -124,11 +127,15 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog("Initializing multi-tasking...\n");
     init_multitasking();
 
+    // define and grab the mutex, we should be all alone
+    memset(&shared_memory_mutex, 0, sizeof(shared_memory_mutex));
+    shared_memory_mutex.limit = 1;
+
     // create desired tasks here, 
-    start_process(create_process(process_a_main, "Task A"));
-    start_process(create_process(process_b_main, "Task B"));
-    start_process(create_process(process_c_main, "Task C"));
-    start_process(create_process(process_d_main, "Task D"));
+    start_process(create_process(process_a_main, "Task A", 2));
+    start_process(create_process(process_b_main, "Task B", 1));
+    start_process(create_process(process_c_main, "Task C", 1));
+    start_process(create_process(process_d_main, "Task D", 1));
 
     // start_multitasking() will never return
     klog("Starting multitasking, goodbye from main()!\n");
@@ -137,17 +144,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     panic("start_multitasking() returned to main");
 }
 
-mutex_t shared_memory_mutex;
-char shared_memory[256];
-
 
 void process_a_main() {
     // sleep a bit, to avoid race condition with other tasks
     sleep(50);
-
-    // define and grab the mutex, we should be all alone
-    memset(&shared_memory_mutex, 0, sizeof(shared_memory_mutex));
-    shared_memory_mutex.limit = 1;
 
     klog("A: acquiring mutex\n");
     acquire_mutex(&shared_memory_mutex); // we should be the ones
