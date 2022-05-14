@@ -9,6 +9,7 @@
 #include "keyboard.h"
 #include "timer.h"
 #include "clock.h"
+#include "serial.h"
 #include "kheap.h"
 #include "string.h"
 #include "multiboot.h"
@@ -85,6 +86,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     printf("Initializing Real Time Clock...\n");
     init_real_time_clock(15);
 
+    printf("Initializing Serial Port 1 for logging...\n");
+    init_serial_port();
+    serial_write("Hello from kernel\n");
+    
     printf("Initializing Kernel Heap...\n");
     // we will reserve from kernel code end, till 2 MB, for kernel heap
     init_kernel_heap(((char *)&kernel_end_address) + 128, (char *)0x1FFFFF);
@@ -124,42 +129,78 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     screen_write("This should never appear on screen...");
 }
 
+mutex_t shared_memory_mutex;
+char shared_memory[256];
+
 void process_a_main() {
 
-    int i = 10;
-    while (true) {
-        printf("This is A, i=%d\n", i++);
-        sleep_me_for(100);
-        printf("A, becoming blocked\n");
-        block_me(i, NULL);
-        if (i > 15)
-            terminate_me();
-    }
+    memset(&shared_memory_mutex, 0, sizeof(shared_memory_mutex));
+    shared_memory_mutex.limit = 1;
+
+    printf("A: acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex); // this will block
+    printf("A: writing shared memory\n");
+    memset(shared_memory, 0, sizeof(shared_memory));
+    strcpy(shared_memory, "Hi there from task a!\n");
+    sleep_me_for(100);
+    printf("A: releasing mutex\n");
+    release_mutex(&shared_memory_mutex);
+    yield();
+    printf("A: re-acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex); // this will block
+    printf("A: reading shared memory\n");
+    printf("> %s\n", shared_memory);
+    sleep_me_for(100);
+    printf("A: done, releasing mutex\n");
+    release_mutex(&shared_memory_mutex);
+
+
+    // int i = 1;
+    // while (true) {
+    //     printf("This is A, i=%d\n", i++);
+    //     sleep_me_for(200);
+    //     if (i > 10)
+    //         break;
+    // }
 }
 
 void process_b_main() {
-    for (int i = 0; i < 10; i++) {
-        printf("This is B, i is %d\n", i++);
-        sleep_me_for(500);
-    }
+
+    yield();
+    printf("B: acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex); // this will block
+    printf("B: reading shared memory\n");
+    printf("> %s\n", shared_memory);
+    memset(shared_memory, 0, sizeof(shared_memory));
+    strcpy(shared_memory, "Task B listening loud and clear!\n");
+    sleep_me_for(100);
+    printf("B: releasing mutex\n");
+    release_mutex(&shared_memory_mutex);
+    yield();
+
+
+    // for (int i = 0; i < 10; i++) {
+    //     printf("This is B, i is %d\n", i++);
+    //     sleep_me_for(300);
+    // }
 }
 void process_c_main() {
     for (int i = 0; i < 10; i++) {
-        printf("Task C here, this is the %d time\n", i);
+        // printf("Task C here, this is the %d time\n", i);
         sleep_me_for(1000);
     }
 }
 void process_d_main() {
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            printf("%d + %d = %d\n", i, j, i + j);
-            sleep_me_for(100);
+            // printf("%d + %d = %d\n", i, j, i + j);
+            // sleep_me_for(100);
         }
     }
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            printf("%d * %d = %d\n", i, j, i * j);
-            sleep_me_for(100);
+            // printf("%d * %d = %d\n", i, j, i * j);
+            // sleep_me_for(100);
         }
     }
 }

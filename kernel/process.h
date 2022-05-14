@@ -89,6 +89,17 @@ void block_me(int reason, void *channel);
 void sleep_me_for(int milliseconds);
 void terminate_me();
 
+// voluntarily give up the CPU to another task
+void yield();
+
+// synchonization functions tasks can use
+mutex_t *create_mutex();
+void acquire_mutex(mutex_t *mutex);
+void release_mutex(mutex_t *mutex);
+
+semaphore_t *create_semaphore(int limit);
+void acquire_semaphore(semaphore_t *semaphore);
+void release_semaphore(semaphore_t *semaphore);
 
 
 

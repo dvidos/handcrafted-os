@@ -24,6 +24,7 @@ KERNEL_OBJS = $(KERNEL_FILES:.c=.o)
 KERNEL_ASM_FILES = $(wildcard kernel/*.asm)
 KERNEL_ASM_OBJS = $(KERNEL_ASM_FILES:.asm=.o)
 
+QEMU_SERIAL_FLAGS = -chardev stdio,id=char0,logfile=qemu.log,signal=off  -serial chardev:char0
 
 .PHONY:
 
@@ -74,7 +75,7 @@ kernel.iso: kernel.bin
 run: kernel.iso
 	@# qemu-system-x86_64 -kernel kernel.bin
 	@#$(EMU) -kernel kernel.bin
-	$(EMU) -cdrom kernel.iso
+	$(EMU) -cdrom kernel.iso $(QEMU_SERIAL_FLAGS)
 
 
 clean:
