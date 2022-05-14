@@ -32,7 +32,7 @@ void strcpy(char *target, char *source) {
     *target = *source; // final null char
 }
 
-void memset(void *dest, uint8_t value, size_t size) {
+void memset(void *dest, char value, size_t size) {
     char *d = (char *)dest;
     while (size-- > 0) {
         *d++ = value;

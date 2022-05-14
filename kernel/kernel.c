@@ -15,6 +15,7 @@
 #include "multiboot.h"
 #include "konsole.h"
 #include "process.h"
+#include "klog.h"
 
 
 
@@ -50,8 +51,14 @@ void process_d_main();
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
 void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 {
+    // initialize in-memory log
+    init_klog();
+
+    // initialize screen and allow logs to be written to it
     screen_init();
-    printf("C kernel running, loaded at 0x%x - 0x%x (size of %u KB)\n",
+    klog_screen(true);
+
+    klog("C kernel kick-off, loaded at 0x%x - 0x%x (size of %u KB)\n",
         (uint32_t)&kernel_start_address,
         (uint32_t)&kernel_end_address,
         ((uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address) / 1024
@@ -62,39 +69,39 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // printf("NMI is enabled? %d\n", nmi_enabled());
 
     if (boot_magic == 0x2BADB002) {
-        printf("Bootloader info detected\n");
+        klog("Bootloader info detected, copying it, size of %d bytes\n", sizeof(multiboot_info_t));
         memcpy((char *)&saved_multiboot_info, (char *)mbi, sizeof(multiboot_info_t));
     } else {
-        printf("No bootloader info detected\n");
+        klog("No bootloader info detected\n");
         memset((char *)&saved_multiboot_info, 0, sizeof(multiboot_info_t));
     }
 
     // code segment selector: 0x08 (8)
     // data segment selector: 0x10 (16)
-    printf("Initializing Global Descriptor Table...\n");
+    klog("Initializing Global Descriptor Table...\n");
     init_gdt();
 
-    printf("Initializing Interrupts Descriptor Table...\n");
+    klog("Initializing Interrupts Descriptor Table...\n");
     init_idt(0x8);
 
-    printf("Initializing Programmable Interrupt Controller...\n");
+    klog("Initializing Programmable Interrupt Controller...\n");
     init_pic();
 
-    printf("Initializing Programmable Interval Timer...\n");
+    klog("Initializing Programmable Interval Timer...\n");
     init_timer();
 
-    printf("Initializing Real Time Clock...\n");
+    klog("Initializing Real Time Clock...\n");
     init_real_time_clock(15);
 
-    printf("Initializing Serial Port 1 for logging...\n");
+    klog("Initializing Serial Port 1 for logging...\n");
     init_serial_port();
-    serial_write("Hello from kernel\n");
+    klog_serial_port(true);
     
-    printf("Initializing Kernel Heap...\n");
+    klog("Initializing Kernel Heap...\n");
     // we will reserve from kernel code end, till 2 MB, for kernel heap
     init_kernel_heap(((char *)&kernel_end_address) + 128, (char *)0x1FFFFF);
 
-    printf("Enabling interrupts...\n");
+    klog("Enabling interrupts...\n");
     sti();
     enable_nmi();
 
@@ -110,6 +117,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         konsole();
     }
 
+    klog("Initializing multi-tasking...\n");
     init_multitasking();
 
     // create desired tasks here, 
@@ -119,13 +127,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     start_process(create_process(process_d_main, "Task D"));
 
     // start_multitasking() will never return
+    klog("Starting multitasking, goodbye from main()!\n");
     start_multitasking();
-
-
-    printf("Freeze");
-    for(;;)
-        asm("hlt");
-    screen_write("This should never appear on screen...");
+    
+    panic("start_multitasking() returned to main");
 }
 
 mutex_t shared_memory_mutex;

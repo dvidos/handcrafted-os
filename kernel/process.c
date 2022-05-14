@@ -11,6 +11,7 @@
 #include "process.h"
 #include "proclist.h"
 #include "kheap.h"
+#include "klog.h"
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
@@ -287,7 +288,8 @@ static void schedule() {
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
-//    printf("K: Swapping out %s, in %s\n", previous->name, next->name);
+    klog("K: Swapping out %s, in %s\n", previous->name, next->name);
+    
 
     /**
      * -------------------------------------------------------------------
@@ -341,11 +343,11 @@ void start_multitasking() {
     while (true) {
         clock_time_t t;
         get_real_time_clock(&t);
-        printf("This is the root task, time is %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
+        klog("This is the root task, time is %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
         sleep_me_for(10000);
 
         if (++delay > 5) {
-            printf("\n");
+            klog("\n");
             dump_process_table();
             delay = 0;
         }
@@ -417,11 +419,11 @@ void acquire_semaphore(semaphore_t *semaphore) {
     lock_scheduler();
 
     if (semaphore->count < semaphore->limit) {
-        printf("K: process %s acquired semaphore\n", running_process()->name);
+        klog("K: process %s acquired semaphore\n", running_process()->name);
         // we got it!
         semaphore->count++;
     } else {
-        printf("K: process %s getting blocked on semaphore\n", running_process()->name);
+        klog("K: process %s getting blocked on semaphore\n", running_process()->name);
         // we cannot acquire, we'll just block until it's free
         semaphore->waiting_processes++;
         block_me(SEMAPHORE, semaphore);
@@ -435,7 +437,7 @@ void release_semaphore(semaphore_t *semaphore) {
 
     bool unblocked_a_process = false;
     if (semaphore->waiting_processes > 0) {
-        printf("K: waiting processes detected on semaphore releasing\n");
+        klog("K: waiting processes detected on semaphore releasing\n");
         // if there are processes waiting, let's unblock them now
         process_t *proc = blocked_list.head;
         while (proc != NULL) {
@@ -443,7 +445,7 @@ void release_semaphore(semaphore_t *semaphore) {
                 && proc->block_reason == SEMAPHORE 
                 && proc->block_channel == semaphore
             ) {
-                printf("K: process %s will be unblocked\n", proc->name);
+                klog("K: process %s will be unblocked\n", proc->name);
                 unblock_process(proc);
                 unblocked_a_process = true;
                 break;
@@ -454,12 +456,12 @@ void release_semaphore(semaphore_t *semaphore) {
     if (unblocked_a_process) {
         // somebody was waiting and we liberated them
         // we don't lower the count, they now hold the semaphore
-        printf("K: waiting process %s now unblocked\n", running_process()->name);
+        klog("K: waiting process %s now unblocked\n", running_process()->name);
         semaphore->waiting_processes--;
     } else {
         // either nobody was waiting, or we did not find them (they may have been killed)
         // lower number as expected
-        printf("K: semaphore released by process %s\n", running_process()->name);
+        klog("K: semaphore released by process %s\n", running_process()->name);
         semaphore->count--;
     }
 
