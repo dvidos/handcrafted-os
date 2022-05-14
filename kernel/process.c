@@ -287,7 +287,7 @@ static void schedule() {
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
-    printf("K: Swapping out %s, in %s\n", previous->name, next->name);
+//    printf("K: Swapping out %s, in %s\n", previous->name, next->name);
 
     /**
      * -------------------------------------------------------------------

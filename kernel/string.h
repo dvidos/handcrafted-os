@@ -2,6 +2,7 @@
 #define _STRING_H
 
 #include <stddef.h>
+#include <stdarg.h>
 
 
 int strlen(const char* str);
@@ -21,7 +22,8 @@ void ltoa(long num, char *buffer, int base);
 void ultoa(unsigned long num, char *buffer, int base);
 int atoi(char *buffer);
 
-
+void sprintfn(char *buffer, int buffsize, const char *format, ...);
+void vsprintfn(char *buffer, int buffsize, const char *format, va_list args);
 
 
 #endif

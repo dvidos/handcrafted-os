@@ -16,6 +16,8 @@ CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
 		-Werror   \
 		-Wno-unused-parameter \
 		-Wno-unused-function \
+		-Wno-unused-variable \
+		-Wno-unused-but-set-variable \
 		-Wno-array-bounds
 
 KERNEL_FILES = $(wildcard kernel/*.c)

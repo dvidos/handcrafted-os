@@ -4,6 +4,7 @@
 *.iso
 kernel/*.o
 .vscode/*
+qemu.log
 
 
 

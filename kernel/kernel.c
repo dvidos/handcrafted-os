@@ -98,7 +98,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     sti();
     enable_nmi();
 
-
     if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
         printf("Running tests...\n");
         extern void run_tests();
