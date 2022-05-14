@@ -71,9 +71,9 @@
 
 
 
-process_t *running_proc;
-process_t *idle_task;
-process_t *initial_task;
+process_t *running_proc = NULL;
+process_t *idle_task = NULL;
+process_t *initial_task = NULL;
 proc_list_t ready_list;
 proc_list_t blocked_list;
 proc_list_t terminated_list;
@@ -83,7 +83,8 @@ volatile bool process_switching_enabled = false;
 uint64_t next_wake_up_time;
 uint64_t next_switching_time = 0;
 #define DEFAULT_TASK_TIMESLICE_MSECS   50
-
+char *process_state_names[] = { "READY", "RUNNING", "BLOCKED", "TERMINATED" };
+char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE" };
 
 
 static void schedule();
@@ -119,6 +120,7 @@ void block_me(int reason, void *channel) {
     running_proc->block_reason = reason;
     running_proc->block_channel = channel;
     append(&blocked_list, running_proc);
+    klog("K: process %s got blocked, reason %d, channel %p\n", running_proc->name, reason, channel);
     schedule(); // allow someone else to run
     unlock_scheduler();
 }
@@ -134,7 +136,9 @@ void unblock_process(process_t *proc) {
     unlist(&blocked_list, proc);
     proc->state = READY;
     proc->block_reason = 0;
+    proc->block_channel = NULL;
     prepend(&ready_list, proc);
+    klog("K: process %s unblocked and added to ready list\n", proc->name);
 
     // if only the idle task is running, we can preempt it
     if (running_proc == idle_task)
@@ -151,14 +155,16 @@ void yield() {
 }
 
 // a task can ask to sleep for some time
-void sleep_me_for(int milliseconds) {
+void sleep(int milliseconds) {
     if (milliseconds <= 0)
         return;
     lock_scheduler();
 
+    klog("K: process %s going to sleep for %d msecs\n", running_proc->name, milliseconds);
     running_proc->wake_up_time = timer_get_uptime_msecs() + milliseconds;
     running_proc->state = BLOCKED;
     running_proc->block_reason = SLEEPING;
+    running_proc->block_channel = NULL;
 
     // keep the earliest wake up time, useful for fast comparison
     next_wake_up_time = (next_wake_up_time == 0)
@@ -189,8 +195,11 @@ static void wake_sleeping_tasks() {
     next_wake_up_time = 0;
     process_t *proc = dequeue(&temp_list);
     while (proc != NULL) {
-        if (now >= proc->wake_up_time) {
+        if (proc->block_reason == SLEEPING && proc->wake_up_time > 0 && now >= proc->wake_up_time) {
+            klog("K: process %s ready to run, sleep time expired\n", proc->name);
             proc->state = READY;
+            proc->block_reason = 0;
+            proc->block_channel = NULL;
             prepend(&ready_list, proc);
         } else {
             append(&blocked_list, proc);
@@ -205,15 +214,17 @@ static void wake_sleeping_tasks() {
 }
 
 // a task can ask to be terminated
-void terminate_me() {
+void exit(uint8_t exit_code) {
     lock_scheduler();
     running_proc->state = TERMINATED;
+    running_proc->exit_code = exit_code;
     append(&terminated_list, running_proc);
+    klog("K: process %s terminated, exit code %d\n", running_proc->name, exit_code);
     schedule();
     unlock_scheduler();
 }
 
-static void task_main_wrapper() {
+static void task_entry_point_wrapper() {
     // unlock the scheduler in our first execution
     unlock_scheduler(); 
 
@@ -222,7 +233,7 @@ static void task_main_wrapper() {
     running_proc->entry_point();
 
     // terminate and later free the process
-    terminate_me();
+    exit(0);
 }
 
 // a way to create process
@@ -230,9 +241,10 @@ process_t *create_process(func_ptr entry_point, char *name) {
     int stack_size = 4096;
     process_t *p = (process_t *)kalloc(sizeof(process_t));
     char *stack_ptr = kalloc(stack_size);
+    
     p->stack_buffer = stack_ptr;
     p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t) - 64);
-    p->stack_snapshot->return_address = (uint32_t)task_main_wrapper;
+    p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
     p->entry_point = entry_point;
     p->name = name;
     p->cpu_ticks_total = 0;
@@ -288,7 +300,7 @@ static void schedule() {
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
-    klog("K: Swapping out %s, in %s\n", previous->name, next->name);
+    klog("K: Task switching \"%s\" --> \"%s\"\n", previous->name, next->name);
     
 
     /**
@@ -344,7 +356,7 @@ void start_multitasking() {
         clock_time_t t;
         get_real_time_clock(&t);
         klog("This is the root task, time is %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
-        sleep_me_for(10000);
+        sleep(10000);
 
         if (++delay > 5) {
             klog("\n");
@@ -373,19 +385,12 @@ void multitasking_timer_ticked() {
 
 
 static void dump_process(process_t *proc) {
-    char *states[] = {
-        "READY",
-        "RUNNING",
-        "SLEEPING",
-        "BLOCKED",
-        "TERMINATED"
-    };
-    printf("%-10s %08x %08x %-10s %3d %4us\n", 
+    klog("%-10s %08x %08x %-10s %-10s %4us\n", 
         proc->name, 
         proc->esp, 
         proc->entry_point,
-        (char *)states[(int)proc->state],
-        proc->block_reason,
+        (char *)process_state_names[(int)proc->state],
+        (char *)process_block_reason_names[proc->block_reason],
         (proc->cpu_ticks_total / 1000)
     );
 }
@@ -399,8 +404,8 @@ static void dump_process_list(proc_list_t *list) {
 }
 
 void dump_process_table() {
-    printf("Process list:\n");
-    printf("Name       ESP      EIP      State      Blk    CPU\n");
+    klog("Process list:\n");
+    klog("Name       ESP      EIP      State      Blck Reasn    CPU\n");
     dump_process(running_proc);
     dump_process_list(&ready_list);
     dump_process_list(&blocked_list);
@@ -419,9 +424,9 @@ void acquire_semaphore(semaphore_t *semaphore) {
     lock_scheduler();
 
     if (semaphore->count < semaphore->limit) {
+        semaphore->count++;
         klog("K: process %s acquired semaphore\n", running_process()->name);
         // we got it!
-        semaphore->count++;
     } else {
         klog("K: process %s getting blocked on semaphore\n", running_process()->name);
         // we cannot acquire, we'll just block until it's free
@@ -436,27 +441,27 @@ void release_semaphore(semaphore_t *semaphore) {
     lock_scheduler();
 
     bool unblocked_a_process = false;
+    process_t *target_proc = NULL;
     if (semaphore->waiting_processes > 0) {
-        klog("K: waiting processes detected on semaphore releasing\n");
+        klog("K: semaphore releasing, there are waiting processes\n");
         // if there are processes waiting, let's unblock them now
-        process_t *proc = blocked_list.head;
-        while (proc != NULL) {
-            if (proc->state == BLOCKED 
-                && proc->block_reason == SEMAPHORE 
-                && proc->block_channel == semaphore
+        target_proc = blocked_list.head;
+        while (target_proc != NULL) {
+            if (target_proc->state == BLOCKED 
+                && target_proc->block_reason == SEMAPHORE 
+                && target_proc->block_channel == semaphore
             ) {
-                klog("K: process %s will be unblocked\n", proc->name);
-                unblock_process(proc);
+                unblock_process(target_proc);
                 unblocked_a_process = true;
                 break;
             }
-            proc = proc->next;
+            target_proc = target_proc->next;
         }
     }
     if (unblocked_a_process) {
         // somebody was waiting and we liberated them
         // we don't lower the count, they now hold the semaphore
-        klog("K: waiting process %s now unblocked\n", running_process()->name);
+        klog("K: waiting process %s now unblocked to own the semaphore\n", target_proc->name);
         semaphore->waiting_processes--;
     } else {
         // either nobody was waiting, or we did not find them (they may have been killed)

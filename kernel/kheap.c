@@ -4,6 +4,7 @@
 #include "multiboot.h"
 #include "screen.h"
 #include "string.h"
+#include "klog.h"
 
 #define KMEM_MAGIC            0x6AFE // something that fits in 14 bits
 
@@ -155,7 +156,7 @@ uint32_t kernel_heap_free_size() {
 
 void kernel_heap_dump() {
     memory_block_t *block = kernel_heap.list_head;
-    printf("  Address         Size  Type  Magic  Prev        Next\n");
+    klog("  Address         Size  Type  Magic  Prev        Next\n");
     //        0x00000000  00000000  Used  XXXX   0xXXXXXXXX  0xXXXXXXXX
     uint32_t free_mem = 0;
     uint32_t used_mem = 0;
@@ -170,7 +171,7 @@ void kernel_heap_dump() {
             free_mem += block->size;
             free_blocks++;
         }
-        printf("  0x%08x  %8u  %s  %x   %08x  %08x\n",
+        klog("  0x%08x  %8u  %s  %x   %08x  %08x\n",
             (uint32_t)block,
             block->size,
             block->used ? "Used" : "Free",
@@ -185,12 +186,12 @@ void kernel_heap_dump() {
     int utilization = (used_mem * 100) / (free_mem + used_mem);
 
     int percent_free = (kernel_heap.available_memory * 100) / (kernel_heap.end_address - kernel_heap.start_address);
-    printf("Free memory %u KB (%u%%), out of %u KB total\n",
+    klog("Free memory %u KB (%u%%), out of %u KB total\n",
         kernel_heap.available_memory / 1024,
         percent_free,
         (kernel_heap.end_address - kernel_heap.start_address) / 1024
     );
-    printf("Total free memory  %u KB (%u blocks)\n", (uint32_t)free_mem, free_blocks);
-    printf("Total used memory  %u KB (%u blocks) - %d%% utilization\n", (uint32_t)used_mem, used_blocks, utilization);
+    klog("Total free memory  %u KB (%u blocks)\n", (uint32_t)free_mem, free_blocks);
+    klog("Total used memory  %u KB (%u blocks) - %d%% utilization\n", (uint32_t)used_mem, used_blocks, utilization);
 }
 

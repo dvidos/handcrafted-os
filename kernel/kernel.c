@@ -58,15 +58,15 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     screen_init();
     klog_screen(true);
 
-    klog("C kernel kick-off, loaded at 0x%x - 0x%x (size of %u KB)\n",
+    klog("C kernel kicking off, loaded at 0x%x - 0x%x (size of %u KB)\n",
         (uint32_t)&kernel_start_address,
         (uint32_t)&kernel_end_address,
         ((uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address) / 1024
     );
 
     // it seems interrupts are disabled, nmi is also disabled
-    // printf("Interrupts enabled? %d\n", interrupts_enabled());
-    // printf("NMI is enabled? %d\n", nmi_enabled());
+    // klog("Interrupts enabled? %d\n", interrupts_enabled());
+    // klog("NMI is enabled? %d\n", nmi_enabled());
 
     if (boot_magic == 0x2BADB002) {
         klog("Bootloader info detected, copying it, size of %d bytes\n", sizeof(multiboot_info_t));
@@ -95,13 +95,17 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     klog("Initializing Serial Port 1 for logging...\n");
     init_serial_port();
+
+    // maybe tomorrow to a file
+    klog("Switching logging to serial port\n");
     klog_serial_port(true);
+    klog_screen(false);
     
     klog("Initializing Kernel Heap...\n");
     // we will reserve from kernel code end, till 2 MB, for kernel heap
     init_kernel_heap(((char *)&kernel_end_address) + 128, (char *)0x1FFFFF);
 
-    klog("Enabling interrupts...\n");
+    klog("Enabling interrupts & NMI...\n");
     sti();
     enable_nmi();
 
@@ -136,77 +140,92 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 mutex_t shared_memory_mutex;
 char shared_memory[256];
 
-void process_a_main() {
 
+void process_a_main() {
+    // sleep a bit, to avoid race condition with other tasks
+    sleep(50);
+
+    // define and grab the mutex, we should be all alone
     memset(&shared_memory_mutex, 0, sizeof(shared_memory_mutex));
     shared_memory_mutex.limit = 1;
 
-    printf("A: acquiring mutex\n");
-    acquire_mutex(&shared_memory_mutex); // this will block
-    printf("A: writing shared memory\n");
+    klog("A: acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex); // we should be the ones
+    klog("A: acquired mutex\n");
+
+    klog("A: writing shared memory\n");
     memset(shared_memory, 0, sizeof(shared_memory));
-    strcpy(shared_memory, "Hi there from task a!\n");
-    sleep_me_for(100);
-    printf("A: releasing mutex\n");
-    release_mutex(&shared_memory_mutex);
-    yield();
-    printf("A: re-acquiring mutex\n");
-    acquire_mutex(&shared_memory_mutex); // this will block
-    printf("A: reading shared memory\n");
-    printf("> %s\n", shared_memory);
-    sleep_me_for(100);
-    printf("A: done, releasing mutex\n");
-    release_mutex(&shared_memory_mutex);
+    strcpy(shared_memory, "Hi there from task A!");
+
+    // give time to others to wake and block, while we hold the semaphore
+    klog("A: sleeping with acquired mutex\n");
+    sleep(200);
 
 
-    // int i = 1;
-    // while (true) {
-    //     printf("This is A, i=%d\n", i++);
-    //     sleep_me_for(200);
-    //     if (i > 10)
-    //         break;
-    // }
+    klog("A: releasing mutex\n");
+    release_mutex(&shared_memory_mutex);
+    klog("A: released mutex\n");
+
+    // pausing for a bit, then will read it.
+    sleep(2000);
+
+    klog("A: acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex);
+    klog("A: acquired mutex\n");
+    klog("A: shared memory contents: [%s]\n", shared_memory);
+    klog("A: releasing and exiting\n");
+    release_mutex(&shared_memory_mutex);
+    kernel_heap_dump();
 }
 
 void process_b_main() {
+    // sleep longer, to avoid race condition with other tasks
+    sleep(100);
 
-    yield();
-    printf("B: acquiring mutex\n");
-    acquire_mutex(&shared_memory_mutex); // this will block
-    printf("B: reading shared memory\n");
-    printf("> %s\n", shared_memory);
-    memset(shared_memory, 0, sizeof(shared_memory));
-    strcpy(shared_memory, "Task B listening loud and clear!\n");
-    sleep_me_for(100);
-    printf("B: releasing mutex\n");
+    klog("B: acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex);
+    klog("B: acquired mutex\n");
+
+    klog("B: shared memory contents: [%s]\n", shared_memory);
+    klog("B: writing shm\n");
+    strcpy(shared_memory, "Hi from B!");
+
+    klog("B: releasing mutex\n");
     release_mutex(&shared_memory_mutex);
-    yield();
-
-
-    // for (int i = 0; i < 10; i++) {
-    //     printf("This is B, i is %d\n", i++);
-    //     sleep_me_for(300);
-    // }
+    klog("B: released mutex\n");
 }
+
 void process_c_main() {
-    for (int i = 0; i < 10; i++) {
-        // printf("Task C here, this is the %d time\n", i);
-        sleep_me_for(1000);
-    }
+    // sleep longer, to avoid race condition with other tasks
+    sleep(100);
+
+    klog("C: acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex);
+    klog("C: acquired mutex\n");
+
+    klog("C: shared memory contents: [%s]\n", shared_memory);
+    klog("C: writing shm\n");
+    strcpy(shared_memory, "This is C calling");
+
+    klog("C: releasing mutex\n");
+    release_mutex(&shared_memory_mutex);
+    klog("C: released mutex\n");
 }
 void process_d_main() {
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
-            // printf("%d + %d = %d\n", i, j, i + j);
-            // sleep_me_for(100);
-        }
-    }
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
-            // printf("%d * %d = %d\n", i, j, i * j);
-            // sleep_me_for(100);
-        }
-    }
+    // sleep longer, to avoid race condition with other tasks
+    sleep(100);
+
+    klog("D: acquiring mutex\n");
+    acquire_mutex(&shared_memory_mutex);
+    klog("D: acquired mutex\n");
+
+    klog("D: shared memory contents: [%s]\n", shared_memory);
+    klog("D: writing shm\n");
+    strcpy(shared_memory, "Dah Dah Dah");
+
+    klog("D: releasing mutex\n");
+    release_mutex(&shared_memory_mutex);
+    klog("D: released mutex\n");
 }
 
 void isr_handler(registers_t regs) {
@@ -224,7 +243,7 @@ void isr_handler(registers_t regs) {
             real_time_clock_interrupt_interrupt_handler(&regs);
             break;
         default:
-            printf("Received interrupt %d (0x%x), error %d\n", regs.int_no, regs.int_no, regs.err_code);
+            klog("Received interrupt %d (0x%x), error %d\n", regs.int_no, regs.int_no, regs.err_code);
     }
 
     // we need to send end-of-interrupt acknowledgement 

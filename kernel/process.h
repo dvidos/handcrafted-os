@@ -52,10 +52,15 @@ struct process {
     int block_reason;
     void *block_channel;
     uint64_t wake_up_time;
+    uint8_t exit_code;
 };
 typedef struct process process_t;
 
 
+// we don't know who "owns" the semaphore at each time,
+// e.g. when releasing() we will wake up a waiting process at random
+// so the only unblocked process owns the semaphore.
+// we could have a process pointer, but it may be more than one owners, if limit > 1
 struct semaphore {
     int limit;
     int count;
@@ -85,18 +90,17 @@ process_t *create_process(func_ptr entry_point, char *name);
 void start_process(process_t *process);
 
 // actions that a running task can use
-void block_me(int reason, void *channel);
-void sleep_me_for(int milliseconds);
-void terminate_me();
-
-// voluntarily give up the CPU to another task
-void yield();
+void block_me(int reason, void *channel); // blocks task, someone else must unblock it
+void sleep(int milliseconds);  // sleep self for some milliseconds
+void exit(uint8_t exit_code);  // terminate self, give exit code
+void yield();  // voluntarily give up the CPU to another task
 
 // synchonization functions tasks can use
 mutex_t *create_mutex();
 void acquire_mutex(mutex_t *mutex);
 void release_mutex(mutex_t *mutex);
 
+// semaphores have a limit > 1, allowing a number of acquirers
 semaphore_t *create_semaphore(int limit);
 void acquire_semaphore(semaphore_t *semaphore);
 void release_semaphore(semaphore_t *semaphore);
