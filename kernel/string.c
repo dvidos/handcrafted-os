@@ -31,28 +31,33 @@ void strcpy(char *target, char *source) {
     *target = *source; // final null char
 }
 
-void memset(char *dest, uint8_t value, size_t size) {
+void memset(void *dest, uint8_t value, size_t size) {
+    char *d = (char *)dest;
     while (size-- > 0) {
-        *(dest++) = value;
+        *d++ = value;
     }
 }
 
 
-void memcpy(char *dest, char *source, size_t size) {
+void memcpy(void *dest, void *source, size_t size) {
+    char *d = (char *)dest;
+    char *s = (char *)source;
     while (size-- > 0) {
-        *dest++ = *source++;
+        *d++ = *s++;
     }
 }
 
-int memcmp(char *a, char *b, size_t size) {
+int memcmp(void *a, void *b, size_t size) {
+    char *ca = (char *)a;
+    char *cb = (char *)b;
     while (size-- > 0) {
-        if (*a != *b)
-            return (int)(*a - *b);
+        if (*ca != *cb)
+            return (int)(*ca - *cb);
     }
     return 0;
 }
 
-char *memmove(char *dest, char *source, size_t size) {
+char *memmove(void *dest, void *source, size_t size) {
     char *d = dest;
     char *s = source;
 

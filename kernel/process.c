@@ -10,6 +10,7 @@
 #include "clock.h"
 #include "process.h"
 #include "proclist.h"
+#include "kheap.h"
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
@@ -74,7 +75,6 @@ process_t *idle_task;
 process_t *initial_task;
 proc_list_t ready_list;
 proc_list_t blocked_list;
-proc_list_t sleeping_list;
 proc_list_t terminated_list;
 volatile int switching_postpone_depth = 0;
 volatile bool task_switching_pending = false;
@@ -112,10 +112,11 @@ void unlock_scheduler() {
 }
 
 // this is how the running task can block itself
-void block_me(int reason) {
+void block_me(int reason, void *channel) {
     lock_scheduler();
     running_proc->state = BLOCKED;
     running_proc->block_reason = reason;
+    running_proc->block_channel = channel;
     append(&blocked_list, running_proc);
     schedule(); // allow someone else to run
     unlock_scheduler();
@@ -145,32 +146,34 @@ void sleep_me_for(int milliseconds) {
     if (milliseconds <= 0)
         return;
     lock_scheduler();
-    running_proc->state = SLEEPING;
+
     running_proc->wake_up_time = timer_get_uptime_msecs() + milliseconds;
+    running_proc->state = BLOCKED;
+    running_proc->block_reason = SLEEPING;
 
     // keep the earliest wake up time, useful for fast comparison
     next_wake_up_time = (next_wake_up_time == 0)
-        ? next_wake_up_time = running_proc->wake_up_time
+        ? running_proc->wake_up_time
         : min(next_wake_up_time, running_proc->wake_up_time);
     
-    append(&sleeping_list, running_proc);
+    append(&blocked_list, running_proc);
     schedule(); // allow someone else to run
     unlock_scheduler();
 }
 
 // called by the timer handler
 static void wake_sleeping_tasks() {
-    if (sleeping_list.head == NULL)
+    if (blocked_list.head == NULL)
         return;
     lock_scheduler();
 
     // move everything to a temp list, then deal with one task at a time
     // tasks are either put back into the sleeping list, or in the ready list.
     proc_list_t temp_list;
-    temp_list.head = sleeping_list.head;
-    temp_list.tail = sleeping_list.tail;
-    sleeping_list.head = NULL;
-    sleeping_list.tail = NULL;
+    temp_list.head = blocked_list.head;
+    temp_list.tail = blocked_list.tail;
+    blocked_list.head = NULL;
+    blocked_list.tail = NULL;
     uint64_t now = timer_get_uptime_msecs();
 
     // update the next wake_up_time
@@ -181,7 +184,7 @@ static void wake_sleeping_tasks() {
             proc->state = READY;
             prepend(&ready_list, proc);
         } else {
-            append(&sleeping_list, proc);
+            append(&blocked_list, proc);
             next_wake_up_time = (next_wake_up_time == 0)
                 ? proc->wake_up_time
                 : min(next_wake_up_time, proc->wake_up_time);
@@ -300,7 +303,6 @@ void init_multitasking() {
     // this way we always have a "from" to switch from...
     memset((char *)&ready_list, 0, sizeof(ready_list));
     memset((char *)&blocked_list, 0, sizeof(blocked_list));
-    memset((char *)&sleeping_list, 0, sizeof(sleeping_list));
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
 
     // at least two tasks: 
@@ -390,6 +392,72 @@ void dump_process_table() {
     dump_process(running_proc);
     dump_process_list(&ready_list);
     dump_process_list(&blocked_list);
-    dump_process_list(&sleeping_list);
     dump_process_list(&terminated_list);
+}
+
+
+semaphore_t *create_semaphore(int limit) {
+    semaphore_t *semaphore = kalloc(sizeof(semaphore_t));
+    memset((char *)semaphore, 0, sizeof(semaphore_t));
+    semaphore->limit = limit;
+    return semaphore;
+}
+
+void acquire_semaphore(semaphore_t *semaphore) {
+    lock_scheduler();
+
+    if (semaphore->count < semaphore->limit) {
+        // we got it!
+        semaphore->count++;
+    } else {
+        // we cannot acquire, we'll just block until it's free
+        semaphore->waiting_processes++;
+        block_me(SEMAPHORE, semaphore);
+    }
+
+    unlock_scheduler();
+}
+
+void release_semaphore(semaphore_t *semaphore) {
+    lock_scheduler();
+
+    bool unblocked_a_process = false;
+    if (semaphore->waiting_processes > 0) {
+        // if there are processes waiting, let's unblock them now
+        process_t *proc = blocked_list.head;
+        while (proc != NULL) {
+            if (proc->state == BLOCKED 
+                && proc->block_reason == SEMAPHORE 
+                && proc->block_channel == semaphore
+            ) {
+                unblock_process(proc);
+                unblocked_a_process = true;
+                break;
+            }
+            proc = proc->next;
+        }
+    }
+    if (unblocked_a_process) {
+        // somebody was waiting and we liberated them
+        // we don't lower the count, they now hold the semaphore
+        semaphore->waiting_processes--;
+    } else {
+        // either nobody was waiting, or we did not find them (they may have been killed)
+        // lower number as expected
+        semaphore->count--;
+    }
+
+    unlock_scheduler();
+}
+
+mutex_t *create_mutex() {
+    return (mutex_t *)create_semaphore(1);
+}
+
+void acquire_mutex(mutex_t *mutex) {
+    acquire_semaphore((semaphore_t *)mutex);
+}
+
+void release_mutex(mutex_t *mutex) {
+    release_semaphore((semaphore_t *)mutex);
 }

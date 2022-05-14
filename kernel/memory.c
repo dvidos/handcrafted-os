@@ -307,9 +307,9 @@ void init_kernel_pages(size_t start, size_t end) {
     first_free_page = NULL;
     start = ROUNDUP(start);
     end = ROUNDUP(end);
-    void *address;
+    char *address;
     struct free_page_info *page_info;
-    for (address = start; address < end; address += PGSIZE) {
+    for (address = (char *)start; address < (char *)end; address += PGSIZE) {
         page_info = (struct free_page_info *)address;
         page_info->next_free_page = first_free_page;
         first_free_page = page_info;

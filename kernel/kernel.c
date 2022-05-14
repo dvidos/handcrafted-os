@@ -87,7 +87,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     printf("Initializing Kernel Heap...\n");
     // we will reserve from kernel code end, till 2 MB, for kernel heap
-    init_kernel_heap(&kernel_end_address + 128, (char *)0x1FFFFF);
+    init_kernel_heap(((char *)&kernel_end_address) + 128, (char *)0x1FFFFF);
 
     printf("Enabling interrupts...\n");
     sti();
@@ -131,7 +131,7 @@ void process_a_main() {
         printf("This is A, i=%d\n", i++);
         sleep_me_for(100);
         printf("A, becoming blocked\n");
-        block_me(i);
+        block_me(i, NULL);
         if (i > 15)
             terminate_me();
     }

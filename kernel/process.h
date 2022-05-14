@@ -28,10 +28,10 @@ struct switched_stack_snapshot {
 typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 
 // state of a process. corresponding lists exist
-enum process_state { READY, RUNNING, SLEEPING, BLOCKED, TERMINATED };
+enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 
 // reasons a process can be blocked
-enum block_reasons { SEMAPHORE };
+enum block_reasons { SLEEPING = 1, SEMAPHORE };
 
 // a function to execute as the task code
 typedef void (* func_ptr)();
@@ -39,7 +39,7 @@ typedef void (* func_ptr)();
 // the fundamental process information for multi tasking
 struct process {
     char *name;
-    struct process *next;
+    struct process *next; // each process can only belong to one list
     void *stack_buffer;
     func_ptr entry_point;
     union { // two views of the same piece of information
@@ -50,9 +50,20 @@ struct process {
     uint64_t cpu_ticks_last;
     enum process_state state;
     int block_reason;
+    void *block_channel;
     uint64_t wake_up_time;
 };
 typedef struct process process_t;
+
+
+struct semaphore {
+    int limit;
+    int count;
+    int waiting_processes; // how many are waiting to release it
+};
+typedef struct semaphore semaphore_t;
+typedef struct semaphore mutex_t;
+
 
 
 /** 
@@ -74,7 +85,7 @@ process_t *create_process(func_ptr entry_point, char *name);
 void start_process(process_t *process);
 
 // actions that a running task can use
-void block_me(int reason);
+void block_me(int reason, void *channel);
 void sleep_me_for(int milliseconds);
 void terminate_me();
 

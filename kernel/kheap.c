@@ -59,7 +59,7 @@ void init_kernel_heap(void *start_address, void *end_address) {
 }
 
 // allocate a chunk of memory. min size restrictions apply
-char *kalloc(size_t size) {
+void *kalloc(size_t size) {
     size = size < 256 ? 256 : size;
     
     // find the first free block that is equal or larger than size
@@ -92,8 +92,8 @@ char *kalloc(size_t size) {
     return p;
 }
 
-void kfree(char *ptr) {
-    memory_block_t *block = (ptr - sizeof(memory_block_t));
+void kfree(void *ptr) {
+    memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
     memory_block_t *next = block->next;
     memory_block_t *prev = block->prev;
 

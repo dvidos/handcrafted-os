@@ -5,6 +5,7 @@
 #include <limits.h>
 #include "string.h"
 #include "ports.h"
+#include "cpu.h"
 
 
 
@@ -66,7 +67,7 @@ static inline void put_color(int col, int row, uint8_t color) { screen_memory[(r
 static inline uint8_t get_color(int col, int row) { return screen_memory[(row * VGA_WIDTH + col) * 2 + 1]; }
 
 static inline int get_offset(int col, int row) { return 2 * (row * VGA_WIDTH + col); }
-static inline int get_row_col(int *col, int *row, int offset) { *col = offset % (VGA_WIDTH*2); *row = offset / (VGA_WIDTH*2); }
+static inline void get_row_col(int *col, int *row, int offset) { *col = offset % (VGA_WIDTH*2); *row = offset / (VGA_WIDTH*2); }
 
 
 void screen_init(void)
@@ -74,8 +75,9 @@ void screen_init(void)
 	screen_row = 0;
 	screen_column = 0;
 	screen_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-	screen_memory = (uint8_t*) 0xB8000;
+	screen_memory = (uint8_t *)0xB8000;
     for (int i = 0; i < (VGA_WIDTH * VGA_HEIGHT) * 2; i += 2) {
+        #pragma GCC diagnostic ignored "-Wstringop-overflow"
         screen_memory[i] = ' ';
         screen_memory[i + 1] = screen_color;
     }

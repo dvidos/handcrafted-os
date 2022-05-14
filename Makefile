@@ -12,6 +12,11 @@ CC = i686-elf-gcc
 LD = i686-elf-ld
 AS = i686-elf-as
 EMU = qemu-system-i386 -m 1G
+CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
+		-Werror   \
+		-Wno-unused-parameter \
+		-Wno-unused-function \
+		-Wno-array-bounds
 
 KERNEL_FILES = $(wildcard kernel/*.c)
 KERNEL_HEADERS = $(wildcard kernel/*.h)
@@ -43,7 +48,7 @@ boot/multiboot.o: boot/multiboot.S
 
 kernel/%.o: kernel/%.c $(KERNEL_HEADERS) Makefile
 	@# -O0 disables optimizations (for loops etc), default was -O2
-	$(CC) -c $< -o $@ -std=gnu99 -ffreestanding -O3 -Wall -Wextra -Wunused-function
+	$(CC) -c $< -o $@ $(CFLAGS)
 
 
 kernel/%.o: kernel/%.asm
