@@ -10,6 +10,7 @@
 #include "timer.h"
 #include "clock.h"
 #include "serial.h"
+#include "physmem.h"
 #include "kheap.h"
 #include "string.h"
 #include "multiboot.h"
@@ -95,6 +96,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     klog("Initializing Real Time Clock...\n");
     init_real_time_clock(15);
+
+    klog("Initializing Physical Memory Manager...\n");
+    init_physical_memory_manager(&saved_multiboot_info);
 
     klog("Initializing Serial Port 1 for logging...\n");
     init_serial_port();

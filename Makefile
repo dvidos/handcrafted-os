@@ -11,7 +11,7 @@
 CC = i686-elf-gcc
 LD = i686-elf-ld
 AS = i686-elf-as
-EMU = qemu-system-i386 -m 1G
+EMU = qemu-system-i386 -m 2G
 CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
 		-Werror   \
 		-Wno-unused-parameter \

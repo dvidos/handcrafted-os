@@ -38,6 +38,7 @@ static int do_boot_info(int argc, char *argv[]);
 static int do_rtc(int argc, char *argv[]);
 static int do_sizes(int argc, char *argv[]);
 static int do_kheap(int argc, char *argv[]);
+static int do_phys_mem_dump(int argc, char *argv[]);
 static void get_command(char *prompt);
 static void run_command();
 
@@ -59,7 +60,8 @@ struct action actions[] = {
     // {"pdump", "Show information about OS processes", do_proc_dump},
     {"rtc", "Real Time Clock", do_rtc},
     {"sizes", "Variable sizes in memory", do_sizes},
-    {"kheap", "Dump kernel heap", do_kheap}
+    {"kheap", "Dump kernel heap", do_kheap},
+    {"phys", "Physical Memory Dump", do_phys_mem_dump},
 };
 
 
@@ -421,5 +423,11 @@ static int do_sizes(int argc, char *argv[]) {
 static int do_kheap(int argc, char *argv[]) {
     (void)argc; (void)argv;
     kernel_heap_dump();
+    return 0;
+}
+static int do_phys_mem_dump(int argc, char *argv[]) {
+    (void)argc; (void)argv;
+    extern void dump_physical_memory_map();
+    dump_physical_memory_map();
     return 0;
 }

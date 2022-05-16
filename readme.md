@@ -112,6 +112,7 @@ Also the following must be met:
 
 ### things to do
 
+* put konsole in a task, maybe allow it to own a tty device
 * load and execute executables
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * messages between tasks (IPC)
@@ -201,6 +202,7 @@ Just an idea.
 * MIT's course OS xv6, for a RISK machine ([pdf](https://pdos.csail.mit.edu/6.828/2021/xv6/book-riscv-rev2.pdf), [code repo](https://github.com/mit-pdos/xv6-riscv)). An abandonned x86 version is [here](https://github.com/mit-pdos/xv6-public)
 * [The Little book about OS development](https://littleosbook.github.io/)
 * [Intel 80386 Programmer's Reference Manual](https://logix.cz/michal/doc/i386/), an unofficial copy with nicely explained, low level information and details.
+* [BrokenThorn OS Development](http://www.brokenthorn.com/Resources/OSDevIndex.html), a collection of pages with nice and thorough explanatory information.
 
 ## possible folder organization
 

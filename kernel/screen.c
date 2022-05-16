@@ -8,6 +8,27 @@
 #include "cpu.h"
 
 
+// lots of useful information here:
+// https://web.stanford.edu/class/cs140/projects/pintos/specs/freevga/home.htm
+
+
+struct vga_char {
+    uint8_t blink: 1;
+    uint8_t bgcolor: 3;
+    uint8_t fg_color: 4;
+    uint8_t character: 8;
+} __attribute__((packed));
+
+// hopefully we can support the following:
+// - functions that represent VGA functionality (e.g. fast scrolling)
+// - maybe load greek fonts some day (utf-8 support)
+// i don't care too much about changing the color palette, fonts, glyphs, num of lines etc
+//
+// at a higher level, we'd like to be able to maintain various buffers, for various ttys
+// and scroll horizontally between them (the way macos is doing)
+// also, possibly be able to scroll back a number of lines
+// but that all is the realm of a tty device (do we want this?)
+
 
 #define REG_SCREEN_CTRL 0x3d4
 #define REG_SCREEN_DATA 0x3d5
