@@ -8,22 +8,14 @@
 #include "multiboot.h"
 
 
-
 // inspiration from here: http://www.brokenthorn.com/Resources/OSDev17.html
 // to map 4BGB of data, using 4KB pages, we need 1M bits.
 // if a uint32_t can hold 32 bits, we need 32768 of them.
 // that would take 128KB of memory, or 32 4K-pages.
 
 
-// exported methods:
-void init_physical_memory_manager(multiboot_info_t *info);
-void *allocate_physical_page();
-void *allocate_consecutive_physical_pages(size_t size_in_bytes);
-void free_physical_page(void *address);
-void dump_physical_memory_map();
 
-
-// static, for this file onle
+// static, for this file only
 #define PAGE_SIZE 4096
 #define ONE_MB    0x100000
 #define ONE_GB    0x40000000
@@ -45,7 +37,7 @@ static uint32_t address_to_page_num(void *address);
 
 
 
-void init_physical_memory_manager(multiboot_info_t *info) {
+void init_physical_memory_manager(multiboot_info_t *info, uint8_t *kernel_start_address, uint8_t *kernel_end_address) {
     // mark all of it as used, will open up the available physical_memory_upper_limit
     memset((char *)page_status_bitmaps, 0xFF, sizeof(page_status_bitmaps));
     highest_memory_address = 0;
@@ -57,7 +49,6 @@ void init_physical_memory_manager(multiboot_info_t *info) {
         int map_size = info->mmap_length;
         multiboot_memory_map_t *map_entry = (multiboot_memory_map_t *)info->mmap_addr;
         while (map_size > 0) {
-klog("mapsize %d\n", map_size);
             // for now we only care for available memory, up to 4GB
             if (map_entry->type == MULTIBOOT_MEMORY_AVAILABLE
                 && map_entry->addr < 0xFFFFFFFF) {
@@ -84,10 +75,14 @@ klog("mapsize %d\n", map_size);
 
     // the very first page is unusable, to allow NULL pointers to be invalid
     mark_page_used(0); 
+
+    // also, exclude the pages where the kernel is loaded
+    size_t kernel_size = (size_t)kernel_end_address - (size_t)kernel_start_address;
+    mark_physical_memory_unavailable((void *)kernel_start_address, kernel_size);
 }
 
 static void mark_physical_memory_available(void *address, size_t size) {
-    klog("marking as available, p=%p, len=%u", address, size);
+    // klog("marking as available, p=%p, len=%u", address, size);
     int first_page_no = address_to_page_num((void *)round_up_4k((uint32_t)address));
     int num_of_pages = round_down_4k(size) / PAGE_SIZE;
     for (int i = 0; i < num_of_pages; i++)
@@ -96,6 +91,7 @@ static void mark_physical_memory_available(void *address, size_t size) {
 }
 
 static void mark_physical_memory_unavailable(void *address, size_t size) {
+    // klog("marking as unavailable, p=%p, len=%u", address, size);
     int first_page_no = address_to_page_num((void *)round_down_4k((uint32_t)address));
     int num_of_pages = round_up_4k(size) / PAGE_SIZE;
     for (int i = 0; i < num_of_pages; i++)
@@ -170,15 +166,16 @@ void *allocate_consecutive_physical_pages(size_t size_in_bytes) {
     
     pushcli();
     int pages_needed = round_up_4k(size_in_bytes) / PAGE_SIZE;
-    int starting_page_no = 0;
+    int search_starting_page = 0;
+    int first_free_page_no = -1;
     while (true) {
-        int page_no = find_first_free_physical_page_no(starting_page_no);
-        if (page_no == -1)
+        first_free_page_no = find_first_free_physical_page_no(search_starting_page);
+        if (first_free_page_no == -1)
             panic("Cannot find free consecutive pages to allocate");
         bool all_needed_extra_pages_are_free = true;
         int extra_page = 0;
         for (extra_page = 1; extra_page < pages_needed; extra_page++) {
-            if (page_is_used(page_no + extra_page)) {
+            if (page_is_used(first_free_page_no + extra_page)) {
                 all_needed_extra_pages_are_free = false;
                 break;
             }
@@ -186,16 +183,16 @@ void *allocate_consecutive_physical_pages(size_t size_in_bytes) {
         if (all_needed_extra_pages_are_free)
             break;
         // otherwise, search another region
-        starting_page_no = page_no + extra_page + 1;
+        search_starting_page = first_free_page_no + extra_page + 1;
     }
 
     for (int i = 0; i < pages_needed; i++) {
-        mark_page_used(i);
+        mark_page_used(first_free_page_no + i);
         total_used_pages++;
         total_free_pages--;
     }
     popcli();
-    return page_num_to_address(starting_page_no);
+    return page_num_to_address(first_free_page_no);
 }
 
 void free_physical_page(void *address) {
@@ -209,9 +206,16 @@ void free_physical_page(void *address) {
     popcli();
 }
 
+void free_consecutive_physical_pages(void *address, size_t size_in_bytes) {
+    int starting_page_no = address_to_page_num(address);
+    int pages = round_up_4k(size_in_bytes) / PAGE_SIZE;
+    for (int i = 0; i < pages; i++) {
+        free_physical_page(page_num_to_address(starting_page_no + i));
+    }
+}
 
-void dump_physical_memory_map() {
-    char line_symbols[64+1];
+void dump_physical_memory_map_overall() {
+    char line_buffer[64+1];
 
     // we have 32768 integers, each representing 32 pages.
     // 32 pages is 128 KB. We need 32 of those integers to represent 4MB
@@ -221,31 +225,16 @@ void dump_physical_memory_map() {
     // 0        1         2         3         4         5         6         7         8
     // 12345678901234567890123456789012345678901234567890123456789012345678901234567890
     // ----------------------- Physical Memory Allocation Map -----------------------
-    //   Offset  Status (.=empty, *=partial, U=unavailable) - 1 char = 4MB
-    //     0 MB  ................................................................
-    //   256 MB  ................................................................
-    //   512 MB  ................................................................
-    //   768 MB  ................................................................
-    //  1024 MB  ................................................................
-    //  1280 MB  ................................................................
-    //  1536 MB  ................................................................
-    //  1792 MB  ................................................................
-    //  2048 MB  ................................................................
-    //  2304 MB  ................................................................
-    //  2560 MB  ................................................................
-    //  2816 MB  ................................................................
-    //  3072 MB  ................................................................
-    //  3328 MB  ................................................................
-    //  3584 MB  ................................................................
-    //  3840 MB  ................................................................
+    //     Offset  1 char = 4MB = x400000 = 1024 pages (.=free, *=partial, U=used)
+    // 0x00000000  ................................................................
  
     // each uint32_t bitmap represents 32 pages => 128KB
     // we need to collect 32 of those for one character
     klog("----------------------- Physical Memory Allocation Map -----------------------\n");
-    klog("  Offset  Status (.=empty, *=partial, U=unavailable) - 1 char = 4MB\n");
+    klog("    Offset  1 char = 4MB = x400000 = 1024 pages (.=free, *=partial, U=used)\n");
     int index = 0;
-    for (int line = 0; line < 16; line++) {
-        memset(line_symbols, 0, sizeof(line_symbols));
+    for (uint32_t line = 0; line < 16; line++) {
+        memset(line_buffer, 0, sizeof(line_buffer));
         for (int char_block = 0; char_block < 64; char_block++) {
             bool free_page_found = false;
             bool used_page_found = false;
@@ -257,13 +246,42 @@ void dump_physical_memory_map() {
                 index++;
             }
             char symbol = !free_page_found ? 'U' : (!used_page_found ? '.' : '*');
-            line_symbols[char_block] = symbol;
+            line_buffer[char_block] = symbol;
         }
-        klog("  %4d MB  %s\n", line * 256, line_symbols);
+        klog("0x%08x  %s\n", (uint32_t)(line * 256 * 1024 * 1024), line_buffer);
     }
     klog("highest memory address 0x%x, %u used pages, %u free pages\n",
         highest_memory_address,
         total_used_pages,
         total_free_pages
     );
+}
+
+void dump_physical_memory_map_detail(uint32_t start_address) {
+    char line_buffer[64+1];
+
+    // we shall use one character per page, 64 pages per line, 
+    // with 4K per page, each line is 256KB
+    // in 16 lines we present 1024 pages, or 4MB worth of data.
+    // this corresponds to one character in the overall memory map
+    
+    // 0        1         2         3         4         5         6         7         8
+    // 12345678901234567890123456789012345678901234567890123456789012345678901234567890
+    // ----------------------- Detailed Memory Allocation Map -----------------------
+    //     Offset  1 char = 4KB = 0x1000 = 1 page (.=free, U=unavailable)
+    // 0x00000000  ................................................................
+ 
+    start_address = round_down_4k(start_address);
+    int page_no = address_to_page_num((void *)start_address);
+    klog("----------------------- Detailed Memory Allocation Map -----------------------\n");
+    klog("    Offset  1 char = 4KB = 0x1000 = 1 page (.=free, U=unavailable)\n");
+    for (int line = 0; line < 16; line++) {
+        memset(line_buffer, 0, sizeof(line_buffer));
+        for (int c = 0; c < 64; c++) {
+            line_buffer[c] = page_is_free(page_no) ? '.' : 'U';;
+            page_no++;
+        }
+        klog("0x%08x  %s\n", start_address, line_buffer);
+        start_address += (4096 * 64);
+    }
 }

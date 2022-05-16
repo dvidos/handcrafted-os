@@ -7,6 +7,7 @@
 #include "multiboot.h"
 #include "clock.h"
 #include "kheap.h"
+#include "physmem.h"
 
 /**
  * konsole is an interactive shell like thing,
@@ -427,7 +428,12 @@ static int do_kheap(int argc, char *argv[]) {
 }
 static int do_phys_mem_dump(int argc, char *argv[]) {
     (void)argc; (void)argv;
-    extern void dump_physical_memory_map();
-    dump_physical_memory_map();
+
+    if (argc == 0) {
+        dump_physical_memory_map_overall();
+    } else {
+        uint32_t start_address = (uint32_t)atoi(argv[0]);
+        dump_physical_memory_map_detail(start_address);
+    }
     return 0;
 }

@@ -98,7 +98,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_real_time_clock(15);
 
     klog("Initializing Physical Memory Manager...\n");
-    init_physical_memory_manager(&saved_multiboot_info);
+    init_physical_memory_manager(&saved_multiboot_info, &kernel_start_address, &kernel_end_address);
 
     klog("Initializing Serial Port 1 for logging...\n");
     init_serial_port();
@@ -109,8 +109,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // klog_screen(false); -- disabling this we cannot work on our old laptop
     
     klog("Initializing Kernel Heap...\n");
-    // we will reserve from kernel code end, till 2 MB, for kernel heap
-    init_kernel_heap(((char *)&kernel_end_address) + 128, (char *)0x1FFFFF);
+    init_kernel_heap();
 
     klog("Enabling interrupts & NMI...\n");
     sti();
