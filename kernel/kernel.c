@@ -106,7 +106,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // maybe tomorrow to a file
     klog("Switching logging to serial port\n");
     klog_serial_port(true);
-    klog_screen(false);
+    // klog_screen(false); -- disabling this we cannot work on our old laptop
     
     klog("Initializing Kernel Heap...\n");
     // we will reserve from kernel code end, till 2 MB, for kernel heap

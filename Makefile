@@ -66,7 +66,7 @@ view: kernel.bin
 # the brug + iso image stuff is from the Barebones article
 # https://wiki.osdev.org/Bare_Bones
 # can be copied to a usb stick, _very carefully_ by doing:
-# "sudo dd if=kernel.iso of=/dev/sdx && sync"
+# "sudo dd if=kernel.iso of=/dev/sdx && sync" -- replace "x" with appropriate letter
 # can be mounted for inspection (RO) by doing:
 # sudo mount ./kernel.iso /mnt/p1 -o loop
 kernel.iso: kernel.bin
