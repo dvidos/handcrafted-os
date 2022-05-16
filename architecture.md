@@ -74,7 +74,29 @@ IRQ for the slave chip, so it should be enabled for IRQs
 
 ### memory
 
-(in general free, parse boot info, reserve 1-2MB for kernel, paging, virtual & physical, CR3, PD, PT)
+Memory broadly consists of three things:
+
+* physical memory manager, keeping track of allocations of pages, usually of 4KB each. 
+this is done to make sure we don't read or write where we are not supposed to (e.g. bios data area)
+* virtual memory mapping, to allow process to have virtual addresses and possibly swap to disk. 
+this case needs an interrupt handler to handle page faults. 
+* heap allocation (the malloc() calls), where a continuous chunk of memory is allocated 
+at arbitrary sizes to one or more processes that request it.
+
+The physical memory manager is using 4KB pages. 4GB would be broken down to 1024 pages.
+If we use a 32-bit integer to track the status of 32 pages, we need 32768 of those 
+integers, taking 128 KB of memory. But, searching for free pages is really fast,
+since we are doing mainly bitwise operations.
+
+In order to initialize the physical memory manager, we pass in the boot information 
+and the kernel's starting and ending address. 
+This leads to a map of what can be allocated and what not. Finally, 
+kernel heap is requesting 1 MB of consecutive physical memory for the kernel's needs.
+
+In order to support virtual addressing and mapping, there is lots of literature
+around the Page Directory, the Page Tables and the CR3 register. 
+We don't support virtual addressing or hot swapping of pages for now.
+
 
 ### screen
 
@@ -163,9 +185,8 @@ For extra functionality, there are the following methods:
   * `running_process()` returns the running_process
   * `lock_scheduler()` and `unlock_scheduler()` for whenever we will effect changes to the running status of the tasks
   * `unblock_process()` unblocks a task and puts it on the `ready_list`
-  * `acquire_semaphore()` either allows the task to claim the semaphore, or blocks until the semaphore is available. `release_semaphore()` releases and possibly unblocks pending processes
+  * `acquire_semaphore()` and  `release_semaphore()`. It allows the task to claim the semaphore if applicable, or blocks until the semaphore is available. Releasing the semaphore possibly unblocks  processes that are blocked waiting for it.
   * `acquire_mutex()` and `release_mutex()` are identical to semaphores, with a limit of one.
-
 
 
 ### hdd

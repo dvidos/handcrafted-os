@@ -2,7 +2,8 @@
 
 # handcrafted opreating system
 
-An attempt to build a bootable... something.
+An attempt to build a handcrafted operating system.
+It started early April 2022.
 
 The itch to put together enough assembly and a little C
 to have a simple process running in a emulator or computer.
@@ -32,26 +33,10 @@ i386 vs i686 cross compilation issues.
 
 Therefore I started reading http://wiki.osdev.org/
 
-
-## things to implement (maybe in order)
-
-* a way to launch and run tests suites (qemu passes arguments through the -append argument)
-* std funcs, towards a library for user programs:
-    * mem\*
-    * str\*
-    * atoi, itoa, atol, ltoa
-    * malloc/free
-    * printf, puts, putchar
-    * panic, assert
-* text mode screen driver
-* keyboard input
-* scheduler and ability to start / stop processes
-* primitive file system (maybe in memory for now, maybe ext2 later))
-    * fopen, fread, fwrite, fseek, fclose
-* a build script to bring all things together, since a makefile will not cut it (e.g. [minix3 build.sh](https://github.com/Stichting-MINIX-Research-Foundation/minix/blob/master/build.sh))
-
-* primitive memory management (maybe not even virtual for now)
-* some kind of initialization sequence (init, initrd, etc)
+Fast forward to mid-May, we have a small kernel, memory manager, kernel heap, screen and keyboard 
+drivers, timer and real time clock, serial port logging, and a preemptive 
+multi processing functionality with multi-priority ready queues, blocking semaphores, 
+sleeping, yielding and exiting capabilities.
 
 
 ## goals
