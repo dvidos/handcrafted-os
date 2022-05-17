@@ -97,6 +97,7 @@ Also the following must be met:
 
 ### things to do
 
+* organize folders, especially process could be a subfolder inside kernel, with a single public header and mutliple internal headers and c files
 * put konsole in a task, maybe allow it to own a tty device
 * implement IPC using `send(target, message)`, `receive(target, &message)`, `sendrec()` and `notify()`. See "synchronous message passing" [here](http://www.brokenthorn.com/Resources/OSDev25.html)
 * load and execute executables

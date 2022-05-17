@@ -100,8 +100,11 @@ void test_hdd() {
     // it seems that drive 1:0 is present! (secondary master)
     memset(sector_buffer, 0, sizeof(sector_buffer));
     // read_block_lba28(2, 0);
-    read_block_lba28(2, 10);
-    klog_hex16(sector_buffer, sizeof(sector_buffer));
+    for (int i = 0; i < 64; i++) {
+        klog("Sector %d\n", i);
+        read_block_lba28(2, i);
+        klog_hex16(sector_buffer, sizeof(sector_buffer));
+    }
 }
 
 bool is_controller_present(int controller_no) {
