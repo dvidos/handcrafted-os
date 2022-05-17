@@ -65,6 +65,31 @@ void klog(const char *format, ...) {
     }
 }
 
+static inline char printable(char c) {
+    return (c >= ' ' && 'c' <= '~' ? c : '.');
+}
+
+void klog_hex16(void *address, size_t length) {
+    unsigned char *ptr = (unsigned char *)address;
+    while (length > 0) {
+        // using xxd's format, seems nice
+        klog("%08p: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
+            ptr,
+            ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5], ptr[6], ptr[7],
+            ptr[8], ptr[9], ptr[10], ptr[11], ptr[12], ptr[13], ptr[14], ptr[15],
+            printable(ptr[0]), printable(ptr[1]), printable(ptr[2]), printable(ptr[3]),
+            printable(ptr[4]), printable(ptr[5]), printable(ptr[6]), printable(ptr[7]),
+            printable(ptr[8]), printable(ptr[9]), printable(ptr[10]), printable(ptr[11]),
+            printable(ptr[12]), printable(ptr[13]), printable(ptr[14]), printable(ptr[15])
+        );
+        ptr += 16;
+        length -= 16;
+    }
+}
+
+
+
+
 void klog_serial_port(bool enable) {
     log_flags.serial_enabled = enable;
 }

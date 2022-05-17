@@ -127,6 +127,11 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         konsole();
     }
 
+    klog("Testing the hard disks...\n");
+    extern void test_hdd();
+    test_hdd();
+    for(;;) asm("hlt");
+
     klog("Initializing multi-tasking...\n");
     init_multitasking();
 
@@ -178,7 +183,8 @@ void process_a_main() {
     klog("A: shared memory contents: [%s]\n", shared_memory);
     klog("A: releasing and exiting\n");
     release_mutex(&shared_memory_mutex);
-    kernel_heap_dump();
+    //kernel_heap_dump();
+    dump_process_table();
 }
 
 void process_b_main() {

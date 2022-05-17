@@ -98,6 +98,7 @@ Also the following must be met:
 ### things to do
 
 * put konsole in a task, maybe allow it to own a tty device
+* implement IPC using `send(target, message)`, `receive(target, &message)`, `sendrec()` and `notify()`. See "synchronous message passing" [here](http://www.brokenthorn.com/Resources/OSDev25.html)
 * load and execute executables
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * messages between tasks (IPC)
@@ -115,7 +116,7 @@ Also the following must be met:
 * other topics
     * Beeper control for fun (maybe from PIT channel 2)
 * kernel monitor
-    * have a low level hotkey (e.g. Ctrl+Alt+Shift+M) to toggle some area of the screen to be used for kernel monitoring
+    * have a low level hotkey (e.g. Ctrl+Alt+Shift+M) to toggle some area of the screen to be used for kernel monitoring or console
     * maybe it can have pages, left and right or something like that
     * programs should not even be aware of it
 
