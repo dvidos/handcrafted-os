@@ -74,6 +74,7 @@
 #define DEFAULT_TASK_TIMESLICE_MSECS   50
 #define PROCESS_PRIORITY_LEVELS         3
 
+uint32_t last_pid = 0;
 process_t *running_proc = NULL;
 process_t *idle_task = NULL;
 process_t *initial_task = NULL;
@@ -246,10 +247,15 @@ process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
         return NULL;
     }
 
+    
     int stack_size = 4096;
     process_t *p = (process_t *)kalloc(sizeof(process_t));
     char *stack_ptr = kalloc(stack_size);
     
+    pushcli();
+    p->pid = ++last_pid;
+    popcli();
+
     p->stack_buffer = stack_ptr;
     p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t) - 64);
     p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
@@ -409,7 +415,8 @@ void multitasking_timer_ticked() {
 
 
 static void dump_process(process_t *proc) {
-    klog("%-10s %08x %08x %-10s %-10s %4us\n", 
+    klog("%-3d %-10s %08x %08x %-10s %-10s %4us\n", 
+        proc->pid,
         proc->name, 
         proc->esp, 
         proc->entry_point,
@@ -429,7 +436,7 @@ static void dump_process_list(proc_list_t *list) {
 
 void dump_process_table() {
     klog("Process list:\n");
-    klog("Name       ESP      EIP      State      Blck Reasn    CPU\n");
+    klog("PID Name       ESP      EIP      State      Blck Reasn    CPU\n");
     dump_process(running_proc);
     for (int pri = 0; pri < PROCESS_PRIORITY_LEVELS; pri++) {
         dump_process_list(&ready_lists[pri]);
@@ -509,4 +516,38 @@ void acquire_mutex(mutex_t *mutex) {
 
 void release_mutex(mutex_t *mutex) {
     release_semaphore((semaphore_t *)mutex);
+}
+
+
+
+
+
+
+
+
+struct ipc_message {
+    int call_no;
+    union {
+        struct {
+            int p1;
+            int p2;
+            int p3;
+        } a;
+    };
+};
+typedef struct ipc_message ipc_message_t;
+
+void send(int receiver_pid, ipc_message_t *message) {
+    // send message, block if receiver cannot receive it
+}
+void receive(int sender_pid, ipc_message_t *message) {
+    // block until there is a message from target
+    // unblock when message received
+}
+void sendrec(int receiver_pid, ipc_message_t *message) {
+    // send and receive
+    // block until answer is given
+}
+void notify(int receiver_pid, ipc_message_t *message) {
+    // notify sender, do not block
 }

@@ -38,6 +38,7 @@ typedef void (* func_ptr)();
 
 // the fundamental process information for multi tasking
 struct process {
+    uint32_t pid;
     char *name;
     struct process *next; // each process can only belong to one list
     void *stack_buffer;
