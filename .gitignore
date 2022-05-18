@@ -7,9 +7,14 @@ kernel/*.o
 qemu.log
 *.iso
 
+src/libc/*.a
+src/user/bin/*
+
 sysroot/bin/*
 sysroot/boot/*
 sysroot/usr/include
 sysroot/usr/lib
+
+tempdir
 
 
