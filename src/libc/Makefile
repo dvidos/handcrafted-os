@@ -10,6 +10,7 @@ SOURCE_FILES = \
 	$(wildcard arch/*.c) \
 	$(wildcard stdio/*.c) \
 	$(wildcard stdlib/*.c) \
+	$(wildcard proc/*.c) \
 	$(wildcard string/*.c)
 
 LIBC_OBJ_FILES = $(SOURCE_FILES:.c=.o)
@@ -18,7 +19,7 @@ LIBK_OBJ_FILES = $(SOURCE_FILES:.c=.libk.o)
 HEADER_FILES = \
 	$(wildcard include/*.h)
 
-DISKIMG_DIR = ../../diskimg
+SYSROOT_DIR = ../../sysroot
 
 .SUFFIXES: .o .libk.o .c
 
@@ -46,10 +47,10 @@ clean:
 install: install-headers install-libs
 	
 install-headers:
-	mkdir -p $(DISKIMG_DIR)/usr/include
-	cp -R --preserve=timestamps include/. $(DISKIMG_DIR)/usr/include
+	mkdir -p $(SYSROOT_DIR)/usr/include
+	cp -R --preserve=timestamps include/. $(SYSROOT_DIR)/usr/include
 
 install-libs: libc.a libk.a
-	mkdir -p $(DISKIMG_DIR)/usr/lib
-	cp -R --preserve=timestamps libc.a libk.a $(DISKIMG_DIR)/usr/lib
+	mkdir -p $(SYSROOT_DIR)/usr/lib
+	cp -R --preserve=timestamps libc.a libk.a $(SYSROOT_DIR)/usr/lib
 

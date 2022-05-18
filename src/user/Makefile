@@ -3,10 +3,10 @@ LD = i686-elf-ld
 AS = i686-elf-as
 AR = i686-elf-ar
 
-DISKIMG_DIR = ../../diskimg
-OUR_INCLUDES_DIR = $(DISKIMG_DIR)/usr/include
+SYSROOT_DIR = ../../sysroot
+OUR_INCLUDES_DIR = $(SYSROOT_DIR)/usr/include
 OUR_HEADER_FILES = $(wildcard $(OUR_INCLUDES_DIR)/*)
-OUR_LIBC = $(DISKIMG_DIR)/usr/lib/libc.a
+OUR_LIBC = $(SYSROOT_DIR)/usr/lib/libc.a
 
 CFLAGS = \
 	-std=gnu99 \
@@ -34,6 +34,6 @@ clean:
 	rm -rf ./bin
 
 install:
-	mkdir -p $(DISKIMG_DIR)/bin
-	cp -R --preserve=timestamps bin/. $(DISKIMG_DIR)/bin
+	mkdir -p $(SYSROOT_DIR)/bin
+	cp -R --preserve=timestamps bin/. $(SYSROOT_DIR)/bin
 	

@@ -3,7 +3,7 @@
 # we have various targets:
 # - libc.lib
 # - kernel.bin
-# - all the utils to be compiled and copied into the diskimg
+# - all the utils to be compiled and copied into the sysroot
 # - hdd.img
 # 
 # then we can either:

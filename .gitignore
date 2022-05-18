@@ -6,5 +6,9 @@ kernel/*.o
 .vscode/*
 qemu.log
 
+sysroot/bin/*
+sysroot/boot/*
+sysroot/usr/include
+sysroot/usr/lib
 
 

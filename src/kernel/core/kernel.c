@@ -127,6 +127,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         konsole();
     }
 
+    extern void libk_method();
+    libk_method();
+
     klog("Testing the hard disks...\n");
     extern void test_hdd();
     test_hdd();

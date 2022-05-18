@@ -29,8 +29,8 @@ KERNEL_HEADERS = \
 KERNEL_ASM_FILES = \
 	$(wildcard core/*.asm)
 
-DISKIMG_DIR = ../../diskimg
-KERNEL_LIB = $(DISKIMG_DIR)/usr/lib/libk.a
+SYSROOT_DIR = ../../sysroot
+KERNEL_LIB = $(SYSROOT_DIR)/usr/lib/libk.a
 
 KERNEL_OBJS = $(KERNEL_FILES:.c=.o)
 KERNEL_ASM_OBJS = $(KERNEL_ASM_FILES:.asm=.o)
@@ -71,5 +71,5 @@ clean:
 	rm -f *.o *.bin boot/*.o core/*.o
 
 install:
-	mkdir -p $(DISKIMG_DIR)/boot
-	cp --preserve=timestamps kernel.bin $(DISKIMG_DIR)/boot
+	mkdir -p $(SYSROOT_DIR)/boot
+	cp --preserve=timestamps kernel.bin $(SYSROOT_DIR)/boot
