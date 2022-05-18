@@ -20,19 +20,26 @@ CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
 		-Wno-unused-but-set-variable \
 		-Wno-array-bounds
 
-KERNEL_FILES = $(wildcard kernel/*.c)
-KERNEL_HEADERS = $(wildcard kernel/*.h)
-KERNEL_OBJS = $(KERNEL_FILES:.c=.o)
-KERNEL_ASM_FILES = $(wildcard kernel/*.asm)
-KERNEL_ASM_OBJS = $(KERNEL_ASM_FILES:.asm=.o)
+KERNEL_FILES = \
+	$(wildcard core/*.c)
 
-QEMU_SERIAL_FLAGS = -chardev stdio,id=char0,logfile=qemu.log,signal=off  -serial chardev:char0
+KERNEL_HEADERS = \
+	$(wildcard core/*.h)
+
+KERNEL_ASM_FILES = \
+	$(wildcard core/*.asm)
+
+DISKIMG_DIR = ../../diskimg
+KERNEL_LIB = $(DISKIMG_DIR)/usr/lib/libk.a
+
+KERNEL_OBJS = $(KERNEL_FILES:.c=.o)
+KERNEL_ASM_OBJS = $(KERNEL_ASM_FILES:.asm=.o)
 
 .PHONY:
 
 
 # target to be executed when no arguments to make
-default: run
+default: kernel.bin install
 
 # this was an effort for bios loading the first 512 bytes
 # currently it does not load and boot anything
@@ -41,46 +48,28 @@ boot/boot_sector.bin: boot/boot_sector.asm
 
 # for info on putting this on an .iso image
 # and burning a USB stick, see https://wiki.osdev.org/Bare_Bones
-kernel.bin: boot/multiboot.o $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) linker.ld
-	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib boot/multiboot.o $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) -lgcc
+kernel.bin: boot/multiboot.o $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) linker.ld 
+	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib boot/multiboot.o $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) -lgcc
 
 
 boot/multiboot.o: boot/multiboot.S
 	$(AS) $< -o $@
 
 
-kernel/%.o: kernel/%.c $(KERNEL_HEADERS) Makefile
+core/%.o: core/%.c $(KERNEL_HEADERS) Makefile
 	@# -O0 disables optimizations (for loops etc), default was -O2
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 
-kernel/%.o: kernel/%.asm
+core/%.o: core/%.asm
 	nasm -f elf $< -o $@
 
-kernel/%.o: kernel/%.S
+core/%.o: core/%.S
 	$(AS) $< -o $@
 
-view: kernel.bin
-	xxd $< | less
-
-# the brug + iso image stuff is from the Barebones article
-# https://wiki.osdev.org/Bare_Bones
-# can be copied to a usb stick, _very carefully_ by doing:
-# "sudo dd if=kernel.iso of=/dev/sdx && sync" -- replace "x" with appropriate letter
-# can be mounted for inspection (RO) by doing:
-# sudo mount ./kernel.iso /mnt/p1 -o loop
-kernel.iso: kernel.bin
-	cp kernel.bin iso/boot
-	grub-mkrescue -o $@ iso
-
-
-run: kernel.iso
-	@# qemu-system-x86_64 -kernel kernel.bin
-	@#$(EMU) -kernel kernel.bin
-	$(EMU) -cdrom kernel.iso $(QEMU_SERIAL_FLAGS)
-
-
 clean:
-	rm -f *.o *.bin boot/*.o kernel/*.o
+	rm -f *.o *.bin boot/*.o core/*.o
 
-
+install:
+	mkdir -p $(DISKIMG_DIR)/boot
+	cp --preserve=timestamps kernel.bin $(DISKIMG_DIR)/boot
