@@ -97,6 +97,10 @@ Also the following must be met:
 
 ### things to do
 
+* makefiles for current organization, pages [here](https://wiki.osdev.org/Makefile) and [here](https://wiki.osdev.org/User:Solar/Makefile) for multiple binaries and modules
+* organize folders, especially process could be a subfolder inside kernel, with a single public header and mutliple internal headers and c files
+* Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
+* Basic libc functionality [more](https://wiki.osdev.org/Creating_a_C_Library)
 * put konsole in a task, maybe allow it to own a tty device
 * implement IPC using `send(target, message)`, `receive(target, &message)`, `sendrec()` and `notify()`. See "synchronous message passing" [here](http://www.brokenthorn.com/Resources/OSDev25.html)
 * load and execute executables
@@ -104,6 +108,7 @@ Also the following must be met:
 * messages between tasks (IPC)
 * file system driver (read / write some filesystem)
 * libc for usermode
+* porting a compiler for our os (maybe [this](https://wiki.osdev.org/Porting_GCC_to_your_OS) helps)
 * loading and executing programs
 * user mode file system operations (open, read, write, close etc)
 * primitive tools (tiny shell, ls, cat, echo, tiny vi etc)
@@ -119,6 +124,7 @@ Also the following must be met:
     * have a low level hotkey (e.g. Ctrl+Alt+Shift+M) to toggle some area of the screen to be used for kernel monitoring or console
     * maybe it can have pages, left and right or something like that
     * programs should not even be aware of it
+* a random number generator ([example](https://wiki.osdev.org/Random_Number_Generator))
 
 ### things done
 
