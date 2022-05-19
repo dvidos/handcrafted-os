@@ -127,10 +127,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         konsole();
     }
 
-    // klog("Testing the hard disks...\n");
-    // extern void test_hdd();
-    // test_hdd();
-    // for(;;) asm("hlt");
+    klog("Testing the hard disks...\n");
+    extern void test_hdd();
+    test_hdd();
+    for(;;) asm("hlt");
 
     klog("Initializing multi-tasking...\n");
     init_multitasking();

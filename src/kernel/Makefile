@@ -18,7 +18,8 @@ CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
 		-Wno-unused-function \
 		-Wno-unused-variable \
 		-Wno-unused-but-set-variable \
-		-Wno-array-bounds
+		-Wno-array-bounds \
+		-Wno-pointer-sign
 
 KERNEL_FILES = \
 	$(wildcard core/*.c)

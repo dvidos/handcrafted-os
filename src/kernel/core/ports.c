@@ -3,6 +3,14 @@
 #include <stdint.h>
 
 
+// suffix	meaning	number of bits
+// b	byte	8
+// w	word	16
+// l	longword	32
+// q	quadword	64
+
+
+
 
 void outb(uint16_t port, uint8_t data) {
     __asm__("out %%al, %%dx" : : "a" (data), "d" (port));

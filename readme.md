@@ -9,6 +9,7 @@ The itch to put together enough assembly and a little C
 to have a simple process running in a emulator or computer.
 
 Might even be able to make a bootable usb stick!
+Update mid-May: We did put it on a usb stick and it did boot on our old laptop!
 
 ~Following this guy: [https://dev.to/frosnerd/writing-my-own-boot-loader-3mld](https://dev.to/frosnerd/writing-my-own-boot-loader-3mld)~ outgrew this idea, now following mostly [OSDEv.org](https://osdev.org/)
 
@@ -37,7 +38,6 @@ Fast forward to mid-May, we have a small kernel, memory manager, kernel heap, sc
 drivers, timer and real time clock, serial port logging, and a preemptive 
 multi processing functionality with multi-priority ready queues, blocking semaphores, 
 sleeping, yielding and exiting capabilities.
-
 
 ## goals
 

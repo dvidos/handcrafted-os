@@ -533,6 +533,11 @@ struct ipc_message {
             int p2;
             int p3;
         } a;
+        struct {
+            int operation;
+            void *buffer;
+            size_t len;
+        } b;
     };
 };
 typedef struct ipc_message ipc_message_t;

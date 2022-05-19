@@ -69,21 +69,23 @@ static inline char printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-void klog_hex16(void *address, size_t length) {
-    unsigned char *ptr = (unsigned char *)address;
+void klog_hex16(uint8_t *buffer, size_t length, uint32_t start_address) {
     while (length > 0) {
         // using xxd's format, seems nice
-        klog("%08p: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
-            ptr,
-            ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5], ptr[6], ptr[7],
-            ptr[8], ptr[9], ptr[10], ptr[11], ptr[12], ptr[13], ptr[14], ptr[15],
-            printable(ptr[0]), printable(ptr[1]), printable(ptr[2]), printable(ptr[3]),
-            printable(ptr[4]), printable(ptr[5]), printable(ptr[6]), printable(ptr[7]),
-            printable(ptr[8]), printable(ptr[9]), printable(ptr[10]), printable(ptr[11]),
-            printable(ptr[12]), printable(ptr[13]), printable(ptr[14]), printable(ptr[15])
+        klog("%08x: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
+            start_address,
+            buffer[0], buffer[1], buffer[2], buffer[3], 
+            buffer[4], buffer[5], buffer[6], buffer[7],
+            buffer[8], buffer[9], buffer[10], buffer[11], 
+            buffer[12], buffer[13], buffer[14], buffer[15],
+            printable(buffer[0]), printable(buffer[1]), printable(buffer[2]), printable(buffer[3]),
+            printable(buffer[4]), printable(buffer[5]), printable(buffer[6]), printable(buffer[7]),
+            printable(buffer[8]), printable(buffer[9]), printable(buffer[10]), printable(buffer[11]),
+            printable(buffer[12]), printable(buffer[13]), printable(buffer[14]), printable(buffer[15])
         );
-        ptr += 16;
+        buffer += 16;
         length -= 16;
+        start_address += 16;
     }
 }
 
