@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "screen.h"
+#include "drivers/screen.h"
 #include "ports.h"
 #include "cpu.h"
 

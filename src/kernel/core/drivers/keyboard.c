@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "string.h"
+#include "../string.h"
 #include "screen.h"
-#include "ports.h"
-#include "idt.h"
-#include "cpu.h"
-#include "lock.h"
+#include "../ports.h"
+#include "../idt.h"
+#include "../cpu.h"
+#include "../lock.h"
 #include "keyboard.h"
 
 

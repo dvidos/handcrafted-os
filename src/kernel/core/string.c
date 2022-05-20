@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include "screen.h"
 
 
 int strlen(const char* str)

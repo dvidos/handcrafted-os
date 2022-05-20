@@ -23,15 +23,21 @@ CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
 
 KERNEL_FILES = \
 	$(wildcard core/*.c) \
+	$(wildcard core/memory/*.c) \
+	$(wildcard core/drivers/*.c) \
 	$(wildcard core/multitask/*.c)
 
 
 KERNEL_HEADERS = \
 	$(wildcard core/*.h) \
+	$(wildcard core/boot/*.h) \
+	$(wildcard core/memory/*.h) \
+	$(wildcard core/drivers/*.h) \
 	$(wildcard core/multitask/*.h)
 
 KERNEL_ASM_FILES = \
 	$(wildcard core/*.asm) \
+	$(wildcard core/boot/*.asm) \
 	$(wildcard core/multitask/*.asm)
 
 SYSROOT_DIR = ../../sysroot

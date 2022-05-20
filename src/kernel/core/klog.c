@@ -2,9 +2,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "string.h"
-#include "serial.h"
-#include "screen.h"
-#include "timer.h"
+#include "drivers/serial.h"
+#include "drivers/screen.h"
+#include "drivers/timer.h"
 
 
 static char log_buffer[1024] = {0,};

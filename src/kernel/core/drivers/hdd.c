@@ -1,11 +1,11 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "ports.h"
-#include "string.h"
+#include "../ports.h"
+#include "../string.h"
 #include "screen.h"
 #include "timer.h"
-#include "klog.h"
+#include "../klog.h"
 
 
 // driver for ATA drives, PIO (vs DMA) access for now.

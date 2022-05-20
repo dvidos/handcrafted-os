@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "ports.h"
-#include "idt.h"
+#include "../ports.h"
+#include "../idt.h"
 #include "screen.h"
 
 

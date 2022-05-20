@@ -1,9 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "multiboot.h"
-#include "screen.h"
-#include "string.h"
+#include "../multiboot.h"
+#include "../drivers/screen.h"
+#include "../string.h"
 
 
 

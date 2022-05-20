@@ -1,16 +1,16 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "../screen.h"
+#include "../drivers/screen.h"
 #include "../string.h"
 #include "../lock.h"
-#include "../memory.h"
-#include "../timer.h"
+// #include "../memory/memory.h"
+#include "../drivers/timer.h"
 #include "../cpu.h"
-#include "../clock.h"
+#include "../drivers/clock.h"
 #include "process.h"
 #include "proclist.h"
-#include "../kheap.h"
+#include "../memory/kheap.h"
 #include "../klog.h"
 #include "scheduler.h"
 

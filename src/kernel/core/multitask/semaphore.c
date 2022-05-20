@@ -3,7 +3,7 @@
 #include "process.h"
 #include "semaphore.h"
 #include "scheduler.h"
-#include "../kheap.h"
+#include "../memory/kheap.h"
 #include "../klog.h"
 #include "../string.h"
 

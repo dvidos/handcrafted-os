@@ -1,13 +1,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "string.h"
-#include "screen.h"
-#include "keyboard.h"
+#include "drivers/screen.h"
+#include "drivers/keyboard.h"
 #include "ports.h"
 #include "multiboot.h"
-#include "clock.h"
-#include "kheap.h"
-#include "physmem.h"
+#include "drivers/clock.h"
+#include "memory/kheap.h"
+#include "memory/physmem.h"
 
 /**
  * konsole is an interactive shell like thing,

@@ -1,6 +1,7 @@
 #ifndef _KLOG_H
 #define _KLOG_H
 
+#include <stdbool.h>
 
 void init_klog();
 void klog(const char *format, ...);

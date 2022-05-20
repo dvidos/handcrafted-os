@@ -2,10 +2,10 @@
 #include "multitask.h"
 #include "process.h"
 #include "scheduler.h"
-#include "../timer.h"
-#include "../clock.h"
+#include "../drivers/timer.h"
+#include "../drivers/clock.h"
 #include "../klog.h"
-#include "../kheap.h"
+#include "../memory/kheap.h"
 #include "../string.h"
 
 

@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "string.h"
-#include "screen.h"
+#include "klog.h"
 
 
 // things pushed in the isr_stub we have in assembly
@@ -135,11 +135,6 @@ void set_gate(uint8_t entry, uint32_t offset, uint16_t selector, uint8_t gate_ty
 // prepares and loads the Interrupt Descriptor Table
 void init_idt(uint16_t code_segment_selector) {
 
-    // printf("\n");
-    // printf("Size of an IDT32 entry: %d\n", sizeof(struct idt_gate_descriptor32)); // 8
-    // printf("Size of the IDT table: %d\n", sizeof(gates));                         // 2048
-    // printf("Size of the IDT derscriptor: %d\n", sizeof(idt_descriptor));          // 6
-
     memset((char *)gates, 0, sizeof(gates));
 
     set_gate( 0, (uint32_t)isr0,  code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
@@ -197,21 +192,21 @@ void init_idt(uint16_t code_segment_selector) {
     load_idt_descriptor((uint32_t)&idt_descriptor);
 }
 
-void print_registers(registers_t *regs) {
-    printf("DS      : %08x\n", regs->ds);
-    printf("CS      : %08x\n", regs->cs);
-    printf("EDI     : %08x\n", regs->edi);
-    printf("ESI     : %08x\n", regs->esi);
-    printf("EBP     : %08x\n", regs->ebp);
-    printf("ESP     : %08x\n", regs->esp);
-    printf("EBX     : %08x\n", regs->ebx);
-    printf("EDX     : %08x\n", regs->edx);
-    printf("ECX     : %08x\n", regs->ecx);
-    printf("EAX     : %08x\n", regs->eax);
-    printf("INT_NO  : 0x%x\n", regs->int_no);
-    printf("ERR_CODE: 0x%x\n", regs->err_code);
-    printf("EIP     : %08x\n", regs->eip);
-    printf("EFLAGS  : %08x\n", regs->eflags);
-    printf("USERRESP: %08x\n", regs->useresp);
-    printf("SS      : %08x\n", regs->ss);
+void dump_registers(registers_t *regs) {
+    klog("DS      : %08x\n", regs->ds);
+    klog("CS      : %08x\n", regs->cs);
+    klog("EDI     : %08x\n", regs->edi);
+    klog("ESI     : %08x\n", regs->esi);
+    klog("EBP     : %08x\n", regs->ebp);
+    klog("ESP     : %08x\n", regs->esp);
+    klog("EBX     : %08x\n", regs->ebx);
+    klog("EDX     : %08x\n", regs->edx);
+    klog("ECX     : %08x\n", regs->ecx);
+    klog("EAX     : %08x\n", regs->eax);
+    klog("INT_NO  : 0x%x\n", regs->int_no);
+    klog("ERR_CODE: 0x%x\n", regs->err_code);
+    klog("EIP     : %08x\n", regs->eip);
+    klog("EFLAGS  : %08x\n", regs->eflags);
+    klog("USERRESP: %08x\n", regs->useresp);
+    klog("SS      : %08x\n", regs->ss);
 }

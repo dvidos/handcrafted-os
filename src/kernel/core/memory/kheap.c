@@ -1,10 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "multiboot.h"
-#include "screen.h"
-#include "string.h"
-#include "klog.h"
+#include "../drivers/screen.h"
+#include "../string.h"
+#include "../klog.h"
 #include "physmem.h"
 
 #define KMEM_MAGIC            0x6AFE // something that fits in 14 bits

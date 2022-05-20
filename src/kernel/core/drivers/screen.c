@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <limits.h>
-#include "string.h"
-#include "ports.h"
-#include "cpu.h"
+#include "../string.h"
+#include "../ports.h"
+#include "../cpu.h"
 
 
 // lots of useful information here:

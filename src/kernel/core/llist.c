@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdbool.h>
-#include "kheap.h"
-#include "screen.h"
+#include "memory/kheap.h"
+#include "drivers/screen.h"
 #include "string.h"
 
 
