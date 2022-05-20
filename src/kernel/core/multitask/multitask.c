@@ -25,13 +25,9 @@ void init_multitasking() {
     memset((char *)&blocked_list, 0, sizeof(blocked_list));
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
 
-    // at least two tasks: 
-    // 1. this one, that has to be marked as RUNNING, to be swapped out
-    // 2. an idle one, that will never block or sleep, to be aggressively preempted
-    initial_task = create_process(NULL, "Initial", 1);
-    idle_task = create_process(idle_task_main, "Idle", PROCESS_PRIORITY_LEVELS - 1);
-
-    running_proc = initial_task;
+    // our task that will be running has to be marked as RUNNING, to be swapped out
+    idle_task = create_process(NULL, "Idle", PROCESS_PRIORITY_LEVELS - 1);
+    running_proc = idle_task;
     running_proc->state = RUNNING;
 
     // idle task is by definition the lowest priority
@@ -45,19 +41,21 @@ void start_multitasking() {
     // after a while, the timer will switch us out and will switch something else in.
     process_switching_enabled = true;
 
-
-    int delay = 0;
+    // we shall become the idle task.
+    // this task must not sleep or block
     while (true) {
-        clock_time_t t;
-        get_real_time_clock(&t);
-        klog("This is the root task, time is %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
-        sleep(10000);
-
-        if (++delay > 5) {
-            klog("\n");
-            dump_process_table();
-            delay = 0;
+        
+        // maybe not ideal for an idle task, 
+        // but maybe we can use it for some housekeeping
+        while (terminated_list.head != NULL) {
+            process_t *proc = dequeue(&terminated_list);
+            // clean up things here or in a function
+            if (proc->stack_buffer != NULL)
+                kfree(proc->stack_buffer);
+            kfree(proc);
         }
+        
+        asm("hlt");
     }
 }
 

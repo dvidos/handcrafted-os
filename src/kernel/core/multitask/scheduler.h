@@ -25,7 +25,6 @@ void schedule();
 
 extern process_t *running_proc;
 extern process_t *idle_task;
-extern process_t *initial_task;
 extern proc_list_t ready_lists[PROCESS_PRIORITY_LEVELS];
 extern proc_list_t blocked_list;
 extern proc_list_t terminated_list;

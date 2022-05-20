@@ -68,7 +68,7 @@
  */
 
 
-uint32_t last_pid = 0;
+pid_t last_pid = 0;
 
 
 char *process_state_names[] = { "READY", "RUNNING", "BLOCKED", "TERMINATED" };
@@ -117,8 +117,10 @@ void unblock_process(process_t *proc) {
     prepend(&ready_lists[proc->priority], proc);
     klog("K: process %s unblocked and added to ready list\n", proc->name);
 
-    // if only the idle task is running, we can it
-    if (running_proc == idle_task)
+    // if the running process has a lower priority than the new task,
+    // let's preempt it, as we are higher priority, 
+    // otherwise, wait till timeshare expiration
+    if (running_proc->priority > proc->priority)
         schedule();
     unlock_scheduler();
 }
@@ -164,6 +166,10 @@ void exit(uint8_t exit_code) {
     unlock_scheduler();
 }
 
+pid_t getpid() {
+    return running_proc->pid;
+}
+
 static void task_entry_point_wrapper() {
     // unlock the scheduler in our first execution
     unlock_scheduler(); 
@@ -204,8 +210,6 @@ process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
     return p;
 }
 
-
-
 static void dump_process(process_t *proc) {
     klog("%-3d %-10s %08x %08x %-10s %-10s %4us\n", 
         proc->pid,
@@ -236,11 +240,3 @@ void dump_process_table() {
     dump_process_list(&blocked_list);
     dump_process_list(&terminated_list);
 }
-
-
-
-
-
-
-
-

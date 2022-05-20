@@ -144,8 +144,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // create desired tasks here, 
     start_process(create_process(process_a_main, "Task A", 2));
     start_process(create_process(process_b_main, "Task B", 1));
-    start_process(create_process(process_c_main, "Task C", 1));
-    start_process(create_process(process_d_main, "Task D", 1));
+    // start_process(create_process(process_c_main, "Task C", 1));
+    // start_process(create_process(process_d_main, "Task D", 1));
 
     // start_multitasking() will never return
     klog("Starting multitasking, goodbye from main()!\n");

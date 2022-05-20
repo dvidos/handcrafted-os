@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// posix has it, i think
+typedef uint16_t pid_t;
+
 // the process describing structure
 typedef struct process process_t;
 
@@ -24,6 +27,8 @@ void yield();  // voluntarily give up the CPU to another task
 void sleep(int milliseconds);  // sleep self for some milliseconds
 void block_me(int reason, void *channel); // blocks task, someone else must unblock it
 void exit(uint8_t exit_code);  // terminate self, give exit code
+pid_t getpid(); // get pid of current process
+
 
 // this is how someone can unblock a different process
 void unblock_process(process_t *proc);
