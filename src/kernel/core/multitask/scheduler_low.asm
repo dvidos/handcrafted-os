@@ -126,38 +126,3 @@ no_new_esp:
     ; we will now return to a differrent caller:
     ; whoever called the switching function when the first SP was saved.
     ret
-
-
-
-
-
-
-; this method evolved from testing things out
-; by returning EAX, I managed to inderstand how to reference the arguments
-[global grab_some_registers]
-grab_some_registers:
-    push ebp
-    mov ebp, esp
-
-    ; these lines have been verified.
-    ;                         ; [ebp+4] is the return address
-    ; mov eax, [ebp+8]        ; [ebp+8] is the address of first argument!!
-    ; mov eax, [ebp+12]       ; [ebp+12] is the address of next argument!!
-    ; mov dword [eax], 44h    ; eax points to the first dword in the structure
-    ; mov dword [eax+4], 55h  ; eax+4 points to the second dword in the structure etc
-    ;                         ; [ebp-offset] negative offsets are local variables
-    
-    push eax                ; store this, we'll need a work register
-    mov eax, [ebp+8]         ; store EAX in structure base address
-    mov [eax+4], ebx
-    mov [eax+8], ecx
-    mov [eax+12], edx
-    mov [eax+16], esp
-    mov [eax+20], ebp        ; bp is already globbed though
-    mov [eax+24], esi
-    mov [eax+28], edi
-
-    pop eax
-    pop ebp
-    mov esp, ebp       ; this cleans up the SP, no matter how many things we.ve push
-    ret

@@ -22,13 +22,17 @@ CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
 		-Wno-pointer-sign
 
 KERNEL_FILES = \
-	$(wildcard core/*.c)
+	$(wildcard core/*.c) \
+	$(wildcard core/multitask/*.c)
+
 
 KERNEL_HEADERS = \
-	$(wildcard core/*.h)
+	$(wildcard core/*.h) \
+	$(wildcard core/multitask/*.h)
 
 KERNEL_ASM_FILES = \
-	$(wildcard core/*.asm)
+	$(wildcard core/*.asm) \
+	$(wildcard core/multitask/*.asm)
 
 SYSROOT_DIR = ../../sysroot
 KERNEL_LIB = $(SYSROOT_DIR)/usr/lib/libk.a

@@ -12,8 +12,6 @@ struct proc_list {
 typedef struct proc_list proc_list_t;
 
 
-
-
 // add a process at the end of the list. O(1)
 void append(proc_list_t *list, process_t *proc);
 

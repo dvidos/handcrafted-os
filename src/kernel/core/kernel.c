@@ -12,11 +12,13 @@
 #include "serial.h"
 #include "physmem.h"
 #include "kheap.h"
+#include "klog.h"
 #include "string.h"
 #include "multiboot.h"
 #include "konsole.h"
-#include "process.h"
-#include "klog.h"
+#include "multitask/multitask.h"
+#include "multitask/semaphore.h"
+#include "multitask/process.h"
 
 
 
@@ -127,10 +129,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         konsole();
     }
 
-    klog("Testing the hard disks...\n");
-    extern void test_hdd();
-    test_hdd();
-    for(;;) asm("hlt");
+    // klog("Testing the hard disks...\n");
+    // extern void test_hdd();
+    // test_hdd();
+    // for(;;) asm("hlt");
 
     klog("Initializing multi-tasking...\n");
     init_multitasking();
@@ -148,7 +150,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // start_multitasking() will never return
     klog("Starting multitasking, goodbye from main()!\n");
     start_multitasking();
-    
     panic("start_multitasking() returned to main");
 }
 

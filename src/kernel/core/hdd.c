@@ -161,7 +161,7 @@ bool wait_controller_not_busy(int controller_no) {
         uint8_t status = inb(controllers[controller_no].control_port_base);
         if ((status & BSY) == 0 && (status & DRQ) == 0)
             return true;
-        if (timer_get_uptime_msecs() - started > 1000)
+        if (timer_get_uptime_msecs() - started > 50)
             return false;
     }
 }
@@ -172,7 +172,7 @@ bool wait_controller_ready(int controller_no) {
         uint8_t status = inb(controllers[controller_no].control_port_base);
         if (status & RDY)
             return true;
-        if (timer_get_uptime_msecs() - started > 1000)
+        if (timer_get_uptime_msecs() - started > 50)
             return false;
     }
 }
@@ -259,7 +259,7 @@ void identify_drive(uint8_t drive_idx) {
         status = inb(ctrlr->io_port_base + STATUS_REGISTER);
         if ((status & BSY) == 0)
             break;
-        if (timer_get_uptime_msecs() - started > 1000) {
+        if (timer_get_uptime_msecs() - started > 50) {
             klog("Timed out waiting for BSY to clear, after 100 msecs...\n");
             return;
         }
