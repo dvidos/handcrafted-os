@@ -14,7 +14,6 @@
 
 volatile bool process_switching_enabled = false;
 
-static void idle_task_main();
 
 
 void init_multitasking() {
@@ -26,12 +25,12 @@ void init_multitasking() {
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
-    idle_task = create_process(NULL, "Idle", PROCESS_PRIORITY_LEVELS - 1);
-    running_proc = idle_task;
+    process_t *idle = create_process(NULL, "Idle", PROCESS_PRIORITY_LEVELS - 1);
+    running_proc = idle;
     running_proc->state = RUNNING;
 
     // idle task is by definition the lowest priority
-    append(&ready_lists[idle_task->priority], idle_task);
+    append(&ready_lists[idle->priority], idle);
 }
 
 
@@ -115,25 +114,4 @@ void multitasking_timer_ticked() {
         schedule();
     }
     unlock_scheduler();
-}
-
-
-
-
-static void idle_task_main() {
-    // this task must not sleep or block
-    while (true) {
-
-        // maybe not ideal for an idle task, 
-        // but maybe we can use it for some housekeeping
-        while (terminated_list.head != NULL) {
-            process_t *proc = dequeue(&terminated_list);
-            // clean up things here or in a function
-            if (proc->stack_buffer != NULL)
-                kfree(proc->stack_buffer);
-            kfree(proc);
-        }
-        
-        asm("hlt");
-    }
 }
