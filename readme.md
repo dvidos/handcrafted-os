@@ -98,6 +98,8 @@ Also the following must be met:
 ### things to do
 
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
+* make logging having levels (DEBUG, INFO, WARN, ERROR, PANIC) and 
+allow for setting up levels per destination.
 * something akin to gnu readline library, using just a getch()/putch() interface
 * organize folders, especially process could be a subfolder inside kernel, with a single public header and mutliple internal headers and c files
 * Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
