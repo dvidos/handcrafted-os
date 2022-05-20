@@ -1,11 +1,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "drivers/screen.h"
 #include "gdt.h"
 #include "idt.h"
 #include "pic.h"
 #include "cpu.h"
+#include "drivers/screen.h"
 #include "drivers/keyboard.h"
 #include "drivers/timer.h"
 #include "drivers/clock.h"

@@ -1,10 +1,39 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "drivers/screen.h"
-#include "ports.h"
+#include "cpu.h"
 #include "cpu.h"
 
 #define INTERRUPT_ENABLE_FLAG 0x00000200 // Interrupt Enable
+
+
+
+void outb(uint16_t port, uint8_t data) {
+    __asm__("out %%al, %%dx" : : "a" (data), "d" (port));
+}
+
+uint8_t inb(uint16_t port) {
+    uint8_t result;
+
+    // format: __asm__("assembly" : output operands : input operands)
+    __asm__("in %%dx, %%al" : "=a" (result) : "d" (port));
+
+    return result;
+}
+
+void outw(uint16_t port, uint16_t data) {
+    __asm__("out %%ax, %%dx" : : "a" (data), "d" (port));
+}
+
+uint16_t inw(uint16_t port) {
+    uint16_t result;
+
+    // format: __asm__("assembly" : output operands : input operands)
+    __asm__("in %%dx, %%ax" : "=a" (result) : "d" (port));
+
+    return result;
+}
+
 
 
 // stop interrupts in current CPU only
@@ -31,7 +60,7 @@ inline bool interrupts_enabled(void) {
 
 
 static int cli_depth = 0;
-static int zero_depth_enabled = 0;
+static uint8_t zero_depth_enabled = 0;
 
 
 // Pushcli/popcli are like cli/sti except that they are matched:

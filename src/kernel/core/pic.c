@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "ports.h"
+#include "cpu.h"
 #include "bits.h"
 
 // see https://wiki.osdev.org/8259_PIC

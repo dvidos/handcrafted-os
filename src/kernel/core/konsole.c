@@ -3,7 +3,7 @@
 #include "string.h"
 #include "drivers/screen.h"
 #include "drivers/keyboard.h"
-#include "ports.h"
+#include "cpu.h"
 #include "multiboot.h"
 #include "drivers/clock.h"
 #include "memory/kheap.h"

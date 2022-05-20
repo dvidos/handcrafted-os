@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "../ports.h"
+#include "../cpu.h"
 #include "../string.h"
 #include "screen.h"
 #include "timer.h"

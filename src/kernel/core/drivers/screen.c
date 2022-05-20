@@ -4,8 +4,9 @@
 #include <stdarg.h>
 #include <limits.h>
 #include "../string.h"
-#include "../ports.h"
 #include "../cpu.h"
+#include "../cpu.h"
+#include "screen.h"
 
 
 // lots of useful information here:
@@ -53,23 +54,6 @@ static void set_cursor_offset(int offset) {
     outb(REG_SCREEN_CTRL, 15);
     outb(REG_SCREEN_DATA, (unsigned char)(offset & 0xff));
 }
-
-#define VGA_COLOR_BLACK           0
-#define VGA_COLOR_BLUE            1
-#define VGA_COLOR_GREEN           2
-#define VGA_COLOR_CYAN            3
-#define VGA_COLOR_RED             4
-#define VGA_COLOR_MAGENTA         5
-#define VGA_COLOR_BROWN           6
-#define VGA_COLOR_LIGHT_GREY      7
-#define VGA_COLOR_DARK_GREY       8
-#define VGA_COLOR_LIGHT_BLUE      9
-#define VGA_COLOR_LIGHT_GREEN    10
-#define VGA_COLOR_LIGHT_CYAN     11
-#define VGA_COLOR_LIGHT_RED      12
-#define VGA_COLOR_LIGHT_MAGENTA  13
-#define VGA_COLOR_LIGHT_BROWN    14
-#define VGA_COLOR_WHITE          15
 
 #define VGA_WIDTH  80
 #define VGA_HEIGHT 25
@@ -137,7 +121,7 @@ void screen_clear() {
     set_cursor_offset(0);
 }
 
-static void screen_putchar(char c)
+void screen_putchar(char c)
 {
     if (c == '\n') {
     	if (++screen_row == VGA_HEIGHT) {
@@ -177,20 +161,15 @@ void screen_write(const char* data)
 	screen_writen(data, strlen(data));
 }
 
-void screen_puts(const char* data)
-{
-	screen_writen(data, strlen(data));
-}
-
 void panic(char *message) {
     cli();
-    screen_puts("\nKernel panic: ");
-    screen_puts(message);
+    screen_write("\nKernel panic: ");
+    screen_write(message);
     for (;;)
         __asm__ volatile("hlt");    
 }
 
-void printf(const char *format, ...) {
+void printf(char *format, ...) {
     char buffer[128];
 
     va_list args;
@@ -198,31 +177,9 @@ void printf(const char *format, ...) {
     vsprintfn(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    screen_puts(buffer);
+    screen_write(buffer);
 }
 
 static inline char dot(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
-}
-
-
-void memdump(void *address, int bytes, bool decreasing) {
-    unsigned char *ptr = (unsigned char *)address;
-    int dir = decreasing ? -1 : 1;
-    while (bytes > 0) {
-        // using xxd's format, seems nice
-        printf("%08p: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
-            ptr,
-            ptr[0], ptr[1 * dir], ptr[2 * dir], ptr[3 * dir], 
-            ptr[4 * dir], ptr[5 * dir], ptr[6 * dir], ptr[7 * dir],
-            ptr[8 * dir], ptr[9 * dir], ptr[10 * dir], ptr[11 * dir], 
-            ptr[12 * dir], ptr[13 * dir], ptr[14 * dir], ptr[15 * dir],
-            dot(ptr[0]), dot(ptr[1 * dir]), dot(ptr[2 * dir]), dot(ptr[3 * dir]),
-            dot(ptr[4 * dir]), dot(ptr[5 * dir]), dot(ptr[6 * dir]), dot(ptr[7 * dir]),
-            dot(ptr[8 * dir]), dot(ptr[9 * dir]), dot(ptr[10 * dir]), dot(ptr[11 * dir]),
-            dot(ptr[12 * dir]), dot(ptr[13 * dir]), dot(ptr[14 * dir]), dot(ptr[15 * dir])
-        );
-        ptr += 16 * dir;
-        bytes -= 16;
-    }
 }

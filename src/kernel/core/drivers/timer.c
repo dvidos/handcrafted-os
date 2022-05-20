@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../ports.h"
+#include "../cpu.h"
 #include "../idt.h"
 #include "screen.h"
 
