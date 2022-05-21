@@ -6,14 +6,14 @@
 #define IS_BIT(value, bitno)       ((value) & (1 << (bitno)))
 
 
-#define HIGH_8(value)          (((value) >> 8) & 0xFF)
-#define LOW_8(value)           (((value) >> 0) & 0xFF)
+#define HIGH_BYTE(value)       (((value) >> 8) & 0xFF)
+#define LOW_BYTE(value)        (((value) >> 0) & 0xFF)
+
+#define HIGH_WORD(value)       (((value) >> 16) & 0xFFFF)
+#define LOW_WORD(value)        (((value) >>  0) & 0xFFFF)
       
-#define HIGH_16(value)         (((value) >> 16) & 0xFFFF)
-#define LOW_16(value)          (((value) >>  0) & 0xFFFF)
-      
-#define HIGH_32(value)         (((value) >> 32) & 0xFFFFFFFF)
-#define LOW_32(value)          (((value) >>  0) & 0xFFFFFFFF)
+#define HIGH_DWORD(value)      (((value) >> 32) & 0xFFFFFFFF)
+#define LOW_DWORD(value)       (((value) >>  0) & 0xFFFFFFFF)
 
 
 #define FOURTH_BYTE(value)     (((value) >> 24) & 0xFF)

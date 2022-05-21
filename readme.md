@@ -66,6 +66,7 @@ Therefore, minix3 has a mother task, that is responsible for spawning and respaw
 
 It seems the kernel does (at least) the following things:
 
+* a dynamic list of things. helps almost everywhere.
 * initializes things and makes available various functionalities to programs
 * maintains and runs the scheduler
 * maintains and runs the interrupt service routines
@@ -97,6 +98,10 @@ Also the following must be met:
 
 ### things to do
 
+
+* improve screen experience, by implementing scrolling back and readline with history, and autocomplete (see [here](https://tiswww.case.edu/php/chet/readline/readline.html))
+* move utility functions to libc/libk, make kernel use it.
+* pci discovery, towards hdd and usb
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * the idea of an expandable array of things, similar to the approach of a StringBuilder,
 something sile the one described [here](https://tiswww.case.edu/php/chet/readline/history.html#SEC6).

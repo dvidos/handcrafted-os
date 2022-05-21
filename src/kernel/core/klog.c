@@ -147,14 +147,14 @@ static void screen_log_append(log_level_t level, char *str) {
     if (level > log_flags.appenders[LOGAPP_SCREEN].level)
         return;
 
-    uint8_t old_color = screen_getcolor();
+    uint8_t old_color = screen_get_color();
     if (level < LOGLEV_ERROR)
-        screen_setcolor(VGA_COLOR_LIGHT_RED);
+        screen_set_color(VGA_COLOR_LIGHT_RED);
     else if (level == LOGLEV_WARN)
-        screen_setcolor(VGA_COLOR_LIGHT_BROWN);    
+        screen_set_color(VGA_COLOR_LIGHT_BROWN);    
     screen_write(str);
     screen_write("\n");
-    screen_setcolor(old_color);
+    screen_set_color(old_color);
 }
 
 static void serial_log_append(log_level_t level, char *str) {

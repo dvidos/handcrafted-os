@@ -15,7 +15,6 @@
 #include "klog.h"
 #include "string.h"
 #include "multiboot.h"
-#include "konsole.h"
 #include "multitask/multitask.h"
 #include "multitask/semaphore.h"
 #include "multitask/process.h"
@@ -53,6 +52,9 @@ void process_b_main();
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
 void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 {
+    // interrupts are disabled, nmi is also disabled
+    // to allow us to set up our Interrupt Table
+
     // initialize in-memory log
     init_klog();
     klog_appender_level(LOGAPP_MEMORY, LOGLEV_DEBUG);
@@ -67,8 +69,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         ((uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address) / 1024
     );
 
-    // it seems interrupts are disabled, nmi is also disabled
-
     if (boot_magic == 0x2BADB002) {
         klog_info("Bootloader info detected, copying it, size of %d bytes", sizeof(multiboot_info_t));
         memcpy((char *)&saved_multiboot_info, (char *)mbi, sizeof(multiboot_info_t));
@@ -77,8 +77,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         memset((char *)&saved_multiboot_info, 0, sizeof(multiboot_info_t));
     }
 
-    // code segment selector: 0x08 (8)
-    // data segment selector: 0x10 (16)
+    // kernel code segment selector: 0x08 (8)
+    // kernel data segment selector: 0x10 (16)
     klog_info("Initializing Global Descriptor Table...");
     init_gdt();
 
@@ -120,8 +120,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         for(;;)
             asm("hlt");
     } else if (strcmp((char *)saved_multiboot_info.cmdline, "console") == 0) {
-        printf("Starting konsole...\n");
-        konsole();
+        // printf("Starting konsole...\n");
+        // konsole();
     }
 
     // klog_info("Testing the hard disks...");
@@ -139,7 +139,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // start_multitasking() will never return
     klog_info("Starting multitasking, goodbye from main()!");
     start_multitasking();
-    klog_critical("start_multitasking() returned to main");
+    panic("start_multitasking() returned to main");
 }
 
 

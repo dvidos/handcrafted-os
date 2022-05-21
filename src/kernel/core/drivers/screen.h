@@ -6,12 +6,18 @@
 
 
 void screen_init(void);
-void screen_setcolor(uint8_t color);
-uint8_t screen_getcolor();
+
 void screen_clear();
 void screen_writen(const char* data, int size);
 void screen_write(const char* data);
 void screen_putchar(const char c);
+
+uint8_t screen_get_color();
+void screen_set_color(uint8_t color);
+
+void screen_get_cursor(uint8_t *row, uint8_t *col);
+void screen_set_cursor(uint8_t row, uint8_t col);
+
 
 void printf(char *format, ...);
 void panic(char *message);
