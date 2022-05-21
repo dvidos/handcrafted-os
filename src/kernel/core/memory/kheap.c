@@ -95,7 +95,7 @@ void *kalloc(size_t size) {
     curr->used = 1;
     kernel_heap.available_memory -= curr->size;
     char *ptr = (char *)curr + sizeof(memory_block_t);
-    memset(ptr, 0, curr->size);
+    // memset(ptr, 0, curr->size); // malloc(3) says that the memory is not initialized
 
     klog_trace("kalloc(%u) -> 0x%p", size, ptr);
     return ptr;

@@ -31,6 +31,16 @@ void strcpy(char *target, char *source) {
     *target = *source; // final null char
 }
 
+void strncpy(char *target, char *source, size_t size) {
+    while (*source != '\0' && size-- > 1) {
+        *target++ = *source++;
+    }
+
+    // in any case, we either have the source pointing to the zero terminator
+    // or we only have space left for one character in target.
+    *target = '\0';
+}
+
 void memset(void *dest, char value, size_t size) {
     char *d = (char *)dest;
     while (size-- > 0) {

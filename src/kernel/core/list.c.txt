@@ -1,0 +1,74 @@
+#include <stdbool.h>
+
+
+// hey, one can set a custom function for copying the structure (e.g. the size)
+// therefore a set of functions (or a polymorphic one) can offer templated approach!!
+
+// we could also make an "mlist" library, for fixed structures sizes
+// as opposed to the "slist" we have for strings
+
+
+typedef enum { 
+    // how could a list of pointers be supported???
+    USE_COPY,   // should items be copied, as opposed to just use pointers?
+    ITEM_SIZE,  // return size in bytes of item p1
+    MATCH,      // return non-zero if p2 could be "matching" p1
+    COMPARE,    // compare p1 and p2, return appropriate -1, 0, +1 for sorting
+    // other ideas: hash, serialize, unserialize
+} list_operation_t;
+
+typedef int (*list_operator_t)(list_operation_t op, void *p1, void *p2);
+
+typedef struct list list_t;
+
+// example
+int list_operation(enum list_operation op, void *p1, void *p2) {
+    switch (op) {
+        case USE_COPY:
+            return 0;
+        case ITEM_SIZE:
+            return sizeof(asdfasdf);
+        case MATCH:
+            return ((...))
+    }
+}
+
+
+
+list_t *list_create(list_operator_t *operator);
+list_free(list_t *list);
+
+int list_size(list_t *list);
+bool list_empty(list_t *list);
+void list_clear(list_t *list);
+
+void list_append(list_t *list, void *item);
+void list_prepend(list_t *list, void *item);
+void *list_pop(list_t *list); // retrieve from the end
+void *list_dequeue(list_t *list); // retrieve from the start
+
+void list_insert(list_t *list, int index, void *item);
+void *list_get(list_t *list, int index);
+void list_remove(list_t *list, int index);
+
+void list_concat(list_t *list, list_t *second);
+void list_iter_reset(list_t *list);
+bool list_iter_has_next(list_t *list);
+void *list_iter_next(list_t *list);
+
+// using match operation
+bool list_contains(list_t *list, void *item);
+int list_indexof(list_t *list, void *item);
+int list_last_indexof(list_t *list, void *item);
+
+// using compare operation
+void *list_max(list_t *list);
+void *list_min(list_t *list);
+void list_sort(list_t *list);
+
+bool list_save(int fd);
+bool list_load(int fd);
+
+
+// ------------------------------------------------
+

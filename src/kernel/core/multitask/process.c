@@ -192,7 +192,9 @@ process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
     
     int stack_size = 4096;
     process_t *p = (process_t *)kalloc(sizeof(process_t));
+    memset(p, 0, sizeof(process_t));
     char *stack_ptr = kalloc(stack_size);
+    memset(stack_ptr, 0, stack_size);
     
     pushcli();
     p->pid = ++last_pid;
