@@ -18,6 +18,7 @@
 #include "multitask/multitask.h"
 #include "multitask/semaphore.h"
 #include "multitask/process.h"
+#include "konsole/konsole.h"
 
 
 
@@ -120,8 +121,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         for(;;)
             asm("hlt");
     } else if (strcmp((char *)saved_multiboot_info.cmdline, "console") == 0) {
-        // printf("Starting konsole...\n");
-        // konsole();
+        printf("Starting konsole...\n");
+        konsole_v2();
     }
 
     // klog_info("Testing the hard disks...");

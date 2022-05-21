@@ -8,6 +8,7 @@
 int strlen(const char* str);
 int strcmp(char *a, char *b);
 int strcpy(char *target, char *source);
+void strncpy(char *target, char *source, size_t size);
 
 char *strchr(char *str, char c);
 char *strtok(char *str, char *delimiters);

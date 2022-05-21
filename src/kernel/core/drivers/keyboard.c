@@ -47,11 +47,11 @@ void wait_keyboard_event(struct key_event *event) {
 }
 
 struct scancode_info {
-    uint8_t printable;
-    uint8_t shifted_printable;
-    uint8_t special_key;
-    uint8_t extended_printable;
-    uint8_t extended_special_key;
+    uint8_t printable;               // if key by itself emits a letter - e.g. "F" or "Φ"
+    uint8_t shifted_printable;       // the possible letter if shift is down or caps lock is locked
+    uint8_t special_key;             // a special key, without modifiers, e.g. KEY_F4
+    uint8_t extended_printable;      // a printable letter if chipset reports extended set (e.g. keypad '/')
+    uint8_t extended_special_key;    // a special key if chipset reports extended set (e.g. KEY_MEDIA_PLAY)
 } __attribute__((packed));
 
 struct scancode_info scancode_map[] = {

@@ -18,7 +18,6 @@ void screen_set_color(uint8_t color);
 void screen_get_cursor(uint8_t *row, uint8_t *col);
 void screen_set_cursor(uint8_t row, uint8_t col);
 
-
 void printf(char *format, ...);
 void panic(char *message);
 

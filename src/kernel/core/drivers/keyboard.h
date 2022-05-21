@@ -60,9 +60,10 @@
 #define KEY_MEDIA_GUI_RIGHT   54
 #define KEY_MEDIA_APPS        55 // context menu
 
+#include <stdint.h>
 
 struct key_event {
-    uint8_t printable; // e.g. 'A' (in the future, support for utf8)
+    uint8_t printable; // e.g. 'A' (in the future, support for utf8) - zero if no printable for this keystroke
     uint8_t special_key; // e.g. KEY_PAGE_DOWN or multimedia
     uint8_t ctrl_down: 1;
     uint8_t alt_down: 1;

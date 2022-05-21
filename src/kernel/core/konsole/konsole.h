@@ -2,6 +2,7 @@
 #define _KONSOLE_H
 
 void konsole();
+void konsole_v2();
 
 
 

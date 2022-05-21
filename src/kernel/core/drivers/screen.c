@@ -62,17 +62,27 @@ void screen_get_cursor(uint8_t *row, uint8_t *col) {
      * 1. Ask for high byte of the cursor offset (data 14)
      * 2. Ask for low byte (data 15)
      */
-    uint16_t offset = 0;
-    outb(REG_SCREEN_CTRL, 14);
-    offset += (uint16_t)inb(REG_SCREEN_DATA) << 8;
-    outb(REG_SCREEN_CTRL, 15);
-    offset += inb(REG_SCREEN_DATA);
+    // uint16_t offset = 0;
+    // outb(REG_SCREEN_CTRL, 14);
+    // offset += (uint16_t)inb(REG_SCREEN_DATA) << 8;
+    // outb(REG_SCREEN_CTRL, 15);
+    // offset += inb(REG_SCREEN_DATA);
+    // if (row != NULL)
+    //     *row = offset / VGA_WIDTH;
+    // if (col != NULL)
+    //     *col = offset % VGA_WIDTH;
 
-    *row = offset / VGA_WIDTH;
-    *col = offset % VGA_WIDTH;
+    // maybe accessing memory is faster than reading ports?
+    if (row != NULL)
+        *row = screen_row;
+    if (col != NULL)
+        *col = screen_column;
 }
 
 void screen_set_cursor(uint8_t row, uint8_t col) {
+    screen_row = row;
+    screen_column = col;
+
     uint16_t offset = row * VGA_WIDTH + col;    
     outb(REG_SCREEN_CTRL, 14);
     outb(REG_SCREEN_DATA, HIGH_BYTE(offset));

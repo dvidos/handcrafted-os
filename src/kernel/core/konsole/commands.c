@@ -1,49 +1,35 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include "string.h"
-#include "drivers/screen.h"
-#include "drivers/keyboard.h"
-#include "cpu.h"
-#include "multiboot.h"
-#include "drivers/clock.h"
-#include "memory/kheap.h"
-#include "memory/physmem.h"
+#include "../string.h"
+#include "../drivers/screen.h"
+#include "../drivers/keyboard.h"
+#include "../cpu.h"
+#include "../multiboot.h"
+#include "../drivers/clock.h"
+#include "../memory/kheap.h"
+#include "../memory/physmem.h"
 
-/**
- * konsole is an interactive shell like thing,
- * that runs in kernel space and allows the user to play
- * (in a dangerous way) with the machine.
- */
+static int do_help();
+static int do_say();
+static int do_inb();
+static int do_outb();
+static int do_inw();
+static int do_outw();
+static int do_mem_dump();
+static int do_boot_info();
+static int do_rtc();
+static int do_sizes();
+static int do_kheap();
+static int do_phys_mem_dump();
 
-char command[1024] = {0,};
-char prev_command[1024] = {0,};
-int command_len = 0;
-
-typedef int (*runnable_command_ptr)(int argc, char *argv[]);
-
-struct action {
+typedef int (*runnable_command_ptr)();
+struct command {
     char *cmd;
     char *descr;
     runnable_command_ptr func_ptr;
 };
 
-extern multiboot_info_t saved_multiboot_info;
-static int do_help(int argc, char *argv[]);
-static int do_say(int argc, char *argv[]);
-static int do_inb(int argc, char *argv[]);
-static int do_outb(int argc, char *argv[]);
-static int do_inw(int argc, char *argv[]);
-static int do_outw(int argc, char *argv[]);
-static int do_mem_dump(int argc, char *argv[]);
-static int do_boot_info(int argc, char *argv[]);
-static int do_rtc(int argc, char *argv[]);
-static int do_sizes(int argc, char *argv[]);
-static int do_kheap(int argc, char *argv[]);
-static int do_phys_mem_dump(int argc, char *argv[]);
-static void get_command(char *prompt);
-static void run_command();
-
-struct action actions[] = {
+static struct command commands[] = {
     {"?", "Show help", do_help},
     {"help", "Show help", do_help},
     {"say", "Print arguments (to test parsing)", do_say},
@@ -65,35 +51,63 @@ struct action actions[] = {
     {"phys", "Physical Memory Dump", do_phys_mem_dump},
 };
 
+static char cmd_buffer[128];
+static char *argv[16];
+static int argc = 0;
 
-void konsole() {
-    while (true) {
-        get_command("> ");
-        run_command();
+void run_command(char *cmd_line) {
+    // since strtok destroys the string, copy to temporary place
+    strncpy(cmd_buffer, cmd_line, sizeof(cmd_buffer));
+    char *cmd_name = strtok(cmd_buffer, " ");
+    if (cmd_name == NULL || strlen(cmd_name) == 0)
+        return;
+
+    memset((char *)argv, 0, sizeof(argv));
+    while (argc < 16) {
+        char *p = strtok(NULL, " ");
+        if (p == NULL)
+            break;
+        if (strlen(p) > 0) {
+            argv[argc++] = p;
+        }
+    }
+
+    int target = -1;
+    for (int i = 0; i < (int)(sizeof(commands) / sizeof(commands[0])); i++) {
+        if (strcmp(cmd_name, commands[i].cmd) == 0) {
+            target = i;
+            break;
+        }
+    }
+    if (target == -1) {
+        printf("Unknown command \"%s\"\n", cmd_name);
+        return;
+    }
+
+    int return_value = commands[target].func_ptr(argc, argv);
+    if (return_value != 0) {
+        printf("\nCommand exited with exit value %d", return_value);
     }
 }
 
-static int do_help(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-
+static int do_help() {
     // print list of commands and maybe brief usage
     printf("Execute arbitrary commands and functions in kernel space\n");
     printf("Each command has one or more arguments\n");
     printf("Numbers can be decimal, octal if prefixed with '0', hex if prefixed with '0x' or binary if prefixed with 'b'\n");
     printf("\n");
 
-    int len = sizeof(actions) / sizeof(struct action);
+    int len = sizeof(commands) / sizeof(struct command);
     for (int i = 0; i < len; i++) {
-        if (strcmp(actions[i].cmd, "help") == 0 || strcmp(actions[i].cmd, "?") == 0)
+        if (strcmp(commands[i].cmd, "help") == 0 || strcmp(commands[i].cmd, "?") == 0)
             continue;
-        printf("- %-12s %s\n", actions[i].cmd, actions[i].descr);
+        printf("- %-12s %s\n", commands[i].cmd, commands[i].descr);
     }
 
     return 0;
 }
 
-static int do_inb(int argc, char *argv[]) {
+static int do_inb() {
     if (argc < 1) {
         printf("Expecting port as first argument");
         return 1;
@@ -104,7 +118,7 @@ static int do_inb(int argc, char *argv[]) {
     return 0;
 }
 
-static int do_outb(int argc, char *argv[]) {
+static int do_outb() {
     if (argc < 2) {
         printf("Expecting port as first argument, value as the second\n");
         return 1;
@@ -115,7 +129,7 @@ static int do_outb(int argc, char *argv[]) {
     return 0;
 }
 
-static int do_inw(int argc, char *argv[]) {
+static int do_inw() {
     if (argc < 1) {
         printf("Expecting port as first argument");
         return 1;
@@ -126,7 +140,7 @@ static int do_inw(int argc, char *argv[]) {
     return 0;
 }
 
-static int do_outw(int argc, char *argv[]) {
+static int do_outw() {
     if (argc < 2) {
         printf("Expecting port as first argument, value as the second\n");
         return 1;
@@ -137,7 +151,7 @@ static int do_outw(int argc, char *argv[]) {
     return 0;
 }
 
-static int do_say(int argc, char *argv[]) {
+static int do_say() {
     printf("argc = %d\n", argc);
     for (int i = 0; i < argc; i++) {
         printf("argv[%d] = \"%s\"\n", i, argv[i]);
@@ -153,7 +167,7 @@ static char printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-static int do_mem_dump(int argc, char *argv[]) {
+static int do_mem_dump() {
     if (argc > 2) {
         printf("Expecting address as first argument, length (bytes) as the second\n");
         printf("Address defaults to succeeding previously viewed\n");
@@ -184,12 +198,10 @@ static int do_mem_dump(int argc, char *argv[]) {
     return 0;
 }
 
-static int do_boot_info(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-
+static int do_boot_info() {
     bool all = argc == 0;
 
+    extern multiboot_info_t saved_multiboot_info;
     multiboot_info_t *mbi = &saved_multiboot_info;
     // printf("- flags:       0x%08x\n", mbi->flags);
 
@@ -296,96 +308,7 @@ static int do_boot_info(int argc, char *argv[]) {
     return 0;
 }
 
-static void get_command(char *prompt) {
-    // honor backspace, Ctrl+U (delete all), Ctrl+L (clear),
-    // maybe do history with arrow keys.
-    // maybe do auto completion with tab.
-    struct key_event event;
-
-    // collect key presseses, until enter is pressed
-    memset(command, 0, sizeof(command));
-    command_len = 0;
-    printf("%s", prompt);
-    while (true) {
-        wait_keyboard_event(&event);
-        if (event.special_key == KEY_ENTER) {
-            strcpy(prev_command, command);
-            printf("\r\n");
-            return;
-        } else if (event.special_key == KEY_UP && strlen(prev_command) > 0) {
-            strcpy(command, prev_command);
-            command_len = strlen(command);
-            printf("\r%79s\r%s%s", " ", prompt, command);
-        } else if (event.special_key == KEY_ESCAPE) {
-            command_len = 0;
-            command[command_len] = '\0';
-            printf(" (esc)\n%s", prompt);
-        } else if (event.special_key == KEY_BACKSPACE) {
-            if (command_len > 0) {
-                command[--command_len] = '\0';
-                printf("\b \b");
-            }
-        } else if (event.ctrl_down) {
-            switch (event.printable) {
-                case 'l':
-                    screen_clear();
-                    printf("%s%s", prompt, command);
-                    break;
-                case 'u':
-                    command_len = 0;
-                    command[command_len] = '\0';
-                    printf("\r%79s\r%s%s", " ", prompt, command);
-                    break;
-            }
-        } else if (event.printable) {
-            command[command_len++] = event.printable;
-            command[command_len] = '\0';
-            printf("%c", event.printable);
-        }
-    }
-}
-
-static void run_command() {
-    // parse the command and arguments
-    char *cmd_name = strtok(command, " ");
-    if (cmd_name == NULL || strlen(cmd_name) == 0)
-        return;
-
-    char *argv[16];
-    int argc = 0;
-    memset((char *)argv, 0, sizeof(argv));
-    while (argc < 16) {
-        char *p = strtok(NULL, " ");
-        if (p == NULL)
-            break;
-        if (strlen(p) > 0) {
-            argv[argc++] = p;
-        }
-    }
-
-    int num_actions = sizeof(actions) / sizeof(actions[0]);
-    int target = -1;
-    for (int i = 0; i < num_actions; i++) {
-        if (strcmp(cmd_name, actions[i].cmd) == 0) {
-            target = i;
-            break;
-        }
-    }
-
-    if (target == -1) {
-        printf("Unknown command \"%s\"\n", cmd_name);
-        return;
-    }
-
-    int return_value = actions[target].func_ptr(argc, argv);
-    if (return_value != 0) {
-        printf("\nProcess exited with exit value %d", return_value);
-    }
-}
-
-static int do_rtc(int argc, char *argv[]) {
-    (void)argc; (void)argv;
-
+static int do_rtc() {
     clock_time_t time;
     get_real_time_clock(&time);
 
@@ -408,9 +331,7 @@ static int do_rtc(int argc, char *argv[]) {
     return 0;
 }
 
-static int do_sizes(int argc, char *argv[]) {
-    (void)argc; (void)argv;
-
+static int do_sizes() {
     printf("sizeof(char)      is %d\n", sizeof(char)); // 2
     printf("sizeof(short)     is %d\n", sizeof(short)); // 2
     printf("sizeof(int)       is %d\n", sizeof(int));   // 4
@@ -424,14 +345,11 @@ static int do_sizes(int argc, char *argv[]) {
 
     return 0;
 }
-static int do_kheap(int argc, char *argv[]) {
-    (void)argc; (void)argv;
+static int do_kheap() {
     kernel_heap_dump();
     return 0;
 }
-static int do_phys_mem_dump(int argc, char *argv[]) {
-    (void)argc; (void)argv;
-
+static int do_phys_mem_dump() {
     if (argc == 0) {
         dump_physical_memory_map_overall();
     } else {
