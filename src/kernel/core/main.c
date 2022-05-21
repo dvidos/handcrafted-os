@@ -55,61 +55,60 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 {
     // initialize in-memory log
     init_klog();
+    klog_appender_level(LOGAPP_MEMORY, LOGLEV_DEBUG);
 
     // initialize screen and allow logs to be written to it
     screen_init();
-    klog_screen(true);
+    klog_appender_level(LOGAPP_SCREEN, LOGLEV_INFO);
     
-    klog("C kernel kicking off, loaded at 0x%x - 0x%x (size of %u KB)\n",
+    klog_info("C kernel kicking off, loaded at 0x%x - 0x%x (size of %u KB)",
         (uint32_t)&kernel_start_address,
         (uint32_t)&kernel_end_address,
         ((uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address) / 1024
     );
 
     // it seems interrupts are disabled, nmi is also disabled
-    // klog("Interrupts enabled? %d\n", interrupts_enabled());
-    // klog("NMI is enabled? %d\n", nmi_enabled());
 
     if (boot_magic == 0x2BADB002) {
-        klog("Bootloader info detected, copying it, size of %d bytes\n", sizeof(multiboot_info_t));
+        klog_info("Bootloader info detected, copying it, size of %d bytes", sizeof(multiboot_info_t));
         memcpy((char *)&saved_multiboot_info, (char *)mbi, sizeof(multiboot_info_t));
     } else {
-        klog("No bootloader info detected\n");
+        klog_warn("No bootloader info detected");
         memset((char *)&saved_multiboot_info, 0, sizeof(multiboot_info_t));
     }
 
     // code segment selector: 0x08 (8)
     // data segment selector: 0x10 (16)
-    klog("Initializing Global Descriptor Table...\n");
+    klog_info("Initializing Global Descriptor Table...");
     init_gdt();
 
-    klog("Initializing Interrupts Descriptor Table...\n");
+    klog_info("Initializing Interrupts Descriptor Table...");
     init_idt(0x8);
 
-    klog("Initializing Programmable Interrupt Controller...\n");
+    klog_info("Initializing Programmable Interrupt Controller...");
     init_pic();
 
-    klog("Initializing Programmable Interval Timer...\n");
+    klog_info("Initializing Programmable Interval Timer...");
     init_timer();
 
-    klog("Initializing Real Time Clock...\n");
+    klog_info("Initializing Real Time Clock...");
     init_real_time_clock(15);
 
-    klog("Initializing Physical Memory Manager...\n");
+    klog_info("Initializing Physical Memory Manager...");
     init_physical_memory_manager(&saved_multiboot_info, &kernel_start_address, &kernel_end_address);
 
-    klog("Initializing Serial Port 1 for logging...\n");
+    klog_info("Initializing Serial Port 1 for logging...");
     init_serial_port();
 
     // maybe tomorrow to a file
-    klog("Switching logging to serial port\n");
-    klog_serial_port(true);
-    // klog_screen(false); -- disabling this we cannot work on our old laptop
+    klog_info("Switching logging to serial port");
+    // klog_appender_level(LOGAPP_SERIAL, LOGLEV_DEBUG);
+    klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
     
-    klog("Initializing Kernel Heap...\n");
+    klog_info("Initializing Kernel Heap...");
     init_kernel_heap();
 
-    klog("Enabling interrupts & NMI...\n");
+    klog_info("Enabling interrupts & NMI...");
     sti();
     enable_nmi();
 
@@ -125,12 +124,12 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         konsole();
     }
 
-    // klog("Testing the hard disks...\n");
+    // klog_info("Testing the hard disks...");
     // extern void test_hdd();
     // test_hdd();
     // for(;;) asm("hlt");
 
-    klog("Initializing multi-tasking...\n");
+    klog_info("Initializing multi-tasking...");
     init_multitasking();
 
     // create desired tasks here, 
@@ -138,9 +137,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     start_process(create_process(process_b_main, "Task B", 1));
 
     // start_multitasking() will never return
-    klog("Starting multitasking, goodbye from main()!\n");
+    klog_info("Starting multitasking, goodbye from main()!");
     start_multitasking();
-    panic("start_multitasking() returned to main");
+    klog_critical("start_multitasking() returned to main");
 }
 
 
@@ -175,7 +174,7 @@ void isr_handler(registers_t regs) {
             real_time_clock_interrupt_interrupt_handler(&regs);
             break;
         default:
-            klog("Received interrupt %d (0x%x), error %d\n", regs.int_no, regs.int_no, regs.err_code);
+            klog_warn("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code);
     }
 
     // we need to send end-of-interrupt acknowledgement 

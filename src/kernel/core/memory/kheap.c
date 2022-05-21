@@ -71,8 +71,10 @@ void *kalloc(size_t size) {
     memory_block_t *curr = kernel_heap.list_head;
     while (curr != NULL && (curr->used || curr->size < size))
         curr = curr->next;
-    if (curr == NULL)
+    if (curr == NULL) {
+        klog_warn("kalloc(%u) -> Could not find a free block, returning null");
         return NULL;
+    }
 
     // keep the memory we need, create a new memory block
     // sequence of operations (pointers etc) is important
@@ -92,12 +94,15 @@ void *kalloc(size_t size) {
     
     curr->used = 1;
     kernel_heap.available_memory -= curr->size;
-    char *p = (char *)curr + sizeof(memory_block_t);
-    memset(p, 0, curr->size);
-    return p;
+    char *ptr = (char *)curr + sizeof(memory_block_t);
+    memset(ptr, 0, curr->size);
+
+    klog_trace("kalloc(%u) -> 0x%p", size, ptr);
+    return ptr;
 }
 
 void kfree(void *ptr) {
+    klog_trace("kfree(0x%p)", ptr);
     memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
     memory_block_t *next = block->next;
     memory_block_t *prev = block->prev;
@@ -162,7 +167,7 @@ uint32_t kernel_heap_free_size() {
 
 void kernel_heap_dump() {
     memory_block_t *block = kernel_heap.list_head;
-    klog("  Address         Size  Type  Magic  Prev        Next\n");
+    klog_debug("  Address         Size  Type  Magic  Prev        Next");
     //      0x00000000  00000000  Used  XXXX   0xXXXXXXXX  0xXXXXXXXX
     uint32_t free_mem = 0;
     uint32_t used_mem = 0;
@@ -177,7 +182,7 @@ void kernel_heap_dump() {
             free_mem += block->size;
             free_blocks++;
         }
-        klog("  0x%08x  %8u  %s  %x   0x%08x  0x%08x\n",
+        klog_debug("  0x%08x  %8u  %s  %x   0x%08x  0x%08x",
             (uint32_t)block,
             block->size,
             block->used ? "Used" : "Free",
@@ -192,12 +197,12 @@ void kernel_heap_dump() {
     int utilization = (used_mem * 100) / (free_mem + used_mem);
 
     int percent_free = (kernel_heap.available_memory * 100) / (kernel_heap.end_address - kernel_heap.start_address);
-    klog("Free memory %u KB (%u%%), out of %u KB total\n",
+    klog_debug("Free memory %u KB (%u%%), out of %u KB total",
         kernel_heap.available_memory / 1024,
         percent_free,
         (kernel_heap.end_address - kernel_heap.start_address) / 1024
     );
-    klog("Total free memory  %u KB (%u blocks)\n", (uint32_t)free_mem, free_blocks);
-    klog("Total used memory  %u KB (%u blocks) - %d%% utilization\n", (uint32_t)used_mem, used_blocks, utilization);
+    klog_debug("Total free memory  %u KB (%u blocks)", (uint32_t)free_mem, free_blocks);
+    klog_debug("Total used memory  %u KB (%u blocks) - %d%% utilization", (uint32_t)used_mem, used_blocks, utilization);
 }
 

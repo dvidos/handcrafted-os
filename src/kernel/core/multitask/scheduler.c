@@ -91,7 +91,7 @@ void schedule() {
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
-    klog("K: Task switching \"%s\" --> \"%s\"\n", previous->name, next->name);
+    klog_trace("scheduler(): switching \"%s\" --> \"%s\"", previous->name, next->name);
     
     /**
      * -------------------------------------------------------------------

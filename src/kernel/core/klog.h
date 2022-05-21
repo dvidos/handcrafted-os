@@ -2,13 +2,38 @@
 #define _KLOG_H
 
 #include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
+
+typedef enum log_level {
+    LOGLEV_NONE = 0,
+    LOGLEV_CRITICAL = 1,
+    LOGLEV_ERROR = 2,
+    LOGLEV_WARN = 3,
+    LOGLEV_INFO = 4,
+    LOGLEV_DEBUG = 5,
+    LOGLEV_TRACE = 6
+} log_level_t;
+
+typedef enum log_appender {
+    LOGAPP_MEMORY = 0,
+    LOGAPP_SCREEN = 1,
+    LOGAPP_SERIAL = 2,
+    LOGAPP_FILE = 3
+} log_appender_t;
+
 
 void init_klog();
-void klog(const char *format, ...);
-void klog_hex16(char *buffer, size_t length, uint32_t start_address);
-void klog_serial_port(bool enable);
-void klog_screen(bool enable);
+void klog_appender_level(log_appender_t appender, log_level_t level);
 
+void klog_trace(const char *format, ...);
+void klog_debug(const char *format, ...);
+void klog_info(const char *format, ...);
+void klog_warn(const char *format, ...);
+void klog_error(const char *format, ...);
+void klog_critical(const char *format, ...);
+
+void klog_hex16_info(uint8_t *buffer, size_t length, uint32_t start_address);
 
 
 

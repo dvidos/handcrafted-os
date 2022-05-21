@@ -99,7 +99,7 @@ void block_me(int reason, void *channel) {
     running_proc->block_reason = reason;
     running_proc->block_channel = channel;
     append(&blocked_list, running_proc);
-    klog("K: process %s got blocked, reason %d, channel %p\n", running_proc->name, reason, channel);
+    klog_trace("process %s got blocked, reason %d, channel %p", running_proc->name, reason, channel);
     schedule(); // allow someone else to run
     unlock_scheduler();
 }
@@ -115,7 +115,7 @@ void unblock_process(process_t *proc) {
     proc->block_reason = 0;
     proc->block_channel = NULL;
     prepend(&ready_lists[proc->priority], proc);
-    klog("K: process %s unblocked and added to ready list\n", proc->name);
+    klog_trace("process %s unblocked and added to ready list", proc->name);
 
     // if the running process has a lower priority than the new task,
     // let's preempt it, as we are higher priority, 
@@ -128,6 +128,7 @@ void unblock_process(process_t *proc) {
 
 // voluntarily give up the CPU to another task
 void yield() {
+    klog_trace("process %s is yielding", running_proc->name);
     lock_scheduler();
     schedule(); // allow someone else to run
     unlock_scheduler();
@@ -139,7 +140,7 @@ void sleep(int milliseconds) {
         return;
     lock_scheduler();
 
-    klog("K: process %s going to sleep for %d msecs\n", running_proc->name, milliseconds);
+    klog_trace("process %s going to sleep for %d msecs", running_proc->name, milliseconds);
     running_proc->wake_up_time = timer_get_uptime_msecs() + milliseconds;
     running_proc->state = BLOCKED;
     running_proc->block_reason = SLEEPING;
@@ -161,7 +162,7 @@ void exit(uint8_t exit_code) {
     running_proc->state = TERMINATED;
     running_proc->exit_code = exit_code;
     append(&terminated_list, running_proc);
-    klog("K: process %s terminated, exit code %d\n", running_proc->name, exit_code);
+    klog_trace("process %s exited, exit code %d", running_proc->name, exit_code);
     schedule();
     unlock_scheduler();
 }
@@ -185,7 +186,7 @@ static void task_entry_point_wrapper() {
 // a way to create process
 process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
-        klog("K: priority %d requested when we only have %d levels\n", priority, PROCESS_PRIORITY_LEVELS);
+        klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
     }
     
@@ -207,11 +208,12 @@ process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
     p->cpu_ticks_last = 0;
     p->state = READY;
 
+    klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;
 }
 
 static void dump_process(process_t *proc) {
-    klog("%-3d %-10s %08x %08x %-10s %-10s %4us\n", 
+    klog_info("%-3d %-10s %08x %08x %-10s %-10s %4us", 
         proc->pid,
         proc->name, 
         proc->esp, 
@@ -231,8 +233,8 @@ static void dump_process_list(proc_list_t *list) {
 }
 
 void dump_process_table() {
-    klog("Process list:\n");
-    klog("PID Name       ESP      EIP      State      Blck Reasn    CPU\n");
+    klog_info("Process list:");
+    klog_info("PID Name       ESP      EIP      State      Blck Reasn    CPU");
     dump_process((process_t *)running_proc);
     for (int pri = 0; pri < PROCESS_PRIORITY_LEVELS; pri++) {
         dump_process_list(&ready_lists[pri]);

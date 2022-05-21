@@ -5,73 +5,183 @@
 #include "drivers/serial.h"
 #include "drivers/screen.h"
 #include "drivers/timer.h"
+#include "klog.h"
 
 
-static char log_buffer[1024] = {0,};
-static int log_len = 0;
+static char *level_captions[] = {
+    "NONE",
+    "CRITICAL",
+    "ERROR",
+    "WARN",
+    "INFO",
+    "DEBUG",
+    "TRACE"
+};
+
 static struct {
-    char serial_enabled: 1;
-    char screen_enabled: 1;
+    char buffer[2048];
+    int len;
+} memlog;
+
+static struct {
+    struct appender_info {
+        log_level_t level;
+        bool have_dumped_memory;
+    } appenders[4];
 } __attribute__((packed)) log_flags;
 
 
+
+static void klog_append(log_level_t level, const char *format, va_list args);
+static void memlog_write(char *str);
+static void memory_log_append(log_level_t level, char *str);
+static void screen_log_append(log_level_t level, char *str);
+static void serial_log_append(log_level_t level, char *str);
+static void file_log_append(log_level_t level, char *str);
+
+
 void init_klog() {
-    memset(log_buffer, 0, sizeof(log_buffer));
-    log_len = 0;
+    memset(&memlog, 0, sizeof(memlog));
     memset(&log_flags, 0, sizeof(log_flags));
 }
 
-void klog(const char *format, ...) {
-    if (!log_flags.screen_enabled && log_flags.serial_enabled) {
-        // preamble
-        sprintfn(
-            log_buffer + strlen(log_buffer),
-            sizeof(log_buffer) - strlen(log_buffer),
-            "%u: ",
-            (uint32_t)(timer_get_uptime_msecs() & 0xFFFFFFFF)
-        );
+void klog_appender_level(log_appender_t appender, log_level_t level) {
+    bool prev_level = log_flags.appenders[appender].level;
+    log_flags.appenders[appender].level = level;
+
+    // maybe dump memory contents to this newly opened appender
+    if (appender != LOGAPP_MEMORY &&
+        prev_level == LOGLEV_NONE && 
+        level > LOGLEV_NONE &&
+        !log_flags.appenders[appender].have_dumped_memory
+    ) {
+        if (appender == LOGAPP_SERIAL)
+            serial_log_append(LOGLEV_INFO, memlog.buffer);
+        else if (appender == LOGAPP_FILE)
+            file_log_append(LOGLEV_INFO, memlog.buffer);
+        log_flags.appenders[appender].have_dumped_memory = true;
     }
+}
 
-    int log_starting_point = strlen(log_buffer);
-    if (sizeof(log_buffer) - log_starting_point <= 1)
-        panic("No space on kernel log buffer");
-
+void klog_trace(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    vsprintfn(
-        log_buffer + log_starting_point,
-        sizeof(log_buffer) - log_starting_point,
-        format,
-        args
-    );
+    klog_append(LOGLEV_TRACE, format, args);
     va_end(args);
-    log_len = strlen(log_buffer);
+}
 
-    // if we do have aat least one output, we'll clear the buffer
-    bool persisted = false;
-    if (log_flags.screen_enabled) {
-        // since screen is not persistent, do just this one
-        screen_write(log_buffer + log_starting_point);
+void klog_debug(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    klog_append(LOGLEV_DEBUG, format, args);
+    va_end(args);
+}
+
+void klog_info(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    klog_append(LOGLEV_INFO, format, args);
+    va_end(args);
+}
+
+void klog_warn(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    klog_append(LOGLEV_WARN, format, args);
+    va_end(args);
+}
+
+void klog_error(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    klog_append(LOGLEV_ERROR, format, args);
+    va_end(args);
+}
+
+void klog_critical(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    klog_append(LOGLEV_CRITICAL, format, args);
+    va_end(args);
+}
+
+static void klog_append(log_level_t level, const char *format, va_list args) {
+    char buffer[256];
+    vsprintfn(buffer, sizeof(buffer), format, args);
+    memory_log_append(level, buffer);
+    screen_log_append(level, buffer);
+    serial_log_append(level, buffer);
+    file_log_append(level, buffer);
+}
+
+
+// write to memory log, losing older data if needed
+// would go with a circular buffer, but too complex to code right now
+static void memlog_write(char *str) {
+    int slen = strlen(str) + 1; // include the zero terminator
+
+    // if it does not fit, make just enough room for it
+    if (memlog.len + slen >= (int)sizeof(memlog.buffer)) {
+        memmove(memlog.buffer, &memlog.buffer[slen], sizeof(memlog.buffer) - slen);
+        memlog.len -= slen;
     }
-    if (log_flags.serial_enabled) {
-        // since we will clean this, dump from the start
-        serial_write(log_buffer);
-        persisted = true;
-    }
-    if (persisted) {
-        log_buffer[0] = '\0';
-        log_len = 0;
-    }
+
+    // now copy it.
+    memcpy(&memlog.buffer[memlog.len], str, slen);
+}
+
+static void memory_log_append(log_level_t level, char *str) {
+    if (level > log_flags.appenders[LOGAPP_MEMORY].level)
+        return;
+
+    // first write preamble
+    char buff[16];
+    uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
+    sprintfn(buff, sizeof(buff), "%u.%03u [%s] ", msecs / 1000, msecs % 1000, level_captions[level]);
+    memlog_write(buff);
+    memlog_write(str);
+    memlog_write("\n");
+}
+
+static void screen_log_append(log_level_t level, char *str) {
+    if (level > log_flags.appenders[LOGAPP_SCREEN].level)
+        return;
+
+    uint8_t old_color = screen_getcolor();
+    if (level < LOGLEV_ERROR)
+        screen_setcolor(VGA_COLOR_LIGHT_RED);
+    else if (level == LOGLEV_WARN)
+        screen_setcolor(VGA_COLOR_LIGHT_BROWN);    
+    screen_write(str);
+    screen_write("\n");
+    screen_setcolor(old_color);
+}
+
+static void serial_log_append(log_level_t level, char *str) {
+    if (level > log_flags.appenders[LOGAPP_SERIAL].level)
+        return;
+
+    // first write preamble
+    char buff[16];
+    uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
+    sprintfn(buff, sizeof(buff), "%u.%03u [%s] ", msecs / 1000, msecs % 1000, level_captions[level]);
+    serial_write(buff);
+    serial_write(str);
+    serial_write("\n");
+}
+
+static void file_log_append(log_level_t level, char *str) {
+    ; // not implemented yet. hopefully /var/log/kernel.log
 }
 
 static inline char printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-void klog_hex16(uint8_t *buffer, size_t length, uint32_t start_address) {
+void klog_hex16_info(uint8_t *buffer, size_t length, uint32_t start_address) {
     while (length > 0) {
         // using xxd's format, seems nice
-        klog("%08x: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
+        klog_info("%08x: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
             start_address,
             buffer[0], buffer[1], buffer[2], buffer[3], 
             buffer[4], buffer[5], buffer[6], buffer[7],
@@ -88,13 +198,3 @@ void klog_hex16(uint8_t *buffer, size_t length, uint32_t start_address) {
     }
 }
 
-
-
-
-void klog_serial_port(bool enable) {
-    log_flags.serial_enabled = enable;
-}
-
-void klog_screen(bool enable) {
-    log_flags.screen_enabled = enable;
-}

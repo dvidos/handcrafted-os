@@ -7,6 +7,7 @@
 
 void screen_init(void);
 void screen_setcolor(uint8_t color);
+uint8_t screen_getcolor();
 void screen_clear();
 void screen_writen(const char* data, int size);
 void screen_write(const char* data);

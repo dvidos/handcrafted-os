@@ -19,10 +19,10 @@ void acquire_semaphore(semaphore_t *semaphore) {
 
     if (semaphore->count < semaphore->limit) {
         semaphore->count++;
-        klog("K: process %s acquired semaphore\n", running_process()->name);
+        klog_trace("process %s acquired semaphore", running_process()->name);
         // we got it!
     } else {
-        klog("K: process %s getting blocked on semaphore\n", running_process()->name);
+        klog_trace("process %s getting blocked on semaphore", running_process()->name);
         // we cannot acquire, we'll just block until it's free
         semaphore->waiting_processes++;
         block_me(SEMAPHORE, semaphore);
@@ -38,7 +38,7 @@ void release_semaphore(semaphore_t *semaphore) {
     bool unblocked_a_process = false;
     process_t *target_proc = NULL;
     if (semaphore->waiting_processes > 0) {
-        klog("K: semaphore releasing, there are waiting processes\n");
+        klog_trace("semaphore releasing, there are waiting processes");
         // if there are processes waiting, let's unblock them now
         target_proc = blocked_list.head;
         while (target_proc != NULL) {
@@ -56,12 +56,12 @@ void release_semaphore(semaphore_t *semaphore) {
     if (unblocked_a_process) {
         // somebody was waiting and we liberated them
         // we don't lower the count, they now hold the semaphore
-        klog("K: waiting process %s now unblocked to own the semaphore\n", target_proc->name);
+        klog_trace("waiting process %s now unblocked to own the semaphore", target_proc->name);
         semaphore->waiting_processes--;
     } else {
         // either nobody was waiting, or we did not find them (they may have been killed)
         // lower number as expected
-        klog("K: semaphore released by process %s\n", running_process()->name);
+        klog_trace("semaphore released by process %s", running_process()->name);
         semaphore->count--;
     }
 

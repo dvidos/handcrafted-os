@@ -75,8 +75,7 @@ static inline int get_offset(int col, int row) { return 2 * (row * VGA_WIDTH + c
 static inline void get_row_col(int *col, int *row, int offset) { *col = offset % (VGA_WIDTH*2); *row = offset / (VGA_WIDTH*2); }
 
 
-void screen_init(void)
-{
+void screen_init(void) {
 	screen_row = 0;
 	screen_column = 0;
 	screen_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
@@ -89,13 +88,15 @@ void screen_init(void)
     set_cursor_offset(0);
 }
 
-void screen_setcolor(uint8_t color)
-{
+uint8_t screen_getcolor() {
+	return screen_color;
+}
+
+void screen_setcolor(uint8_t color) {
 	screen_color = color;
 }
 
-static void screen_putentryat(char c, uint8_t color, uint8_t col, uint8_t row)
-{
+static void screen_putentryat(char c, uint8_t color, uint8_t col, uint8_t row) {
     int index = (row * VGA_WIDTH + col) * 2;
 	screen_memory[index] = c;
     screen_memory[index + 1] = color;

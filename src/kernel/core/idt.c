@@ -199,20 +199,20 @@ void init_idt(uint16_t code_segment_selector) {
 }
 
 void dump_registers(registers_t *regs) {
-    klog("DS      : %08x\n", regs->ds);
-    klog("CS      : %08x\n", regs->cs);
-    klog("EDI     : %08x\n", regs->edi);
-    klog("ESI     : %08x\n", regs->esi);
-    klog("EBP     : %08x\n", regs->ebp);
-    klog("ESP     : %08x\n", regs->esp);
-    klog("EBX     : %08x\n", regs->ebx);
-    klog("EDX     : %08x\n", regs->edx);
-    klog("ECX     : %08x\n", regs->ecx);
-    klog("EAX     : %08x\n", regs->eax);
-    klog("INT_NO  : 0x%x\n", regs->int_no);
-    klog("ERR_CODE: 0x%x\n", regs->err_code);
-    klog("EIP     : %08x\n", regs->eip);
-    klog("EFLAGS  : %08x\n", regs->eflags);
-    klog("USERRESP: %08x\n", regs->useresp);
-    klog("SS      : %08x\n", regs->ss);
+    klog_debug("DS      : %08x", regs->ds);
+    klog_debug("CS      : %08x", regs->cs);
+    klog_debug("EDI     : %08x", regs->edi);
+    klog_debug("ESI     : %08x", regs->esi);
+    klog_debug("EBP     : %08x", regs->ebp);
+    klog_debug("ESP     : %08x", regs->esp);
+    klog_debug("EBX     : %08x", regs->ebx);
+    klog_debug("EDX     : %08x", regs->edx);
+    klog_debug("ECX     : %08x", regs->ecx);
+    klog_debug("EAX     : %08x", regs->eax);
+    klog_debug("INT_NO  : 0x%x", regs->int_no);
+    klog_debug("ERR_CODE: 0x%x", regs->err_code);
+    klog_debug("EIP     : %08x", regs->eip);
+    klog_debug("EFLAGS  : %08x", regs->eflags);
+    klog_debug("USERRESP: %08x", regs->useresp);
+    klog_debug("SS      : %08x", regs->ss);
 }

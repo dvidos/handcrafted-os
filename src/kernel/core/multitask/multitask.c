@@ -36,6 +36,8 @@ void init_multitasking() {
 
 // this will never return
 void start_multitasking() {
+    klog_debug("Starting multitasking");
+
     // flag to our interrupt handler that we can start scheduling
     // after a while, the timer will switch us out and will switch something else in.
     process_switching_enabled = true;
@@ -48,6 +50,7 @@ void start_multitasking() {
         // but maybe we can use it for some housekeeping
         while (terminated_list.head != NULL) {
             process_t *proc = dequeue(&terminated_list);
+            klog_trace("idle task cleaning up terminated process %s", proc->name);
             // clean up things here or in a function
             if (proc->stack_buffer != NULL)
                 kfree(proc->stack_buffer);
@@ -79,7 +82,7 @@ static void wake_sleeping_tasks() {
     process_t *proc = dequeue(&temp_list);
     while (proc != NULL) {
         if (proc->block_reason == SLEEPING && proc->wake_up_time > 0 && now >= proc->wake_up_time) {
-            klog("K: process %s ready to run, sleep time expired\n", proc->name);
+            klog_trace("process %s ready to run, sleep time expired", proc->name);
             proc->state = READY;
             proc->block_reason = 0;
             proc->block_channel = NULL;

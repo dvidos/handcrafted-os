@@ -82,7 +82,7 @@ void init_physical_memory_manager(multiboot_info_t *info, uint8_t *kernel_start_
 }
 
 static void mark_physical_memory_available(void *address, size_t size) {
-    // klog("marking as available, p=%p, len=%u", address, size);
+    klog_debug("marking as available, p=%p, len=%u", address, size);
     int first_page_no = address_to_page_num((void *)round_up_4k((uint32_t)address));
     int num_of_pages = round_down_4k(size) / PAGE_SIZE;
     for (int i = 0; i < num_of_pages; i++)
@@ -91,7 +91,7 @@ static void mark_physical_memory_available(void *address, size_t size) {
 }
 
 static void mark_physical_memory_unavailable(void *address, size_t size) {
-    // klog("marking as unavailable, p=%p, len=%u", address, size);
+    klog_debug("marking as unavailable, p=%p, len=%u", address, size);
     int first_page_no = address_to_page_num((void *)round_down_4k((uint32_t)address));
     int num_of_pages = round_up_4k(size) / PAGE_SIZE;
     for (int i = 0; i < num_of_pages; i++)
@@ -157,7 +157,9 @@ void *allocate_physical_page() {
     total_free_pages--;
     total_used_pages++;
     popcli();
-    return page_num_to_address(page_no);
+    void *ptr = page_num_to_address(page_no);
+    klog_trace("allocate_physical_page() -> 0x%p (page_no %d", ptr, page_no);
+    return ptr;
 }
 
 void *allocate_consecutive_physical_pages(size_t size_in_bytes) {
@@ -192,10 +194,13 @@ void *allocate_consecutive_physical_pages(size_t size_in_bytes) {
         total_free_pages--;
     }
     popcli();
-    return page_num_to_address(first_free_page_no);
+    void *ptr = page_num_to_address(first_free_page_no);
+    klog_trace("allocate_consecutive_physical_pages() -> 0x%p (%d pages, first page is %d)", ptr, pages_needed, first_free_page_no);
+    return ptr;
 }
 
 void free_physical_page(void *address) {
+    klog_trace("free_physical_page(0x%p)", address);
     pushcli();
     int page_no = address_to_page_num(address);
     if (!page_is_used(page_no))
@@ -207,6 +212,7 @@ void free_physical_page(void *address) {
 }
 
 void free_consecutive_physical_pages(void *address, size_t size_in_bytes) {
+    klog_trace("free_consecutive_physical_pages(0x%p, %u)", address, (uint32_t)size_in_bytes);
     int starting_page_no = address_to_page_num(address);
     int pages = round_up_4k(size_in_bytes) / PAGE_SIZE;
     for (int i = 0; i < pages; i++) {
@@ -230,8 +236,8 @@ void dump_physical_memory_map_overall() {
  
     // each uint32_t bitmap represents 32 pages => 128KB
     // we need to collect 32 of those for one character
-    klog("----------------------- Physical Memory Allocation Map -----------------------\n");
-    klog("    Offset  1 char = 4MB = x400000 = 1024 pages (.=free, *=partial, U=used)\n");
+    klog_info("----------------------- Physical Memory Allocation Map -----------------------");
+    klog_info("    Offset  1 char = 4MB = x400000 = 1024 pages (.=free, *=partial, U=used)");
     int index = 0;
     for (uint32_t line = 0; line < 16; line++) {
         memset(line_buffer, 0, sizeof(line_buffer));
@@ -248,9 +254,9 @@ void dump_physical_memory_map_overall() {
             char symbol = !free_page_found ? 'U' : (!used_page_found ? '.' : '*');
             line_buffer[char_block] = symbol;
         }
-        klog("0x%08x  %s\n", (uint32_t)(line * 256 * 1024 * 1024), line_buffer);
+        klog_info("0x%08x  %s", (uint32_t)(line * 256 * 1024 * 1024), line_buffer);
     }
-    klog("highest memory address 0x%x, %u used pages, %u free pages\n",
+    klog_info("highest memory address 0x%x, %u used pages, %u free pages",
         highest_memory_address,
         total_used_pages,
         total_free_pages
@@ -273,15 +279,15 @@ void dump_physical_memory_map_detail(uint32_t start_address) {
  
     start_address = round_down_4k(start_address);
     int page_no = address_to_page_num((void *)start_address);
-    klog("----------------------- Detailed Memory Allocation Map -----------------------\n");
-    klog("    Offset  1 char = 4KB = 0x1000 = 1 page (.=free, U=unavailable)\n");
+    klog_info("----------------------- Detailed Memory Allocation Map -----------------------");
+    klog_info("    Offset  1 char = 4KB = 0x1000 = 1 page (.=free, U=unavailable)");
     for (int line = 0; line < 16; line++) {
         memset(line_buffer, 0, sizeof(line_buffer));
         for (int c = 0; c < 64; c++) {
             line_buffer[c] = page_is_free(page_no) ? '.' : 'U';;
             page_no++;
         }
-        klog("0x%08x  %s\n", start_address, line_buffer);
+        klog_info("0x%08x  %s", start_address, line_buffer);
         start_address += (4096 * 64);
     }
 }

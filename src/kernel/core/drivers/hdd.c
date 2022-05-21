@@ -103,24 +103,24 @@ void test_hdd() {
     for (int i = 0; i < (int)(sizeof(controllers) / sizeof(controllers[0])); i++) {
         soft_reset_controller(i);
         //controllers[i].exists = is_controller_present(i);
-        //klog("Controller #%d is %s\n", i, controllers[i].exists ? "present" : "absent");
+        //klog_info("Controller #%d is %s", i, controllers[i].exists ? "present" : "absent");
     }
     for (int i = 0; i < (int)(sizeof(drives) / sizeof(drives[0])); i++) {
         // drives[i].exists = is_drive_present(i);
         identify_drive(i);
-        // klog("Drive #%d is %s\n", i, drives[i].exists ? "present" : "absent");
+        // klog_info("Drive #%d is %s", i, drives[i].exists ? "present" : "absent");
     }
 
     // for (int d = 0; d < (int)(sizeof(drives) / sizeof(drives[0])); d++) {
     //     if (drives[d].exists) {
-    //         klog("---- Drive #%d ----\n", d);
+    //         klog_info("---- Drive #%d ----", d);
     //         // it seems that drive 1:0 is present! (secondary master)
     //         memset(sector_buffer, 0, sizeof(sector_buffer));
     //         for (int s = 0; s < 1; s++) {
-    //             // klog("Sector %d\n", s);
+    //             // klog_info("Sector %d", s);
     //             read_block_lba28(d, s);
-    //             // klog_hex16((char *)sector_buffer, sizeof(sector_buffer), s * 512);
-    //             klog_hex16((char *)sector_buffer, 32, s * 512);
+    //             // klog_hex16_info((char *)sector_buffer, sizeof(sector_buffer), s * 512);
+    //             klog_hex16_info((char *)sector_buffer, 32, s * 512);
     //         }
     //     }
     // }
@@ -128,7 +128,7 @@ void test_hdd() {
 
 void controller_status(int controller_no) {
     uint8_t status = inb(controllers[controller_no].control_port_base);
-    klog("Controller %d status  reg x%02x: %s%s%s%s%s%s%s%s\n",
+    klog_debug("Controller %d status  reg x%02x: %s%s%s%s%s%s%s%s",
         controller_no,
         status,
         (status & 0x01) ? "ERR " : "",
@@ -141,7 +141,7 @@ void controller_status(int controller_no) {
         (status & 0x80) ? "BSY " : ""
     );
     status = inb(controllers[controller_no].control_port_base + 1);
-    klog("Controller %d address reg x%02x: %s%s%s%s%s%s%s%s\n",
+    klog_debug("Controller %d address reg x%02x: %s%s%s%s%s%s%s%s",
         controller_no,
         status,
         (status & 0x01) ? "DS0 " : "",
@@ -180,7 +180,7 @@ bool wait_controller_ready(int controller_no) {
 void soft_reset_controller(int controller_no) {
     controller_status(controller_no);
 
-    klog("Resetting controller %d...\n", controller_no);
+    klog_debug("Resetting controller %d...", controller_no);
     outb(controllers[controller_no].control_port_base, 0);
     inb(controllers[controller_no].io_port_base); // pause for 30usec
 
@@ -192,11 +192,11 @@ void soft_reset_controller(int controller_no) {
     outb(controllers[controller_no].control_port_base, 0);
 
     if (!wait_controller_not_busy(controller_no)) {
-        klog("Controller failed clearing BSY after reset\n");
+        klog_debug("Controller failed clearing BSY after reset");
         return;
     }
     if (!wait_controller_ready(controller_no)) {
-        klog("Controller failed getting RDY after reset\n");
+        klog_debug("Controller failed getting RDY after reset");
         return;
     }
     controller_status(controller_no);
@@ -228,7 +228,7 @@ void identify_drive(uint8_t drive_idx) {
     uint8_t status, p1, p2;
 
 
-    klog("Identifying drive %d...\n", drive_idx);
+    klog_info("Identifying drive %d...", drive_idx);
     wait_controller_not_busy(cno);
     wait_controller_ready(cno);
 
@@ -236,7 +236,7 @@ void identify_drive(uint8_t drive_idx) {
     outb(ctrlr->io_port_base + DRIVE_SELECT_REGISTER, drive_value); 
     for (int i = 0; i < 15; i++)
         status = inb(ctrlr->control_port_base);
-    klog("After drive select + delay, ctrl_port status is %08bb\n", drive_idx);
+    klog_debug("After drive select + delay, ctrl_port status is %08bb", drive_idx);
     outb(ctrlr->io_port_base + LBA_LOW_REGISTER, 0); 
     outb(ctrlr->io_port_base + LBA_MID_REGISTER, 0); 
     outb(ctrlr->io_port_base + LBA_HIGH_REGISTER, 0); 
@@ -245,21 +245,21 @@ void identify_drive(uint8_t drive_idx) {
     status = inb(ctrlr->io_port_base + STATUS_REGISTER); 
     if (status == 0) {
         // drive does not exist
-        klog("Drive does not exist\n");
+        klog_info("Drive does not exist");
         return;
     }
     status = inb(ctrlr->io_port_base + STATUS_REGISTER);
-    klog("Status register after identify %08bb\n", status);
+    klog_debug("Status register after identify %08bb", status);
 
     // poll the status, until bit 7 (BSY) clears
-    klog("Polling to overcome BSY...\n");
+    klog_debug("Polling to overcome BSY...");
     uint64_t started = timer_get_uptime_msecs();
     while (true) {
         status = inb(ctrlr->io_port_base + STATUS_REGISTER);
         if ((status & BSY) == 0)
             break;
         if (timer_get_uptime_msecs() - started > 50) {
-            klog("Timed out waiting for BSY to clear, after 100 msecs...\n");
+            klog_debug("Timed out waiting for BSY to clear, after 100 msecs...");
             return;
         }
     }
@@ -274,30 +274,30 @@ void identify_drive(uint8_t drive_idx) {
         bool is_atapi = p1 == 0x14 && p2 == 0xEB;
         bool is_sata = p1 == 0x3C && p2 == 0xC3;
         if (is_atapi)
-            klog("ATAPI device detected, stopping\n");
+            klog_debug("ATAPI device detected, stopping");
         if (is_sata)
-            klog("SATA device detected, stopping\n");
+            klog_debug("SATA device detected, stopping");
         if (!is_atapi && !is_sata)
-            klog("Unknown non-ATA device detected, stopping\n");
+            klog_debug("Unknown non-ATA device detected, stopping");
         return;
     }
 
     // Otherwise, continue polling one of the Status ports until 
     // bit 3 (DRQ, value = 8) sets, or until bit 0 (ERR, value = 1) sets.
-    klog("Waiting for either DRQ or ERR\n");
+    klog_debug("Waiting for either DRQ or ERR");
     while (true) {
         status = inb(ctrlr->io_port_base + STATUS_REGISTER);
         if (status & ERR) {
-            klog("Error detected, aborting\n");
+            klog_debug("Error detected, aborting");
             return;
         }
         if (status & DRQ)
             break;
     }
 
-    klog("DRQ detected, transfering...\n");
+    klog_debug("DRQ detected, transfering...");
     transfer_256_words_disk_to_memory(drive_idx);
-    klog_hex16((char *)sector_buffer, 64, 0);
+    klog_hex16_info((char *)sector_buffer, 64, 0);
 }
 
 
