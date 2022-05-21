@@ -419,6 +419,9 @@ static int do_sizes(int argc, char *argv[]) {
     printf("sizeof(void *) is %d\n", sizeof(void *));  // 4
     printf("sizeof(size_t) is %d\n", sizeof(size_t));  // 4
     
+    // advancing a pointer to a struct, advances by the struct size
+    // advancing a pointer to a pointer of a struct, advances by a pointer size
+
     return 0;
 }
 static int do_kheap(int argc, char *argv[]) {

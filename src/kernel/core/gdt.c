@@ -24,8 +24,6 @@
 #define FLAGS_SIZE(x)              (((x) & 0x01) << 2) // 0 for 16 bit protected mode segment, 1 for 32 bit protected mode segment
 #define FLAGS_LONG(x)              (((x) & 0x01) << 1) // 0 for 16/32 bit, 1 for long mode (64 bit)
 
-#define BYTES_PER_DESCRIPTOR       8
-
 struct gdt_segment_descriptor32 {
     uint16_t limit_low16;
     uint16_t base_low16;
@@ -46,7 +44,7 @@ struct gdt_descriptor64 {
     uint64_t offset;
 } __attribute__((packed));
 
-struct gdt_segment_descriptor32 descriptors[3];
+struct gdt_segment_descriptor32 descriptors[5];
 struct gdt_descriptor32 gdt;
 
 
@@ -93,14 +91,32 @@ void init_gdt() {
     set_descriptor(1,
         0,
         0xffffffff,  // 4 GB
-        ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(1) | ACCESS_CODE_READABLE(1),
+        ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(1) | 
+        ACCESS_CODE_READABLE(1) | ACCESS_PRIVILEGE(0),
         FLAGS_SIZE(1));
 
     // segment 0x10 (decimal 16) will be our data segment (e.g. "mov eax 0x10:some_label")
     set_descriptor(2,
         0,
         0xffffffff,  // 4 GB
-        ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(0) | ACCESS_DATA_WRITABLE(1),
+        ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(0) | 
+        ACCESS_DATA_WRITABLE(1) | ACCESS_PRIVILEGE(0),
+        FLAGS_SIZE(1));
+
+    // segment 0x18 (decimal 24) will be our user land code segment (e.g. "jmp 0x18:some_func")
+    set_descriptor(3,
+        0,
+        0xffffffff,  // 4 GB
+        ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(1) | 
+        ACCESS_CODE_READABLE(1) | ACCESS_PRIVILEGE(3),
+        FLAGS_SIZE(1));
+
+    // segment 0x20 (decimal 32) will be our user land data segment (e.g. "mov eax 0x20:some_label")
+    set_descriptor(4,
+        0,
+        0xffffffff,  // 4 GB
+        ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(0) | 
+        ACCESS_DATA_WRITABLE(1) | ACCESS_PRIVILEGE(3),
         FLAGS_SIZE(1));
 
     // printf("Size of GDT segment descriptor: %d\n", sizeof(struct gdt_segment_descriptor32));  // 8

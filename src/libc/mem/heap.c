@@ -1,13 +1,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "../drivers/screen.h"
-#include "../string.h"
-#include "../klog.h"
-#include "physmem.h"
 
-#define KMEM_MAGIC            0x6AFE // something that fits in 14 bits
-#define KHEAP_SIZE          0x100000 // 1 MB for now, we'll see
+#define MEM_MAGIC             0x6A3E // something that fits in 14 bits
 
 
 // doubly linked list allows fast consolidation with prev / next blocks
@@ -33,42 +28,40 @@ struct memory_heap {
 };
 typedef struct memory_heap memory_heap_t;
 
-memory_heap_t kernel_heap;
+memory_heap_t heap;
 
-void init_kernel_heap() {
-    void *heap = allocate_consecutive_physical_pages(KHEAP_SIZE);
-    if (heap == NULL)
-        panic("Failed allocating physical memory for kernel heap");
-    kernel_heap.start_address = heap;
-    kernel_heap.end_address = heap + KHEAP_SIZE;
-    kernel_heap.available_memory = KHEAP_SIZE - 2 * sizeof(memory_block_t);
+void set_heap(void *start_address, void *end_address) {
+    uint32_t heap_size = (uint32_t)end_address - (uint32_t)start_address;
+    heap.start_address = start_address;
+    heap.end_address = end_address;
+    heap.available_memory = heap_size - 2 * sizeof(memory_block_t);
 
     // putting a block at the end of the area, to detect possible overflow
-    memory_block_t *head = (memory_block_t *)(kernel_heap.start_address);
-    memory_block_t *tail = (memory_block_t *)(kernel_heap.end_address - sizeof(memory_block_t));
+    memory_block_t *head = (memory_block_t *)(heap.start_address);
+    memory_block_t *tail = (memory_block_t *)(heap.end_address - sizeof(memory_block_t));
 
     head->used = 0;
-    head->size = KHEAP_SIZE - 2 * sizeof(memory_block_t);
-    head->magic = KMEM_MAGIC;
+    head->size = heap_size - 2 * sizeof(memory_block_t);
+    head->magic = MEM_MAGIC;
     head->next = tail;
     head->prev = NULL;
     
     tail->used = 1; // tail marked used to avoid consolidation
     tail->size = 0;
-    tail->magic = KMEM_MAGIC;
+    tail->magic = MEM_MAGIC;
     tail->prev = head;
     tail->next = NULL;
 
-    kernel_heap.list_head = head;
-    kernel_heap.list_tail = tail;
+    heap.list_head = head;
+    heap.list_tail = tail;
 }
 
 // allocate a chunk of memory. min size restrictions apply
-void *kalloc(size_t size) {
+void *malloc(size_t size) {
     size = size < 256 ? 256 : size;
     
     // find the first free block that is equal or larger than size
-    memory_block_t *curr = kernel_heap.list_head;
+    memory_block_t *curr = heap.list_head;
     while (curr != NULL && (curr->used || curr->size < size))
         curr = curr->next;
     if (curr == NULL)
@@ -80,10 +73,10 @@ void *kalloc(size_t size) {
     memory_block_t *next = curr->next;
     new_free->size = curr->size - sizeof(memory_block_t) - size;
     new_free->used = 0;
-    new_free->magic = KMEM_MAGIC;
+    new_free->magic = MEM_MAGIC;
     new_free->prev = curr;
     new_free->next = next;
-    kernel_heap.available_memory -= sizeof(memory_block_t);
+    heap.available_memory -= sizeof(memory_block_t);
 
     curr->size = size;
     curr->next = new_free;
@@ -91,26 +84,26 @@ void *kalloc(size_t size) {
         next->prev = new_free;
     
     curr->used = 1;
-    kernel_heap.available_memory -= curr->size;
+    heap.available_memory -= curr->size;
     char *p = (char *)curr + sizeof(memory_block_t);
     memset(p, 0, curr->size);
     return p;
 }
 
-void kfree(void *ptr) {
+void free(void *ptr) {
     memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
     memory_block_t *next = block->next;
     memory_block_t *prev = block->prev;
 
-    if (block->magic != KMEM_MAGIC)
-        panic("Buffer underflow detected");
-    if (next != NULL && next->magic != KMEM_MAGIC)
-        panic("Buffer overflow detected");
+    if (block->magic != MEM_MAGIC)
+        fprintf(stderr, "Buffer underflow detected");
+    if (next != NULL && next->magic != MEM_MAGIC)
+        fprintf(stderr, "Buffer overflow detected");
     if (!block->used)
         return; // already freed
     
     block->used = false;
-    kernel_heap.available_memory += block->size;
+    heap.available_memory += block->size;
 
     // clean up memory to cause errors if app still refers to it.
     memset((char *)block + sizeof(memory_block_t), 0, block->size);
@@ -139,30 +132,25 @@ void kfree(void *ptr) {
         if (next->next != NULL)
             next->next->prev = block;
         block->size += sizeof(memory_block_t) + next->size;
-        kernel_heap.available_memory += sizeof(memory_block_t);
+        heap.available_memory += sizeof(memory_block_t);
     }
     if (prev != NULL && !prev->used) {
         prev->next = block->next;
         if (block->next != NULL)
             block->next->prev = prev;
         prev->size += sizeof(memory_block_t) + block->size;
-        kernel_heap.available_memory += sizeof(memory_block_t);
+        heap.available_memory += sizeof(memory_block_t);
     }
 }
 
-// returns the amount of memory the heap is managing
-uint32_t kernel_heap_total_size() {
-    return (kernel_heap.end_address - kernel_heap.start_address);
-}
-
 // returns the remaining memory size that can be allocated
-uint32_t kernel_heap_free_size() {
-    return kernel_heap.available_memory;
+uint32_t heap_free_size() {
+    return heap.available_memory;
 }
 
-void kernel_heap_dump() {
-    memory_block_t *block = kernel_heap.list_head;
-    klog("  Address         Size  Type  Magic  Prev        Next\n");
+void heap_dump() {
+    memory_block_t *block = heap.list_head;
+    fprintf(stderr, "  Address         Size  Type  Magic  Prev        Next\n");
     //      0x00000000  00000000  Used  XXXX   0xXXXXXXXX  0xXXXXXXXX
     uint32_t free_mem = 0;
     uint32_t used_mem = 0;
@@ -177,7 +165,7 @@ void kernel_heap_dump() {
             free_mem += block->size;
             free_blocks++;
         }
-        klog("  0x%08x  %8u  %s  %x   0x%08x  0x%08x\n",
+        fprintf(stderr, "  0x%08x  %8u  %s  %x   0x%08x  0x%08x\n",
             (uint32_t)block,
             block->size,
             block->used ? "Used" : "Free",
@@ -191,13 +179,12 @@ void kernel_heap_dump() {
     used_mem /= 1024;
     int utilization = (used_mem * 100) / (free_mem + used_mem);
 
-    int percent_free = (kernel_heap.available_memory * 100) / (kernel_heap.end_address - kernel_heap.start_address);
-    klog("Free memory %u KB (%u%%), out of %u KB total\n",
-        kernel_heap.available_memory / 1024,
+    int percent_free = (heap.available_memory * 100) / (heap.end_address - heap.start_address);
+    fprintf(stderr, "Free memory %u KB (%u%%), out of %u KB total\n",
+        heap.available_memory / 1024,
         percent_free,
-        (kernel_heap.end_address - kernel_heap.start_address) / 1024
+        (heap.end_address - heap.start_address) / 1024
     );
-    klog("Total free memory  %u KB (%u blocks)\n", (uint32_t)free_mem, free_blocks);
-    klog("Total used memory  %u KB (%u blocks) - %d%% utilization\n", (uint32_t)used_mem, used_blocks, utilization);
+    fprintf(stderr, "Total free memory  %u KB (%u blocks)\n", (uint32_t)free_mem, free_blocks);
+    fprintf(stderr, "Total used memory  %u KB (%u blocks) - %d%% utilization\n", (uint32_t)used_mem, used_blocks, utilization);
 }
-

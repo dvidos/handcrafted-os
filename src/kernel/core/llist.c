@@ -24,7 +24,7 @@ typedef void (ll_walker_t)(void *);
 
 
 
-
+// allocates, initializes and returns a new likned_list
 linked_list_t *llcreate() {
     linked_list_t *list = (linked_list_t *)kalloc(sizeof(linked_list_t));
     memset(list, 0, sizeof(linked_list_t));

@@ -2,6 +2,7 @@
 #include "cpu.h"
 #include "bits.h"
 
+// programmable interrupt controller
 // see https://wiki.osdev.org/8259_PIC
 
 #define PIC1_CMD    0x20       // IO base address for master PIC

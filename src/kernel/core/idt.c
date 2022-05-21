@@ -4,6 +4,8 @@
 #include "klog.h"
 
 
+// for documentation, see https://wiki.osdev.org/IDT
+
 // things pushed in the isr_stub we have in assembly
 // this is passed when isr_handler is called from our assembly stub
 typedef struct registers
@@ -67,6 +69,9 @@ struct idt_descriptor64 {
 struct idt_descriptor32 idt_descriptor;
 struct idt_gate_descriptor32 gates[256];
 
+// these defined in assembly
+// defined my macros, they call the isr_common_stub(), again in assembly
+// it collects registers and calls isr_handler(), which is in C
 extern void isr0();
 extern void isr1();
 extern void isr2();
@@ -117,6 +122,7 @@ extern void irq45();
 extern void irq46();
 extern void irq47();
 
+// defined in assembly
 extern void load_idt_descriptor(uint32_t);
 
 

@@ -34,6 +34,19 @@ uint16_t inw(uint16_t port) {
     return result;
 }
 
+void outl(uint16_t port, uint32_t data) {
+    __asm__("out %%eax, %%dx" : : "a" (data), "d" (port));
+}
+
+uint32_t inl(uint16_t port) {
+    uint32_t result;
+
+    // format: __asm__("assembly" : output operands : input operands)
+    __asm__("in %%dx, %%eax" : "=a" (result) : "d" (port));
+
+    return result;
+}
+
 
 
 // stop interrupts in current CPU only

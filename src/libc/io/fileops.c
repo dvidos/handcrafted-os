@@ -8,6 +8,9 @@
 #define O_APPEND   0x400
 
 // handles already opened: 0=stdin, 1=stdout, 2=stderr
+unsigned int stdin;
+unsigned int stdout;
+unsigned int stderr;
 
 // return file handle, or -1 on error
 int open(char *file, int flags) {

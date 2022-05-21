@@ -98,6 +98,10 @@ Also the following must be met:
 ### things to do
 
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
+* the idea of an expandable array of things, similar to the approach of a StringBuilder,
+something sile the one described [here](https://tiswww.case.edu/php/chet/readline/history.html#SEC6).
+Essentially, allow add, get, index, remove operations without fear of running out, or without 
+prior allocation.
 * make logging having levels (DEBUG, INFO, WARN, ERROR, PANIC) and 
 allow for setting up levels per destination.
 * something akin to gnu readline library, using just a getch()/putch() interface

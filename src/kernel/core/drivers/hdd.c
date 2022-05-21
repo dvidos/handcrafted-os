@@ -188,8 +188,7 @@ void soft_reset_controller(int controller_no) {
     // the master drive is automatically selected
 
     outb(controllers[controller_no].control_port_base, SRST);
-    // timer_pause_blocking(1);
-    inb(controllers[controller_no].io_port_base); // pause for 30usec
+    (void)inb(0); // pause for 30usec
     outb(controllers[controller_no].control_port_base, 0);
 
     if (!wait_controller_not_busy(controller_no)) {
