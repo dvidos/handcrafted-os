@@ -1,5 +1,6 @@
 #include "drivers/screen.h"
 #include "string.h"
+#include "klog.h"
 
 
 #define assert(a)    if (!(a)) { printf("Assertion failed! %s, file %s, line %u\n", #a, __FILE__, __LINE__); } else { printf("."); }
@@ -8,11 +9,13 @@
 
 void run_tests() {
     char buffer[64];
-    char *p;
+    char *str;
 
+    // strlen
     assert(strlen("") == 0);
     assert(strlen("Hello") == 5);
 
+    // strcmp
     assert(strcmp("", "") == 0);
     assert(strcmp("", "a") < 0);
     assert(strcmp("a", "") > 0);
@@ -20,31 +23,35 @@ void run_tests() {
     assert(strcmp("abc", "123") > 0);
     assert(strcmp("abc", "abc") == 0);
     
+    // strcpy & strcmp ?
     buffer[0] = 0;
     strcpy(buffer, "123");
     assert(strcmp(buffer, "123") == 0);
 
+    // memset & memcmp ?
     memset(buffer, 0xff, sizeof(buffer));
     strcpy(buffer + 1, "xyz");
     assert(memcmp(buffer, "\xffxyz\0\xff", 6) == 0);
 
     // strtok is used to parse commands in konsole
     strcpy(buffer, "Hello there, this is-a test... phrase!");
-    p = " ,.!";
-    assert(strcmp(strtok(buffer, p), "Hello") == 0);
-    assert(strcmp(strtok(NULL, p), "there") == 0);
-    assert(strcmp(strtok(NULL, p), "this") == 0);
-    assert(strcmp(strtok(NULL, p), "is-a") == 0);
-    assert(strcmp(strtok(NULL, p), "test") == 0);
-    assert(strcmp(strtok(NULL, p), "phrase") == 0);
-    assert(strtok(NULL, p) == NULL);
-    // remember, strtok() alters the string in place
+    str = " ,.!";
+    assert(strcmp(strtok(buffer, str), "Hello") == 0);
+    assert(strcmp(strtok(NULL, str), "there") == 0);
+    assert(strcmp(strtok(NULL, str), "this") == 0);
+    assert(strcmp(strtok(NULL, str), "is-a") == 0);
+    assert(strcmp(strtok(NULL, str), "test") == 0);
+    assert(strcmp(strtok(NULL, str), "phrase") == 0);
+    assert(strtok(NULL, str) == NULL);
+    // remember, strtok() alters the string in place nulling out all delimiters
     assert(memcmp(buffer, "Hello\0there\0\0this\0is-a\0test\0\0\0\0phrase\0", 38) == 0);
 
+    // strchr()
     strcpy(buffer, "Hello there!");
     assert(strchr(buffer, 'o') == &buffer[4]);
     assert(strchr(buffer, 'T') == NULL);
 
+    // memmove()
     strcpy(buffer,        "0123456789abcdefghijklmnopqrstuvwxyz");
     memmove(&buffer[5], &buffer[10], 10);
     assert(strcmp(buffer, "01234abcdefghijfghijklmnopqrstuvwxyz") == 0);
@@ -86,7 +93,34 @@ void run_tests() {
     ultoa(4294967295, buffer, 16);
     assert(strcmp(buffer, "FFFFFFFF") == 0);
 
+    str = "once upon a time, a kernel was written";
+    assert(strstr(str, NULL) == str);
+    assert(strstr(str, "") == str);
+    assert(strstr(str, "z") == NULL);
+    assert(strstr(str, "o") == str);
+    assert(strstr(str, "on a time") != NULL);
+    assert(strstr(str, "on a time") == str + 7);
+    assert(strstr(str, "on a time in the future") == NULL);
+    assert(strstr(str, "written") != NULL);
+    assert(strstr(str, "written too") == NULL);
 
+    str = "writing tests";
+    assert(memcmp(str, "", 0) == 0);
+    assert(memcmp(str, "writ", 0) == 0);
+    assert(memcmp(str, "writ", 4) == 0);
+    assert(memcmp(str, "wri", 4) != 0); // zero terminator should not match
+    assert(memcmp(str, "wrie", 4) != 0);
+    assert(memcmp(str, "writing tests", strlen(str)) == 0);
+    assert(memcmp(str, "writing tests again", strlen(str)) == 0);
+    assert(memcmp(str, "writing tests again", strlen(str) + 1) != 0); // zero term
 
+    str = "copying tests";
+    memset(buffer, 0, sizeof(buffer));
+    assert(buffer[0] == '\0');
+    assert(buffer[sizeof(buffer) - 1] == '\0');
+    memcpy(buffer, str, 0);
+    assert(buffer[0] == '\0');
 
+    memcpy(buffer + 1, str, 4);
+    assert(memcmp(buffer, "\0copy\0", 6) == 0)
 }

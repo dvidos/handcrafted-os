@@ -11,6 +11,7 @@ int strcpy(char *target, char *source);
 void strncpy(char *target, char *source, size_t size);
 
 char *strchr(char *str, char c);
+char *strstr(char *heystack, char *needle);
 char *strtok(char *str, char *delimiters);
 
 void memset(void *dest, char value, size_t size);

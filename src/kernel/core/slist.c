@@ -1,35 +1,22 @@
 #include <stdbool.h>
 #include "string.h"
 #include "memory/kheap.h"
-
-
+#include "slist.h"
+#include "klog.h"
 
 struct slist_entry {
     struct slist_entry *prev;
     struct slist_entry *next;
     char *str;
 };
+
 typedef struct slist_entry slist_entry_t;
 
-typedef struct {
+struct slist {
     slist_entry_t *head;
     slist_entry_t *tail;
     int size;
-} slist_t;
-
-
-// maintains a list of strings
-slist_t *slist_create();
-void slist_free(slist_t *list);
-bool slist_append(slist_t *list, char *str);
-bool slist_prepend(slist_t *list, char *str);
-int slist_size(slist_t *list);
-bool slist_empty(slist_t *list);
-char *slist_get(slist_t *list, int index);
-bool slist_delete_at(slist_t *list, int index);
-int slist_indexof(slist_t *list, char *str, int start);
-int slist_indexof_prefix(slist_t *list, char *str, int start);
-
+};
 
 typedef int (*slist_func)(char *entry_str, char *target_str);
 
@@ -157,6 +144,19 @@ bool slist_delete_at(slist_t *list, int index) {
     return true;
 }
 
+static int count_using(slist_t *list, char *str, slist_func comparator) {
+    int count = 0;
+    
+    slist_entry_t *entry = list->head;
+    while (entry != NULL) {
+        if (comparator(entry->str, str) == 0)
+            count++;
+        entry = entry->next;
+    }
+
+    return count;
+}
+
 static int find_index_using(slist_t *list, char *str, int start, slist_func comparator) {
     // get to starting entry
     slist_entry_t *entry = list->head;
@@ -179,11 +179,40 @@ static int find_index_using(slist_t *list, char *str, int start, slist_func comp
     return (entry == NULL) ? -1 : pos;
 }
 
+static int reverse_find_index_using(slist_t *list, char *str, int start, slist_func comparator) {
+    if (list->size == 0)
+        return -1;
+    
+    // get to starting entry
+    slist_entry_t *entry = list->tail;
+    int pos = list->size - 1;
+    while (entry != NULL && pos > start) {
+        entry = entry->prev;
+        pos--;
+    }
+    if (entry == NULL)
+        return -1;
+    
+    // entry points to the first element we should search
+    while (entry != NULL) {
+        if (comparator(entry->str, str) == 0)
+            return pos;
+        entry = entry->prev;
+        pos--;
+    }
+
+    return (entry == NULL) ? -1 : pos;
+}
+
 static int string_comparator(char *entry_str, char *target_str) {
     return strcmp(entry_str, target_str);
 }
 static int prefix_matcher(char *entry_str, char *target_str) {
     return memcmp(entry_str, target_str, strlen(target_str));
+}
+static int contains_matcher(char *entry_str, char *target_str) {
+    // return zero if matching
+    return strstr(entry_str, target_str) != NULL ? 0 : 1;
 }
 
 int slist_indexof(slist_t *list, char *str, int start) {
@@ -192,5 +221,29 @@ int slist_indexof(slist_t *list, char *str, int start) {
 
 int slist_indexof_prefix(slist_t *list, char *prefix, int start) {
     return find_index_using(list, prefix, start, prefix_matcher);
+}
+
+int slist_indexof_containing(slist_t *list, char *prefix, int start) {
+    return find_index_using(list, prefix, start, contains_matcher);
+}
+
+int slist_last_indexof(slist_t *list, char *str, int start) {
+    return reverse_find_index_using(list, str, start, string_comparator);
+}
+
+int slist_last_indexof_prefix(slist_t *list, char *prefix, int start) {
+    return reverse_find_index_using(list, prefix, start, prefix_matcher);
+}
+
+int slist_last_indexof_containing(slist_t *list, char *prefix, int start) {
+    return reverse_find_index_using(list, prefix, start, contains_matcher);
+}
+
+int slist_count_prefix(slist_t *list, char *prefix) {
+    return count_using(list, prefix, prefix_matcher);
+}
+
+int slist_count_containing(slist_t *list, char *needle) {
+    return count_using(list, needle, contains_matcher);
 }
 

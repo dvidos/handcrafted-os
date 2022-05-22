@@ -6,5 +6,4 @@ void readline_add_keyword(char *keyword);
 void readline_add_history(char *keyword);
 char *readline();
 
-
 #endif

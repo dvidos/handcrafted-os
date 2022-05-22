@@ -193,7 +193,7 @@ void klog_hex16_info(uint8_t *buffer, size_t length, uint32_t start_address) {
             printable(buffer[12]), printable(buffer[13]), printable(buffer[14]), printable(buffer[15])
         );
         buffer += 16;
-        length -= 16;
+        length -= length > 16 ? 16 : length;
         start_address += 16;
     }
 }

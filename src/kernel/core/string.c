@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include "drivers/screen.h"
 
 
 int strlen(const char* str)
@@ -61,8 +62,10 @@ int memcmp(void *a, void *b, size_t size) {
     char *ca = (char *)a;
     char *cb = (char *)b;
     while (size-- > 0) {
-        if (*ca != *cb)
-            return (int)(*ca - *cb);
+        if ((*ca) != (*cb))
+            return (int)((*ca) - (*cb));
+        ca++;
+        cb++;
     }
     return 0;
 }
@@ -158,6 +161,30 @@ char *strchr(char *str, char c) {
     return NULL;
 }
 
+char *strstr(char *haystack, char *needle) {
+    // there's ton of room for improvement and complex algorithms here
+    // but for now, we just want an implementation that works, even a slow one
+
+    if (needle == NULL || needle[0] == '\0')
+        return haystack;
+
+    char *start = haystack;
+    int needle_len = strlen(needle);
+    while (*start != '\0') {
+        char *pos = strchr(start, needle[0]);
+        if (pos == NULL)
+            return NULL; // first char not found
+        if (strlen(pos) < needle_len)
+            return NULL; // not enough haystack to check the needle
+        if (memcmp(pos, needle, needle_len) == 0)
+            return pos; // the whole needle matched (no terminators)
+        start = pos + 1; // skip this match, search next from subsquent byte
+    }
+
+    return NULL;
+}
+
+
 // first call str has to have a string, subsequent calls must pass NULL
 char *strtok(char *str, char *delimiters) {
     // printf("strtok(\"%s\", \"%s\")\n", str, delimiters);
@@ -173,8 +200,12 @@ char *strtok(char *str, char *delimiters) {
 
     // skip over delimiters in the start of the string
     // printf("strtok(): Skipping over delimiters [%s]\n", delimiters);
-    while (*str != '\0' && strchr(delimiters, *str) != NULL)
+    while (*str != '\0' && strchr(delimiters, *str) != NULL) {
+        // not sure this is compliant, but we null out all delimiters
+        *str = '\0'; 
         str++;
+
+    }
     if (*str == '\0') {
         return NULL; // we reached the end
     }
