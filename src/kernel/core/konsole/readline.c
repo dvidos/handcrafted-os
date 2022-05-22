@@ -20,7 +20,7 @@ struct options_struct {
     char *prompt;
     char kill[256];
     char line[256];
-    int current_line_pos;
+    int line_pos;
     int current_history_pos;
 } opts;
 
@@ -31,7 +31,7 @@ void init_readline(char *prompt) {
     opts.keywords = slist_create();
     opts.prompt = prompt;
     opts.current_history_pos = -1; // past end of last entry
-    opts.current_line_pos = 0;
+    opts.line_pos = 0;
 
     readline_initialized = true;
 }
@@ -59,6 +59,8 @@ void readline_add_history(char *keyword) {
 // - ctrl+k = delete to end of line
 // - ctrl+u = delete to start of line
 // - ctrl+y = paste most recently killed text back in cursor position
+// - alt+d  = delete word to the right
+// - alt+backspace = delete word to the left
 // ----------------------------------------
 // - ctrl-p = previous history entry
 // - ctrl-n = next history entry
@@ -71,6 +73,8 @@ void readline_add_history(char *keyword) {
 // ----------------------------------------
 
 static void display_line();
+static int find_next_word_to_the_right();
+static int find_word_start_to_the_left();
 static void do_accept_entry();
 static void do_move_to_start_of_line();
 static void do_move_to_end_of_line();
@@ -105,7 +109,7 @@ char *readline() {
     // it's a new entry!
     screen_get_cursor(&opts.screen_row, NULL);
     memset(opts.line, 0, sizeof(opts.line));
-    opts.current_line_pos = 0;
+    opts.line_pos = 0;
     opts.current_history_pos = -1;
 
     while (true) {
@@ -117,13 +121,13 @@ char *readline() {
         if (event.special_key == KEY_ENTER) {
             do_accept_entry();
             return opts.line;
-        } else if ((event.ctrl_down && event.printable == 'a') || event.special_key == KEY_HOME) {
+        } else if ((event.ctrl_down && event.printable == 'a') || (!event.ctrl_down && event.special_key == KEY_HOME)) {
             do_move_to_start_of_line();
-        } else if ((event.ctrl_down && event.printable == 'e') || event.special_key == KEY_END) {
+        } else if ((event.ctrl_down && event.printable == 'e') || (!event.ctrl_down && event.special_key == KEY_END)) {
             do_move_to_end_of_line();
-        } else if ((event.ctrl_down && event.printable == 'b') || event.special_key == KEY_LEFT) {
+        } else if ((event.ctrl_down && event.printable == 'b') || (!event.ctrl_down && event.special_key == KEY_LEFT)) {
             do_move_backwards_one_character();
-        } else if ((event.ctrl_down && event.printable == 'f') || event.special_key == KEY_RIGHT) {
+        } else if ((event.ctrl_down && event.printable == 'f') || (!event.ctrl_down && event.special_key == KEY_RIGHT)) {
             do_move_forwards_one_character();
         } else if ((event.alt_down && event.printable == 'b') || (event.ctrl_down && event.special_key == KEY_LEFT)) {
             do_move_backwards_one_word();
@@ -131,17 +135,17 @@ char *readline() {
             do_move_forwards_one_word();
         } else if (event.ctrl_down && event.printable == 'l') {
             do_clear_screen();
-        } else if ((event.ctrl_down && event.printable == 'd') || event.special_key == KEY_DELETE) {
+        } else if ((event.ctrl_down && event.printable == 'd') || (!event.ctrl_down && event.special_key == KEY_DELETE)) {
             do_delete_char_to_right();
-        } else if (event.special_key == KEY_BACKSPACE) {
+        } else if (!event.ctrl_down && event.special_key == KEY_BACKSPACE) {
             do_delete_char_to_left();
         } else if (event.ctrl_down && event.printable == 'u') {
             do_delete_to_start_of_line();
         } else if (event.ctrl_down && event.printable == 'k') {
             do_delete_to_end_of_line();
-        } else if (event.alt_down && event.printable == 'd') {
+        } else if ((event.alt_down && event.printable == 'd') || (event.ctrl_down && event.special_key == KEY_DELETE)) {
             do_delete_word_to_right();
-        } else if (event.alt_down && event.special_key == KEY_BACKSPACE) {
+        } else if ((event.alt_down && event.special_key == KEY_BACKSPACE) || (event.ctrl_down && event.special_key == KEY_BACKSPACE)) {
             do_delete_word_to_left();
         } else if (event.ctrl_down && event.printable == 'y') {
             do_paste_deleted_text();
@@ -227,11 +231,47 @@ static void display_line() {
     int remaining = 79 - strlen(opts.prompt) - strlen(opts.line);
     while (remaining-- > 0)
         screen_putchar(' ');
-    screen_set_cursor(opts.screen_row, strlen(opts.prompt) + opts.current_line_pos);
+    screen_set_cursor(opts.screen_row, strlen(opts.prompt) + opts.line_pos);
 
 }
 
+static int find_next_word_to_the_right() {
+    int target = opts.line_pos;
+
+    // skip current word
+    while (opts.line[target] != '\0' && opts.line[target] != ' ')
+        target++;
+    if (opts.line[target] == '\0')
+        return target;
+
+    // skip whitespace
+    while (opts.line[target] != '\0' && opts.line[target] == ' ')
+        target++;
+    
+    // we should be either at next word, or at line's end
+    return target;
+}
+
+static int find_word_start_to_the_left() {
+    int target = opts.line_pos;
+
+    // skip whitespace
+    while (target > 0 && opts.line[target - 1] == ' ')
+        target--;
+    if (target == 0)
+        return target;
+
+    // find start of current word
+    while (target > 0 && opts.line[target - 1] != ' ')
+        target--;
+    
+    // we should be either at prev word, or at dead start
+    return target;
+}
+
 static void do_accept_entry() {
+    // if we are searching, bring from history
+    
     printf("\n");
     if (strlen(opts.line) == 0)
         return;
@@ -240,27 +280,29 @@ static void do_accept_entry() {
 }
 
 static void do_move_to_start_of_line() {
-    opts.current_line_pos = 0;
+    opts.line_pos = 0;
 }
 
 static void do_move_to_end_of_line() {
-    opts.current_line_pos = strlen(opts.line);
+    opts.line_pos = strlen(opts.line);
 }
 
 static void do_move_backwards_one_character() {
-    if (opts.current_line_pos > 0)
-        opts.current_line_pos--;
+    if (opts.line_pos > 0)
+        opts.line_pos--;
 }
 
 static void do_move_forwards_one_character() {
-    if (opts.current_line_pos < strlen(opts.line))
-        opts.current_line_pos++;
+    if (opts.line_pos < strlen(opts.line))
+        opts.line_pos++;
 }
 
 static void do_move_backwards_one_word() {
+    opts.line_pos = find_word_start_to_the_left();
 }
 
 static void do_move_forwards_one_word() {
+    opts.line_pos = find_next_word_to_the_right();
 }
 
 static void do_clear_screen() {
@@ -269,35 +311,67 @@ static void do_clear_screen() {
 }
 
 static void do_delete_char_to_right() {
-    if (opts.current_line_pos < strlen(opts.line))
-        memmove(opts.line + opts.current_line_pos, opts.line + opts.current_line_pos + 1, strlen(opts.line) - opts.current_line_pos);
+    if (opts.line_pos < strlen(opts.line))
+        memmove(opts.line + opts.line_pos, opts.line + opts.line_pos + 1, strlen(opts.line) - opts.line_pos);
 }
 
 static void do_delete_char_to_left() {
-    if (opts.current_line_pos > 0) {
-        opts.current_line_pos--;
-        memmove(opts.line + opts.current_line_pos, opts.line + opts.current_line_pos + 1, strlen(opts.line) - opts.current_line_pos);
+    if (opts.line_pos > 0) {
+        opts.line_pos--;
+        memmove(opts.line + opts.line_pos, opts.line + opts.line_pos + 1, strlen(opts.line) - opts.line_pos);
     }
 }
 
-static void do_delete_to_start_of_line() {
-    memcpy(opts.kill, opts.line, opts.current_line_pos);
-    memmove(opts.line, opts.line + opts.current_line_pos, strlen(opts.line) + 1 - opts.current_line_pos);
-    opts.current_line_pos = 0;
-}
-
-static void do_delete_to_end_of_line() {
-    memcpy(opts.kill, opts.line + opts.current_line_pos, strlen(opts.line) - opts.current_line_pos);
-    opts.line[opts.current_line_pos] = 0;
-}
-
 static void do_delete_word_to_right() {
+    int target = find_next_word_to_the_right();
+    if (target == opts.line_pos)
+        return;
+
+    memcpy(opts.kill, opts.line + opts.line_pos, target - opts.line_pos);
+    opts.kill[target - opts.line_pos] = '\0';
+    memmove(opts.line + opts.line_pos, opts.line + target, strlen(opts.line) - target + 1);
 }
 
 static void do_delete_word_to_left() {
+    int target = find_word_start_to_the_left();
+    if (target == opts.line_pos)
+        return;
+
+    memcpy(opts.kill, opts.line + target, opts.line_pos - target);
+    opts.kill[opts.line_pos - target] = '\0';
+    memmove(opts.line + target, opts.line + opts.line_pos, strlen(opts.line) - opts.line_pos + 1);
+    opts.line_pos = target;
+}
+
+static void do_delete_to_start_of_line() {
+    memcpy(opts.kill, opts.line, opts.line_pos);
+    opts.kill[opts.line_pos] = '\0';
+    memmove(opts.line, opts.line + opts.line_pos, strlen(opts.line) + 1 - opts.line_pos);
+    opts.line_pos = 0;
+}
+
+static void do_delete_to_end_of_line() {
+    memcpy(opts.kill, opts.line + opts.line_pos, strlen(opts.line) - opts.line_pos + 1);
+    opts.line[opts.line_pos] = 0;
 }
 
 static void do_paste_deleted_text() {
+    if (strlen(opts.kill) == 0)
+        return;
+    
+    if (opts.line_pos == strlen(opts.line)) {
+        // just append, including zero terminator
+        strcpy(opts.line + opts.line_pos, opts.kill);
+        opts.line_pos += strlen(opts.kill);
+    } else {
+        // make some room
+        memmove(
+            opts.line + opts.line_pos + strlen(opts.kill), 
+            opts.line + opts.line_pos,
+            strlen(opts.line) - opts.line_pos + 1);
+        memcpy(opts.line + opts.line_pos, opts.kill, strlen(opts.kill));
+        opts.line_pos += strlen(opts.kill);
+    }
 }
 
 static void do_prev_history_entry() {
@@ -328,25 +402,29 @@ static void do_insert_completions() {
 static void do_handle_printable(uint8_t character) {
     // if we are searching, add but also search, otherwise, insert/append at position
 
-    if (strlen(opts.line) == 0 && opts.current_line_pos == 0) {
-        opts.line[opts.current_line_pos] = character;
-        opts.current_line_pos++;
-        opts.line[opts.current_line_pos] = '\0';
-    } else if (opts.current_line_pos == strlen(opts.line) && opts.current_line_pos < (int)sizeof(opts.line) - 1) {
-        opts.line[opts.current_line_pos] = character;
-        opts.current_line_pos++;
-        opts.line[opts.current_line_pos] = '\0';
+
+
+    if (strlen(opts.line) == 0 && opts.line_pos == 0) {
+        opts.line[opts.line_pos] = character;
+        opts.line_pos++;
+        opts.line[opts.line_pos] = '\0';
+    } else if (opts.line_pos == strlen(opts.line) && opts.line_pos < (int)sizeof(opts.line) - 1) {
+        opts.line[opts.line_pos] = character;
+        opts.line_pos++;
+        opts.line[opts.line_pos] = '\0';
     } else if (strlen(opts.line) == sizeof(opts.line) - 1) {
         // we could beep
         return;
     } else {
         // make some room
         memmove(
-            opts.line + opts.current_line_pos + 1, 
-            opts.line + opts.current_line_pos,
-            strlen(opts.line) - opts.current_line_pos + 1);
-        opts.line[opts.current_line_pos] = character;
-        opts.current_line_pos++;
+            opts.line + opts.line_pos + 1, 
+            opts.line + opts.line_pos,
+            strlen(opts.line) - opts.line_pos + 1);
+        opts.line[opts.line_pos] = character;
+        opts.line_pos++;
     }
 }
+
+
 
