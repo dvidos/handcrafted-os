@@ -128,7 +128,12 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // klog_info("Testing the hard disks...");
     // extern void test_hdd();
     // test_hdd();
-    // for(;;) asm("hlt");
+    klog_info("Detecting PCI environment...");
+    extern void init_pci();
+    init_pci();
+    for(;;) asm("hlt");
+
+
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();

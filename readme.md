@@ -98,8 +98,9 @@ Also the following must be met:
 
 ### things to do
 
-
-* improve screen experience, by implementing scrolling back and readline with history, and autocomplete (see [here](https://tiswww.case.edu/php/chet/readline/readline.html))
+* improve screen experience, by implementing scrolling back
+* virtual terminals seem to be possible (e.g. a way of switching between two of them,
+each having virtual screen buffers, scrollback, and switching wakes or sleeps each of them)
 * move utility functions to libc/libk, make kernel use it.
 * pci discovery, towards hdd and usb
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
@@ -139,6 +140,7 @@ allow for setting up levels per destination.
 
 ### things done
 
+* readline with history, and autocomplete (see [here](https://tiswww.case.edu/php/chet/readline/readline.html))
 * makefiles for current organization, pages [here](https://wiki.osdev.org/Makefile) and [here](https://wiki.osdev.org/User:Solar/Makefile) for multiple binaries and modules
 * semaphores with tasks sleeping and waking (from [here](https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial#Step_5:_Race_Conditions_and_Locking_Version_1))
 * own repository
@@ -239,3 +241,4 @@ therefore it seems there is some usefulness to mamory paging after all... :-)
 * [this](https://github.com/mit-pdos/xv6-public/blob/master/spinlock.c) file has some nice cli/sti, pushcli/popsti,
 as well as spinlock code. Although the repo is weird, lots of little gems in there! :-) also 
 [this one](https://github.com/tiqwab/xv6-x86_64), for 64 bits
+* a nice description of the concepts of linux (e.g. IPC) is located [here](https://tldp.org/LDP/tlk/tlk-toc.html)
