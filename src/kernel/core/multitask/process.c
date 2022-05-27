@@ -72,7 +72,7 @@ pid_t last_pid = 0;
 
 
 char *process_state_names[] = { "READY", "RUNNING", "BLOCKED", "TERMINATED" };
-char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE" };
+char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE", "WAIT USER INPUT" };
 
 
 // starts a process, by putting it on the waiting list.
@@ -116,6 +116,33 @@ void unblock_process(process_t *proc) {
     proc->block_channel = NULL;
     prepend(&ready_lists[proc->priority], proc);
     klog_trace("process %s unblocked and added to ready list", proc->name);
+
+    // if the running process has a lower priority than the new task,
+    // let's preempt it, as we are higher priority, 
+    // otherwise, wait till timeshare expiration
+    if (running_proc->priority > proc->priority)
+        schedule();
+    unlock_scheduler();
+}
+
+// this is how someone can unblock a process by reason
+void unblock_process_that(int block_reason, void *block_channel) {
+    if (blocked_list.head == NULL)
+        return;
+    lock_scheduler();
+
+    process_t *proc = blocked_list.head;
+    while (proc != NULL) {
+        if (proc->block_reason == block_reason && proc->block_channel == block_channel) {
+            klog_trace("process %s getting unblocked");
+            unlist(&blocked_list, proc);
+            proc->state = READY;
+            proc->block_reason = 0;
+            proc->block_channel = NULL;
+            prepend(&ready_lists[proc->priority], proc);
+            break;
+        }
+    }
 
     // if the running process has a lower priority than the new task,
     // let's preempt it, as we are higher priority, 
@@ -191,9 +218,9 @@ process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
     }
     
     int stack_size = 4096;
-    process_t *p = (process_t *)kalloc(sizeof(process_t));
+    process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
-    char *stack_ptr = kalloc(stack_size);
+    char *stack_ptr = kmalloc(stack_size);
     memset(stack_ptr, 0, stack_size);
     
     pushcli();

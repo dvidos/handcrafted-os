@@ -70,8 +70,9 @@ struct key_event {
     uint8_t shift_down: 1;
 } __attribute__((packed));
 
+typedef struct key_event key_event_t;
 
 void keyboard_handler(registers_t* regs);
-void wait_keyboard_event(struct key_event *event);
+void wait_keyboard_event(key_event_t *event);
 
 #endif

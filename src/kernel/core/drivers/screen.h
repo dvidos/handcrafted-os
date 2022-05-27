@@ -7,6 +7,9 @@
 
 void screen_init(void);
 
+int screen_rows();
+int screen_cols();
+
 void screen_clear();
 void screen_writen(const char* data, int size);
 void screen_write(const char* data);
@@ -17,6 +20,11 @@ void screen_set_color(uint8_t color);
 
 void screen_get_cursor(uint8_t *row, uint8_t *col);
 void screen_set_cursor(uint8_t row, uint8_t col);
+
+void screen_draw_char_at(char c, uint8_t color, uint8_t col, uint8_t row);
+void screen_draw_str_at(char *str, uint8_t color, uint8_t col, uint8_t row);
+void screen_draw_full_row(char c, uint8_t color, uint8_t row);
+void screen_copy_buffer_to_screen(char *buffer, int length, uint8_t col, uint8_t row);
 
 void printf(char *format, ...);
 void panic(char *message);

@@ -98,19 +98,22 @@ Also the following must be met:
 
 ### things to do
 
+* good implementation of a circular buffer, with both reading and writing pointers
+* good implementation of a list, similar to linux kernel, [here](https://kernel.org/doc/html/latest/core-api/kernel-api.html#list-management-functions)
+* improve PCI devices, at least allow class/subclass names, to see what drivers 
+we should write. USB might be a good first.
+* start a tree-enabled device manager. ttys will need to be devices,
+pci devices will need to be devices etc.
 * improve screen experience, by implementing scrolling back
-* virtual terminals seem to be possible (e.g. a way of switching between two of them,
+* a few virtual terminals (e.g. a way of switching between two of them,
 each having virtual screen buffers, scrollback, and switching wakes or sleeps each of them)
+Maybe running already something on them (e.g. one for kernel log, one for konsole etc)
 * move utility functions to libc/libk, make kernel use it.
-* pci discovery, towards hdd and usb
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * the idea of an expandable array of things, similar to the approach of a StringBuilder,
 something sile the one described [here](https://tiswww.case.edu/php/chet/readline/history.html#SEC6).
 Essentially, allow add, get, index, remove operations without fear of running out, or without 
 prior allocation.
-* make logging having levels (DEBUG, INFO, WARN, ERROR, PANIC) and 
-allow for setting up levels per destination.
-* something akin to gnu readline library, using just a getch()/putch() interface
 * organize folders, especially process could be a subfolder inside kernel, with a single public header and mutliple internal headers and c files
 * Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
 * Basic libc functionality [more](https://wiki.osdev.org/Creating_a_C_Library)
@@ -140,13 +143,17 @@ allow for setting up levels per destination.
 
 ### things done
 
+* something akin to gnu readline library, using just a getch()/putch() interface
+* make logging having levels (DEBUG, INFO, WARN, ERROR, PANIC) and 
+allow for setting up levels per destination.
+* pci discovery, towards hdd and usb
 * readline with history, and autocomplete (see [here](https://tiswww.case.edu/php/chet/readline/readline.html))
 * makefiles for current organization, pages [here](https://wiki.osdev.org/Makefile) and [here](https://wiki.osdev.org/User:Solar/Makefile) for multiple binaries and modules
 * semaphores with tasks sleeping and waking (from [here](https://wiki.osdev.org/Brendan%27s_Multi-tasking_Tutorial#Step_5:_Race_Conditions_and_Locking_Version_1))
 * own repository
 * document with brief paragraph describing kernel's concerns (e.g. memory, keyboard, screen, 
 locking, task switching, idt, gdt, boot info, etc)
-* kernel memory manager (kalloc, kfree) - then update mutlitask.c to use dynamic memory
+* kernel memory manager (kmalloc, kfree) - then update mutlitask.c to use dynamic memory
 * scheduler
 * multi tasking
 * reading real time clock + interrupt every second.

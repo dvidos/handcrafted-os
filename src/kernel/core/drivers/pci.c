@@ -178,7 +178,7 @@ pci_device_t *read_pci_device_configuration(uint8_t bus, uint8_t device, uint8_t
         return NULL;
     
     // so we have a true device, let's read everything
-    pci_device_t *dev = kalloc(sizeof(pci_device_t));
+    pci_device_t *dev = kmalloc(sizeof(pci_device_t));
 
     dev->bus_no = bus;
     dev->device_no = device;
@@ -274,8 +274,7 @@ pci_device_t *read_pci_device_configuration(uint8_t bus, uint8_t device, uint8_t
 
     } else if (head_type == 0x02) {
 
-        // ... 
-        
+        // fill this in... 
 
     }
 

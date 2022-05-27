@@ -8,7 +8,7 @@
 #include "../string.h"
 
 semaphore_t *create_semaphore(int limit) {
-    semaphore_t *semaphore = kalloc(sizeof(semaphore_t));
+    semaphore_t *semaphore = kmalloc(sizeof(semaphore_t));
     memset(semaphore, 0, sizeof(semaphore_t));
     semaphore->limit = limit;
     return semaphore;

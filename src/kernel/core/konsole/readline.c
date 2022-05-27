@@ -1,6 +1,6 @@
 #include <stddef.h>
 #include <stdbool.h>
-#include "../slist.h"
+#include "../klib/slist.h"
 #include "../string.h"
 #include "../drivers/screen.h"
 #include "../drivers/keyboard.h"
@@ -126,7 +126,7 @@ char *readline() {
     while (true) {
         display_line();
         // ideally this will block us and wake us up accordingly
-        struct key_event e;
+        key_event_t e;
         wait_keyboard_event(&e);
         if (e.special_key == KEY_ENTER) {
             do_accept_entry();
@@ -189,7 +189,7 @@ char *readline() {
 //     // honor backspace, Ctrl+U (delete all), Ctrl+L (clear),
 //     // maybe do history with arrow keys.
 //     // maybe do auto completion with tab.
-//     struct key_event e;
+//     key_event_t e;
 
 //     // collect key presseses, until enter is pressed
 //     memset(command, 0, sizeof(command));

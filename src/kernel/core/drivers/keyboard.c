@@ -9,6 +9,8 @@
 #include "keyboard.h"
 
 
+// interesting article: https://linuxjournal.com/article/1080
+
 static volatile bool extended = false;
 static volatile bool left_ctrl = false;
 static volatile bool right_ctrl = false;
@@ -20,7 +22,7 @@ static volatile bool caps_lock = false;
 static volatile bool num_lock = false;
 
 #define KEY_QUEUE_SIZE    256
-static volatile struct key_event events_queue[KEY_QUEUE_SIZE];
+static volatile key_event_t events_queue[KEY_QUEUE_SIZE];
 static volatile uint8_t queue_head = 0;
 static volatile uint8_t queue_length = 0; // easier to tell when empty, instead of a tail pointer
 static volatile lock_t queue_lock = 0;
@@ -29,17 +31,17 @@ bool keyboard_has_key() {
     return (queue_length > 0);
 }
 
-void wait_keyboard_event(struct key_event *event) {
+void wait_keyboard_event(key_event_t *event) {
 
     while (queue_length == 0);
 
     acquire(&queue_lock);
     if (queue_length == 0) {
         // somebody got to the last event before us
-        memset((char *)event, 0, sizeof(struct key_event));
+        memset((char *)event, 0, sizeof(key_event_t));
     } else {
         // we can unqueue the event
-        memcpy((char *)event, (char *)&events_queue[queue_head], sizeof(struct key_event));
+        memcpy((char *)event, (char *)&events_queue[queue_head], sizeof(key_event_t));
         queue_head++;
         queue_length--;
     }

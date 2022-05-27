@@ -10,6 +10,7 @@
 #include "drivers/timer.h"
 #include "drivers/clock.h"
 #include "drivers/serial.h"
+#include "drivers/pci.h"
 #include "memory/physmem.h"
 #include "memory/kheap.h"
 #include "klog.h"
@@ -19,6 +20,7 @@
 #include "multitask/semaphore.h"
 #include "multitask/process.h"
 #include "konsole/konsole.h"
+#include "devices/tty.h"
 
 
 
@@ -113,6 +115,12 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     sti();
     enable_nmi();
 
+    klog_info("Detecting PCI devices...");
+    init_pci();
+
+
+
+
     if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
         printf("Running tests...\n");
         extern void run_tests();
@@ -125,22 +133,20 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         konsole_v2();
     }
 
-    // klog_info("Testing the hard disks...");
-    // extern void test_hdd();
-    // test_hdd();
-    klog_info("Detecting PCI environment...");
-    extern void init_pci();
-    init_pci();
-    for(;;) asm("hlt");
-
-
-
     klog_info("Initializing multi-tasking...");
     init_multitasking();
 
+    klog_info("Giving the console to TTY manager...");
+    timer_pause_blocking(1000);
+
+    // 1: shell / konsole
+    // 2: system monitor
+    // 3: kernel log
+    init_tty_manager(6);
+    
     // create desired tasks here, 
     start_process(create_process(process_a_main, "Task A", 2));
-    start_process(create_process(process_b_main, "Task B", 1));
+    start_process(create_process(process_b_main, "Task B", 2));
 
     // start_multitasking() will never return
     klog_info("Starting multitasking, goodbye from main()!");
@@ -150,19 +156,28 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
 
 void process_a_main() {
-    for (int i = 0; i < 10; i++) {
-        dump_process_table();
-        sleep(750);
+    tty_t *tty = tty_manager_get_device(0);
+    char *message = "Hello from process A! - use Ctrl+Alt+Fn to switch ttys";
+    tty_write(tty, message, strlen(message));
+    while (true) {
+        sleep(1000);
     }
-    printf("A, out!\n");
 }
 
 void process_b_main() {
-    for (int i = 0; i < 20; i++) {
-        printf("Repeat after me: 'This is Bee!'\n");
-        sleep(333);
+    tty_t *tty = tty_manager_get_device(1);
+
+    char *message = "Hello from task B, press any key and I'll echo it.\n";
+    tty_write(tty, message, strlen(message));
+    key_event_t event;
+    while (true) {
+        // this call will block until there is a key
+        tty_read_key(tty, &event);
+
+        // act upon key (echo for now)
+        if (event.printable)
+            tty_write(tty, &event.printable, 1);
     }
-    printf("B, out!\n");
 }
 
 void isr_handler(registers_t regs) {

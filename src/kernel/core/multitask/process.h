@@ -32,6 +32,7 @@ pid_t getpid(); // get pid of current process
 
 // this is how someone can unblock a different process
 void unblock_process(process_t *proc);
+void unblock_process_that(int block_reason, void *block_channel);
 
 // utility tools
 void dump_process_table();
@@ -64,7 +65,7 @@ typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 
 // reasons a process can be blocked
-enum block_reasons { SLEEPING = 1, SEMAPHORE };
+enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT };
 
 // the fundamental process information for multi tasking
 struct process {

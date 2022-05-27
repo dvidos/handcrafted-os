@@ -64,7 +64,7 @@ void init_kernel_heap() {
 }
 
 // allocate a chunk of memory. min size restrictions apply
-void *kalloc(size_t size) {
+void *kmalloc(size_t size) {
     size = size < 256 ? 256 : size;
     
     // find the first free block that is equal or larger than size
@@ -72,7 +72,7 @@ void *kalloc(size_t size) {
     while (curr != NULL && (curr->used || curr->size < size))
         curr = curr->next;
     if (curr == NULL) {
-        klog_warn("kalloc(%u) -> Could not find a free block, returning null");
+        klog_warn("kmalloc(%u) -> Could not find a free block, returning null");
         return NULL;
     }
 
@@ -97,7 +97,7 @@ void *kalloc(size_t size) {
     char *ptr = (char *)curr + sizeof(memory_block_t);
     // memset(ptr, 0, curr->size); // malloc(3) says that the memory is not initialized
 
-    klog_trace("kalloc(%u) -> 0x%p", size, ptr);
+    klog_trace("kmalloc(%u) -> 0x%p", size, ptr);
     return ptr;
 }
 

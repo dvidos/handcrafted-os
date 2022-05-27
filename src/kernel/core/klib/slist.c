@@ -1,8 +1,8 @@
 #include <stdbool.h>
-#include "string.h"
-#include "memory/kheap.h"
+#include "../string.h"
+#include "../memory/kheap.h"
 #include "slist.h"
-#include "klog.h"
+#include "../klog.h"
 
 struct slist_entry {
     struct slist_entry *prev;
@@ -30,14 +30,14 @@ static int prefix_matcher(char *entry_str, char *target_str);
 
 // simplest list that can hold strings?
 slist_t *slist_create() {
-    slist_t *list = (slist_t *)kalloc(sizeof(slist_t));
+    slist_t *list = (slist_t *)kmalloc(sizeof(slist_t));
     memset(list, 0, sizeof(slist_t));
     return list;
 }
 
 static slist_entry_t *create_entry(char *str) {
-    slist_entry_t *entry = (slist_entry_t *)kalloc(sizeof(slist_entry_t));
-    entry->str = (char *)kalloc(strlen(str) + 1);
+    slist_entry_t *entry = (slist_entry_t *)kmalloc(sizeof(slist_entry_t));
+    entry->str = (char *)kmalloc(strlen(str) + 1);
     strcpy(entry->str, str);
     return entry;
 }

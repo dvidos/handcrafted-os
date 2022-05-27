@@ -26,7 +26,7 @@ typedef void (ll_walker_t)(void *);
 
 // allocates, initializes and returns a new likned_list
 linked_list_t *llcreate() {
-    linked_list_t *list = (linked_list_t *)kalloc(sizeof(linked_list_t));
+    linked_list_t *list = (linked_list_t *)kmalloc(sizeof(linked_list_t));
     memset(list, 0, sizeof(linked_list_t));
     return list;
 }
@@ -46,7 +46,7 @@ void llfree(linked_list_t *list, bool free_elements_too) {
 
 // add element to end of list - O(1)
 void llappend(linked_list_t *list, void *element) {
-    linked_list_node_t *node = (linked_list_node_t *)kalloc(sizeof(linked_list_node_t));
+    linked_list_node_t *node = (linked_list_node_t *)kmalloc(sizeof(linked_list_node_t));
     if (node == NULL)
         panic("Cannot allocate node to add to linked list");
     node->element = element;
@@ -71,7 +71,7 @@ void llappend(linked_list_t *list, void *element) {
 
 // add element to start of list - O(1)
 void llprepend(linked_list_t *list, void *element) {
-    linked_list_node_t *node = (linked_list_node_t *)kalloc(sizeof(linked_list_node_t));
+    linked_list_node_t *node = (linked_list_node_t *)kmalloc(sizeof(linked_list_node_t));
     if (node == NULL)
         panic("Cannot allocate node to add to linked list");
     node->element = element;

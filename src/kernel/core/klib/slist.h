@@ -1,7 +1,7 @@
 #ifndef _SLIST_H
 #define _SLIST_H
 
-// maintains a list of strings
+// maintains a list of strings (strongly typed list)
 typedef struct slist slist_t;
 
 // ideas for future:
