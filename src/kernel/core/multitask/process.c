@@ -148,7 +148,7 @@ void unblock_process_that(int block_reason, void *block_channel) {
     // if the running process has a lower priority than the new task,
     // let's preempt it, as we are higher priority, 
     // otherwise, wait till timeshare expiration
-    if (running_proc->priority > proc->priority)
+    if (proc != NULL && running_proc->priority > proc->priority)
         schedule();
     unlock_scheduler();
 }

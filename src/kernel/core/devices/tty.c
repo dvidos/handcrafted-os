@@ -79,6 +79,7 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event);
 static void virtual_buffer_put_buffer(tty_t *tty, char *buffer, int size, bool *need_screen_redraw);
 static void draw_tty_buffer_to_screen(tty_t *tty);
 static void handle_key_in_interrupt(key_event_t *event, bool *handled);
+static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw);
 
 
 // essentially, this tty manager acts something like the window manager of the x-window sys
@@ -95,7 +96,13 @@ void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
         tty->total_buffer_rows = lines_scroll_capacity;
         tty->buffer_alloc_size = tty->total_buffer_rows * screen_cols() * 2;
         tty->screen_buffer = kmalloc(tty->buffer_alloc_size);
-        memset(tty->screen_buffer, 0, tty->buffer_alloc_size);
+
+        // we cannot blindly memset(0)
+        int offset = 0;
+        while (offset < tty->buffer_alloc_size) {
+            tty->screen_buffer[offset++] = ' ';
+            tty->screen_buffer[offset++] = VGA_COLOR_LIGHT_GREY;
+        }
         tty->color = VGA_COLOR_BLACK << 4 | VGA_COLOR_LIGHT_GREY;
 
         // insert it into the list of ttys
@@ -163,9 +170,7 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
 
         // if a process was blocked waiting for a key in this tty, unblock them.
         // if process was not blocked, no change will happen.
-        klog_trace("tty: unblocking sleeping process");
         unblock_process_that(WAIT_USER_INPUT, tty_mgr_data.active_tty);
-        klog_trace("tty: unblocked sleeping process");
     }
 }
 
@@ -180,9 +185,8 @@ void tty_read_key(tty_t *tty, key_event_t *event) {
 
         // if unblocked, it means we got a key!
         if (tty->keys_buffer_len == 0)
-            klog_error("tty unblocked for key event, but no keys in buffer");
-        else
-            dequeue_key_event(tty, event);
+            klog_error("tty unblocked for key event, but no keys in buffer!");
+        dequeue_key_event(tty, event);
     }
 }
 
@@ -209,7 +213,13 @@ void tty_set_color(tty_t *tty, int color) {
 }
 
 void tty_clear(tty_t *tty) {
-    // if tty is visible, clear screen as well
+    // we just need to move to new row,
+    // then set the first visible line there.
+    char newline = '\n';
+    bool redraw = false;
+    virtual_buffer_put_buffer(tty, &newline, 1, &redraw);
+    tty->first_visible_buffer_row = tty->row;
+    draw_tty_buffer_to_screen(tty);
 }
 
 static void enqueue_key_event(tty_t *tty, key_event_t *event) {
@@ -275,7 +285,19 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
 }
 
 static void scroll_tty_screenful(tty_t *tty, bool up) {
-
+    int lines = screen_rows() - tty_mgr_data.header_lines - 1;
+    
+    if (up) {
+        if (tty->first_visible_buffer_row - lines < 0)
+            lines = tty->first_visible_buffer_row;
+        tty->first_visible_buffer_row -= lines;
+    } else {
+        tty->first_visible_buffer_row += lines;
+        int largest_first_visible = tty->total_buffer_rows - (screen_rows() - tty_mgr_data.header_lines);
+        if (tty->first_visible_buffer_row > largest_first_visible)
+            tty->first_visible_buffer_row = largest_first_visible;
+    }
+    draw_tty_buffer_to_screen(tty);
 }
 
 static void switch_to_tty(int dev_no) {
@@ -295,10 +317,6 @@ static void switch_to_tty(int dev_no) {
     // should set cursor as well
     screen_set_color(tty->color);
 }
-
-
-
-
 
 // working with virtual term buffer, this converts special chars to screen behavior
 static void virtual_buffer_put_buffer(tty_t *tty, char *buffer, int size, bool *need_screen_redraw) {
@@ -356,5 +374,25 @@ static void virtual_buffer_put_buffer(tty_t *tty, char *buffer, int size, bool *
             offset = (tty->row * screen_cols() + tty->column) * 2;
             *need_screen_redraw = true;
         }
+    }
+
+    ensure_cursor_visible(tty, need_screen_redraw);
+}
+
+// make sure "first_visible_buffer_row" is correct 
+// and allows us to see the cursor on screen
+static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw) {
+
+    // if our virtual row went below the visible viewport,
+    // we have to update the viewport
+    int visible_lines = (screen_rows() - tty_mgr_data.header_lines);
+    if (tty->row >= tty->first_visible_buffer_row + visible_lines) {
+        tty->first_visible_buffer_row = tty->row - visible_lines + 1;
+        *need_screen_redraw = true;
+    }
+
+    if (tty->row < tty->first_visible_buffer_row) {
+        tty->first_visible_buffer_row = tty->row;
+        *need_screen_redraw = true;
     }
 }

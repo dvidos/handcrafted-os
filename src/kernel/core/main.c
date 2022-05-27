@@ -144,7 +144,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // 1: shell / konsole
     // 2: system monitor
     // 3: kernel log
-    init_tty_manager(6, 15);
+    init_tty_manager(2, 100);
     
     // create desired tasks here, 
     start_process(create_process(process_a_main, "Task A", 2));
@@ -169,8 +169,13 @@ void process_a_main() {
         tty_read_key(tty, &event);
 
         // act upon key (echo for now)
-        if (event.printable)
+        if (event.ctrl_down && event.printable == 'l') {
+            tty_clear(tty);
+        } else if (event.special_key == KEY_ENTER) {
+            tty_write(tty, "\n", 1);
+        } else if (event.printable) {
             tty_write(tty, &event.printable, 1);
+        }
     }
 }
 
@@ -186,7 +191,7 @@ void process_b_main() {
     while (true) {
         sprintfn(buffer, sizeof(buffer), "\nTask A, i=%d...", i++);
         tty_write(tty, buffer, strlen(buffer));
-        sleep(2000);
+        sleep(500);
     }
 }
 
