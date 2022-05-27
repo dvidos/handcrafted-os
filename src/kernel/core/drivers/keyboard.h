@@ -72,6 +72,11 @@ struct key_event {
 
 typedef struct key_event key_event_t;
 
+typedef void (*key_event_hook_t)(key_event_t *event, bool *handled);
+void keyboard_register_hook(key_event_hook_t hook);
+void keyboard_unregister_hook(key_event_hook_t hook);
+
+
 void keyboard_handler(registers_t* regs);
 void wait_keyboard_event(key_event_t *event);
 

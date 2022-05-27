@@ -134,7 +134,7 @@ void unblock_process_that(int block_reason, void *block_channel) {
     process_t *proc = blocked_list.head;
     while (proc != NULL) {
         if (proc->block_reason == block_reason && proc->block_channel == block_channel) {
-            klog_trace("process %s getting unblocked");
+            klog_trace("process %s getting unblocked", proc->name);
             unlist(&blocked_list, proc);
             proc->state = READY;
             proc->block_reason = 0;
@@ -142,6 +142,7 @@ void unblock_process_that(int block_reason, void *block_channel) {
             prepend(&ready_lists[proc->priority], proc);
             break;
         }
+        proc = proc->next;
     }
 
     // if the running process has a lower priority than the new task,

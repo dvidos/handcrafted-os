@@ -27,6 +27,12 @@ static volatile uint8_t queue_head = 0;
 static volatile uint8_t queue_length = 0; // easier to tell when empty, instead of a tail pointer
 static volatile lock_t queue_lock = 0;
 
+#define KEY_HOOKS_SIZE  8
+key_event_hook_t key_event_hooks[KEY_HOOKS_SIZE];
+uint8_t num_event_hooks;
+void call_key_event_hooks(key_event_t *event);
+
+
 bool keyboard_has_key() {
     return (queue_length > 0);
 }
@@ -156,6 +162,8 @@ void init_keyboard() {
     // we should detect caps and num lock state
     // or at least set it to our defaults and understanding
     // to make sure we align with the leds
+    memset(key_event_hooks, 0, sizeof(key_event_hooks));
+    num_event_hooks = 0;
 }
 
 void keyboard_handler(registers_t* regs) {
@@ -187,7 +195,7 @@ void keyboard_handler(registers_t* regs) {
                 right_shift = down;
                 break;
             case 0x38:
-                right_alt = down;
+                left_alt = down;
                 break;
             case 0x3A:
                 if (down)
@@ -251,18 +259,57 @@ void keyboard_handler(registers_t* regs) {
             // just lose this keypress
         } else {
             // assume we are in stopped interrupts mode
-            acquire(&queue_lock);
-            uint8_t index = (queue_head + queue_length) % KEY_QUEUE_SIZE;
-            events_queue[index].printable = printable;
-            events_queue[index].special_key = special_key;
-            events_queue[index].ctrl_down = left_ctrl || right_ctrl;
-            events_queue[index].alt_down = left_alt || right_alt;
-            events_queue[index].shift_down = left_shift || right_shift;
-            queue_length++;
-            release(&queue_lock);
+            key_event_t event;
+            event.printable = printable;
+            event.special_key = special_key;
+            event.ctrl_down = left_ctrl || right_ctrl;
+            event.alt_down = left_alt || right_alt;
+            event.shift_down = left_shift || right_shift;
+            call_key_event_hooks(&event);
         }
     }
 
     // clear this flag for next call
     extended = false;
+}
+
+
+void keyboard_register_hook(key_event_hook_t hook) {
+    // check if already registered
+    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
+        if (key_event_hooks[i] == hook)
+            return;
+    }
+
+    // find a slot and add it
+    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
+        if (key_event_hooks[i] == NULL) {
+            key_event_hooks[i] = hook;
+            return;
+        }
+    }
+}
+
+void keyboard_unregister_hook(key_event_hook_t hook) {
+    // find and remove it
+    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
+        if (key_event_hooks[i] == hook) {
+            key_event_hooks[i] = NULL;
+            return;
+        }
+    }
+
+    // we could close the gap and honor the registration sequence, 
+    // but meh...
+}
+
+void call_key_event_hooks(key_event_t *event) {
+    bool handled = false;
+    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
+        if (key_event_hooks[i] == NULL)
+            continue;
+        (key_event_hooks[i])(event, &handled);
+        if (handled)
+            break;
+    }
 }

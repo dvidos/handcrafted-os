@@ -48,6 +48,7 @@ multiboot_info_t saved_multiboot_info;
 
 void process_a_main();
 void process_b_main();
+void process_c_main();
 
 
 
@@ -137,16 +138,18 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_multitasking();
 
     klog_info("Giving the console to TTY manager...");
-    timer_pause_blocking(1000);
+    klog_appender_level(LOGAPP_SCREEN, LOGLEV_NONE);
+    timer_pause_blocking(250);
 
     // 1: shell / konsole
     // 2: system monitor
     // 3: kernel log
-    init_tty_manager(6);
+    init_tty_manager(6, 15);
     
     // create desired tasks here, 
     start_process(create_process(process_a_main, "Task A", 2));
     start_process(create_process(process_b_main, "Task B", 2));
+    // start_process(create_process(process_c_main, "System Monitor", 2));
 
     // start_multitasking() will never return
     klog_info("Starting multitasking, goodbye from main()!");
@@ -157,15 +160,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
 void process_a_main() {
     tty_t *tty = tty_manager_get_device(0);
-    char *message = "Hello from process A! - use Ctrl+Alt+Fn to switch ttys";
-    tty_write(tty, message, strlen(message));
-    while (true) {
-        sleep(1000);
-    }
-}
-
-void process_b_main() {
-    tty_t *tty = tty_manager_get_device(1);
 
     char *message = "Hello from task B, press any key and I'll echo it.\n";
     tty_write(tty, message, strlen(message));
@@ -177,6 +171,34 @@ void process_b_main() {
         // act upon key (echo for now)
         if (event.printable)
             tty_write(tty, &event.printable, 1);
+    }
+}
+
+void process_b_main() {
+    tty_t *tty = tty_manager_get_device(1);
+    char buffer[32];
+    char *message = "Hello from process A! - use Ctrl+Alt+Fn to switch ttys";
+    tty_write(tty, message, strlen(message));
+
+
+    int i = 0;
+    tty_set_color(tty, VGA_COLOR_RED << 4 | VGA_COLOR_WHITE);
+    while (true) {
+        sprintfn(buffer, sizeof(buffer), "\nTask A, i=%d...", i++);
+        tty_write(tty, buffer, strlen(buffer));
+        sleep(2000);
+    }
+}
+
+void process_c_main() {
+    tty_t *tty = tty_manager_get_device(2);
+
+    tty_set_color(tty, VGA_COLOR_BLUE << 4 | VGA_COLOR_WHITE);
+    while (true) {
+        tty_clear(tty);
+        tty_write(tty, "---- Process Table ----\n", 24);
+        // dump_process_table(tty);
+        sleep(1000);
     }
 }
 

@@ -39,6 +39,8 @@
 // the tty driver registers the terminals
 // also sets the termios flags (e.g. echo), for using the "serial port"
 
+
+
 #define KEYS_BUFFER_SIZE  8
 
 struct tty {
@@ -47,12 +49,13 @@ struct tty {
 
     char *title;
     char *screen_buffer;
-    int screen_buffer_alloc_size;
+    int buffer_alloc_size;
     int screen_buffer_length;
     int first_visible_buffer_row;
+    int total_buffer_rows;
 
-    char row;
-    char col;
+    char row; // row num irrespective of first visible
+    char column;
     char color;
 
     key_event_t keys_buffer[KEYS_BUFFER_SIZE];
@@ -63,24 +66,25 @@ typedef struct tty tty_t;
 
 struct tty_mgr_data {
     int num_of_ttys; // e.g. 3
-    tty_t *current_tty; // e.g. 0
-    int header_lines;
-
+    tty_t *active_tty; // e.g. 0
+    int header_lines; // to draw on top of every screen, Novel Netware style.
     struct tty *ttys_list;
 };
 
 static struct tty_mgr_data tty_mgr_data;
-static void switch_to_tty(int num);
-static void scroll_tty(tty_t *tty, bool up);
+static void switch_to_tty(int dev_no);
+static void scroll_tty_screenful(tty_t *tty, bool up);
 static void enqueue_key_event(tty_t *tty, key_event_t *event);
 static void dequeue_key_event(tty_t *tty, key_event_t *event);
-
-
+static void virtual_buffer_put_buffer(tty_t *tty, char *buffer, int size, bool *need_screen_redraw);
+static void draw_tty_buffer_to_screen(tty_t *tty);
+static void handle_key_in_interrupt(key_event_t *event, bool *handled);
 
 
 // essentially, this tty manager acts something like the window manager of the x-window sys
 void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
     memset(&tty_mgr_data, 0, sizeof(tty_mgr_data));
+    // tty_mgr_data.header_lines = 1;
 
     tty_t *tty;
     for (int i = 0; i < num_of_ttys; i++) {
@@ -88,16 +92,22 @@ void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
         memset(tty, 0, sizeof(tty_t));
 
         tty->dev_no = i;
-        tty->screen_buffer_alloc_size = lines_scroll_capacity * screen_cols() * 2;
-        tty->screen_buffer = kmalloc(tty->screen_buffer_alloc_size);
+        tty->total_buffer_rows = lines_scroll_capacity;
+        tty->buffer_alloc_size = tty->total_buffer_rows * screen_cols() * 2;
+        tty->screen_buffer = kmalloc(tty->buffer_alloc_size);
+        memset(tty->screen_buffer, 0, tty->buffer_alloc_size);
+        tty->color = VGA_COLOR_BLACK << 4 | VGA_COLOR_LIGHT_GREY;
 
         // insert it into the list of ttys
         tty->next = tty_mgr_data.ttys_list;
         tty_mgr_data.ttys_list = tty;
+        tty_mgr_data.num_of_ttys++;
     }
 
+    // we clear the screen and start the first tty
     screen_clear();
     switch_to_tty(0);
+    keyboard_register_hook(handle_key_in_interrupt);
 }
 
 tty_t *tty_manager_get_device(int number) {
@@ -111,23 +121,32 @@ tty_t *tty_manager_get_device(int number) {
 }
 
 
+/**
+ * Interesting approach:
+ * Have a global variable to indicate which process is the currently active process,
+ * (the active, not currently executing), have the hardware driver append the keystroke 
+ * to the StdIn for the active process. When the active process reads from stdin,
+ * it will get the keys from its own stdin buffer.
+ * from: https://wiki.osdev.org/Kernel_Stdio_Theory
+ * Maybe the whole thing is to have a virtual terminal, with internal buffer
+ * and a way of reflecting this on the screen.
+ */
+
 // called from an interrupt
-void tty_manager_key_handler_in_interrupt(key_event_t *event) {
+static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
     // if switching key, switch ttys and redraw them
     // if current is waiting for key, unblock it
 
     // but if the device never reads keyboard input, 
     // those keys should not go to other ttys...
 
-    // ctrl+alt+Fn
-    if (event->ctrl_down 
-        && event->alt_down
-        && !event->shift_down
-        && event->printable == 0
-        && event->special_key >= KEY_F1
-        && event->special_key <= KEY_F12
+    if (event->ctrl_down == 0
+        && event->alt_down == 1
+        && event->shift_down == 0
+        && event->printable >= '1'
+        && event->printable <= '9'
     ) {
-        int tty_no = (KEY_F1 - event->special_key);
+        int tty_no = (event->printable - '1');
         if (tty_no < tty_mgr_data.num_of_ttys)
             switch_to_tty(tty_no);
     } else if (!event->ctrl_down
@@ -136,16 +155,17 @@ void tty_manager_key_handler_in_interrupt(key_event_t *event) {
         && (event->special_key == KEY_PAGE_UP || event->special_key == KEY_PAGE_DOWN)
     ) { 
         bool up = (event->special_key == KEY_PAGE_UP);
-        scroll_tty(tty_mgr_data.current_tty, up);
+        scroll_tty_screenful(tty_mgr_data.active_tty, up);
     } else {
         // we should also scroll into view...
-
         // put in buffer
-        enqueue_key_event(tty_mgr_data.current_tty, event);
+        enqueue_key_event(tty_mgr_data.active_tty, event);
 
         // if a process was blocked waiting for a key in this tty, unblock them.
         // if process was not blocked, no change will happen.
-        unblock_process_that(WAIT_USER_INPUT, tty_mgr_data.current_tty);
+        klog_trace("tty: unblocking sleeping process");
+        unblock_process_that(WAIT_USER_INPUT, tty_mgr_data.active_tty);
+        klog_trace("tty: unblocked sleeping process");
     }
 }
 
@@ -161,24 +181,30 @@ void tty_read_key(tty_t *tty, key_event_t *event) {
         // if unblocked, it means we got a key!
         if (tty->keys_buffer_len == 0)
             klog_error("tty unblocked for key event, but no keys in buffer");
-        dequeue_key_event(tty, event);
+        else
+            dequeue_key_event(tty, event);
     }
 }
 
 void tty_write(tty_t *tty, char *buffer, int len) {
     // put something on the buffer of the tty 
     // if tty is visibile, put it on the screen as well
+    
+    klog_trace("tty: writing %d bytes on tty %d", len, tty->dev_no);
+    
+    bool need_screen_redraw = false;
+    virtual_buffer_put_buffer(tty, buffer, len, &need_screen_redraw);
 
-    // we should manipulate our buffer.
-    // advance our cursor as well.
-    // our cursor should be in the virtual screen coordinates, not physical.
-    // we should also treat special characters here, as well as scrolling etc.
+    if (tty == tty_mgr_data.active_tty) {
+        // TODO: optimize this later, to depict single line changes faster
+        draw_tty_buffer_to_screen(tty);
+    }
 }
 
 void tty_set_color(tty_t *tty, int color) {
     // set the color, per tty that is.
     tty->color = color;
-    if (tty_mgr_data.current_tty == tty)
+    if (tty_mgr_data.active_tty == tty)
         screen_set_color(color);
 }
 
@@ -191,6 +217,7 @@ static void enqueue_key_event(tty_t *tty, key_event_t *event) {
         klog_warn("Key buffer full for tty %d, dropping event", tty->dev_no);
         return;
     }
+    klog_trace("tty: enqueueing key event on tty %d", tty->dev_no);
     pushcli();
     memcpy(&tty->keys_buffer[tty->keys_buffer_len], event, sizeof(key_event_t));
     tty->keys_buffer_len++;
@@ -202,6 +229,7 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
         memset(event, 0, sizeof(key_event_t));
         return;
     }
+    klog_trace("tty: dequeueing key event from tty %d", tty->dev_no);
     pushcli();
     memcpy(event, &tty->keys_buffer[0], sizeof(key_event_t));
     tty->keys_buffer_len--;
@@ -213,6 +241,8 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
 static void draw_tty_buffer_to_screen(tty_t *tty) {
     // this to be used when switching ttys and when scrolling
     // try to avoid flicker
+    klog_trace("tty: drawing tty %d to screen", tty->dev_no);
+    
     uint8_t header_color = (VGA_COLOR_BLUE << 4) | VGA_COLOR_LIGHT_CYAN;
     int row;
 
@@ -224,7 +254,7 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
     
     // copy the buffer to screen (either lines, or what fits on screen)
     int buffer_offset = tty->first_visible_buffer_row * screen_cols() * 2;
-    int remaining_rows = (tty->screen_buffer_alloc_size - buffer_offset) / (screen_cols() * 2);
+    int remaining_rows = (tty->buffer_alloc_size - buffer_offset) / (screen_cols() * 2);
     if (screen_rows() - row < remaining_rows)
         remaining_rows = screen_rows() - row;
     screen_copy_buffer_to_screen(tty->screen_buffer + buffer_offset,
@@ -237,21 +267,94 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
         screen_draw_full_row(' ', tty->color, row);
         row++;
     }
+
+    screen_set_cursor(
+        tty_mgr_data.header_lines + tty->row - tty->first_visible_buffer_row,
+        tty->column
+    );
 }
 
-static void scroll_tty(tty_t *tty, bool up) {
+static void scroll_tty_screenful(tty_t *tty, bool up) {
 
 }
 
-static void switch_to_tty(int num) {
+static void switch_to_tty(int dev_no) {
+    klog_trace("tty: switching to tty %d", dev_no);
+
     tty_t *tty = tty_mgr_data.ttys_list;
-    while (num-- > 0 && tty != NULL)
+    while (tty != NULL) {
+        if (tty->dev_no == dev_no)
+            break;
         tty = tty->next;
+    }
     if (tty == NULL)
         return;
 
-    tty_mgr_data.current_tty = tty;
+    tty_mgr_data.active_tty = tty;
     draw_tty_buffer_to_screen(tty);
     // should set cursor as well
     screen_set_color(tty->color);
+}
+
+
+
+
+
+// working with virtual term buffer, this converts special chars to screen behavior
+static void virtual_buffer_put_buffer(tty_t *tty, char *buffer, int size, bool *need_screen_redraw) {
+    // we work per buffer for optimization reasons
+    // if less than 10 lines are remaining, scroll up 10 lines, adjust row/column accrodingly
+
+    int offset = (tty->row * screen_cols() + tty->column) * 2;
+    while (size-- > 0) {
+        char c = *buffer++;
+        switch (c) {
+            case '\n':
+                tty->column = 0;
+                tty->row++;
+                offset = (tty->row * screen_cols() + tty->column) * 2;
+                break;
+
+            case '\r':
+                tty->column = 0;
+                offset = (tty->row * screen_cols() + tty->column) * 2;
+                break;
+
+            case '\t':
+                tty->column = ((tty->column >> 3) + 4) << 3;
+                offset = (tty->row * screen_cols() + tty->column) * 2;
+                break;
+
+            case '\b':
+                if (tty->column > 0)
+                    tty->column--;
+                offset = (tty->row * screen_cols() + tty->column) * 2;
+                break;
+
+            default:
+                tty->screen_buffer[offset++] = c;
+                tty->screen_buffer[offset++] = tty->color;
+                if (++tty->column >= screen_cols()) {
+                    tty->column = 0;
+                    tty->row++;
+                }
+                break;
+        }
+
+        // our buffer will always allow more lines by losing some content up front.
+        // we do this on a per line basis
+        if (tty->row >= tty->total_buffer_rows) {
+            // we need to scroll
+            int line_size = screen_cols() * 2;
+            memmove(
+                tty->screen_buffer, 
+                tty->screen_buffer + line_size,
+                tty->buffer_alloc_size - line_size
+            );
+            memset(tty->screen_buffer + tty->buffer_alloc_size - line_size, 0, line_size);
+            tty->row--;
+            offset = (tty->row * screen_cols() + tty->column) * 2;
+            *need_screen_redraw = true;
+        }
+    }
 }
