@@ -7,7 +7,7 @@ typedef struct tty tty_t;
 
 // for kernel management
 void init_tty_manager(int num_of_ttys, int lines_scroll_capacity);
-tty_t *tty_manager_get_device(int number);
+tty_t *tty_manager_get_device(int dev_no);
 
 
 

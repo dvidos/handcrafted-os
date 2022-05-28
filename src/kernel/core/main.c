@@ -106,7 +106,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     // maybe tomorrow to a file
     klog_info("Switching logging to serial port");
-    // klog_appender_level(LOGAPP_SERIAL, LOGLEV_DEBUG);
     klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
     
     klog_info("Initializing Kernel Heap...");
@@ -144,7 +143,11 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // 1: shell / konsole
     // 2: system monitor
     // 3: kernel log
-    init_tty_manager(2, 100);
+    init_tty_manager(3, 100);
+
+    // now that we have ttys, let's dedicate one to syslog
+    klog_set_tty(tty_manager_get_device(2));
+    klog_appender_level(LOGAPP_TTY, LOGLEV_DEBUG);
     
     // create desired tasks here, 
     start_process(create_process(process_a_main, "Task A", 2));
@@ -192,6 +195,9 @@ void process_b_main() {
         sprintfn(buffer, sizeof(buffer), "\nTask A, i=%d...", i++);
         tty_write(tty, buffer, strlen(buffer));
         sleep(500);
+
+        if (i % 10 == 0)
+            klog_info("Just fyi, i is %d", i);
     }
 }
 

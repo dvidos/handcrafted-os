@@ -117,10 +117,10 @@ void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
     keyboard_register_hook(handle_key_in_interrupt);
 }
 
-tty_t *tty_manager_get_device(int number) {
+tty_t *tty_manager_get_device(int dev_no) {
     tty_t *tty = tty_mgr_data.ttys_list;
     while (tty != NULL) {
-        if (tty->dev_no == number)
+        if (tty->dev_no == dev_no)
             return tty;
         tty = tty->next;
     }
@@ -286,7 +286,7 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
 
 static void scroll_tty_screenful(tty_t *tty, bool up) {
     int lines = screen_rows() - tty_mgr_data.header_lines - 1;
-    
+
     if (up) {
         if (tty->first_visible_buffer_row - lines < 0)
             lines = tty->first_visible_buffer_row;
@@ -301,7 +301,7 @@ static void scroll_tty_screenful(tty_t *tty, bool up) {
 }
 
 static void switch_to_tty(int dev_no) {
-    klog_trace("tty: switching to tty %d", dev_no);
+    klog_debug("tty: switching to tty %d", dev_no);
 
     tty_t *tty = tty_mgr_data.ttys_list;
     while (tty != NULL) {

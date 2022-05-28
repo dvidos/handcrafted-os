@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "devices/tty.h"
 
 typedef enum log_level {
     LOGLEV_NONE = 0,
@@ -19,12 +20,14 @@ typedef enum log_appender {
     LOGAPP_MEMORY = 0,
     LOGAPP_SCREEN = 1,
     LOGAPP_SERIAL = 2,
-    LOGAPP_FILE = 3
+    LOGAPP_FILE = 3,
+    LOGAPP_TTY = 4,
 } log_appender_t;
-
+#define LOGAPP_SIZE 5
 
 void init_klog();
 void klog_appender_level(log_appender_t appender, log_level_t level);
+void klog_set_tty(tty_t *tty);
 
 void klog_trace(const char *format, ...);
 void klog_debug(const char *format, ...);

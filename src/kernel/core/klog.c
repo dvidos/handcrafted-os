@@ -23,11 +23,13 @@ static struct {
     int len;
 } memlog;
 
+tty_t *tty_appender;
+
 static struct {
     struct appender_info {
         log_level_t level;
         bool have_dumped_memory;
-    } appenders[4];
+    } appenders[LOGAPP_SIZE];
 } __attribute__((packed)) log_flags;
 
 
@@ -38,6 +40,7 @@ static void memory_log_append(log_level_t level, char *str);
 static void screen_log_append(log_level_t level, char *str);
 static void serial_log_append(log_level_t level, char *str);
 static void file_log_append(log_level_t level, char *str);
+static void tty_log_append(log_level_t level, char *str);
 
 
 void init_klog() {
@@ -59,8 +62,14 @@ void klog_appender_level(log_appender_t appender, log_level_t level) {
             serial_log_append(LOGLEV_INFO, memlog.buffer);
         else if (appender == LOGAPP_FILE)
             file_log_append(LOGLEV_INFO, memlog.buffer);
+        else if (appender == LOGAPP_TTY && tty_appender != NULL)
+            tty_log_append(LOGLEV_INFO, memlog.buffer);
         log_flags.appenders[appender].have_dumped_memory = true;
     }
+}
+
+void klog_set_tty(tty_t *tty) {
+    tty_appender = tty;
 }
 
 void klog_trace(const char *format, ...) {
@@ -112,6 +121,7 @@ static void klog_append(log_level_t level, const char *format, va_list args) {
     screen_log_append(level, buffer);
     serial_log_append(level, buffer);
     file_log_append(level, buffer);
+    tty_log_append(level, buffer);
 }
 
 
@@ -122,12 +132,13 @@ static void memlog_write(char *str) {
 
     // if it does not fit, make just enough room for it
     if (memlog.len + slen >= (int)sizeof(memlog.buffer)) {
-        memmove(memlog.buffer, &memlog.buffer[slen], sizeof(memlog.buffer) - slen);
+        memmove(memlog.buffer, memlog.buffer + slen, sizeof(memlog.buffer) - slen);
         memlog.len -= slen;
     }
 
     // now copy it.
     memcpy(&memlog.buffer[memlog.len], str, slen);
+    memlog.len = strlen(memlog.buffer);
 }
 
 static void memory_log_append(log_level_t level, char *str) {
@@ -172,6 +183,21 @@ static void serial_log_append(log_level_t level, char *str) {
 
 static void file_log_append(log_level_t level, char *str) {
     ; // not implemented yet. hopefully /var/log/kernel.log
+}
+
+static void tty_log_append(log_level_t level, char *str) {
+    if (tty_appender == NULL)
+        return;
+    if (level > log_flags.appenders[LOGAPP_TTY].level)
+        return;
+
+    // first write preamble
+    char buff[16];
+    uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
+    sprintfn(buff, sizeof(buff), "%u.%03u [%s] ", msecs / 1000, msecs % 1000, level_captions[level]);
+    tty_write(tty_appender, buff, strlen(buff));
+    tty_write(tty_appender, str, strlen(str));
+    tty_write(tty_appender, "\n", 1);
 }
 
 static inline char printable(char c) {
