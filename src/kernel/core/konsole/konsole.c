@@ -15,21 +15,10 @@
  * that runs in kernel space and allows the user to play
  * (in a dangerous way) with the machine.
  */
-
-
-void konsole() {
-    while (true) {
-        // get_command("> ");
-        // run_command();
-    }
-}
-
-
-
-
-void konsole_v2() {
+void konsole(tty_t *tty) {
     // initialize
-    init_readline("dv @ konsole $ ");
+    init_readline("dv @ konsole $ ", tty);
+
     readline_add_keyword("hheap");
     readline_add_keyword("mdump");
     readline_add_keyword("inb");
@@ -43,7 +32,10 @@ void konsole_v2() {
     // then
     while (true) {
         char *line = readline();
-        printf("You've entered: \"%s\"\n", line);
+
+        tty_write(tty, "You've entered: \"");
+        tty_write(tty, line);
+        tty_write(tty, "\"\n");
     }
 
 }

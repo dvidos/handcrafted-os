@@ -14,9 +14,10 @@ tty_t *tty_manager_get_device(int dev_no);
 
 // called by processes
 void tty_read_key(tty_t *tty, key_event_t *event);
-void tty_write(tty_t *tty, char *buffer, int len);
+void tty_write(tty_t *tty, char *buffer);
 void tty_set_color(tty_t *tty, int color);
 void tty_clear(tty_t *tty);
-
+void tty_get_cursor(tty_t *tty, uint8_t *row, uint8_t *col);
+void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col);
 
 #endif

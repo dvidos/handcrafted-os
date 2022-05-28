@@ -21,6 +21,7 @@
 #include "multitask/process.h"
 #include "konsole/konsole.h"
 #include "devices/tty.h"
+#include "konsole/readline.h"
 
 
 
@@ -128,9 +129,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
         screen_write("Tests finished, pausing forever...");
         for(;;)
             asm("hlt");
-    } else if (strcmp((char *)saved_multiboot_info.cmdline, "console") == 0) {
-        printf("Starting konsole...\n");
-        konsole_v2();
     }
 
     klog_info("Initializing multi-tasking...");
@@ -163,37 +161,22 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
 void process_a_main() {
     tty_t *tty = tty_manager_get_device(0);
-
-    char *message = "Hello from task B, press any key and I'll echo it.\n";
-    tty_write(tty, message, strlen(message));
-    key_event_t event;
-    while (true) {
-        // this call will block until there is a key
-        tty_read_key(tty, &event);
-
-        // act upon key (echo for now)
-        if (event.ctrl_down && event.printable == 'l') {
-            tty_clear(tty);
-        } else if (event.special_key == KEY_ENTER) {
-            tty_write(tty, "\n", 1);
-        } else if (event.printable) {
-            tty_write(tty, &event.printable, 1);
-        }
-    }
+    tty_write(tty, "Welcome to konsole, enter \"?\" for help");
+    konsole(tty);
 }
 
 void process_b_main() {
     tty_t *tty = tty_manager_get_device(1);
     char buffer[32];
     char *message = "Hello from process A! - use Ctrl+Alt+Fn to switch ttys";
-    tty_write(tty, message, strlen(message));
+    tty_write(tty, message);
 
 
     int i = 0;
     tty_set_color(tty, VGA_COLOR_RED << 4 | VGA_COLOR_WHITE);
     while (true) {
         sprintfn(buffer, sizeof(buffer), "\nTask A, i=%d...", i++);
-        tty_write(tty, buffer, strlen(buffer));
+        tty_write(tty, buffer);
         sleep(500);
 
         if (i % 10 == 0)
@@ -207,7 +190,7 @@ void process_c_main() {
     tty_set_color(tty, VGA_COLOR_BLUE << 4 | VGA_COLOR_WHITE);
     while (true) {
         tty_clear(tty);
-        tty_write(tty, "---- Process Table ----\n", 24);
+        tty_write(tty, "---- Process Table ----\n");
         // dump_process_table(tty);
         sleep(1000);
     }

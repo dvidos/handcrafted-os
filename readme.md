@@ -100,6 +100,7 @@ Also the following must be met:
 
 * good implementation of a circular buffer, with both reading and writing pointers
 * good implementation of a list, similar to linux kernel, [here](https://kernel.org/doc/html/latest/core-api/kernel-api.html#list-management-functions)
+* fix readline() to have many instances, not only one
 * improve PCI devices, at least allow class/subclass names, to see what drivers 
 we should write. USB might be a good first.
 * start a tree-enabled device manager. ttys will need to be devices,

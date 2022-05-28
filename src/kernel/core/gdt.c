@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "string.h"
+#include "klog.h"
 
 // Each define here is for a specific flag in the descriptor.
 // Refer to the intel documentation for a description of what each one does.
@@ -119,9 +120,9 @@ void init_gdt() {
         ACCESS_DATA_WRITABLE(1) | ACCESS_PRIVILEGE(3),
         FLAGS_SIZE(1));
 
-    // printf("Size of GDT segment descriptor: %d\n", sizeof(struct gdt_segment_descriptor32));  // 8
-    // printf("Size of all descriptors: %d\n", sizeof(descriptors));                             // 24
-    // printf("Size of GDT descriptor: %d\n", sizeof(struct gdt_descriptor32));                  // 6
+    klog_debug("Size of GDT segment descriptor: %d\n", sizeof(struct gdt_segment_descriptor32));  // 8
+    klog_debug("Size of all descriptors: %d\n", sizeof(descriptors));                             // 24
+    klog_debug("Size of GDT descriptor: %d\n", sizeof(struct gdt_descriptor32));                  // 6
 
     gdt.size = sizeof(descriptors);
     gdt.offset = (uint32_t)descriptors;

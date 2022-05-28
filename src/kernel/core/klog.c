@@ -195,9 +195,9 @@ static void tty_log_append(log_level_t level, char *str) {
     char buff[16];
     uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
     sprintfn(buff, sizeof(buff), "%u.%03u [%s] ", msecs / 1000, msecs % 1000, level_captions[level]);
-    tty_write(tty_appender, buff, strlen(buff));
-    tty_write(tty_appender, str, strlen(str));
-    tty_write(tty_appender, "\n", 1);
+    tty_write(tty_appender, buff);
+    tty_write(tty_appender, str);
+    tty_write(tty_appender, "\n");
 }
 
 static inline char printable(char c) {

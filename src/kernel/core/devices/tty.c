@@ -190,10 +190,10 @@ void tty_read_key(tty_t *tty, key_event_t *event) {
     }
 }
 
-void tty_write(tty_t *tty, char *buffer, int len) {
+void tty_write(tty_t *tty, char *buffer) {
     // put something on the buffer of the tty 
-    // if tty is visibile, put it on the screen as well
-    
+    // if tty is visibile, put it on the screen as well    
+    int len = strlen(buffer);
     klog_trace("tty: writing %d bytes on tty %d", len, tty->dev_no);
     
     bool need_screen_redraw = false;
@@ -220,6 +220,23 @@ void tty_clear(tty_t *tty) {
     virtual_buffer_put_buffer(tty, &newline, 1, &redraw);
     tty->first_visible_buffer_row = tty->row;
     draw_tty_buffer_to_screen(tty);
+}
+
+void tty_get_cursor(tty_t *tty, uint8_t *row, uint8_t *col) {
+    if (row != NULL)
+        *row = tty->row;
+    if (col != NULL)
+        *col = tty->column;
+}
+
+void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col) {
+    tty->row = row;
+    tty->column = col;
+
+    screen_set_cursor(
+        tty_mgr_data.header_lines + tty->row - tty->first_visible_buffer_row,
+        tty->column
+    );
 }
 
 static void enqueue_key_event(tty_t *tty, key_event_t *event) {

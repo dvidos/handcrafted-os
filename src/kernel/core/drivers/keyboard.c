@@ -6,7 +6,7 @@
 #include "../idt.h"
 #include "../cpu.h"
 #include "../lock.h"
-#include "keyboard.h"
+#include "../klog.h"
 
 
 // interesting article: https://linuxjournal.com/article/1080
@@ -21,38 +21,12 @@ static volatile bool right_alt = false;
 static volatile bool caps_lock = false;
 static volatile bool num_lock = false;
 
-#define KEY_QUEUE_SIZE    256
-static volatile key_event_t events_queue[KEY_QUEUE_SIZE];
-static volatile uint8_t queue_head = 0;
-static volatile uint8_t queue_length = 0; // easier to tell when empty, instead of a tail pointer
-static volatile lock_t queue_lock = 0;
 
 #define KEY_HOOKS_SIZE  8
 key_event_hook_t key_event_hooks[KEY_HOOKS_SIZE];
 uint8_t num_event_hooks;
 void call_key_event_hooks(key_event_t *event);
 
-
-bool keyboard_has_key() {
-    return (queue_length > 0);
-}
-
-void wait_keyboard_event(key_event_t *event) {
-
-    while (queue_length == 0);
-
-    acquire(&queue_lock);
-    if (queue_length == 0) {
-        // somebody got to the last event before us
-        memset((char *)event, 0, sizeof(key_event_t));
-    } else {
-        // we can unqueue the event
-        memcpy((char *)event, (char *)&events_queue[queue_head], sizeof(key_event_t));
-        queue_head++;
-        queue_length--;
-    }
-    release(&queue_lock);
-}
 
 struct scancode_info {
     uint8_t printable;               // if key by itself emits a letter - e.g. "F" or "Φ"
@@ -170,7 +144,7 @@ void keyboard_handler(registers_t* regs) {
     (void)regs;
 
     uint8_t scancode = inb(0x60);
-    // printf("0x%x ", scancode);
+    klog_debug("keyboard: received scancode 0x%02x", scancode);
     if (scancode == 0xE0) {
         extended = true;
         // we'll get the next value in a subsequent interrupt
@@ -250,23 +224,13 @@ void keyboard_handler(registers_t* regs) {
     }
 
     if (printable != 0 || special_key != 0) {
-        // add the key down event
-        // printf("printable: [%c], special key: %d, ctrl %c, alt %c, shift %c\n", printable, special_key, left_ctrl || right_ctrl ? '1' : '0', left_alt || right_alt ? '1' : '0', left_shift || right_shift ? '1' : '0');
-        // if (printable != 0)
-        //     printf("%c", printable == 13 ? '\n' : printable);
-
-        if (queue_length == KEY_QUEUE_SIZE - 1) {
-            // just lose this keypress
-        } else {
-            // assume we are in stopped interrupts mode
-            key_event_t event;
-            event.printable = printable;
-            event.special_key = special_key;
-            event.ctrl_down = left_ctrl || right_ctrl;
-            event.alt_down = left_alt || right_alt;
-            event.shift_down = left_shift || right_shift;
-            call_key_event_hooks(&event);
-        }
+        key_event_t event;
+        event.printable = printable;
+        event.special_key = special_key;
+        event.ctrl_down = left_ctrl || right_ctrl;
+        event.alt_down = left_alt || right_alt;
+        event.shift_down = left_shift || right_shift;
+        call_key_event_hooks(&event);
     }
 
     // clear this flag for next call
