@@ -59,6 +59,7 @@
 #define KEY_MEDIA_GUI_LEFT    53 // window logo
 #define KEY_MEDIA_GUI_RIGHT   54
 #define KEY_MEDIA_APPS        55 // context menu
+#define KEY_SUPER             56
 
 #include <stdint.h>
 
@@ -68,6 +69,7 @@ struct key_event {
     uint8_t ctrl_down: 1;
     uint8_t alt_down: 1;
     uint8_t shift_down: 1;
+    uint8_t super_down: 1;
 } __attribute__((packed));
 
 typedef struct key_event key_event_t;
@@ -76,8 +78,7 @@ typedef void (*key_event_hook_t)(key_event_t *event, bool *handled);
 void keyboard_register_hook(key_event_hook_t hook);
 void keyboard_unregister_hook(key_event_hook_t hook);
 
-
 void keyboard_handler(registers_t* regs);
-void wait_keyboard_event(key_event_t *event);
+
 
 #endif

@@ -20,6 +20,7 @@ static volatile bool left_alt = false;
 static volatile bool right_alt = false;
 static volatile bool caps_lock = false;
 static volatile bool num_lock = false;
+static volatile bool super_key = false;
 
 
 #define KEY_HOOKS_SIZE  8
@@ -126,6 +127,13 @@ struct scancode_info scancode_map[] = {
     /* 0x56 */ {0,   0,   0,              0,   0}, // empty 3
     /* 0x57 */ {0,   0,   KEY_F11,        0,   0}, // F11
     /* 0x58 */ {0,   0,   KEY_F12,        0,   0}, // F12
+    /* 0x59 */ {0,   0,   0,              0,   0}, 
+    /* 0x5A */ {0,   0,   0,              0,   0}, 
+    /* 0x5B */ {0,   0,   0,              0,   KEY_SUPER}, // SUPER key
+    /* 0x5C */ {0,   0,   0,              0,   0}, 
+    /* 0x5D */ {0,   0,   0,              0,   KEY_MEDIA_APPS}, 
+    /* 0x5E */ {0,   0,   0,              0,   0}, 
+    /* 0x5F */ {0,   0,   0,              0,   0}, 
 
     // there are more expanded keys, mostly multimedia, if we want to
     // see https://wiki.osdev.org/PS2_Keyboard
@@ -188,6 +196,9 @@ void keyboard_handler(registers_t* regs) {
             case 0x38:
                 right_alt = down;
                 break;
+            case 0x5B:
+                super_key = down;
+                break;
         }
     }
 
@@ -230,6 +241,7 @@ void keyboard_handler(registers_t* regs) {
         event.ctrl_down = left_ctrl || right_ctrl;
         event.alt_down = left_alt || right_alt;
         event.shift_down = left_shift || right_shift;
+        event.super_down = super_key;
         call_key_event_hooks(&event);
     }
 
