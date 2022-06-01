@@ -100,7 +100,7 @@ void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
         tty->buffer_alloc_size = tty->total_buffer_rows * screen_cols() * 2;
         tty->screen_buffer = kmalloc(tty->buffer_alloc_size);
 
-        // we cannot blindly memset(0)
+        // we cannot blindly memset(0), black on black makes cursor unviewable
         int offset = 0;
         while (offset < tty->buffer_alloc_size) {
             tty->screen_buffer[offset++] = ' ';
@@ -236,7 +236,7 @@ void tty_clear() {
     tty_t *tty = running_process()->tty;
     if (tty == NULL)
         return;
-    
+
     // we just need to move to new row,
     // then set the first visible line there.
     char newline = '\n';

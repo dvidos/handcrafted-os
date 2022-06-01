@@ -152,7 +152,7 @@ void keyboard_handler(registers_t* regs) {
     (void)regs;
 
     uint8_t scancode = inb(0x60);
-    klog_debug("keyboard: received scancode 0x%02x", scancode);
+    // klog_debug("keyboard: received scancode 0x%02x", scancode);
     if (scancode == 0xE0) {
         extended = true;
         // we'll get the next value in a subsequent interrupt

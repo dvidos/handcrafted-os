@@ -4,14 +4,14 @@
 #include "../string.h"
 #include "../klog.h"
 #include "../devices/tty.h"
+#include "../memory/kheap.h"
 
 
 // run a modal session to read a command line from keyboard, keep screen updated
 // return the command line entered, support history, search, auto complete
 
 
-static bool readline_initialized = false;
-struct options_struct {
+struct readline_info {
     slist_t *history;
     slist_t *keywords;
     uint8_t cursor_row;
@@ -26,545 +26,515 @@ struct options_struct {
     bool searching_backwards;
     bool search_failed;
     bool completion_list_pending;
-} opts;
+};
+
+typedef struct readline_info readline_t;
+
 
 // initializes the readline library
-void init_readline(char *prompt) {
+readline_t *init_readline(char *prompt) {
+    readline_t *rl = kmalloc(sizeof(readline_t));
+    memset(rl, 0, sizeof(readline_t));
 
-    opts.history = slist_create();
-    opts.keywords = slist_create();
-    opts.prompt = prompt;
-    opts.history_pos = -1; // past end of last entry
-    opts.line_pos = 0;
+    rl->history = slist_create();
+    rl->keywords = slist_create();
+    rl->prompt = prompt;
+    rl->history_pos = -1; // past end of last entry
+    rl->line_pos = 0;
 
-    readline_initialized = true;
+    return rl;
 }
 
 // after initializing, allows to add keywords for autocomplete
-void readline_add_keyword(char *keyword) {
-    slist_append(opts.keywords, keyword);
+void readline_add_keyword(readline_t *rl, char *keyword) {
+    slist_append(rl->keywords, keyword);
 }
 
 // after initializing, allows to add history entries for searc
-void readline_add_history(char *keyword) {
-    slist_append(opts.keywords, keyword);
+void readline_add_history(readline_t *rl, char *keyword) {
+    slist_append(rl->keywords, keyword);
 }
 
 
-// actual readline commands (we implement only what we want)
-// - ctrl+? = help
-// - ctrl+a = go start of line
-// - ctrl+e = go end of line
-// - ctrl+f = go forwards one char
-// - ctrl+b = go backwards one char
-// - alt+f  = move forward a word
-// - alt+b  = move backward a word
-// ----------------------------------------
-// - ctrl+l = clear the screen
-// - ctrl+k = delete to end of line
-// - ctrl+u = delete to start of line
-// - ctrl+y = paste most recently killed text back in cursor position
-// - alt+d  = delete word to the right
-// - alt+backspace = delete word to the left
-// ----------------------------------------
-// - ctrl-p = previous history entry
-// - ctrl-n = next history entry
-// - ctrl-r = incremental search backwards in history (subsequent = find next)
-// - ctrl-s = incremental search forward in history (subsequent = find next)
-// ----------------------------------------
-// - tab    = complete word
-// - alt+?  = list possible completions (after printing them, it starts a new prompt entry)
-// - alt+*  = insert all possible completions (actually alt+shift+8 as alt+8 is for arguments)
-// ----------------------------------------
-
-static void display_line();
-static void display_help();
-static void display_history();
-static int find_next_word_to_the_right();
-static int find_word_start_to_the_left();
-static void insert_in_line(char *str);
-static void delete_from_line(int len, bool from_the_right, bool save_to_kill);
-static void do_accept_entry();
-static void do_move_to_start_of_line();
-static void do_move_to_end_of_line();
-static void do_move_backwards_one_character();
-static void do_move_forwards_one_character();
-static void do_move_backwards_one_word();
-static void do_move_forwards_one_word();
-static void do_clear_screen();
-static void do_delete_char_to_right();
-static void do_delete_char_to_left();
-static void do_delete_to_start_of_line();
-static void do_delete_to_end_of_line();
-static void do_delete_word_to_right();
-static void do_delete_word_to_left();
-static void do_yank_deleted_text();
-static void do_prev_history_entry();
-static void do_next_history_entry();
-static void do_incremental_search(bool backwards);
-static void do_complete_word();
-static void do_list_completions();
-static void do_insert_completions();
-static void do_handle_printable(uint8_t character);
-static void perform_incremental_search();
+static void display_line(readline_t *rl);
+static void display_help(readline_t *rl);
+static void display_history(readline_t *rl);
+static int find_next_word_to_the_right(readline_t *rl);
+static int find_word_start_to_the_left(readline_t *rl);
+static void insert_in_line(readline_t *rl, char *str);
+static void delete_from_line(readline_t *rl, int len, bool from_the_right, bool save_to_kill);
+static void do_accept_entry(readline_t *rl);
+static void do_move_to_start_of_line(readline_t *rl);
+static void do_move_to_end_of_line(readline_t *rl);
+static void do_move_backwards_one_character(readline_t *rl);
+static void do_move_forwards_one_character(readline_t *rl);
+static void do_move_backwards_one_word(readline_t *rl);
+static void do_move_forwards_one_word(readline_t *rl);
+static void do_clear_screen(readline_t *rl);
+static void do_delete_char_to_right(readline_t *rl);
+static void do_delete_char_to_left(readline_t *rl);
+static void do_delete_to_start_of_line(readline_t *rl);
+static void do_delete_to_end_of_line(readline_t *rl);
+static void do_delete_word_to_right(readline_t *rl);
+static void do_delete_word_to_left(readline_t *rl);
+static void do_yank_deleted_text(readline_t *rl);
+static void do_prev_history_entry(readline_t *rl);
+static void do_next_history_entry(readline_t *rl);
+static void do_incremental_search(readline_t *rl, bool backwards);
+static void do_complete_word(readline_t *rl);
+static void do_list_completions(readline_t *rl);
+static void do_insert_completions(readline_t *rl);
+static void do_handle_printable(readline_t *rl, uint8_t character);
+static void perform_incremental_search(readline_t *rl);
 
 
 // gets a line from user, supports history, autocomplete etc
-char *readline() {
-    if (!readline_initialized)
-        return NULL;
-
+char *readline(readline_t *rl) {
     // it's a new entry!
-    tty_get_cursor(&opts.cursor_row, NULL);
-    memset(opts.line, 0, sizeof(opts.line));
-    opts.line_pos = 0;
-    opts.history_pos = -1;
+    tty_get_cursor(&rl->cursor_row, NULL);
+    memset(rl->line, 0, sizeof(rl->line));
+    rl->line_pos = 0;
+    rl->history_pos = -1;
 
     while (true) {
-        display_line();
+        display_line(rl);
         // ideally this will block us and wake us up accordingly
         key_event_t e;
         tty_read_key(&e);
         if (e.special_key == KEY_ENTER) {
-            do_accept_entry();
-            return opts.line;
+            do_accept_entry(rl);
+            return rl->line;
         } else if (e.ctrl_down && e.printable == '/') {
-            display_help();
+            display_help(rl);
         } else if ((e.ctrl_down && e.printable == 'a') || (!e.ctrl_down && e.special_key == KEY_HOME)) {
-            do_move_to_start_of_line();
+            do_move_to_start_of_line(rl);
         } else if ((e.ctrl_down && e.printable == 'e') || (!e.ctrl_down && e.special_key == KEY_END)) {
-            do_move_to_end_of_line();
+            do_move_to_end_of_line(rl);
         } else if ((e.ctrl_down && e.printable == 'b') || (!e.ctrl_down && e.special_key == KEY_LEFT)) {
-            do_move_backwards_one_character();
+            do_move_backwards_one_character(rl);
         } else if ((e.ctrl_down && e.printable == 'f') || (!e.ctrl_down && e.special_key == KEY_RIGHT)) {
-            do_move_forwards_one_character();
+            do_move_forwards_one_character(rl);
         } else if ((e.alt_down && e.printable == 'b') || (e.ctrl_down && e.special_key == KEY_LEFT)) {
-            do_move_backwards_one_word();
+            do_move_backwards_one_word(rl);
         } else if ((e.alt_down && e.printable == 'f') || (e.ctrl_down && e.special_key == KEY_RIGHT)) {
-            do_move_forwards_one_word();
+            do_move_forwards_one_word(rl);
         } else if (e.ctrl_down && e.printable == 'l') {
-            do_clear_screen();
+            do_clear_screen(rl);
         } else if ((e.ctrl_down && e.printable == 'd') || (!e.ctrl_down && e.special_key == KEY_DELETE)) {
-            do_delete_char_to_right();
+            do_delete_char_to_right(rl);
         } else if (!e.ctrl_down && e.special_key == KEY_BACKSPACE) {
-            do_delete_char_to_left();
+            do_delete_char_to_left(rl);
         } else if (e.ctrl_down && e.printable == 'u') {
-            do_delete_to_start_of_line();
+            do_delete_to_start_of_line(rl);
         } else if (e.ctrl_down && e.printable == 'k') {
-            do_delete_to_end_of_line();
+            do_delete_to_end_of_line(rl);
         } else if ((e.alt_down && e.printable == 'd') || (e.ctrl_down && e.special_key == KEY_DELETE)) {
-            do_delete_word_to_right();
+            do_delete_word_to_right(rl);
         } else if ((e.alt_down && e.special_key == KEY_BACKSPACE) || (e.ctrl_down && e.special_key == KEY_BACKSPACE)) {
-            do_delete_word_to_left();
+            do_delete_word_to_left(rl);
         } else if (e.ctrl_down && e.printable == 'y') {
-            do_yank_deleted_text();
+            do_yank_deleted_text(rl);
         } else if ((e.ctrl_down && e.printable == 'p') || e.special_key == KEY_UP) {
-            do_prev_history_entry();
+            do_prev_history_entry(rl);
         } else if ((e.ctrl_down && e.printable == 'n') || e.special_key == KEY_DOWN) {
-            do_next_history_entry();
+            do_next_history_entry(rl);
         } else if (e.ctrl_down && e.printable == 'h') {
-            display_history();
+            display_history(rl);
         } else if (e.ctrl_down && e.printable == 'r') {
-            do_incremental_search(true);
+            do_incremental_search(rl, true);
         } else if (e.ctrl_down && e.printable == 's') {
-            do_incremental_search(false);
+            do_incremental_search(rl, false);
         } else if (e.special_key == KEY_TAB) {
-            do_complete_word();
+            do_complete_word(rl);
         } else if (e.alt_down && e.printable == '/') {
-            do_list_completions();
+            do_list_completions(rl);
         } else if (e.alt_down && e.shift_down && e.printable == '*') {
-            do_insert_completions();
+            do_insert_completions(rl);
         } else if (e.printable != 0) {
-            do_handle_printable(e.printable);
+            do_handle_printable(rl, e.printable);
         }
     }
 }
 
 
-static void display_line() {
+static void display_line(readline_t *rl) {
     char buff[80];
 
-    tty_set_cursor(opts.cursor_row, 0);
-    if (opts.searching) {
+    tty_set_cursor(rl->cursor_row, 0);
+    if (rl->searching) {
         sprintfn(buff, sizeof(buff),
             "(%s%s-i-search)`%s': ",
-            opts.search_failed ? "failed " : "",
-            opts.searching_backwards ? "reverse" : "forward",
-            opts.search_term
+            rl->search_failed ? "failed " : "",
+            rl->searching_backwards ? "reverse" : "forward",
+            rl->search_term
         );
         tty_write(buff);
-        tty_write(opts.line);
-        int prompt_len = 1 + (opts.search_failed ? 7 : 0) + 18 + strlen(opts.search_term) + 3;
-        int remaining = 79 - prompt_len - strlen(opts.line);
-        strcpy(buff, " ");
-        while (remaining-- > 0)
-            tty_write(buff);
-        tty_set_cursor(opts.cursor_row, prompt_len);
+        tty_write(rl->line);
+        int prompt_len = 1 + (rl->search_failed ? 7 : 0) + 18 + strlen(rl->search_term) + 3;
+        int remaining = 79 - prompt_len - strlen(rl->line);
+        memset(buff, ' ', sizeof(buff));
+        buff[remaining] = '\0';
+        tty_write(buff);
+        tty_set_cursor(rl->cursor_row, prompt_len);
     } else {
-        tty_write(opts.prompt);
-        tty_write(opts.line);
-        int remaining = 79 - strlen(opts.prompt) - strlen(opts.line);
-        while (remaining-- > 0)
-            tty_write(" ");
-        tty_set_cursor(opts.cursor_row, strlen(opts.prompt) + opts.line_pos);
+        tty_write(rl->prompt);
+        tty_write(rl->line);
+        int remaining = 79 - strlen(rl->prompt) - strlen(rl->line);
+        memset(buff, ' ', sizeof(buff));
+        buff[remaining] = '\0';
+        tty_write(buff);
+        tty_set_cursor(rl->cursor_row, strlen(rl->prompt) + rl->line_pos);
     }
 }
 
-static void display_help() {
+static void display_help(readline_t *rl) {
+    //         0--------1---------2---------3---------4---------5---------6---------7---------8
+    //         12345678901234567890123456789012345678901234567890123456789012345678901234567890
     tty_write("\n");
-    tty_write("--- Movement commands ---\n");
-    tty_write(" ctrl-a      go start of line\n");
-    tty_write(" ctrl-e      go end of line\n");
-    tty_write(" ctrl-f      go forwards one char\n");
-    tty_write(" ctrl-b      go backwards one char\n");
-    tty_write(" alt-f       move forward a word\n");
-    tty_write(" alt-b       move backward a word\n");
-    tty_write("--- Editing commands ---\n");
-    tty_write(" ctrl-k      delete to end of line\n");
-    tty_write(" ctrl-u      delete to start of line\n");
-    tty_write(" ctrl-y      yank most recently killed text in cursor position\n");
-    tty_write(" alt-d       delete word to the right\n");
-    tty_write(" alt-backsp  delete word to the left\n");
-    tty_write(" ctrl-l      clear the screen\n");
-    tty_write("--- History commands ---\n");
-    tty_write(" ctrl-p      previous history entry\n");
-    tty_write(" ctrl-n      next history entry\n");
-    tty_write(" ctrl-r      incremental search backwards in history\n");
-    tty_write(" ctrl-s      incremental search forward in history\n");
-    tty_write("--- Completion commands ---\n");
-    tty_write(" tab         complete word\n");
-    tty_write(" alt-?       list possible completions\n");
-    tty_write(" alt-*       insert all possible completions\n");
+    tty_write("------ Movement commands ------        ------ Editing commands ------\n");
+    tty_write("ctrl-a   go start of line              ctrl-k    delete to end of line\n");
+    tty_write("ctrl-e   go end of line                ctrl-u    delete to start of line\n");
+    tty_write("ctrl-f   go forwards one char          ctrl-y    yank recently deleted text\n");
+    tty_write("ctrl-b   go backwards one char         alt-d     delete word to the right\n");
+    tty_write("alt-f    forward a word                alt-bksp  delete word to the left\n");
+    tty_write("alt-b    backward a word               ctrl-l    clear the screen\n");
+    tty_write(" \n");
+    tty_write("------ History commands ------         ------ Completion commands ------\n");
+    tty_write("ctrl-p   previous history entry        tab       complete word\n");
+    tty_write("ctrl-n   next history entry            alt-?     list possible completions\n");
+    tty_write("ctrl-r   incremental backwards search  alt-*     insert possible completions\n");
+    tty_write("ctrl-s   incremental forward search     \n");
+    tty_write(" \n");
 
-    tty_get_cursor(&opts.cursor_row, NULL);
+    tty_get_cursor(&rl->cursor_row, NULL);
 }
 
-static void display_history() {
+static void display_history(readline_t *rl) {
     char buff[80];
     tty_write("\n");
-    int len = slist_size(opts.history);
+    int len = slist_size(rl->history);
     for (int i = 0; i < len; i++) {
-        sprintfn(buff, sizeof(buff), " %d: %s\n", i, slist_get(opts.history, i));
+        sprintfn(buff, sizeof(buff), " %d: %s\n", i, slist_get(rl->history, i));
         tty_write(buff);
     }
 
-    tty_get_cursor(&opts.cursor_row, NULL);
+    tty_get_cursor(&rl->cursor_row, NULL);
 }
 
-static int find_next_word_to_the_right() {
-    int target = opts.line_pos;
+static int find_next_word_to_the_right(readline_t *rl) {
+    int target = rl->line_pos;
 
     // skip current word
-    while (opts.line[target] != '\0' && opts.line[target] != ' ')
+    while (rl->line[target] != '\0' && rl->line[target] != ' ')
         target++;
-    if (opts.line[target] == '\0')
+    if (rl->line[target] == '\0')
         return target;
 
     // skip whitespace
-    while (opts.line[target] != '\0' && opts.line[target] == ' ')
+    while (rl->line[target] != '\0' && rl->line[target] == ' ')
         target++;
     
     // we should be either at next word, or at line's end
     return target;
 }
 
-static int find_word_start_to_the_left() {
-    int target = opts.line_pos;
+static int find_word_start_to_the_left(readline_t *rl) {
+    int target = rl->line_pos;
 
     // skip whitespace
-    while (target > 0 && opts.line[target - 1] == ' ')
+    while (target > 0 && rl->line[target - 1] == ' ')
         target--;
     if (target == 0)
         return target;
 
     // find start of current word
-    while (target > 0 && opts.line[target - 1] != ' ')
+    while (target > 0 && rl->line[target - 1] != ' ')
         target--;
     
     // we should be either at prev word, or at dead start
     return target;
 }
 
-static void insert_in_line(char *str) {
-    if (opts.line_pos == strlen(opts.line)) {
+static void insert_in_line(readline_t *rl, char *str) {
+    if (rl->line_pos == strlen(rl->line)) {
         // just append, including zero terminator
-        strcpy(opts.line + opts.line_pos, str);
-        opts.line_pos += strlen(str);
+        strcpy(rl->line + rl->line_pos, str);
+        rl->line_pos += strlen(str);
     } else {
         // make some room, then insert
         memmove(
-            opts.line + opts.line_pos + strlen(str), 
-            opts.line + opts.line_pos,
-            strlen(opts.line) - opts.line_pos + 1);
-        memcpy(opts.line + opts.line_pos, str, strlen(str));
-        opts.line_pos += strlen(str);
+            rl->line + rl->line_pos + strlen(str), 
+            rl->line + rl->line_pos,
+            strlen(rl->line) - rl->line_pos + 1);
+        memcpy(rl->line + rl->line_pos, str, strlen(str));
+        rl->line_pos += strlen(str);
     }
 }
 
-static void delete_from_line(int len, bool from_the_right, bool save_to_kill) {
+static void delete_from_line(readline_t *rl, int len, bool from_the_right, bool save_to_kill) {
     if (from_the_right) {
-        if (opts.line_pos == strlen(opts.line))
+        if (rl->line_pos == strlen(rl->line))
             return;
         if (save_to_kill) {
-            memcpy(opts.kill, opts.line + opts.line_pos, len);
-            opts.kill[len] = '\0';
+            memcpy(rl->kill, rl->line + rl->line_pos, len);
+            rl->kill[len] = '\0';
         }
-        memmove(opts.line + opts.line_pos, opts.line + opts.line_pos + len, strlen(opts.line) - opts.line_pos - len + 1);
+        memmove(rl->line + rl->line_pos, rl->line + rl->line_pos + len, strlen(rl->line) - rl->line_pos - len + 1);
     } else {
-        if (opts.line_pos == 0)
+        if (rl->line_pos == 0)
             return;
         if (save_to_kill) {
-            memcpy(opts.kill, opts.line + opts.line_pos - len, len);
-            opts.kill[len] = '\0';
+            memcpy(rl->kill, rl->line + rl->line_pos - len, len);
+            rl->kill[len] = '\0';
         }
-        memmove(opts.line + opts.line_pos - len, opts.line + opts.line_pos, strlen(opts.line) - opts.line_pos + 1);
-        opts.line_pos -= len;
+        memmove(rl->line + rl->line_pos - len, rl->line + rl->line_pos, strlen(rl->line) - rl->line_pos + 1);
+        rl->line_pos -= len;
    }
 }
 
-static void find_word_to_cursor() {
-    int word_start = find_word_start_to_the_left();
-    int word_len = opts.line_pos - word_start <= (int)sizeof(opts.word) - 1 
-        ? opts.line_pos - word_start
-        : (int)sizeof(opts.word) - 1; 
-    memcpy(opts.word, opts.line + word_start, word_len);
-    opts.word[word_len] = '\0';
+static void find_word_to_cursor(readline_t *rl) {
+    int word_start = find_word_start_to_the_left(rl);
+    int word_len = rl->line_pos - word_start <= (int)sizeof(rl->word) - 1 
+        ? rl->line_pos - word_start
+        : (int)sizeof(rl->word) - 1; 
+    memcpy(rl->word, rl->line + word_start, word_len);
+    rl->word[word_len] = '\0';
 }
 
-static void do_accept_entry() {
-    opts.searching = false;    
+static void do_accept_entry(readline_t *rl) {
+    rl->searching = false;    
 
     tty_write("\n");
-    if (strlen(opts.line) == 0)
+    if (strlen(rl->line) == 0)
         return;
     
-    slist_append(opts.history, opts.line);
+    slist_append(rl->history, rl->line);
 }
 
-static void do_move_to_start_of_line() {
-    opts.searching = false;
-    opts.line_pos = 0;
+static void do_move_to_start_of_line(readline_t *rl) {
+    rl->searching = false;
+    rl->line_pos = 0;
 }
 
-static void do_move_to_end_of_line() {
-    opts.searching = false;
-    opts.line_pos = strlen(opts.line);
+static void do_move_to_end_of_line(readline_t *rl) {
+    rl->searching = false;
+    rl->line_pos = strlen(rl->line);
 }
 
-static void do_move_backwards_one_character() {
-    opts.searching = false;
-    if (opts.line_pos > 0)
-        opts.line_pos--;
+static void do_move_backwards_one_character(readline_t *rl) {
+    rl->searching = false;
+    if (rl->line_pos > 0)
+        rl->line_pos--;
 }
 
-static void do_move_forwards_one_character() {
-    opts.searching = false;
-    if (opts.line_pos < strlen(opts.line))
-        opts.line_pos++;
+static void do_move_forwards_one_character(readline_t *rl) {
+    rl->searching = false;
+    if (rl->line_pos < strlen(rl->line))
+        rl->line_pos++;
 }
 
-static void do_move_backwards_one_word() {
-    opts.searching = false;
-    opts.line_pos = find_word_start_to_the_left();
+static void do_move_backwards_one_word(readline_t *rl) {
+    rl->searching = false;
+    rl->line_pos = find_word_start_to_the_left(rl);
 }
 
-static void do_move_forwards_one_word() {
-    opts.searching = false;
-    opts.line_pos = find_next_word_to_the_right();
+static void do_move_forwards_one_word(readline_t *rl) {
+    rl->searching = false;
+    rl->line_pos = find_next_word_to_the_right(rl);
 }
 
-static void do_clear_screen() {
+static void do_clear_screen(readline_t *rl) {
     tty_clear();
-    opts.searching = false;
-    opts.cursor_row = 0;
+    rl->searching = false;
+    rl->cursor_row = 0;
 }
 
-static void do_delete_char_to_right() {
-    opts.searching = false;
-    delete_from_line(1, true, false);
+static void do_delete_char_to_right(readline_t *rl) {
+    rl->searching = false;
+    delete_from_line(rl, 1, true, false);
 }
 
-static void do_delete_char_to_left() {
-    if (opts.searching) {
-        if (strlen(opts.search_term) > 0) {
-            opts.search_term[strlen(opts.search_term) - 1] = '\0';
-            perform_incremental_search();
+static void do_delete_char_to_left(readline_t *rl) {
+    if (rl->searching) {
+        if (strlen(rl->search_term) > 0) {
+            rl->search_term[strlen(rl->search_term) - 1] = '\0';
+            perform_incremental_search(rl);
         }
     } else {
-        delete_from_line(1, false, false);
+        delete_from_line(rl, 1, false, false);
     }
 }
 
-static void do_delete_word_to_right() {
-    opts.searching = false;
+static void do_delete_word_to_right(readline_t *rl) {
+    rl->searching = false;
 
-    int target = find_next_word_to_the_right();
-    if (target == opts.line_pos)
+    int target = find_next_word_to_the_right(rl);
+    if (target == rl->line_pos)
         return;
 
-    delete_from_line(target - opts.line_pos, true, true);
+    delete_from_line(rl, target - rl->line_pos, true, true);
 }
 
-static void do_delete_word_to_left() {
-    opts.searching = false;
+static void do_delete_word_to_left(readline_t *rl) {
+    rl->searching = false;
 
-    int target = find_word_start_to_the_left();
-    if (target == opts.line_pos)
+    int target = find_word_start_to_the_left(rl);
+    if (target == rl->line_pos)
         return;
 
-    delete_from_line(opts.line_pos - target, false, true);
+    delete_from_line(rl, rl->line_pos - target, false, true);
 }
 
-static void do_delete_to_start_of_line() {
-    opts.searching = false;
-    delete_from_line(opts.line_pos, false, true);
+static void do_delete_to_start_of_line(readline_t *rl) {
+    rl->searching = false;
+    delete_from_line(rl, rl->line_pos, false, true);
 }
 
-static void do_delete_to_end_of_line() {
-    opts.searching = false;
-    delete_from_line(strlen(opts.line) - opts.line_pos, true, true);
+static void do_delete_to_end_of_line(readline_t *rl) {
+    rl->searching = false;
+    delete_from_line(rl, strlen(rl->line) - rl->line_pos, true, true);
 }
 
-static void do_yank_deleted_text() {
-    opts.searching = false;
-    insert_in_line(opts.kill);
+static void do_yank_deleted_text(readline_t *rl) {
+    rl->searching = false;
+    insert_in_line(rl, rl->kill);
 }
 
-static void do_prev_history_entry() {
-    opts.searching = false;
-    if (opts.history_pos == -1)
-        opts.history_pos = slist_size(opts.history);
+static void do_prev_history_entry(readline_t *rl) {
+    rl->searching = false;
+    if (rl->history_pos == -1)
+        rl->history_pos = slist_size(rl->history);
     
-    if (opts.history_pos == 0)
+    if (rl->history_pos == 0)
         return;
 
-    opts.history_pos--;
-    strcpy(opts.line, slist_get(opts.history, opts.history_pos));
-    opts.line_pos = strlen(opts.line);
+    rl->history_pos--;
+    strcpy(rl->line, slist_get(rl->history, rl->history_pos));
+    rl->line_pos = strlen(rl->line);
 }
 
-static void do_next_history_entry() {
-    opts.searching = false;
-    if (opts.history_pos == -1)
-        opts.history_pos = slist_size(opts.history);
+static void do_next_history_entry(readline_t *rl) {
+    rl->searching = false;
+    if (rl->history_pos == -1)
+        rl->history_pos = slist_size(rl->history);
     
-    if (opts.history_pos == slist_size(opts.history))
+    if (rl->history_pos == slist_size(rl->history))
         return;
     
     // moving past the last history items, brings a new empty line
-    opts.history_pos++;
-    if (opts.history_pos == slist_size(opts.history)) {
-        opts.line[0] = '\0';
-    } else if (opts.history_pos < slist_size(opts.history)) {
-        strcpy(opts.line, slist_get(opts.history, opts.history_pos));
+    rl->history_pos++;
+    if (rl->history_pos == slist_size(rl->history)) {
+        rl->line[0] = '\0';
+    } else if (rl->history_pos < slist_size(rl->history)) {
+        strcpy(rl->line, slist_get(rl->history, rl->history_pos));
     }
-    opts.line_pos = strlen(opts.line);
+    rl->line_pos = strlen(rl->line);
 }
 
-static void do_incremental_search(bool backwards) {
-    if (!opts.searching) {
-        opts.searching = true;
-        opts.searching_backwards = backwards;
-        opts.search_term[0] = '\0';
-        opts.search_failed = false;
+static void do_incremental_search(readline_t *rl, bool backwards) {
+    if (!rl->searching) {
+        rl->searching = true;
+        rl->searching_backwards = backwards;
+        rl->search_term[0] = '\0';
+        rl->search_failed = false;
     } else {
-        perform_incremental_search();
+        perform_incremental_search(rl);
     }
 }
 
-static void do_complete_word() {
-    find_word_to_cursor();
-    if (strlen(opts.word) == 0)
+static void do_complete_word(readline_t *rl) {
+    find_word_to_cursor(rl);
+    if (strlen(rl->word) == 0)
         return;
 
-    int count = slist_count_prefix(opts.keywords, opts.word);
+    int count = slist_count_prefix(rl->keywords, rl->word);
     if (count == 1) {
-        int index = slist_indexof_prefix(opts.keywords, opts.word, 0);
-        char *completed = slist_get(opts.keywords, index);
-        insert_in_line(completed + strlen(opts.word));
-        opts.completion_list_pending = false;
+        int index = slist_indexof_prefix(rl->keywords, rl->word, 0);
+        char *completed = slist_get(rl->keywords, index);
+        insert_in_line(rl, completed + strlen(rl->word));
+        rl->completion_list_pending = false;
     } else if (count > 1) {
-        if (opts.completion_list_pending) {
-            do_list_completions();
+        if (rl->completion_list_pending) {
+            do_list_completions(rl);
         } else {
-            opts.completion_list_pending = true;
+            rl->completion_list_pending = true;
         }
     }
 }
 
-static void do_list_completions() {
+static void do_list_completions(readline_t *rl) {
     char buff[80];
-    find_word_to_cursor();
-    if (strlen(opts.word) == 0)
+    find_word_to_cursor(rl);
+    if (strlen(rl->word) == 0)
         return;
 
     tty_write("\n");
     int start = 0;
-    int pos = slist_indexof_prefix(opts.keywords, opts.word, start);
+    int pos = slist_indexof_prefix(rl->keywords, rl->word, start);
     while (pos != -1) {
-        sprintfn(buff, sizeof(buff), "> %s\n", slist_get(opts.keywords, pos));
+        sprintfn(buff, sizeof(buff), "> %s\n", slist_get(rl->keywords, pos));
         tty_write(buff);
         start = pos + 1;
-        pos = slist_indexof_prefix(opts.keywords, opts.word, start);
+        pos = slist_indexof_prefix(rl->keywords, rl->word, start);
     }
 
-    tty_get_cursor(&opts.cursor_row, NULL);
+    tty_get_cursor(&rl->cursor_row, NULL);
 }
 
-static void do_insert_completions() {
-    find_word_to_cursor();
-    if (strlen(opts.word) == 0)
+static void do_insert_completions(readline_t *rl) {
+    find_word_to_cursor(rl);
+    if (strlen(rl->word) == 0)
         return;
 
-    delete_from_line(strlen(opts.word), false, false);
+    delete_from_line(rl, strlen(rl->word), false, false);
     int start = 0;
-    int pos = slist_indexof_prefix(opts.keywords, opts.word, start);
+    int pos = slist_indexof_prefix(rl->keywords, rl->word, start);
     while (pos != -1) {
-        insert_in_line(slist_get(opts.keywords, pos));
-        insert_in_line(" ");
+        insert_in_line(rl, slist_get(rl->keywords, pos));
+        insert_in_line(rl, " ");
         start = pos + 1;
-        pos = slist_indexof_prefix(opts.keywords, opts.word, start);
+        pos = slist_indexof_prefix(rl->keywords, rl->word, start);
     }
 
-    tty_get_cursor(&opts.cursor_row, NULL);
+    tty_get_cursor(&rl->cursor_row, NULL);
 }
 
-static void do_handle_printable(uint8_t character) {
-    if (opts.searching) {
+static void do_handle_printable(readline_t *rl, uint8_t character) {
+    if (rl->searching) {
         // if we are searching, add but also search, otherwise, insert/append at position
-        int len = strlen(opts.search_term);
-        if (strlen(opts.search_term) >= (int)sizeof(opts.search_term) - 2)
+        int len = strlen(rl->search_term);
+        if (strlen(rl->search_term) >= (int)sizeof(rl->search_term) - 2)
             return;
         
-        opts.search_term[len] = character;
-        opts.search_term[len + 1] = '\0';
-        opts.history_pos = -1;
-        perform_incremental_search();
+        rl->search_term[len] = character;
+        rl->search_term[len + 1] = '\0';
+        rl->history_pos = -1;
+        perform_incremental_search(rl);
     } else {
         // not searching, treat printable as letter
         char buffer[2];
         buffer[0] = character;
         buffer[1] = '\0';
-        insert_in_line(buffer);
+        insert_in_line(rl, buffer);
     }
 }
 
-static void perform_incremental_search() {
-    if (!opts.searching || strlen(opts.search_term) == 0)
+static void perform_incremental_search(readline_t *rl) {
+    if (!rl->searching || strlen(rl->search_term) == 0)
         return;
     
     int start, pos;
-    if (opts.searching_backwards) {
-        start = (opts.history_pos == -1) ? slist_size(opts.history) - 1 : opts.history_pos - 1;
-        pos = slist_last_indexof_containing(opts.history, opts.search_term, start);
+    if (rl->searching_backwards) {
+        start = (rl->history_pos == -1) ? slist_size(rl->history) - 1 : rl->history_pos - 1;
+        pos = slist_last_indexof_containing(rl->history, rl->search_term, start);
     } else {
-        start = (opts.history_pos == -1) ? 0 : opts.history_pos + 1;
-        pos = slist_indexof_containing(opts.history, opts.search_term, start);
+        start = (rl->history_pos == -1) ? 0 : rl->history_pos + 1;
+        pos = slist_indexof_containing(rl->history, rl->search_term, start);
     }
-    opts.search_failed = (pos == -1);
-    if (!opts.search_failed) {
-        opts.history_pos = pos;
-        strcpy(opts.line, slist_get(opts.history, pos));
+    rl->search_failed = (pos == -1);
+    if (!rl->search_failed) {
+        rl->history_pos = pos;
+        strcpy(rl->line, slist_get(rl->history, pos));
     }
 }
 

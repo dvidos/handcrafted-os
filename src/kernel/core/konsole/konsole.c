@@ -17,20 +17,20 @@
  */
 void konsole() {
     
-    init_readline("dv @ konsole $ ");
+    readline_t *rl = init_readline("dv @ konsole $ ");
 
-    readline_add_keyword("hheap");
-    readline_add_keyword("mdump");
-    readline_add_keyword("inb");
-    readline_add_keyword("inw");
-    readline_add_keyword("inl");
-    readline_add_keyword("outb");
-    readline_add_keyword("outw");
-    readline_add_keyword("outl");
-    readline_add_keyword("mpeek");
+    readline_add_keyword(rl, "hheap");
+    readline_add_keyword(rl, "mdump");
+    readline_add_keyword(rl, "inb");
+    readline_add_keyword(rl, "inw");
+    readline_add_keyword(rl, "inl");
+    readline_add_keyword(rl, "outb");
+    readline_add_keyword(rl, "outw");
+    readline_add_keyword(rl, "outl");
+    readline_add_keyword(rl, "mpeek");
 
     while (true) {
-        char *line = readline();
+        char *line = readline(rl);
 
         tty_write("You've entered: \"");
         tty_write(line);

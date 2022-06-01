@@ -3,9 +3,12 @@
 
 #include "../devices/tty.h"
 
-void init_readline(char *prompt);
-void readline_add_keyword(char *keyword);
-void readline_add_history(char *keyword);
-char *readline();
+typedef struct readline_info readline_t;
+
+readline_t *init_readline(char *prompt);
+void readline_add_keyword(readline_t *rl, char *keyword);
+void readline_add_history(readline_t *rl, char *keyword);
+char *readline(readline_t *rl);
+
 
 #endif
