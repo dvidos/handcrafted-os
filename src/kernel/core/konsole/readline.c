@@ -12,7 +12,6 @@
 
 static bool readline_initialized = false;
 struct options_struct {
-    tty_t *tty;
     slist_t *history;
     slist_t *keywords;
     uint8_t cursor_row;
@@ -30,9 +29,8 @@ struct options_struct {
 } opts;
 
 // initializes the readline library
-void init_readline(char *prompt, tty_t *tty) {
+void init_readline(char *prompt) {
 
-    opts.tty = tty;
     opts.history = slist_create();
     opts.keywords = slist_create();
     opts.prompt = prompt;
@@ -117,7 +115,7 @@ char *readline() {
         return NULL;
 
     // it's a new entry!
-    tty_get_cursor(opts.tty, &opts.cursor_row, NULL);
+    tty_get_cursor(&opts.cursor_row, NULL);
     memset(opts.line, 0, sizeof(opts.line));
     opts.line_pos = 0;
     opts.history_pos = -1;
@@ -126,7 +124,7 @@ char *readline() {
         display_line();
         // ideally this will block us and wake us up accordingly
         key_event_t e;
-        tty_read_key(opts.tty, &e);
+        tty_read_key(&e);
         if (e.special_key == KEY_ENTER) {
             do_accept_entry();
             return opts.line;
@@ -186,7 +184,7 @@ char *readline() {
 static void display_line() {
     char buff[80];
 
-    tty_set_cursor(opts.tty, opts.cursor_row, 0);
+    tty_set_cursor(opts.cursor_row, 0);
     if (opts.searching) {
         sprintfn(buff, sizeof(buff),
             "(%s%s-i-search)`%s': ",
@@ -194,63 +192,63 @@ static void display_line() {
             opts.searching_backwards ? "reverse" : "forward",
             opts.search_term
         );
-        tty_write(opts.tty, buff);
-        tty_write(opts.tty, opts.line);
+        tty_write(buff);
+        tty_write(opts.line);
         int prompt_len = 1 + (opts.search_failed ? 7 : 0) + 18 + strlen(opts.search_term) + 3;
         int remaining = 79 - prompt_len - strlen(opts.line);
         strcpy(buff, " ");
         while (remaining-- > 0)
-            tty_write(opts.tty, buff);
-        tty_set_cursor(opts.tty, opts.cursor_row, prompt_len);
+            tty_write(buff);
+        tty_set_cursor(opts.cursor_row, prompt_len);
     } else {
-        tty_write(opts.tty, opts.prompt);
-        tty_write(opts.tty, opts.line);
+        tty_write(opts.prompt);
+        tty_write(opts.line);
         int remaining = 79 - strlen(opts.prompt) - strlen(opts.line);
         while (remaining-- > 0)
-            tty_write(opts.tty, " ");
-        tty_set_cursor(opts.tty, opts.cursor_row, strlen(opts.prompt) + opts.line_pos);
+            tty_write(" ");
+        tty_set_cursor(opts.cursor_row, strlen(opts.prompt) + opts.line_pos);
     }
 }
 
 static void display_help() {
-    tty_write(opts.tty, "\n");
-    tty_write(opts.tty, "--- Movement commands ---\n");
-    tty_write(opts.tty, " ctrl-a      go start of line\n");
-    tty_write(opts.tty, " ctrl-e      go end of line\n");
-    tty_write(opts.tty, " ctrl-f      go forwards one char\n");
-    tty_write(opts.tty, " ctrl-b      go backwards one char\n");
-    tty_write(opts.tty, " alt-f       move forward a word\n");
-    tty_write(opts.tty, " alt-b       move backward a word\n");
-    tty_write(opts.tty, "--- Editing commands ---\n");
-    tty_write(opts.tty, " ctrl-k      delete to end of line\n");
-    tty_write(opts.tty, " ctrl-u      delete to start of line\n");
-    tty_write(opts.tty, " ctrl-y      yank most recently killed text in cursor position\n");
-    tty_write(opts.tty, " alt-d       delete word to the right\n");
-    tty_write(opts.tty, " alt-backsp  delete word to the left\n");
-    tty_write(opts.tty, " ctrl-l      clear the screen\n");
-    tty_write(opts.tty, "--- History commands ---\n");
-    tty_write(opts.tty, " ctrl-p      previous history entry\n");
-    tty_write(opts.tty, " ctrl-n      next history entry\n");
-    tty_write(opts.tty, " ctrl-r      incremental search backwards in history\n");
-    tty_write(opts.tty, " ctrl-s      incremental search forward in history\n");
-    tty_write(opts.tty, "--- Completion commands ---\n");
-    tty_write(opts.tty, " tab         complete word\n");
-    tty_write(opts.tty, " alt-?       list possible completions\n");
-    tty_write(opts.tty, " alt-*       insert all possible completions\n");
+    tty_write("\n");
+    tty_write("--- Movement commands ---\n");
+    tty_write(" ctrl-a      go start of line\n");
+    tty_write(" ctrl-e      go end of line\n");
+    tty_write(" ctrl-f      go forwards one char\n");
+    tty_write(" ctrl-b      go backwards one char\n");
+    tty_write(" alt-f       move forward a word\n");
+    tty_write(" alt-b       move backward a word\n");
+    tty_write("--- Editing commands ---\n");
+    tty_write(" ctrl-k      delete to end of line\n");
+    tty_write(" ctrl-u      delete to start of line\n");
+    tty_write(" ctrl-y      yank most recently killed text in cursor position\n");
+    tty_write(" alt-d       delete word to the right\n");
+    tty_write(" alt-backsp  delete word to the left\n");
+    tty_write(" ctrl-l      clear the screen\n");
+    tty_write("--- History commands ---\n");
+    tty_write(" ctrl-p      previous history entry\n");
+    tty_write(" ctrl-n      next history entry\n");
+    tty_write(" ctrl-r      incremental search backwards in history\n");
+    tty_write(" ctrl-s      incremental search forward in history\n");
+    tty_write("--- Completion commands ---\n");
+    tty_write(" tab         complete word\n");
+    tty_write(" alt-?       list possible completions\n");
+    tty_write(" alt-*       insert all possible completions\n");
 
-    tty_get_cursor(opts.tty, &opts.cursor_row, NULL);
+    tty_get_cursor(&opts.cursor_row, NULL);
 }
 
 static void display_history() {
     char buff[80];
-    tty_write(opts.tty, "\n");
+    tty_write("\n");
     int len = slist_size(opts.history);
     for (int i = 0; i < len; i++) {
         sprintfn(buff, sizeof(buff), " %d: %s\n", i, slist_get(opts.history, i));
-        tty_write(opts.tty, buff);
+        tty_write(buff);
     }
 
-    tty_get_cursor(opts.tty, &opts.cursor_row, NULL);
+    tty_get_cursor(&opts.cursor_row, NULL);
 }
 
 static int find_next_word_to_the_right() {
@@ -336,7 +334,7 @@ static void find_word_to_cursor() {
 static void do_accept_entry() {
     opts.searching = false;    
 
-    tty_write(opts.tty, "\n");
+    tty_write("\n");
     if (strlen(opts.line) == 0)
         return;
     
@@ -376,7 +374,7 @@ static void do_move_forwards_one_word() {
 }
 
 static void do_clear_screen() {
-    tty_clear(opts.tty);
+    tty_clear();
     opts.searching = false;
     opts.cursor_row = 0;
 }
@@ -500,17 +498,17 @@ static void do_list_completions() {
     if (strlen(opts.word) == 0)
         return;
 
-    tty_write(opts.tty, "\n");
+    tty_write("\n");
     int start = 0;
     int pos = slist_indexof_prefix(opts.keywords, opts.word, start);
     while (pos != -1) {
         sprintfn(buff, sizeof(buff), "> %s\n", slist_get(opts.keywords, pos));
-        tty_write(opts.tty, buff);
+        tty_write(buff);
         start = pos + 1;
         pos = slist_indexof_prefix(opts.keywords, opts.word, start);
     }
 
-    tty_get_cursor(opts.tty, &opts.cursor_row, NULL);
+    tty_get_cursor(&opts.cursor_row, NULL);
 }
 
 static void do_insert_completions() {
@@ -528,7 +526,7 @@ static void do_insert_completions() {
         pos = slist_indexof_prefix(opts.keywords, opts.word, start);
     }
 
-    tty_get_cursor(opts.tty, &opts.cursor_row, NULL);
+    tty_get_cursor(&opts.cursor_row, NULL);
 }
 
 static void do_handle_printable(uint8_t character) {

@@ -2,6 +2,7 @@
 #define _PROCESS_H
 
 #include <stdint.h>
+#include "../devices/tty.h"
 
 // posix has it, i think
 typedef uint16_t pid_t;
@@ -13,8 +14,8 @@ typedef struct process process_t;
 typedef void (* func_ptr)();
 
 
-// create & initialize a process, don't start it yet
-process_t *create_process(func_ptr entry_point, char *name, uint8_t priority);
+// create & initialize a process, don't start it yet, optinal association with a tty
+process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty);
 
 // this appends the process on the ready queues
 void start_process(process_t *process);
@@ -86,6 +87,7 @@ struct process {
     void *block_channel;
     uint64_t wake_up_time;
     uint8_t exit_code;
+    tty_t *tty; // if the process has an associated tty
 };
 
 

@@ -148,9 +148,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_TTY, LOGLEV_DEBUG);
     
     // create desired tasks here, 
-    start_process(create_process(process_a_main, "Task A", 2));
-    start_process(create_process(process_b_main, "Task B", 2));
-    start_process(create_process(process_c_main, "System Monitor", 2));
+    start_process(create_process(process_a_main, "Task A", 2, tty_manager_get_device(0)));
+    start_process(create_process(process_b_main, "Task B", 2, tty_manager_get_device(1)));
+    start_process(create_process(process_c_main, "System Monitor", 2, tty_manager_get_device(2)));
 
     // start_multitasking() will never return
     klog_info("Starting multitasking, goodbye from main()!");
@@ -161,24 +161,24 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
 void process_a_main() {
     tty_t *tty = tty_manager_get_device(0);
-    tty_set_title(tty, "Kernel Console");
-    tty_write(tty, "Welcome to konsole, enter \"?\" for help");
+    tty_set_title("Kernel Console");
+    tty_write("Welcome to konsole, enter \"?\" for help");
     konsole(tty);
 }
 
 void process_b_main() {
     tty_t *tty = tty_manager_get_device(1);
-    tty_set_title(tty, "Numbers counting on red backgroudn");
+    tty_set_title("Numbers counting on red backgroudn");
     char buffer[32];
     char *message = "Hello from process A! - use Ctrl+Alt+Fn to switch ttys";
-    tty_write(tty, message);
+    tty_write(message);
 
 
     int i = 0;
-    tty_set_color(tty, VGA_COLOR_RED << 4 | VGA_COLOR_WHITE);
+    tty_set_color(VGA_COLOR_RED << 4 | VGA_COLOR_WHITE);
     while (true) {
         sprintfn(buffer, sizeof(buffer), "\nTask A, i=%d...", i++);
-        tty_write(tty, buffer);
+        tty_write(buffer);
         sleep(1000);
 
         if (i % 10 == 0)
@@ -188,11 +188,11 @@ void process_b_main() {
 
 void process_c_main() {
     tty_t *tty = tty_manager_get_device(2);
-    tty_set_title(tty, "Ascii table presentation");
+    tty_set_title("Ascii table presentation");
 
-    tty_set_color(tty, VGA_COLOR_BLUE << 4 | VGA_COLOR_WHITE);
+    tty_set_color(VGA_COLOR_BLUE << 4 | VGA_COLOR_WHITE);
     char buffer[80];
-    tty_write(tty, "   00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f \n");
+    tty_write("   00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f \n");
     for (int i = 0; i < 16; i++) {
         sprintfn(buffer, sizeof(buffer), "%x0 ", i);
         for (int j = 0; j < 16; j++) {
@@ -203,7 +203,7 @@ void process_c_main() {
         }
         buffer[3 + 16 * 3 + 0] = '\n';
         buffer[3 + 16 * 3 + 1] = '\0';
-        tty_write(tty, buffer);
+        tty_write(buffer);
     }
 }
 

@@ -2,6 +2,7 @@
 #define _KEYBOARD_H
 
 #include "../idt.h"
+#include <stdbool.h>
 
 
 #define KEY_ESCAPE             1

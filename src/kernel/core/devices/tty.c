@@ -175,7 +175,11 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
     }
 }
 
-void tty_read_key(tty_t *tty, key_event_t *event) {
+void tty_read_key(key_event_t *event) {
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        return;
+    
     // if there are keys in the keys buffer, use them
     // other wise block on keyboard entry, whether we are or are not the current one
     if (tty->keys_buffer_len > 0) {
@@ -193,7 +197,16 @@ void tty_read_key(tty_t *tty, key_event_t *event) {
     }
 }
 
-void tty_write(tty_t *tty, char *buffer) {
+void tty_write(char *buffer) {
+    tty_t *tty = running_process()->tty;
+    if (tty != NULL)
+        tty_write_specific_tty(tty, buffer);
+}
+
+void tty_write_specific_tty(tty_t *tty, char *buffer) {
+    if (tty == NULL)
+        return;
+    
     // put something on the buffer of the tty 
     // if tty is visibile, put it on the screen as well    
     int len = strlen(buffer);
@@ -208,14 +221,22 @@ void tty_write(tty_t *tty, char *buffer) {
     }
 }
 
-void tty_set_color(tty_t *tty, int color) {
+void tty_set_color(int color) {
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        return;
+    
     // set the color, per tty that is.
     tty->color = color;
     if (tty_mgr_data.active_tty == tty)
         screen_set_color(color);
 }
 
-void tty_clear(tty_t *tty) {
+void tty_clear() {
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        return;
+    
     // we just need to move to new row,
     // then set the first visible line there.
     char newline = '\n';
@@ -225,14 +246,22 @@ void tty_clear(tty_t *tty) {
     draw_tty_buffer_to_screen(tty);
 }
 
-void tty_get_cursor(tty_t *tty, uint8_t *row, uint8_t *col) {
+void tty_get_cursor(uint8_t *row, uint8_t *col) {
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        return;
+    
     if (row != NULL)
         *row = tty->row;
     if (col != NULL)
         *col = tty->column;
 }
 
-void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col) {
+void tty_set_cursor(uint8_t row, uint8_t col) {
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        return;
+    
     tty->row = row;
     tty->column = col;
 
@@ -242,7 +271,17 @@ void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col) {
     );
 }
 
-void tty_set_title(tty_t *tty, char *title) {
+void tty_set_title(char *title) {
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        return;
+    
+    tty->title = title;
+    if (tty == tty_mgr_data.active_tty)
+        draw_tty_buffer_to_screen(tty);
+}
+
+void tty_set_title_specific_tty(tty_t *tty, char *title) {
     tty->title = title;
     if (tty == tty_mgr_data.active_tty)
         draw_tty_buffer_to_screen(tty);

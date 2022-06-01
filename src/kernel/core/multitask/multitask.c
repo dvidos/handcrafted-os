@@ -25,7 +25,7 @@ void init_multitasking() {
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
-    process_t *idle = create_process(NULL, "Idle", PROCESS_PRIORITY_LEVELS - 1);
+    process_t *idle = create_process(NULL, "Idle", PROCESS_PRIORITY_LEVELS - 1, NULL);
     running_proc = idle;
     running_proc->state = RUNNING;
 

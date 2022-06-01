@@ -15,9 +15,9 @@
  * that runs in kernel space and allows the user to play
  * (in a dangerous way) with the machine.
  */
-void konsole(tty_t *tty) {
-    // initialize
-    init_readline("dv @ konsole $ ", tty);
+void konsole() {
+    
+    init_readline("dv @ konsole $ ");
 
     readline_add_keyword("hheap");
     readline_add_keyword("mdump");
@@ -29,13 +29,12 @@ void konsole(tty_t *tty) {
     readline_add_keyword("outl");
     readline_add_keyword("mpeek");
 
-    // then
     while (true) {
         char *line = readline();
 
-        tty_write(tty, "You've entered: \"");
-        tty_write(tty, line);
-        tty_write(tty, "\"\n");
+        tty_write("You've entered: \"");
+        tty_write(line);
+        tty_write("\"\n");
     }
 
 }

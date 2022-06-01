@@ -212,7 +212,7 @@ static void task_entry_point_wrapper() {
 }
 
 // a way to create process
-process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
+process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
         klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
@@ -237,6 +237,7 @@ process_t *create_process(func_ptr entry_point, char *name, uint8_t priority) {
     p->cpu_ticks_total = 0;
     p->cpu_ticks_last = 0;
     p->state = READY;
+    p->tty = tty;
 
     klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;
