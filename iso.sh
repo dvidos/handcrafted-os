@@ -17,9 +17,6 @@ cat > tempdir/boot/grub/grub.cfg << EOF
 menuentry "kernel" {
     multiboot /boot/kernel.bin
 }
-menuentry "kernel console" {
-    multiboot /boot/kernel.bin console
-}
 menuentry "kernel tests" {
     multiboot /boot/kernel.bin tests
 }

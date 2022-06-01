@@ -21,6 +21,9 @@ void tty_get_cursor(uint8_t *row, uint8_t *col);
 void tty_set_cursor(uint8_t row, uint8_t col);
 void tty_set_title(char *title);
 
+// print to current tty
+void printf(char *format, ...);
+
 // for processes working on different ttys (not their own process one)
 void tty_write_specific_tty(tty_t *tty, char *buffer);
 void tty_set_title_specific_tty(tty_t *tty, char *title);

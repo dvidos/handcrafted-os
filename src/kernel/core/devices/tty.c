@@ -185,9 +185,7 @@ void tty_read_key(key_event_t *event) {
         dequeue_key_event(tty, event);
     } else {
         // current process getting blocked.
-        klog_error("tty %d self-blocking on waiting for key", tty->dev_no);
         block_me(WAIT_USER_INPUT, tty);
-        klog_error("tty %d got unblocked waiting for key", tty->dev_no);
 
         // if unblocked, it means we got a key!
         if (tty->keys_buffer_len == 0)
@@ -200,6 +198,19 @@ void tty_write(char *buffer) {
     tty_t *tty = running_process()->tty;
     if (tty != NULL)
         tty_write_specific_tty(tty, buffer);
+}
+
+
+// printf() prints to the process tty
+void printf(char *format, ...) {
+    char buffer[128];
+
+    va_list args;
+    va_start(args, format);
+    vsprintfn(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    tty_write(buffer);
 }
 
 void tty_write_specific_tty(tty_t *tty, char *buffer) {

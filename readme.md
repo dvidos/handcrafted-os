@@ -98,6 +98,7 @@ Also the following must be met:
 
 ### things to do
 
+* take a look at levex/osdev in github for good ideas and PCI/ATA/EXT2 drivers
 * improve the headers in the kernel, put them in a single folder, 
 with whatever public interface they will contain.
 * good implementation of a circular buffer, with both reading and writing pointers

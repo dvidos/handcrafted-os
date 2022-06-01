@@ -166,7 +166,7 @@ void screen_clear() {
     screen_set_cursor(screen_row, screen_column);
 }
 
-void screen_putchar(char c)
+static void screen_putchar(char c)
 {
     if (c == '\n') {
     	if (++screen_row == VGA_HEIGHT) {
@@ -195,26 +195,14 @@ void screen_putchar(char c)
     screen_set_cursor(screen_row, screen_column);
 }
 
-void screen_writen(const char* data, int size)
+void screen_write(char* data)
 {
-	for (int i = 0; i < size; i++)
-		screen_putchar(data[i]);
+    while (*data != '\0')
+        screen_putchar(*data++);
 }
 
-void screen_write(const char* data)
-{
-	screen_writen(data, strlen(data));
-}
-
-void panic(char *message) {
-    cli();
-    screen_write("\nKernel panic: ");
-    screen_write(message);
-    for (;;)
-        __asm__ volatile("hlt");    
-}
-
-void printf(char *format, ...) {
+// printk() prints to screen directly using the driver
+void printk(char *format, ...) {
     char buffer[128];
 
     va_list args;
@@ -225,6 +213,11 @@ void printf(char *format, ...) {
     screen_write(buffer);
 }
 
-static inline char dot(char c) {
-    return (c >= ' ' && 'c' <= '~' ? c : '.');
+void panic(char *message) {
+    cli();
+    screen_write("\nKernel panic: ");
+    screen_write(message);
+    for (;;)
+        __asm__ volatile("hlt");    
 }
+
