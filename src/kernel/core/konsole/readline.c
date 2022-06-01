@@ -203,7 +203,8 @@ static void display_help(readline_t *rl) {
     tty_write("ctrl-p   previous history entry        tab       complete word\n");
     tty_write("ctrl-n   next history entry            alt-?     list possible completions\n");
     tty_write("ctrl-r   incremental backwards search  alt-*     insert possible completions\n");
-    tty_write("ctrl-s   incremental forward search     \n");
+    tty_write("ctrl-s   incremental forward search    \n");
+    tty_write("ctrl-h   display history entries       \n");
     tty_write(" \n");
 
     tty_get_cursor(&rl->cursor_row, NULL);
@@ -345,8 +346,8 @@ static void do_move_forwards_one_word(readline_t *rl) {
 
 static void do_clear_screen(readline_t *rl) {
     tty_clear();
+    tty_get_cursor(&rl->cursor_row, NULL);
     rl->searching = false;
-    rl->cursor_row = 0;
 }
 
 static void do_delete_char_to_right(readline_t *rl) {

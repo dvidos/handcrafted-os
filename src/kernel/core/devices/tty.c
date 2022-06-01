@@ -51,7 +51,6 @@ struct tty {
     char *title;
     char *screen_buffer;
     int buffer_alloc_size;
-    int screen_buffer_length;
     int first_visible_buffer_row;
     int total_buffer_rows;
 
@@ -237,11 +236,15 @@ void tty_clear() {
     if (tty == NULL)
         return;
 
-    // we just need to move to new row,
-    // then set the first visible line there.
+    // to make sure there is empty space on screen, 
+    // add as many empty lines as needed in our buffer
     char newline = '\n';
     bool redraw = false;
-    virtual_buffer_put_buffer(tty, &newline, 1, &redraw);
+    int visible_lines = (screen_rows() - tty_mgr_data.header_lines);
+    int saved_row = tty->row;
+    while (visible_lines-- > 0)
+        virtual_buffer_put_buffer(tty, &newline, 1, &redraw);
+    tty->row = saved_row + 1;
     tty->first_visible_buffer_row = tty->row;
     draw_tty_buffer_to_screen(tty);
 }
@@ -322,7 +325,7 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
     int row;
 
     // prepare the title area
-    char buffer[16];
+    char buffer[32];
     for (row = 0; row < tty_mgr_data.header_lines; row++)
         screen_draw_full_row(' ', header_color, row);
     sprintfn(buffer, sizeof(buffer), "tty %d: ", tty->dev_no);
@@ -332,6 +335,8 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
         header_color, 
         strlen(buffer) + 1, 
         0);
+    sprintfn(buffer, sizeof(buffer), "row %d, first-visible %d", tty->row, tty->first_visible_buffer_row);
+    screen_draw_str_at(buffer, header_color, 80 - strlen(buffer) - 1, 0);
     
     // copy the buffer to screen (either lines, or what fits on screen)
     int buffer_offset = tty->first_visible_buffer_row * screen_cols() * 2;
