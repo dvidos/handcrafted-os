@@ -69,6 +69,7 @@ void klog_appender_level(log_appender_t appender, log_level_t level) {
 }
 
 void klog_set_tty(tty_t *tty) {
+    tty_set_title(tty, "Kernel Log Viewer");
     tty_appender = tty;
 }
 

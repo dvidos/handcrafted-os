@@ -98,6 +98,8 @@ Also the following must be met:
 
 ### things to do
 
+* improve the headers in the kernel, put them in a single folder, 
+with whatever public interface they will contain.
 * good implementation of a circular buffer, with both reading and writing pointers
 * good implementation of a list, similar to linux kernel, [here](https://kernel.org/doc/html/latest/core-api/kernel-api.html#list-management-functions)
 * fix readline() to have many instances, not only one
@@ -105,10 +107,6 @@ Also the following must be met:
 we should write. USB might be a good first.
 * start a tree-enabled device manager. ttys will need to be devices,
 pci devices will need to be devices etc.
-* improve screen experience, by implementing scrolling back
-* a few virtual terminals (e.g. a way of switching between two of them,
-each having virtual screen buffers, scrollback, and switching wakes or sleeps each of them)
-Maybe running already something on them (e.g. one for kernel log, one for konsole etc)
 * move utility functions to libc/libk, make kernel use it.
 * ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * the idea of an expandable array of things, similar to the approach of a StringBuilder,
@@ -144,6 +142,10 @@ prior allocation.
 
 ### things done
 
+* improve screen experience, by implementing scrolling back
+* a few virtual terminals (e.g. a way of switching between two of them,
+each having virtual screen buffers, scrollback, and switching wakes or sleeps each of them)
+Maybe running already something on them (e.g. one for kernel log, one for konsole etc)
 * something akin to gnu readline library, using just a getch()/putch() interface
 * make logging having levels (DEBUG, INFO, WARN, ERROR, PANIC) and 
 allow for setting up levels per destination.

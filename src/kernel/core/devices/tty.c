@@ -7,6 +7,7 @@
 #include "../klog.h"
 #include "../cpu.h"
 #include "../string.h"
+#include "../lock.h"
 
 // this device is given or allocated by a task
 // and the task can interact with the screen
@@ -60,6 +61,7 @@ struct tty {
 
     key_event_t keys_buffer[KEYS_BUFFER_SIZE];
     int keys_buffer_len;
+    lock_t keys_buffer_lock;
 };
 
 typedef struct tty tty_t;
@@ -70,6 +72,7 @@ struct tty_mgr_data {
     int header_lines; // to draw on top of every screen, Novel Netware style.
     struct tty *ttys_list;
 };
+
 
 static struct tty_mgr_data tty_mgr_data;
 static void switch_to_tty(int dev_no);
@@ -85,7 +88,7 @@ static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw);
 // essentially, this tty manager acts something like the window manager of the x-window sys
 void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
     memset(&tty_mgr_data, 0, sizeof(tty_mgr_data));
-    // tty_mgr_data.header_lines = 1;
+    tty_mgr_data.header_lines = 1;
 
     tty_t *tty;
     for (int i = 0; i < num_of_ttys; i++) {
@@ -146,7 +149,6 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
 
     // but if the device never reads keyboard input, 
     // those keys should not go to other ttys...
-
     if (event->ctrl_down == 0
         && event->alt_down == 1
         && event->shift_down == 0
@@ -164,7 +166,6 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
         bool up = (event->special_key == KEY_PAGE_UP);
         scroll_tty_screenful(tty_mgr_data.active_tty, up);
     } else {
-        // we should also scroll into view...
         // put in buffer
         enqueue_key_event(tty_mgr_data.active_tty, event);
 
@@ -181,7 +182,9 @@ void tty_read_key(tty_t *tty, key_event_t *event) {
         dequeue_key_event(tty, event);
     } else {
         // current process getting blocked.
+        klog_error("tty %d self-blocking on waiting for key", tty->dev_no);
         block_me(WAIT_USER_INPUT, tty);
+        klog_error("tty %d got unblocked waiting for key", tty->dev_no);
 
         // if unblocked, it means we got a key!
         if (tty->keys_buffer_len == 0)
@@ -194,7 +197,7 @@ void tty_write(tty_t *tty, char *buffer) {
     // put something on the buffer of the tty 
     // if tty is visibile, put it on the screen as well    
     int len = strlen(buffer);
-    klog_trace("tty: writing %d bytes on tty %d", len, tty->dev_no);
+    //klog_trace("tty: writing %d bytes on tty %d", len, tty->dev_no);
     
     bool need_screen_redraw = false;
     virtual_buffer_put_buffer(tty, buffer, len, &need_screen_redraw);
@@ -239,16 +242,22 @@ void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col) {
     );
 }
 
+void tty_set_title(tty_t *tty, char *title) {
+    tty->title = title;
+    if (tty == tty_mgr_data.active_tty)
+        draw_tty_buffer_to_screen(tty);
+}
+
 static void enqueue_key_event(tty_t *tty, key_event_t *event) {
     if (tty->keys_buffer_len >= KEYS_BUFFER_SIZE) {
         klog_warn("Key buffer full for tty %d, dropping event", tty->dev_no);
         return;
     }
     klog_trace("tty: enqueueing key event on tty %d", tty->dev_no);
-    pushcli();
+    acquire(&tty->keys_buffer_lock);
     memcpy(&tty->keys_buffer[tty->keys_buffer_len], event, sizeof(key_event_t));
     tty->keys_buffer_len++;
-    popcli();
+    release(&tty->keys_buffer_lock);
 }
 
 static void dequeue_key_event(tty_t *tty, key_event_t *event) {
@@ -257,12 +266,12 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
         return;
     }
     klog_trace("tty: dequeueing key event from tty %d", tty->dev_no);
-    pushcli();
+    acquire(&tty->keys_buffer_lock);
     memcpy(event, &tty->keys_buffer[0], sizeof(key_event_t));
     tty->keys_buffer_len--;
     // shift everything one place up
     memmove(&tty->keys_buffer[0], &tty->keys_buffer[1], tty->keys_buffer_len * sizeof(key_event_t));
-    popcli();
+    release(&tty->keys_buffer_lock);
 }
 
 static void draw_tty_buffer_to_screen(tty_t *tty) {
@@ -274,10 +283,16 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
     int row;
 
     // prepare the title area
+    char buffer[16];
     for (row = 0; row < tty_mgr_data.header_lines; row++)
         screen_draw_full_row(' ', header_color, row);
-    if (tty->title != NULL)
-        screen_draw_str_at(tty->title, header_color, 1, 0);
+    sprintfn(buffer, sizeof(buffer), "tty %d: ", tty->dev_no);
+    screen_draw_str_at(buffer, header_color, 1, 0);
+    screen_draw_str_at(
+        tty->title == NULL ? "(untitled)" : tty->title, 
+        header_color, 
+        strlen(buffer) + 1, 
+        0);
     
     // copy the buffer to screen (either lines, or what fits on screen)
     int buffer_offset = tty->first_visible_buffer_row * screen_cols() * 2;

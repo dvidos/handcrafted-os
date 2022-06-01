@@ -19,5 +19,6 @@ void tty_set_color(tty_t *tty, int color);
 void tty_clear(tty_t *tty);
 void tty_get_cursor(tty_t *tty, uint8_t *row, uint8_t *col);
 void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col);
+void tty_set_title(tty_t *tty, char *title);
 
 #endif

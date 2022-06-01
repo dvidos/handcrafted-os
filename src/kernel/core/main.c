@@ -141,16 +141,16 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // 1: shell / konsole
     // 2: system monitor
     // 3: kernel log
-    init_tty_manager(3, 100);
+    init_tty_manager(4, 100);
 
     // now that we have ttys, let's dedicate one to syslog
-    klog_set_tty(tty_manager_get_device(2));
+    klog_set_tty(tty_manager_get_device(3));
     klog_appender_level(LOGAPP_TTY, LOGLEV_DEBUG);
     
     // create desired tasks here, 
     start_process(create_process(process_a_main, "Task A", 2));
     start_process(create_process(process_b_main, "Task B", 2));
-    // start_process(create_process(process_c_main, "System Monitor", 2));
+    start_process(create_process(process_c_main, "System Monitor", 2));
 
     // start_multitasking() will never return
     klog_info("Starting multitasking, goodbye from main()!");
@@ -161,12 +161,14 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
 void process_a_main() {
     tty_t *tty = tty_manager_get_device(0);
+    tty_set_title(tty, "Kernel Console");
     tty_write(tty, "Welcome to konsole, enter \"?\" for help");
     konsole(tty);
 }
 
 void process_b_main() {
     tty_t *tty = tty_manager_get_device(1);
+    tty_set_title(tty, "Numbers counting on red backgroudn");
     char buffer[32];
     char *message = "Hello from process A! - use Ctrl+Alt+Fn to switch ttys";
     tty_write(tty, message);
@@ -177,7 +179,7 @@ void process_b_main() {
     while (true) {
         sprintfn(buffer, sizeof(buffer), "\nTask A, i=%d...", i++);
         tty_write(tty, buffer);
-        sleep(500);
+        sleep(1000);
 
         if (i % 10 == 0)
             klog_info("Just fyi, i is %d", i);
@@ -186,13 +188,22 @@ void process_b_main() {
 
 void process_c_main() {
     tty_t *tty = tty_manager_get_device(2);
+    tty_set_title(tty, "Ascii table presentation");
 
     tty_set_color(tty, VGA_COLOR_BLUE << 4 | VGA_COLOR_WHITE);
-    while (true) {
-        tty_clear(tty);
-        tty_write(tty, "---- Process Table ----\n");
-        // dump_process_table(tty);
-        sleep(1000);
+    char buffer[80];
+    tty_write(tty, "   00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f \n");
+    for (int i = 0; i < 16; i++) {
+        sprintfn(buffer, sizeof(buffer), "%x0 ", i);
+        for (int j = 0; j < 16; j++) {
+            unsigned char c = (unsigned char)(i * 16 + j);
+            buffer[3 + (j * 3) + 0] = c < 16 ? '.' : c;
+            buffer[3 + (j * 3) + 1] = ' ';
+            buffer[3 + (j * 3) + 2] = ' ';
+        }
+        buffer[3 + 16 * 3 + 0] = '\n';
+        buffer[3 + 16 * 3 + 1] = '\0';
+        tty_write(tty, buffer);
     }
 }
 
