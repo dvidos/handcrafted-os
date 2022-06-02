@@ -3,11 +3,56 @@
 
 #include <stdint.h>
 
+typedef struct pci_device pci_device_t;
+typedef struct pci_configuration pci_configuration_t;
+typedef struct pci_header_0x00_values pci_header_0x00_values_t;
+typedef struct pci_header_0x01_values pci_header_0x01_values_t;
+typedef struct pci_header_0x02_values pci_header_0x02_values_t;
+
+struct pci_device_id {
+    uint16_t vendor_id;  // vendors unique ids can be discovered online
+    uint16_t device_id;  // indicates device per vendor
+    uint8_t class_type;  // RO, the device type, tables exist for this
+    uint8_t sub_class;   // RO, specific type within class type
+};
+
 struct pci_driver {
     char *name;
     // some pointers to functions to init/sleep/read/write etc.
     // they will take a pointer to a pci_device_t struct
+
+    // devices_table is a table with devices this driver supports,
+    // either through vendor/device or through class/subclass
+    struct pci_device_id **devices_table;
+
+    // pci subsystem passes the device id for the driver to see if it will support it
+    // the driver should return zero if successfully claiming the device
+    int (*probe) (pci_device_t *dev, const struct pci_device_id *id);
+
+    // called when removing the driver (i don't think we'll need this)
+    void (*remove) (pci_device_t *dev);
+
+    // called before/after system suspension
+    // (we won't support this for a long time!)
+    int (*suspend) (pci_device_t *dev, uint32_t state);
+    int (*resume) (pci_device_t *dev);
 };
+
+
+
+void init_pci();
+void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver);
+char *get_pci_class_name(uint8_t class);
+char *get_pci_subclass_name(uint8_t class, uint8_t subclass);
+
+
+// for use by device drivers
+uint8_t pci_dev_read_config_byte(pci_device_t *dev, uint8_t offset);
+uint16_t pci_dev_read_config_word(pci_device_t *dev, uint8_t offset);
+uint32_t pci_dev_read_config_dword(pci_device_t *dev, uint8_t offset);
+void pci_dev_write_config_byte(pci_device_t *dev, uint8_t offset, uint8_t value);
+void pci_dev_write_config_word(pci_device_t *dev, uint8_t offset, uint16_t value);
+void pci_dev_write_config_dword(pci_device_t *dev, uint8_t offset, uint32_t value);
 
 
 
@@ -99,26 +144,23 @@ struct pci_configuration {
     uint8_t header_type;
     uint8_t bist;
     union {
-        struct pci_header_0x00_values h00;
-        struct pci_header_0x01_values h01;
-        struct pci_header_0x02_values h02;
+        pci_header_0x00_values_t h00;
+        pci_header_0x01_values_t h01;
+        pci_header_0x02_values_t h02;
     } headers; // union of different header headers (t0, t1, t2 and flat)
 } __attribute__((packed));
+
 
 struct pci_device {
     uint8_t bus_no;
     uint8_t device_no;
     uint8_t func_no;
-    struct pci_configuration config;
+    pci_configuration_t config;
     struct pci_device *next;
 } __attribute__((packed));
-typedef struct pci_device pci_device_t;
 
-
-
-
-void init_pci();
-void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver);
 
 
 #endif
+
+

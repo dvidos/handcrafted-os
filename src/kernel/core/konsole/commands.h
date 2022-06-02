@@ -4,7 +4,7 @@
 struct command {
     char *cmd;
     char *descr;
-    int (*func_ptr)();
+    int (*func_ptr)(int argc, char **argv);
 };
 
 #endif

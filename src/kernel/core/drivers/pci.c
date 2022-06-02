@@ -35,7 +35,7 @@ pci_device_t *pci_devices_list = NULL;
 // bits 10-8 (3 bits) - device function
 // bits 7-0 (8 bits) - register offset (6 bits register, two least signif bits always zero)
 
-uint32_t pci_address(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
+static uint32_t pci_address(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
     return (
         (uint32_t)0x80000000 |
         (((uint32_t)bus)    << 16) |
@@ -45,7 +45,7 @@ uint32_t pci_address(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) 
     );
 }
 
-uint8_t pci_read_config_byte(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
+static uint8_t pci_read_config_byte(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
     // Write out the address
     outl(PCI_CONFIG_ADDRESS_PORT, pci_address(bus, device, func, offset));
 
@@ -54,7 +54,7 @@ uint8_t pci_read_config_byte(uint8_t bus, uint8_t device, uint8_t func, uint8_t 
     return data;
 }
 
-uint16_t pci_read_config_word(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
+static uint16_t pci_read_config_word(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
     // Write out the address
     outl(PCI_CONFIG_ADDRESS_PORT, pci_address(bus, device, func, offset));
 
@@ -63,7 +63,7 @@ uint16_t pci_read_config_word(uint8_t bus, uint8_t device, uint8_t func, uint8_t
     return data;
 }
 
-uint32_t pci_read_config_dword(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
+static uint32_t pci_read_config_dword(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
     // Write out the address
     outl(PCI_CONFIG_ADDRESS_PORT, pci_address(bus, device, func, offset));
 
@@ -71,6 +71,55 @@ uint32_t pci_read_config_dword(uint8_t bus, uint8_t device, uint8_t func, uint8_
     uint32_t data = inl(PCI_CONFIG_DATA_PORT);
     return data;
 }
+
+static void pci_write_config_byte(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, uint8_t value) {
+    // Write out the address
+    outl(PCI_CONFIG_ADDRESS_PORT, pci_address(bus, device, func, offset));
+
+    // Write the data
+    outw(PCI_CONFIG_DATA_PORT + (offset & 0x03), value);
+}
+
+static void pci_write_config_word(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, uint16_t value) {
+    // Write out the address
+    outl(PCI_CONFIG_ADDRESS_PORT, pci_address(bus, device, func, offset));
+
+    // Write the data
+    outw(PCI_CONFIG_DATA_PORT + (offset & 0x02), value);
+}
+
+static void pci_write_config_dword(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, uint32_t value) {
+    // Write out the address
+    outl(PCI_CONFIG_ADDRESS_PORT, pci_address(bus, device, func, offset));
+
+    // Write the data
+    outl(PCI_CONFIG_DATA_PORT, value);
+}
+
+uint8_t pci_dev_read_config_byte(pci_device_t *dev, uint8_t offset) {
+    return pci_read_config_byte(dev->bus_no, dev->device_no, dev->func_no, offset);
+}
+
+uint16_t pci_dev_read_config_word(pci_device_t *dev, uint8_t offset) {
+    return pci_read_config_word(dev->bus_no, dev->device_no, dev->func_no, offset);
+}
+
+uint32_t pci_dev_read_config_dword(pci_device_t *dev, uint8_t offset) {
+    return pci_read_config_dword(dev->bus_no, dev->device_no, dev->func_no, offset);
+}
+
+void pci_dev_write_config_byte(pci_device_t *dev, uint8_t offset, uint8_t value) {
+    pci_write_config_byte(dev->bus_no, dev->device_no, dev->func_no, offset, value);
+}
+
+void pci_dev_write_config_word(pci_device_t *dev, uint8_t offset, uint16_t value) {
+    pci_write_config_word(dev->bus_no, dev->device_no, dev->func_no, offset, value);
+}
+
+void pci_dev_write_config_dword(pci_device_t *dev, uint8_t offset, uint32_t value) {
+    pci_write_config_dword(dev->bus_no, dev->device_no, dev->func_no, offset, value);
+}
+
 
 pci_device_t *read_pci_device_configuration(uint8_t bus, uint8_t device, uint8_t func) {
     uint32_t reg = pci_read_config_dword(bus, device, func, 0);
@@ -478,6 +527,16 @@ void init_pci() {
             get_pci_class_name(dev->config.class_type),
             get_pci_subclass_name(dev->config.class_type, dev->config.sub_class)
         );
+        if ((dev->config.header_type & 0x3) == 0) {
+            klog_info("              BARs: %x %x %x %x %x %x", 
+                dev->config.headers.h00.bar0,
+                dev->config.headers.h00.bar1,
+                dev->config.headers.h00.bar2,
+                dev->config.headers.h00.bar3,
+                dev->config.headers.h00.bar4,
+                dev->config.headers.h00.bar5
+            );
+        }
         dev = dev->next;
     }
 }

@@ -6,6 +6,7 @@
 #include "../cpu.h"
 #include "../multiboot.h"
 #include "../drivers/clock.h"
+#include "../drivers/pci.h"
 #include "../memory/kheap.h"
 #include "../memory/physmem.h"
 #include "readline.h"
@@ -264,6 +265,46 @@ static int do_phys_mem_dump(int argc, char **argv) {
     }
     return 0;
 }
+static int do_pci_info(int argc, char **argv) {
+    extern pci_device_t *pci_devices_list;
+    pci_device_t *dev = pci_devices_list;
+    while (dev != NULL) {
+        printf("%d:%d:%d: vend/dev.id %04x/%04x, class/sub %02x/%02x, hdr %02x\n",
+            dev->bus_no,
+            dev->device_no,
+            dev->func_no,
+            dev->config.vendor_id,
+            dev->config.device_id,
+            dev->config.class_type,
+            dev->config.sub_class,
+            dev->config.header_type
+        );
+        printf("        %s, %s\n", 
+            get_pci_class_name(dev->config.class_type),
+            get_pci_subclass_name(dev->config.class_type, dev->config.sub_class)
+        );
+        if ((dev->config.header_type & 0x3) == 0) {
+            printf("        BARs: %x %x %x %x %x %x\n", 
+                dev->config.headers.h00.bar0,
+                dev->config.headers.h00.bar1,
+                dev->config.headers.h00.bar2,
+                dev->config.headers.h00.bar3,
+                dev->config.headers.h00.bar4,
+                dev->config.headers.h00.bar5
+            );
+            if (dev->config.headers.h00.interrupt_line != 0
+                || dev->config.headers.h00.interrupt_pin != 0) {
+                printf("        Interrupt line %d, pin %d\n", 
+                    dev->config.headers.h00.interrupt_line,
+                    dev->config.headers.h00.interrupt_pin
+                );
+            }
+        }
+
+        dev = dev->next;
+    }
+    return 0;
+}
 
 
 // any function can have the argc/argv signature if they want
@@ -285,6 +326,7 @@ struct command commands[] = {
     {"sizes", "Variable sizes in memory", do_sizes},
     {"kheap", "Dump kernel heap", do_kheap},
     {"phys", "Physical Memory Dump", do_phys_mem_dump},
+    {"pci", "PCI system info", do_pci_info},
     {NULL, NULL, NULL} // last one must be NULL
 };
 

@@ -141,7 +141,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // 1: shell / konsole
     // 2: system monitor
     // 3: kernel log
-    init_tty_manager(4, 100);
+    init_tty_manager(4, 500);
 
     // now that we have ttys, let's dedicate one to syslog
     klog_set_tty(tty_manager_get_device(3));
@@ -181,7 +181,7 @@ void process_b_main() {
         tty_write(buffer);
         sleep(1000);
 
-        if (i % 10 == 0)
+        if (i % 60 == 0)
             klog_info("Just fyi, i is %d", i);
     }
 }
