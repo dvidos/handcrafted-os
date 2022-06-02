@@ -80,6 +80,6 @@ void keyboard_register_hook(key_event_hook_t hook);
 void keyboard_unregister_hook(key_event_hook_t hook);
 
 void keyboard_handler(registers_t* regs);
-
+void reboot();
 
 #endif

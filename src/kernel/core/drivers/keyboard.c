@@ -27,7 +27,7 @@ static volatile bool super_key = false;
 key_event_hook_t key_event_hooks[KEY_HOOKS_SIZE];
 uint8_t num_event_hooks;
 void call_key_event_hooks(key_event_t *event);
-
+void reboot();
 
 struct scancode_info {
     uint8_t printable;               // if key by itself emits a letter - e.g. "F" or "Φ"
@@ -234,6 +234,13 @@ void keyboard_handler(registers_t* regs) {
         special_key = scancode_map[scancode].extended_special_key;
     }
 
+    if ((left_ctrl || right_ctrl)
+        && (left_alt || right_alt)
+        && !left_shift
+        && !right_shift
+        && special_key == KEY_DELETE)
+        reboot();
+
     if (printable != 0 || special_key != 0) {
         key_event_t event;
         event.printable = printable;
@@ -288,4 +295,30 @@ void call_key_event_hooks(key_event_t *event) {
         if (handled)
             break;
     }
+}
+
+
+// rebooting using the 8042 keyboard controller
+void reboot() {
+    uint8_t temp;
+
+    cli();
+
+    // Clear all keyboard buffers (output and command buffers)
+    do
+    {
+        // empty user data
+        temp = inb(0x64);
+
+        // empty keyboard data
+        if (temp & 0x01)
+            inb(0x60);
+
+    } while (temp & 0x02);
+
+    // pulse CPU reset line
+    outb(0x64, 0xFE);
+
+    for (;;)
+        asm ("hlt");
 }
