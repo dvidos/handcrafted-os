@@ -3,6 +3,7 @@
 #include "../bits.h"
 #include "../klog.h"
 #include "../memory/kheap.h"
+#include "pci.h"
 
 // i think I need to do PCI discovery
 // to find any hard disks (even SATA)
@@ -17,107 +18,7 @@
 // an example of how to write a device driver for linux is here
 // https://olegkutkov.me/2021/01/07/writing-a-pci-device-driver-for-linux/
 
-struct header_0x00_values {
-    uint32_t bar0; // base address register
-    uint32_t bar1; // base address register
-    uint32_t bar2; // base address register
-    uint32_t bar3; // base address register
-    uint32_t bar4; // base address register
-    uint32_t bar5; // base address register
-    uint32_t cardbus_cis_pointer;
-    uint16_t subsystem_id;
-    uint16_t subsystem_vendor_id;
-    uint32_t expansion_rom_base_address;
-    uint32_t reserved0 : 24;
-    uint32_t capabilities_pointer : 8;
-    uint32_t reserved1;
-    uint8_t  max_latency;
-    uint8_t  min_grant;
-    uint8_t  interrupt_pin;
-    uint8_t  interrupt_line;
-} __attribute__((packed));
 
-struct header_0x01_values {
-    uint32_t bar0; // base address register
-    uint32_t bar1; // base address register
-    uint8_t  secondary_latency_timer;
-    uint8_t  subordinate_bus_number;
-    uint8_t  secondary_bus_number;
-    uint8_t  primary_bus_number;
-    uint16_t secondary_status;
-    uint8_t  io_limit;
-    uint8_t  io_base;
-    uint16_t memory_limit;
-    uint16_t memory_base;
-    uint16_t prefetchable_memory_limit;
-    uint16_t prefetchable_memory_base;
-    uint32_t prefetchable_base_upper_32_bits;
-    uint32_t prefetchable_limit_upper_32_bits;
-    uint16_t io_limit_upper_16_bits;
-    uint16_t io_base_upper_16_bits;
-    uint32_t reseved0 : 24;
-    uint32_t capabilities_pointer : 8;
-    uint32_t expansion_rom_base_address;
-    uint16_t bridge_control;
-    uint8_t  interrupt_pin;
-    uint8_t  interrupt_line;
-} __attribute__((packed));
-
-// note 0x02 header is 56 bytes long, not 48, as the others
-struct header_0x02_values {
-    uint32_t cardbus_base_address;
-    uint16_t secondary_status;
-    uint8_t  reserved0;
-    uint8_t  offset_of_capabilities_list;
-    uint8_t  cardbus_latency_timer;
-    uint8_t  subordinate_bus_number;
-    uint8_t  cardbus_bus_number;
-    uint8_t  pci_bus_number;
-    uint32_t memory_base_address_0;
-    uint32_t memory_limit_0;
-    uint32_t memory_base_address_1;
-    uint32_t memory_limit_1;
-    uint32_t io_base_address_0;
-    uint32_t io_limit_0;
-    uint32_t io_base_address_1;
-    uint32_t io_limit_1;
-    uint16_t bridge_control;
-    uint8_t  interrupt_pin;
-    uint8_t  interrupt_line;
-    uint16_t subsystem_vendor_id;
-    uint16_t subsystem_device_id;
-    uint32_t pc_card_16bit_legacy_mode_base_address;
-} __attribute__((packed));
-
-struct pci_configuration {
-    uint16_t device_id;  // indicates device per vendor
-    uint16_t vendor_id;  // vendors unique ids can be discovered online
-    uint16_t status;     // status bits
-    uint16_t command;    // command
-    uint8_t revision_id; // revision id, provided by the vendor
-    uint8_t prog_if;     // type of programming interface, if any
-    uint8_t sub_class;   // RO, specific type within class type
-    uint8_t class_type;  // RO, the device type, tables exist for this
-    uint8_t cache_line_size; // cache size in 32bit units
-    uint8_t latency_timer;  // the latency timer in units of pci bus cycles
-    uint8_t header_type;
-    uint8_t bist;
-    union {
-        struct header_0x00_values h00;
-        struct header_0x01_values h01;
-        struct header_0x02_values h02;
-    } headers; // union of different header headers (t0, t1, t2 and flat)
-} __attribute__((packed));
-
-struct pci_device {
-    uint8_t bus_no;
-    uint8_t device_no;
-    uint8_t func_no;
-    struct pci_configuration config;
-
-    struct pci_device *next;
-} __attribute__((packed));
-typedef struct pci_device pci_device_t;
 
 pci_device_t *pci_devices_list = NULL;
 
@@ -382,13 +283,188 @@ void test_pci_device(uint8_t dev_no) {
     klog_debug("Bits distribution: value=%x, high bit=%x, low bit=%x", u.value, u.bits.high_bit, u.bits.low_bit);
 }
 
+char *get_pci_class_name(uint8_t class) {
+    switch (class) {
+        case 0x00: return "Unclassified";
+        case 0x01: return "Mass Storage Controller";
+        case 0x02: return "Network Controller";
+        case 0x03: return "Display Controller";
+        case 0x04: return "Multimedia Controller";
+        case 0x05: return "Memory Controller";
+        case 0x06: return "Bridge";
+        case 0x07: return "Simple Communication Controller";
+        case 0x08: return "Base System Peripheral";
+        case 0x09: return "Input Device Controller";
+        case 0x0A: return "Docking Station";
+        case 0x0B: return "Processor";
+        case 0x0C: return "Serial Bus Controller";
+        case 0x0D: return "Wireless Controller";
+        case 0x0E: return "Intelligent Controller";
+        case 0x0F: return "Satellite Communication Controller";
+        case 0x10: return "Encryption Controller";
+        case 0x11: return "Signal Processing Controller";
+        case 0x12: return "Processing Accelerator";
+        case 0x13: return "Non-Essential Instrumentation";
+        case 0x40: return "Co-Processor";
+    }
+
+    return "Unknown";
+}
+
+char *get_pci_subclass_name(uint8_t class, uint8_t subclass) {
+    switch (class) {
+        case 0x00: // Unclassified
+            switch (subclass) {
+                case 0x0: return "Non-VGA-Compatible Unclassified Device";
+                case 0x1: return "VGA-Compatible Unclassified Device";
+            }
+            break;
+        case 0x01: // Mass Storage Controller
+            switch (subclass) {
+                case 0x0: return "SCSI Bus Controller";
+                case 0x1: return "IDE Controller";
+                case 0x2: return "Floppy Disk Controller";
+                case 0x3: return "IPI Bus Controller";
+                case 0x4: return "RAID Controller";
+                case 0x5: return "ATA Controller";
+                case 0x6: return "Serial ATA Controller";
+                case 0x7: return "Serial Attached SCSI Controller";
+                case 0x8: return "Non-Volatile Memory Controller";
+            }
+            break;
+        case 0x02: // Network Controller
+            switch (subclass) {
+                case 0x0: return "Ethernet Controller";
+                case 0x1: return "Token Ring Controller";
+                case 0x2: return "FDDI Controller";
+                case 0x3: return "ATM Controller";
+                case 0x4: return "ISDN Controller";
+                case 0x5: return "WorldFip Controller";
+                case 0x6: return "PICMG 2.14 Multi Computing Controller";
+                case 0x7: return "Infiniband Controller";
+                case 0x8: return "Fabric Controller";
+            }
+            break;
+        case 0x03: // Display Controller
+            switch (subclass) {
+                case 0x0: return "VGA Compatible Controller";
+                case 0x1: return "XGA Controller";
+                case 0x2: return "3D Controller (Not VGA-Compatible)";
+            }
+            break;
+        case 0x04: // Multimedia Controller
+            switch (subclass) {
+                case 0x0: return "Multimedia Video Controller";
+                case 0x1: return "Multimedia Audio Controller";
+                case 0x2: return "Computer Telephony Device";
+                case 0x3: return "Audio Device";
+            }
+            break;
+        case 0x05: // Memory Controller
+            switch (subclass) {
+                case 0x0: return "RAM Controller";
+                case 0x1: return "Flash Controller";
+            }
+            break;
+        case 0x06: // Bridge
+            switch (subclass) {
+                case 0x0: return "Host Bridge";
+                case 0x1: return "ISA Bridge";
+                case 0x2: return "EISA Bridge";
+                case 0x3: return "MCA Bridge";
+                case 0x4: return "PCI-to-PCI Bridge";
+                case 0x5: return "PCMCIA Bridge";
+                case 0x6: return "NuBus Bridge";
+                case 0x7: return "CardBus Bridge";
+                case 0x8: return "RACEway Bridge";
+                case 0x9: return "PCI-to-PCI Bridge";
+                case 0xA: return "InfiniBand-to-PCI Host Bridge";
+            }
+            break;
+        case 0x07: // Simple Communication Controller
+            switch (subclass) {
+                case 0x0: return "Serial Controller";
+                case 0x1: return "Parallel Controller";
+                case 0x2: return "Multiport Serial Controller";
+                case 0x3: return "Modem";
+                case 0x4: return "IEEE 488.1/2 (GPIB) Controller";
+                case 0x5: return "Smart Card Controller";
+            }
+            break;
+        case 0x08: // Base System Peripheral
+            switch (subclass) {
+                case 0x0: return "PIC";
+                case 0x1: return "DMA Controller";
+                case 0x2: return "Timer";
+                case 0x3: return "RTC Controller";
+                case 0x4: return "PCI Hot-Plug Controller";
+                case 0x5: return "SD Host controller";
+                case 0x6: return "IOMMU";
+            }
+            break;
+        case 0x09: // Input Device Controller
+            switch (subclass) {
+                case 0x0: return "Keyboard Controller";
+                case 0x1: return "Digitizer Pen";
+                case 0x2: return "Mouse Controller";
+                case 0x3: return "Scanner Controller";
+                case 0x4: return "Gameport Controller";
+            }
+            break;
+        case 0x0A: // Docking Station
+            switch (subclass) {
+                case 0x0: return "Generic";
+            }
+            break;
+        case 0x0B: // Processor
+            switch (subclass) {
+                case 0x0: return "386";
+                case 0x1: return "486";
+                case 0x2: return "Pentium";
+                case 0x3: return "Pentium Pro";
+                case 0x10: return "Alpha";
+                case 0x20: return "PowerPC";
+                case 0x30: return "MIPS";
+                case 0x40: return "Co-Processor";
+            }
+            break;
+        case 0x0C: // Serial Bus Controller
+            switch (subclass) {
+                case 0x0: return "FireWire (IEEE 1394) Controller";
+                case 0x1: return "ACCESS Bus Controller";
+                case 0x2: return "SSA";
+                case 0x3: return "USB Controller";
+                case 0x4: return "Fibre Channel";
+                case 0x5: return "SMBus Controller";
+                case 0x6: return "InfiniBand Controller";
+                case 0x7: return "IPMI Interface";
+                case 0x8: return "SERCOS Interface (IEC 61491)";
+                case 0x9: return "CANbus Controller";
+            }
+            break;
+        case 0x0D: // Wireless Controller
+            switch (subclass) {
+                case 0x0: return "iRDA Compatible Controller";
+                case 0x1: return "Consumer IR Controller";
+                case 0x10: return "RF Controller";
+                case 0x11: return "Bluetooth Controller";
+                case 0x12: return "Broadband Controller";
+                case 0x20: return "Ethernet Controller (802.1a)";
+                case 0x21: return "Ethernet Controller (802.1b)";
+            }
+            break;
+    }
+
+    return "Unknown";
+}
+
 void init_pci() {
-    klog_debug("Collecting pci devices...\n");
+    klog_debug("Collecting PCI devices...\n");
     collect_pci_devices();
 
     pci_device_t *dev = pci_devices_list;
     while (dev != NULL) {
-        klog_debug("B:D:F: %d:%d:%d, vend.id %04x, dev.id %04x, class/sub %02x/%02x, hdr %02x",
+        klog_info("B:D:F: %d:%d:%d, vend.id %04x, dev.id %04x, class/sub %02x/%02x, hdr %02x",
             dev->bus_no,
             dev->device_no,
             dev->func_no,
@@ -398,39 +474,16 @@ void init_pci() {
             dev->config.sub_class,
             dev->config.header_type
         );
+        klog_info("              %s, %s", 
+            get_pci_class_name(dev->config.class_type),
+            get_pci_subclass_name(dev->config.class_type, dev->config.sub_class)
+        );
         dev = dev->next;
     }
-
-    /*
-        Device 3 on my QEMU environment.
-        - Vendor = 8006 (Intel)
-        - Device = 100E (Gigabit Ethernet Controller)
-        - Class = 02    (Network Controller)
-        - Subclass = 00 (Ethernet Controller)
-
-        Device 4 on my QEMU environment.
-        - Vendor = 8006 (Intel)
-        - Device = 2922 (6 port SATA Controller [AHCI mode])
-        - Class = 01    (Mass Storage Controller)
-        - Subclass = 06 (Serial ATA Controller)
-
-        B:D:F 0:0:0, vend.id 8086, dev.id 1237, class/sub 06/00, hdr 00
-        B:D:F 0:1:0, vend.id 8086, dev.id 7000, class/sub 06/01, hdr 80
-        B:D:F 0:1:1, vend.id 8086, dev.id 7010, class/sub 01/01, hdr 00
-        B:D:F 0:2:0, vend.id 1234, dev.id 1111, class/sub 03/00, hdr 00
-        B:D:F 0:3:0, vend.id 8086, dev.id 100E, class/sub 02/00, hdr 00
-        B:D:F 0:4:0, vend.id 8086, dev.id 2922, class/sub 01/06, hdr 00
-    */
 }
 
 
-struct pci_driver {
-    char *name;
-    // some pointers to functions to init/sleep/read/write etc.
-    // they will take a pointer to a pci_device_t struct
-};
-
 void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver) {
-    // keep a list of available drivers... etc.
+    // keep a list of available drivers
 }
 

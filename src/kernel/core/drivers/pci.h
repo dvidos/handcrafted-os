@@ -1,8 +1,124 @@
 #ifndef _PCI_H
 #define _PCI_H
 
-void init_pci();
+#include <stdint.h>
 
+struct pci_driver {
+    char *name;
+    // some pointers to functions to init/sleep/read/write etc.
+    // they will take a pointer to a pci_device_t struct
+};
+
+
+
+struct pci_header_0x00_values {
+    uint32_t bar0; // base address register
+    uint32_t bar1; // base address register
+    uint32_t bar2; // base address register
+    uint32_t bar3; // base address register
+    uint32_t bar4; // base address register
+    uint32_t bar5; // base address register
+    uint32_t cardbus_cis_pointer;
+    uint16_t subsystem_id;
+    uint16_t subsystem_vendor_id;
+    uint32_t expansion_rom_base_address;
+    uint32_t reserved0 : 24;
+    uint32_t capabilities_pointer : 8;
+    uint32_t reserved1;
+    uint8_t  max_latency;
+    uint8_t  min_grant;
+    uint8_t  interrupt_pin;
+    uint8_t  interrupt_line;
+} __attribute__((packed));
+
+struct pci_header_0x01_values {
+    uint32_t bar0; // base address register
+    uint32_t bar1; // base address register
+    uint8_t  secondary_latency_timer;
+    uint8_t  subordinate_bus_number;
+    uint8_t  secondary_bus_number;
+    uint8_t  primary_bus_number;
+    uint16_t secondary_status;
+    uint8_t  io_limit;
+    uint8_t  io_base;
+    uint16_t memory_limit;
+    uint16_t memory_base;
+    uint16_t prefetchable_memory_limit;
+    uint16_t prefetchable_memory_base;
+    uint32_t prefetchable_base_upper_32_bits;
+    uint32_t prefetchable_limit_upper_32_bits;
+    uint16_t io_limit_upper_16_bits;
+    uint16_t io_base_upper_16_bits;
+    uint32_t reseved0 : 24;
+    uint32_t capabilities_pointer : 8;
+    uint32_t expansion_rom_base_address;
+    uint16_t bridge_control;
+    uint8_t  interrupt_pin;
+    uint8_t  interrupt_line;
+} __attribute__((packed));
+
+// note 0x02 header is 56 bytes long, not 48, as the others
+struct pci_header_0x02_values {
+    uint32_t cardbus_base_address;
+    uint16_t secondary_status;
+    uint8_t  reserved0;
+    uint8_t  offset_of_capabilities_list;
+    uint8_t  cardbus_latency_timer;
+    uint8_t  subordinate_bus_number;
+    uint8_t  cardbus_bus_number;
+    uint8_t  pci_bus_number;
+    uint32_t memory_base_address_0;
+    uint32_t memory_limit_0;
+    uint32_t memory_base_address_1;
+    uint32_t memory_limit_1;
+    uint32_t io_base_address_0;
+    uint32_t io_limit_0;
+    uint32_t io_base_address_1;
+    uint32_t io_limit_1;
+    uint16_t bridge_control;
+    uint8_t  interrupt_pin;
+    uint8_t  interrupt_line;
+    uint16_t subsystem_vendor_id;
+    uint16_t subsystem_device_id;
+    uint32_t pc_card_16bit_legacy_mode_base_address;
+} __attribute__((packed));
+
+
+// information we collect when enumerating PCI devices
+struct pci_configuration {
+    uint16_t device_id;  // indicates device per vendor
+    uint16_t vendor_id;  // vendors unique ids can be discovered online
+    uint16_t status;     // status bits
+    uint16_t command;    // command
+    uint8_t revision_id; // revision id, provided by the vendor
+    uint8_t prog_if;     // type of programming interface, if any
+    uint8_t sub_class;   // RO, specific type within class type
+    uint8_t class_type;  // RO, the device type, tables exist for this
+    uint8_t cache_line_size; // cache size in 32bit units
+    uint8_t latency_timer;  // the latency timer in units of pci bus cycles
+    uint8_t header_type;
+    uint8_t bist;
+    union {
+        struct pci_header_0x00_values h00;
+        struct pci_header_0x01_values h01;
+        struct pci_header_0x02_values h02;
+    } headers; // union of different header headers (t0, t1, t2 and flat)
+} __attribute__((packed));
+
+struct pci_device {
+    uint8_t bus_no;
+    uint8_t device_no;
+    uint8_t func_no;
+    struct pci_configuration config;
+    struct pci_device *next;
+} __attribute__((packed));
+typedef struct pci_device pci_device_t;
+
+
+
+
+void init_pci();
+void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver);
 
 
 #endif
