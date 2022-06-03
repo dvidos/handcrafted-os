@@ -103,7 +103,6 @@ Also the following must be met:
 with whatever public interface they will contain.
 * good implementation of a circular buffer, with both reading and writing pointers
 * good implementation of a list, similar to linux kernel, [here](https://kernel.org/doc/html/latest/core-api/kernel-api.html#list-management-functions)
-* fix readline() to have many instances, not only one
 * improve PCI devices, at least allow class/subclass names, to see what drivers 
 we should write. USB might be a good first.
 * start a tree-enabled device manager. ttys will need to be devices,
@@ -143,6 +142,7 @@ prior allocation.
 
 ### things done
 
+* fix readline() to have many instances, not only one
 * improve screen experience, by implementing scrolling back
 * a few virtual terminals (e.g. a way of switching between two of them,
 each having virtual screen buffers, scrollback, and switching wakes or sleeps each of them)
@@ -180,7 +180,7 @@ locking, task switching, idt, gdt, boot info, etc)
 
 ### Dreamland wish list (push the envelope)
 
-* Multiple entries in a task or app, similarly to how Android is doing. 
+* Multiple entry points in a task or app, similarly to how Android is doing. Maybe this is something similar to Unix's signals.
 * Something similar to Google Cloud functions: implement a small thing, configure when it is to be called (e.g. when a message of x becomes available, or when we boot or etc etc) and have it run.
 * Kafka pipelines emulation would be easily implementable with shell pipes.
 * Better handling of individual chunks of information, e.g. json objects with headers. Instead of just reading one stream of bytes, read a stream of those objects.
@@ -253,3 +253,4 @@ therefore it seems there is some usefulness to mamory paging after all... :-)
 as well as spinlock code. Although the repo is weird, lots of little gems in there! :-) also 
 [this one](https://github.com/tiqwab/xv6-x86_64), for 64 bits
 * a nice description of the concepts of linux (e.g. IPC) is located [here](https://tldp.org/LDP/tlk/tlk-toc.html)
+* another nice repository with good libc implementation is [here](https://github.com/system76/coreboot)

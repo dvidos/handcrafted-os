@@ -4,6 +4,7 @@
 #include "../string.h"
 #include "../klog.h"
 #include "../devices/tty.h"
+#include "../drivers/screen.h"
 #include "../memory/kheap.h"
 
 
@@ -168,7 +169,9 @@ static void display_line(readline_t *rl) {
             rl->searching_backwards ? "reverse" : "forward",
             rl->search_term
         );
+        tty_set_color(VGA_COLOR_MAGENTA);
         tty_write(buff);
+        tty_set_color(VGA_COLOR_LIGHT_GREY);
         tty_write(rl->line);
         int prompt_len = 1 + (rl->search_failed ? 7 : 0) + 18 + strlen(rl->search_term) + 3;
         int remaining = 79 - prompt_len - strlen(rl->line);
@@ -177,7 +180,9 @@ static void display_line(readline_t *rl) {
         tty_write(buff);
         tty_set_cursor(rl->cursor_row, prompt_len);
     } else {
+        tty_set_color(VGA_COLOR_GREEN);
         tty_write(rl->prompt);
+        tty_set_color(VGA_COLOR_LIGHT_GREY);
         tty_write(rl->line);
         int remaining = 79 - strlen(rl->prompt) - strlen(rl->line);
         memset(buff, ' ', sizeof(buff));
