@@ -1,11 +1,11 @@
 #include <stddef.h>
 #include <stdbool.h>
-#include "process.h"
-#include "semaphore.h"
-#include "scheduler.h"
-#include "../memory/kheap.h"
-#include "../klog.h"
-#include "../string.h"
+#include <multitask/process.h>
+#include <multitask/semaphore.h>
+#include <multitask/scheduler.h>
+#include <memory/kheap.h>
+#include <klog.h>
+#include <klib/string.h>
 
 semaphore_t *create_semaphore(int limit) {
     semaphore_t *semaphore = kmalloc(sizeof(semaphore_t));

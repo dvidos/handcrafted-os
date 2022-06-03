@@ -1,11 +1,11 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "string.h"
-#include "drivers/serial.h"
-#include "drivers/screen.h"
-#include "drivers/timer.h"
-#include "klog.h"
+#include <klib/string.h>
+#include <drivers/serial.h>
+#include <drivers/screen.h>
+#include <drivers/timer.h>
+#include <klog.h>
 
 
 static char *level_captions[] = {

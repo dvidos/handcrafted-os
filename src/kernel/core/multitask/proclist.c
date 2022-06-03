@@ -1,7 +1,7 @@
 #include <stddef.h>
-#include "process.h"
-#include "proclist.h"
-#include "../memory/kheap.h"
+#include <multitask/process.h>
+#include <multitask/proclist.h>
+#include <memory/kheap.h>
 
 
 // add a process at the end of the list. O(1)

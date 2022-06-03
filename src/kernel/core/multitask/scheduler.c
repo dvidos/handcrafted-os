@@ -1,11 +1,11 @@
 #include <stddef.h>
 #include <stdbool.h>
-#include "scheduler.h"
-#include "process.h"
-#include "proclist.h"
-#include "../cpu.h"
-#include "../drivers/timer.h"
-#include "../klog.h"
+#include <multitask/scheduler.h>
+#include <multitask/process.h>
+#include <multitask/proclist.h>
+#include <cpu.h>
+#include <drivers/timer.h>
+#include <klog.h>
 
 
 

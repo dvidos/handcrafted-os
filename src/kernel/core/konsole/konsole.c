@@ -1,15 +1,15 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include "../string.h"
-#include "../drivers/screen.h"
-#include "../drivers/keyboard.h"
-#include "../cpu.h"
-#include "../multiboot.h"
-#include "../drivers/clock.h"
-#include "../memory/kheap.h"
-#include "../memory/physmem.h"
-#include "readline.h"
-#include "commands.h"
+#include <klib/string.h>
+#include <drivers/screen.h>
+#include <drivers/keyboard.h>
+#include <cpu.h>
+#include <multiboot.h>
+#include <drivers/clock.h>
+#include <memory/kheap.h>
+#include <memory/physmem.h>
+#include <konsole/readline.h>
+#include <konsole/commands.h>
 
 
 extern struct command commands[];

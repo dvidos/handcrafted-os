@@ -1,12 +1,12 @@
 #include <stddef.h>
-#include "multitask.h"
-#include "process.h"
-#include "scheduler.h"
-#include "../drivers/timer.h"
-#include "../drivers/clock.h"
-#include "../klog.h"
-#include "../memory/kheap.h"
-#include "../string.h"
+#include <multitask/multitask.h>
+#include <multitask/process.h>
+#include <multitask/scheduler.h>
+#include <drivers/timer.h>
+#include <drivers/clock.h>
+#include <klog.h>
+#include <memory/kheap.h>
+#include <klib/string.h>
 
 
 

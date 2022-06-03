@@ -1,7 +1,7 @@
 #ifndef _PROCLIST_H
 #define _PROCLIST_H
 
-#include "process.h"
+#include <multitask/process.h>
 
 
 // a process list and associated methods, allow O(1) for most operations

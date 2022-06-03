@@ -1,12 +1,11 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "../string.h"
-#include "screen.h"
-#include "../cpu.h"
-#include "../idt.h"
-#include "../cpu.h"
-#include "../lock.h"
-#include "../klog.h"
+#include <klib/string.h>
+#include <drivers/screen.h>
+#include <cpu.h>
+#include <idt.h>
+#include <lock.h>
+#include <klog.h>
 
 
 // interesting article: https://linuxjournal.com/article/1080

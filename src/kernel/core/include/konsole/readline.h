@@ -1,7 +1,7 @@
 #ifndef _READLINE_H
 #define _READLINE_H
 
-#include "../devices/tty.h"
+#include <devices/tty.h>
 
 typedef struct readline_info readline_t;
 

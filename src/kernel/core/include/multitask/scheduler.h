@@ -2,8 +2,8 @@
 #define _SCHEDULER_H
 
 #include <stdbool.h>
-#include "process.h"
-#include "proclist.h"
+#include <multitask/process.h>
+#include <multitask/proclist.h>
 
 // 0=highest priority, 1,2... lower priorities. 
 // idle runs on the lowest priority level

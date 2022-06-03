@@ -1,8 +1,8 @@
 #include <stdbool.h>
-#include "../string.h"
-#include "../memory/kheap.h"
-#include "slist.h"
-#include "../klog.h"
+#include <klib/string.h>
+#include <memory/kheap.h>
+#include <klib/slist.h>
+#include <klog.h>
 
 struct slist_entry {
     struct slist_entry *prev;

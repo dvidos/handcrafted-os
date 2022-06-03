@@ -1,11 +1,11 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include "../cpu.h"
-#include "../drivers/screen.h"
-#include "../drivers/clock.h"
-#include "../lock.h"
-#include "../cpu.h"
-#include "../idt.h"
+#include <cpu.h>
+#include <drivers/screen.h>
+#include <drivers/clock.h>
+#include <lock.h>
+#include <cpu.h>
+#include <idt.h>
 
 
 // mostly following https://wiki.osdev.org/CMOS#Getting_Current_Date_and_Time_from_RTC

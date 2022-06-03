@@ -3,11 +3,11 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <limits.h>
-#include "../string.h"
-#include "../cpu.h"
-#include "../cpu.h"
-#include "screen.h"
-#include "../bits.h"
+#include <klib/string.h>
+#include <cpu.h>
+#include <cpu.h>
+#include <drivers/screen.h>
+#include <bits.h>
 
 
 // lots of useful information here:

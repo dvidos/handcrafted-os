@@ -1,10 +1,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "../drivers/screen.h"
-#include "../string.h"
-#include "../klog.h"
-#include "physmem.h"
+#include <drivers/screen.h>
+#include <klib/string.h>
+#include <klog.h>
+#include <memory/physmem.h>
 
 #define KMEM_MAGIC            0x6AFE // something that fits in 14 bits
 #define KHEAP_SIZE          0x100000 // 1 MB for now, we'll see

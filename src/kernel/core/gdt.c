@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
-#include "string.h"
-#include "klog.h"
+#include <klib/string.h>
+#include <klog.h>
 
 // Each define here is for a specific flag in the descriptor.
 // Refer to the intel documentation for a description of what each one does.

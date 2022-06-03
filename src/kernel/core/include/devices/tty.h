@@ -1,7 +1,7 @@
 #ifndef _TTY_H
 #define _TTY_H
 
-#include "../drivers/keyboard.h"
+#include <drivers/keyboard.h>
 
 typedef struct tty tty_t;
 

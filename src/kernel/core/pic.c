@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "cpu.h"
-#include "bits.h"
+#include <cpu.h>
+#include <bits.h>
 
 // programmable interrupt controller
 // see https://wiki.osdev.org/8259_PIC

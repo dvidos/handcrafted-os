@@ -1,8 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "drivers/screen.h"
-#include "cpu.h"
-#include "cpu.h"
+#include <drivers/screen.h>
+#include <cpu.h>
 
 #define INTERRUPT_ENABLE_FLAG 0x00000200 // Interrupt Enable
 

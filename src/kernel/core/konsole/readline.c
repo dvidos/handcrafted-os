@@ -1,11 +1,11 @@
 #include <stddef.h>
 #include <stdbool.h>
-#include "../klib/slist.h"
-#include "../string.h"
-#include "../klog.h"
-#include "../devices/tty.h"
-#include "../drivers/screen.h"
-#include "../memory/kheap.h"
+#include <klib/slist.h>
+#include <klib/string.h>
+#include <klog.h>
+#include <devices/tty.h>
+#include <drivers/screen.h>
+#include <memory/kheap.h>
 
 
 // run a modal session to read a command line from keyboard, keep screen updated

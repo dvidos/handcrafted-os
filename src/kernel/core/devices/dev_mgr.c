@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
-#include "../memory/kheap.h"
-#include "../string.h"
+#include <memory/kheap.h>
+#include <klib/string.h>
 
 
 struct device_entry {

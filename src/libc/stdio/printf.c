@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <string.h>
 
 static bool print(const char* data, size_t length) {

@@ -1,8 +1,8 @@
 #include <stddef.h>
 #include <stdbool.h>
-#include "memory/kheap.h"
-#include "drivers/screen.h"
-#include "string.h"
+#include <memory/kheap.h>
+#include <drivers/screen.h>
+#include <klib/string.h>
 
 
 struct linked_list_node {

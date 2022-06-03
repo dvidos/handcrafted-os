@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include "../cpu.h"
-#include "../idt.h"
-#include "screen.h"
+#include <cpu.h>
+#include <idt.h>
+#include <drivers/screen.h>
 
 
 

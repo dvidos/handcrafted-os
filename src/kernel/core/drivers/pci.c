@@ -1,9 +1,9 @@
 #include <stddef.h>
-#include "../cpu.h"
-#include "../bits.h"
-#include "../klog.h"
-#include "../memory/kheap.h"
-#include "pci.h"
+#include <cpu.h>
+#include <bits.h>
+#include <klog.h>
+#include <memory/kheap.h>
+#include <drivers/pci.h>
 
 // i think I need to do PCI discovery
 // to find any hard disks (even SATA)

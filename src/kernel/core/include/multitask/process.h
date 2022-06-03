@@ -2,7 +2,7 @@
 #define _PROCESS_H
 
 #include <stdint.h>
-#include "../devices/tty.h"
+#include <devices/tty.h>
 
 // posix has it, i think
 typedef uint16_t pid_t;

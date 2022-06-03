@@ -12,7 +12,10 @@ CC = i686-elf-gcc
 LD = i686-elf-ld
 AS = i686-elf-as
 EMU = qemu-system-i386 -m 2G
-CFLAGS = -std=gnu99 -ffreestanding -O3 -Wall -Wextra  \
+CFLAGS = -std=gnu99 -ffreestanding -O3 \
+		-Icore/include  \
+		-Wall \
+		-Wextra  \
 		-Werror   \
 		-Wno-unused-parameter \
 		-Wno-unused-function \
@@ -33,6 +36,7 @@ KERNEL_FILES = \
 
 KERNEL_HEADERS = \
 	$(wildcard core/*.h) \
+	$(wildcard core/include/*.h) \
 	$(wildcard core/boot/*.h) \
 	$(wildcard core/memory/*.h) \
 	$(wildcard core/drivers/*.h) \
@@ -75,7 +79,6 @@ boot/multiboot.o: boot/multiboot.S
 
 
 core/%.o: core/%.c $(KERNEL_HEADERS) Makefile
-	@# -O0 disables optimizations (for loops etc), default was -O2
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 

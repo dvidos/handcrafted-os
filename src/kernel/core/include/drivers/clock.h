@@ -2,7 +2,7 @@
 #define _CLOCK_H
 
 #include <stdint.h>
-#include "../idt.h"
+#include <idt.h>
 
 
 struct clock_time {

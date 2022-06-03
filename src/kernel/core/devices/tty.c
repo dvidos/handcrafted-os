@@ -1,13 +1,13 @@
 #include <stddef.h>
 #include <stdbool.h>
-#include "../multitask/process.h"
-#include "../memory/kheap.h"
-#include "../drivers/screen.h"
-#include "../drivers/keyboard.h"
-#include "../klog.h"
-#include "../cpu.h"
-#include "../string.h"
-#include "../lock.h"
+#include <multitask/process.h>
+#include <memory/kheap.h>
+#include <drivers/screen.h>
+#include <drivers/keyboard.h>
+#include <klog.h>
+#include <cpu.h>
+#include <klib/string.h>
+#include <lock.h>
 
 // this device is given or allocated by a task
 // and the task can interact with the screen

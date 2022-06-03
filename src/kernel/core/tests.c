@@ -1,6 +1,6 @@
-#include "drivers/screen.h"
-#include "string.h"
-#include "klog.h"
+#include <drivers/screen.h>
+#include <klib/string.h>
+#include <klog.h>
 
 
 #define assert(a)    if (!(a)) { printf("Assertion failed! %s, file %s, line %u\n", #a, __FILE__, __LINE__); } else { printf("."); }

@@ -1,18 +1,18 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "../drivers/screen.h"
-#include "../string.h"
-#include "../lock.h"
+#include <drivers/screen.h>
+#include <klib/string.h>
+#include <lock.h>
 // #include "../memory/memory.h"
-#include "../drivers/timer.h"
-#include "../cpu.h"
-#include "../drivers/clock.h"
-#include "process.h"
-#include "proclist.h"
-#include "../memory/kheap.h"
-#include "../klog.h"
-#include "scheduler.h"
+#include <drivers/timer.h>
+#include <cpu.h>
+#include <drivers/clock.h>
+#include <multitask/process.h>
+#include <multitask/proclist.h>
+#include <memory/kheap.h>
+#include <klog.h>
+#include <multitask/scheduler.h>
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
