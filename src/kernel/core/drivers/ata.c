@@ -202,7 +202,7 @@ void soft_reset_controller(int controller_no) {
     controller_status(controller_no);
 }
 
-void send_command(uint8_t drive_idx, uint8_t command) {
+static void send_command(uint8_t drive_idx, uint8_t command) {
     // estimated that each IO port read takes 30 usecs
     
     uint8_t cno = drives[drive_idx].controller_no;
