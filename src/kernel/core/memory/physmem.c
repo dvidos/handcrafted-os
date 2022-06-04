@@ -236,8 +236,8 @@ void dump_physical_memory_map_overall() {
  
     // each uint32_t bitmap represents 32 pages => 128KB
     // we need to collect 32 of those for one character
-    klog_info("----------------------- Physical Memory Allocation Map -----------------------");
-    klog_info("    Offset  1 char = 4MB = x400000 = 1024 pages (.=free, *=partial, U=used)");
+    printf("----------------------- Physical Memory Allocation Map -----------------------\n");
+    printf("    Offset  1 char = 4MB = x400000 = 1024 pages (.=free, *=partial, U=used)\n");
     int index = 0;
     for (uint32_t line = 0; line < 16; line++) {
         memset(line_buffer, 0, sizeof(line_buffer));
@@ -254,9 +254,9 @@ void dump_physical_memory_map_overall() {
             char symbol = !free_page_found ? 'U' : (!used_page_found ? '.' : '*');
             line_buffer[char_block] = symbol;
         }
-        klog_info("0x%08x  %s", (uint32_t)(line * 256 * 1024 * 1024), line_buffer);
+        printf("0x%08x  %s\n", (uint32_t)(line * 256 * 1024 * 1024), line_buffer);
     }
-    klog_info("highest memory address 0x%x, %u used pages, %u free pages",
+    printf("highest memory address 0x%x, %u used pages, %u free pages\n",
         highest_memory_address,
         total_used_pages,
         total_free_pages
@@ -279,15 +279,15 @@ void dump_physical_memory_map_detail(uint32_t start_address) {
  
     start_address = round_down_4k(start_address);
     int page_no = address_to_page_num((void *)start_address);
-    klog_info("----------------------- Detailed Memory Allocation Map -----------------------");
-    klog_info("    Offset  1 char = 4KB = 0x1000 = 1 page (.=free, U=unavailable)");
+    printf("----------------------- Detailed Memory Allocation Map -----------------------\n");
+    printf("    Offset  1 char = 4KB = 0x1000 = 1 page (.=free, U=unavailable)\n");
     for (int line = 0; line < 16; line++) {
         memset(line_buffer, 0, sizeof(line_buffer));
         for (int c = 0; c < 64; c++) {
             line_buffer[c] = page_is_free(page_no) ? '.' : 'U';;
             page_no++;
         }
-        klog_info("0x%08x  %s", start_address, line_buffer);
+        printf("0x%08x  %s\n", start_address, line_buffer);
         start_address += (4096 * 64);
     }
 }
