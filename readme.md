@@ -98,9 +98,8 @@ Also the following must be met:
 
 ### things to do
 
+* implement SATA / AHCI driver, qemu seems to support this. look [here](https://wiki.osdev.org/AHCI) and there's even a [sample implementation](https://github.com/rajesh5310/SBUnix/blob/master/sys/ahci.c) -- actually, the whole [SBUnix](https://github.com/rajesh5310/SBUnix) is really nice!
 * take a look at levex/osdev in github for good ideas and PCI/ATA/EXT2 drivers
-* improve the headers in the kernel, put them in a single folder, 
-with whatever public interface they will contain.
 * good implementation of a circular buffer, with both reading and writing pointers
 * good implementation of a list, similar to linux kernel, [here](https://kernel.org/doc/html/latest/core-api/kernel-api.html#list-management-functions)
 * improve PCI devices, at least allow class/subclass names, to see what drivers 
@@ -113,7 +112,6 @@ pci devices will need to be devices etc.
 something sile the one described [here](https://tiswww.case.edu/php/chet/readline/history.html#SEC6).
 Essentially, allow add, get, index, remove operations without fear of running out, or without 
 prior allocation.
-* organize folders, especially process could be a subfolder inside kernel, with a single public header and mutliple internal headers and c files
 * Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
 * Basic libc functionality [more](https://wiki.osdev.org/Creating_a_C_Library)
 * put konsole in a task, maybe allow it to own a tty device
@@ -142,6 +140,9 @@ prior allocation.
 
 ### things done
 
+* improve the headers in the kernel, put them in a single folder, 
+with whatever public interface they will contain.
+* organize folders, especially process could be a subfolder inside kernel, with a single public header and mutliple internal headers and c files
 * fix readline() to have many instances, not only one
 * improve screen experience, by implementing scrolling back
 * a few virtual terminals (e.g. a way of switching between two of them,

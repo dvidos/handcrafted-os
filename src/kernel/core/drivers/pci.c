@@ -5,9 +5,7 @@
 #include <memory/kheap.h>
 #include <drivers/pci.h>
 
-// i think I need to do PCI discovery
-// to find any hard disks (even SATA)
-// and USB hubs / sticks.
+// i think I need to do PCI discovery, to find any hard disks (even SATA) and USB hubs / sticks.
 // currently following https://wiki.osdev.org/PCI
 
 // all pci devices offer 256 registers for configuration
@@ -19,23 +17,30 @@
 // https://olegkutkov.me/2021/01/07/writing-a-pci-device-driver-for-linux/
 
 
+typedef struct pci_driver_registration {
+    struct pci_driver_registration *next;
+    uint8_t class;
+    uint8_t subclass;
+    struct pci_driver *driver;
+} pci_driver_registration_t;
 
 pci_device_t *pci_devices_list = NULL;
+pci_driver_registration_t *pci_registered_drivers_list = NULL;
 
 
 // 32-bit ports
 #define PCI_CONFIG_ADDRESS_PORT   0xCF8
 #define PCI_CONFIG_DATA_PORT      0xCFC
 
-// the format of the config dword is the following:
-// bit 31 (highest) - should access to the PCI_CONFIG_DATA_PORT register be transleated to config cycle
-// bits 30-24 (reserved)
-// bits 23-16 (8 bits) - bus number
-// bits 15-11 (5 bits) - device number
-// bits 10-8 (3 bits) - device function
-// bits 7-0 (8 bits) - register offset (6 bits register, two least signif bits always zero)
 
 static uint32_t pci_address(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
+    // the format of the config dword is the following:
+    // bit     31 (highest) - should access to the PCI_CONFIG_DATA_PORT register be transleated to config cycle
+    // bits 30-24 (reserved)
+    // bits 23-16 (8 bits) - bus number
+    // bits 15-11 (5 bits) - device number
+    // bits  10-8 (3 bits) - device function
+    // bits   7-0 (8 bits) - register offset (6 bits register, two least signif bits always zero)
     return (
         (uint32_t)0x80000000 |
         (((uint32_t)bus)    << 16) |
@@ -507,6 +512,38 @@ char *get_pci_subclass_name(uint8_t class, uint8_t subclass) {
     return "Unknown";
 }
 
+void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver) {
+    pci_driver_registration_t *reg = kmalloc(sizeof(pci_driver_registration_t));
+    reg->class = class;
+    reg->subclass = subclass;
+    reg->driver = driver;
+    reg->next = pci_registered_drivers_list;
+    pci_registered_drivers_list = reg;
+}
+
+static void find_device_driver(pci_device_t *dev) {
+    pci_driver_registration_t *reg = pci_registered_drivers_list;
+    while (reg != NULL) {
+        if (reg->class != dev->config.class_type 
+            || reg->subclass != dev->config.sub_class) {
+            reg = reg->next;
+            continue;
+        }
+        
+        klog_debug("Trying driver %s for device of class/subclass %02x/%02x", 
+            reg->driver->name, 
+            reg->class,
+            reg->subclass
+        );
+        int err = reg->driver->probe(dev);
+        if (err == 0) {
+            klog_debug("Device claimed!");
+            break;
+        }
+        reg = reg->next;
+    }
+}
+
 void init_pci() {
     klog_debug("Collecting PCI devices...\n");
     collect_pci_devices();
@@ -539,10 +576,11 @@ void init_pci() {
         }
         dev = dev->next;
     }
-}
 
-
-void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver) {
-    // keep a list of available drivers
+    dev = pci_devices_list;
+    while (dev != NULL) {
+        find_device_driver(dev);
+        dev = dev->next;
+    }
 }
 

@@ -117,6 +117,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     enable_nmi();
 
     klog_info("Detecting PCI devices...");
+    extern void sata_register_driver();
+    sata_register_driver();
     init_pci();
 
 

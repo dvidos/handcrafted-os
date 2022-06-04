@@ -18,25 +18,15 @@ struct pci_device_id {
 
 struct pci_driver {
     char *name;
+
     // some pointers to functions to init/sleep/read/write etc.
     // they will take a pointer to a pci_device_t struct
-
-    // devices_table is a table with devices this driver supports,
-    // either through vendor/device or through class/subclass
-    struct pci_device_id **devices_table;
-
     // pci subsystem passes the device id for the driver to see if it will support it
     // the driver should return zero if successfully claiming the device
-    int (*probe) (pci_device_t *dev, const struct pci_device_id *id);
-
-    // called when removing the driver (i don't think we'll need this)
-    void (*remove) (pci_device_t *dev);
-
-    // called before/after system suspension
-    // (we won't support this for a long time!)
-    int (*suspend) (pci_device_t *dev, uint32_t state);
-    int (*resume) (pci_device_t *dev);
+    int (*probe)(pci_device_t *dev);
 };
+
+void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver);
 
 
 
