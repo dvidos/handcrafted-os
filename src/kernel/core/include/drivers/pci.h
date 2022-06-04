@@ -47,19 +47,31 @@ void pci_dev_write_config_dword(pci_device_t *dev, uint8_t offset, uint32_t valu
 
 
 struct pci_header_0x00_values {
+    // 0x10
     uint32_t bar0; // base address register
+    // 0x14
     uint32_t bar1; // base address register
+    // 0x18
     uint32_t bar2; // base address register
+    // 0x1C
     uint32_t bar3; // base address register
+    // 0x20
     uint32_t bar4; // base address register
+    // 0x24
     uint32_t bar5; // base address register
+    // 0x28
     uint32_t cardbus_cis_pointer;
+    // 0x2C
     uint16_t subsystem_id;
     uint16_t subsystem_vendor_id;
+    // 0x30
     uint32_t expansion_rom_base_address;
+    // 0x34
     uint32_t reserved0 : 24;
     uint32_t capabilities_pointer : 8;
+    // 0x38
     uint32_t reserved1;
+    // 0x3C
     uint8_t  max_latency;
     uint8_t  min_grant;
     uint8_t  interrupt_pin;

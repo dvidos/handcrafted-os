@@ -1,9 +1,10 @@
 #include <stdbool.h>
-#include <stdint.h>
+#include <stdbool.h>
 #include <klib/string.h>
 #include <drivers/screen.h>
 #include <drivers/keyboard.h>
 #include <cpu.h>
+#include <bits.h>
 #include <multiboot.h>
 #include <drivers/clock.h>
 #include <drivers/pci.h>
@@ -62,10 +63,12 @@ static int do_print(int argc, char **argv) {
     printf("argc = %d\n", argc);
     for (int i = 0; i < argc; i++) {
         printf("argv[%d] = \"%s\"\n", i, argv[i]);
-    }
-    for (int i = 0; i < argc; i++) {
+        
         int parsed = atoi(argv[i]);
         printf("atoi(\"%s\") --> %d (%bb, 0%o, 0x%x)\n", argv[i], parsed, parsed, parsed, parsed);
+
+        unsigned int uparsed = atoui(argv[i]);
+        printf("atoui(\"%s\") --> %u (%bb, 0%o, 0x%x)\n", argv[i], uparsed, uparsed, uparsed, uparsed);
     }
     return 0;
 }
@@ -83,8 +86,8 @@ static int do_mem_dump(int argc, char **argv) {
     }
 
     static uint32_t next_address = 0;
-    uint32_t address = argc > 0 ? (uint32_t)atoi(argv[0]) : next_address;
-    int len = argc == 2 ? atoi(argv[1]) : 256;
+    uint32_t address = argc > 0 ? atoui(argv[0]) : next_address;
+    uint32_t len = argc == 2 ? atoui(argv[1]) : 256;
     unsigned char *ptr = (unsigned char *)address;
     while (len > 0) {
         // using xxd's format, seems nice

@@ -116,22 +116,18 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     sti();
     enable_nmi();
 
+    if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
+        extern void run_tests();
+        printk("Running tests: ");
+        run_tests();
+        printk("\nTests finished, pausing forever...");
+        for(;;) asm("hlt");
+    }
+
     klog_info("Detecting PCI devices...");
     extern void sata_register_driver();
     sata_register_driver();
     init_pci();
-
-
-
-
-    if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
-        printf("Running tests...\n");
-        extern void run_tests();
-        run_tests();
-        screen_write("Tests finished, pausing forever...");
-        for(;;)
-            asm("hlt");
-    }
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();

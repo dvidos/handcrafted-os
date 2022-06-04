@@ -22,7 +22,9 @@ char *memmove(void *dest, void *source, size_t size);
 void reverse(char *buffer, int len);
 void ltoa(long num, char *buffer, int base);
 void ultoa(unsigned long num, char *buffer, int base);
+
 int atoi(char *buffer);
+unsigned int atoui(char *buffer);
 
 void sprintfn(char *buffer, int buffsize, const char *format, ...);
 void vsprintfn(char *buffer, int buffsize, const char *format, va_list args);

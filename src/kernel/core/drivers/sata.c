@@ -1,7 +1,19 @@
 #include <stdint.h>
 #include <drivers/pci.h>
+#include <klog.h>
 
 // based on https://wiki.osdev.org/AHCI
+// and https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf
+
+/*
+ * An AHCI device (known also as HBA - Host Bus Adapter) 
+ *     is a device for moving data between memory and SATA devices.
+ * It can support up to 32 ports / devices. 
+ * Is can support both PIO and DMA protocols
+ * It may support command list per port to reduce overhead.
+ * It may optionally support 64 bit addressing
+ * AHCI describes the memory structure to communicate with the SATA devices
+ */
 
 
 // FIS - Frame Information Structure
@@ -42,7 +54,7 @@ typedef struct fis_reg_host_to_device_struct {
     uint8_t  control;    // Control register
     // DWORD 4
     uint8_t  reserved1[4];    // Reserved
-} fis_reg_host_to_device_t;
+} FIS_REG_HOST_TO_DEVICE;
 
 // A device to host register FIS is used by the device 
 // to notify the host that some ATA register has changed. 
@@ -72,7 +84,7 @@ typedef struct reg_device_to_host_struct {
     uint8_t  reserved3[2];     // Reserved
     // DWORD 4
     uint8_t  reserved4[4];     // Reserved
-} fis_reg_device_to_host_t;
+} FIS_REG_DEVICE_TO_HOST;
 
 
 // This FIS is used by the host or device to send data payload. The data size can be varied.
@@ -84,7 +96,7 @@ typedef struct fis_data_struct {
     uint8_t  reserved1[2];    // Reserved
     // DWORD 1 ~ N
     uint32_t data[1];    // Payload
-} fis_data_t;
+} FIS_DATA;
 
 typedef struct fis_pio_setup_struct {
     // DWORD 0
@@ -114,7 +126,7 @@ typedef struct fis_pio_setup_struct {
     // DWORD 4
     uint16_t tc;        // Transfer count
     uint8_t  reserved4[2];    // Reserved
-} fis_pio_setup_t;
+} FIS_PIO_SETUP;
 
 // dma setup, device to host
 typedef struct fis_dma_setup_struct {
@@ -137,7 +149,31 @@ typedef struct fis_dma_setup_struct {
     uint32_t TransferCount;  //Number of bytes to transfer. Bit 0 must be 0
     //DWORD 6
     uint32_t resvd;          //Reserved
-} fis_dma_setup_t;
+} FIS_DMA_SETUP;
+
+// up to 32 ports per sata controller
+typedef volatile struct hba_port_struct {
+	uint32_t clb;		// 0x00, command list base address, 1K-byte aligned
+	uint32_t clbu;		// 0x04, command list base address upper 32 bits
+	uint32_t fb;		// 0x08, FIS base address, 256-byte aligned
+	uint32_t fbu;		// 0x0C, FIS base address upper 32 bits
+	uint32_t is;		// 0x10, interrupt status
+	uint32_t ie;		// 0x14, interrupt enable
+	uint32_t cmd;		// 0x18, command and status
+	uint32_t rsv0;		// 0x1C, Reserved
+	uint32_t tfd;		// 0x20, task file data
+	uint32_t sig;		// 0x24, signature
+	uint32_t ssts;		// 0x28, SATA status (SCR0:SStatus)
+	uint32_t sctl;		// 0x2C, SATA control (SCR2:SControl)
+	uint32_t serr;		// 0x30, SATA error (SCR1:SError)
+	uint32_t sact;		// 0x34, SATA active (SCR3:SActive)
+	uint32_t ci;		// 0x38, command issue
+	uint32_t sntf;		// 0x3C, SATA notification (SCR4:SNotification)
+	uint32_t fbs;		// 0x40, FIS-based switch control
+	uint32_t rsv1[11];	// 0x44 ~ 0x6F, Reserved
+	uint32_t vendor[4];	// 0x70 ~ 0x7F, vendor specific
+} HBA_PORT;
+
 
 // Host Bus Adapter (AHCI controller) memory registers
 // that memory should be marked uncacheable
@@ -162,31 +198,10 @@ typedef volatile struct hba_mem_struct {
 	uint8_t  vendor[0x100-0xA0];
  
 	// 0x100 - 0x10FF, Port control registers
-	hba_port_t	ports[1];	// 1 ~ 32
-} hba_mem_t;
+	HBA_PORT	ports[1];	// 1 ~ 32
+} HBA_MEM;
  
-typedef volatile struct hba_port_struct {
-	uint32_t clb;		// 0x00, command list base address, 1K-byte aligned
-	uint32_t clbu;		// 0x04, command list base address upper 32 bits
-	uint32_t fb;		// 0x08, FIS base address, 256-byte aligned
-	uint32_t fbu;		// 0x0C, FIS base address upper 32 bits
-	uint32_t is;		// 0x10, interrupt status
-	uint32_t ie;		// 0x14, interrupt enable
-	uint32_t cmd;		// 0x18, command and status
-	uint32_t rsv0;		// 0x1C, Reserved
-	uint32_t tfd;		// 0x20, task file data
-	uint32_t sig;		// 0x24, signature
-	uint32_t ssts;		// 0x28, SATA status (SCR0:SStatus)
-	uint32_t sctl;		// 0x2C, SATA control (SCR2:SControl)
-	uint32_t serr;		// 0x30, SATA error (SCR1:SError)
-	uint32_t sact;		// 0x34, SATA active (SCR3:SActive)
-	uint32_t ci;		// 0x38, command issue
-	uint32_t sntf;		// 0x3C, SATA notification (SCR4:SNotification)
-	uint32_t fbs;		// 0x40, FIS-based switch control
-	uint32_t rsv1[11];	// 0x44 ~ 0x6F, Reserved
-	uint32_t vendor[4];	// 0x70 ~ 0x7F, vendor specific
-} hba_port_t;
-
+// FIS is a packet of information transferred between host and drive
 // pointed by fb+fbu of the hba port structure
 typedef volatile struct hba_fis_struct {
 	// 0x00
@@ -196,18 +211,62 @@ typedef volatile struct hba_fis_struct {
 	FIS_PIO_SETUP	psfis;		// PIO Setup FIS
 	uint8_t         pad1[12];
 	// 0x40
-	FIS_REG_D2H     rfis;		// Register – Device to Host FIS
+	FIS_REG_DEVICE_TO_HOST   rfis;		// Register – Device to Host FIS
 	uint8_t         pad2[4];
 	// 0x58
-	FIS_DEV_BITS	sdbfis;		// Set Device Bit FIS
+	uint16_t	    sdbfis;		// Set Device Bit FIS
 	// 0x60
 	uint8_t         ufis[64];
 	// 0xA0
 	uint8_t   	rsv[0x100-0xA0];
-} hba_fis_t;
+} HBA_FIS;
 
+typedef struct hba_cmd_header_struct {
+	// DW0
+	uint8_t  cfl:5;		// Command FIS length in DWORDS, 2 ~ 16
+	uint8_t  a:1;		// ATAPI
+	uint8_t  w:1;		// Write, 1: H2D, 0: D2H
+	uint8_t  p:1;		// Prefetchable
+ 	uint8_t  r:1;		// Reset
+	uint8_t  b:1;		// BIST
+	uint8_t  c:1;		// Clear busy upon R_OK
+	uint8_t  rsv0:1;		// Reserved
+	uint8_t  pmp:4;		// Port multiplier port
+ 	uint16_t prdtl;		// Physical region descriptor table length in entries
+ 	// DW1
+	volatile uint32_t prdbc;		// Physical region descriptor byte count transferred
+ 	// DW2, 3
+	uint32_t ctba;		// Command table descriptor base address
+	uint32_t ctbau;		// Command table descriptor base address upper 32 bits
+	// DW4 - 7
+	uint32_t rsv1[4];	// Reserved
+} HBA_CMD_HEADER;
 
+// physical region descriptor table, for commands
+typedef struct tagHBA_PRDT_ENTRY
+{
+	uint32_t dba;		// Data base address
+	uint32_t dbau;		// Data base address upper 32 bits
+	uint32_t rsv0;		// Reserved
+	// DW3
+	uint32_t dbc:22;		// Byte count, 4M max
+	uint32_t rsv1:9;		// Reserved
+	uint32_t i:1;		// Interrupt on completion
+} HBA_PRDT_ENTRY;
 
+// command table, pointed by cmd_header ctba/ctbau
+typedef struct tagHBA_CMD_TBL
+{
+	// 0x00
+	uint8_t  cfis[64];	// Command FIS
+	// 0x40
+	uint8_t  acmd[16];	// ATAPI command, 12 or 16 bytes
+	// 0x50
+	uint8_t  rsv[48];	// Reserved
+	// 0x80
+	HBA_PRDT_ENTRY	prdt_entry[1];	// Physical region descriptor table entries, 0 ~ 65535
+} HBA_CMD_TBL;
+ 
 
 
 
@@ -222,7 +281,10 @@ typedef volatile struct hba_fis_struct {
 
 // probing method, must return zero if successfully claimed device
 int probe(pci_device_t *dev) {
-    int base_mem_register = dev->config.headers.h00.bar5;
+    uint32_t base_mem_register = dev->config.headers.h00.bar5;
+    klog_debug("base mem reg for sata is %x", base_mem_register);
+    klog_debug("interrupt pin %d, interrupt line %d", dev->config.headers.h00.interrupt_pin, dev->config.headers.h00.interrupt_line);
+
 
     return 0;
 }
