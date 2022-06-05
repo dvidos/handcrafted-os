@@ -283,6 +283,11 @@ typedef struct tagHBA_CMD_TBL
 #define HBA_PORT_IPM_ACTIVE  1
 #define HBA_PORT_DET_PRESENT 3
 
+#define HBA_GHC_AHCI_ENABLE       ((uint32_t)1 << 31)
+#define HBA_GHC_INTERRUPT_ENABLE  ((uint32_t)1 <<  1)
+#define HBA_GHC_HBA_RESET         ((uint32_t)1 <<  0)
+
+
 // port commands
 #define HBA_PxCMD_ST    (1 <<  0) // ST - Start (command processing)
 #define HBA_PxCMD_SUD   (1 <<  1) // SUD - Spin-Up Device
@@ -552,6 +557,8 @@ int probe(pci_device_t *dev) {
     klog_debug("AHCI memory area");
     klog_debug("  Host capability             : 0x%x", memory->cap);
     klog_debug("  Global host control         : 0x%x", memory->ghc);
+    klog_debug("     AHCI enable      : %d", (bool)(memory->ghc & HBA_GHC_AHCI_ENABLE));
+    klog_debug("     Interrupt enable : %d", (bool)(memory->ghc & HBA_GHC_INTERRUPT_ENABLE));
     klog_debug("  Interrupt status            : 0x%x", memory->is);
     klog_debug("  Port Implimented            : 0x%x (%bb)", memory->pi, memory->pi);
     klog_debug("  Version                     : 0x%x", memory->vs);
@@ -589,9 +596,14 @@ int probe(pci_device_t *dev) {
 
         // try to read something.
         uint16_t *buffer = allocate_physical_page();
-        bool success = sata_read(port, 0, 0, 2, buffer);
-        klog_debug("reading 2 sectors: %s", success ? "success" : "failure");
-        klog_hex16_info((uint8_t *)buffer, 256, 0);
+        memset(buffer, '-', physical_page_size());
+        uint32_t indicated_address = 0;
+        for (int sector = 0; sector < 10; sector++) {
+            bool success = sata_read(port, sector, 0, 1, buffer);
+            klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
+            klog_hex16_info((uint8_t *)buffer, 512, indicated_address);
+            indicated_address += 512;
+        }
         free_physical_page(buffer);
 
         klog_debug("Device is GOOD!");

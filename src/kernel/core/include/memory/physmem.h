@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <multiboot.h>
 
+int physical_page_size();
 
 void init_physical_memory_manager(multiboot_info_t *info, uint8_t *kernel_start_address, uint8_t *kernel_end_address);
 

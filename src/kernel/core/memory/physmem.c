@@ -36,6 +36,10 @@ static void *page_num_to_address(int page_num);
 static uint32_t address_to_page_num(void *address);
 
 
+int physical_page_size() {
+    return PAGE_SIZE;
+}
+
 
 void init_physical_memory_manager(multiboot_info_t *info, uint8_t *kernel_start_address, uint8_t *kernel_end_address) {
     // mark all of it as used, will open up the available physical_memory_upper_limit
