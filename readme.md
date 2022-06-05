@@ -98,7 +98,11 @@ Also the following must be met:
 
 ### things to do
 
-* implement SATA / AHCI driver, qemu seems to support this. look [here](https://wiki.osdev.org/AHCI) and there's even a [sample implementation](https://github.com/rajesh5310/SBUnix/blob/master/sys/ahci.c) -- actually, the whole [SBUnix](https://github.com/rajesh5310/SBUnix) is really nice!
+* implement writing to SATA driver, clean up SATA code
+* implement e2fs filesystem driver, initially RO, then RW on the image we have.
+* make the build system rebuild the image, make this image our HDD solution for now.
+* find out why the ProBook did not detect the 0/3/2 HDD devices, fix, write driver for them.
+  fix it, so that we identify / start using those disks.
 * take a look at levex/osdev in github for good ideas and PCI/ATA/EXT2 drivers
 * good implementation of a circular buffer, with both reading and writing pointers
 * good implementation of a list, similar to linux kernel, [here](https://kernel.org/doc/html/latest/core-api/kernel-api.html#list-management-functions)
@@ -255,3 +259,6 @@ as well as spinlock code. Although the repo is weird, lots of little gems in the
 [this one](https://github.com/tiqwab/xv6-x86_64), for 64 bits
 * a nice description of the concepts of linux (e.g. IPC) is located [here](https://tldp.org/LDP/tlk/tlk-toc.html)
 * another nice repository with good libc implementation is [here](https://github.com/system76/coreboot)
+* the whole [SBUnix](https://github.com/rajesh5310/SBUnix) is really nice!
+
+

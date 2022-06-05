@@ -597,14 +597,24 @@ int probe(pci_device_t *dev) {
         // try to read something.
         uint16_t *buffer = allocate_physical_page();
         memset(buffer, '-', physical_page_size());
-        uint32_t indicated_address = 0;
-        for (int sector = 0; sector < 10; sector++) {
-            bool success = sata_read(port, sector, 0, 1, buffer);
-            klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
-            klog_hex16_info((uint8_t *)buffer, 512, indicated_address);
-            indicated_address += 512;
-        }
+        int sector = 0x16000 / 512; // maybe devide by 512???
+        bool success = sata_read(port, sector, 0, 1, buffer);
+        klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
+        klog_hex16_info((uint8_t *)buffer, 512, sector);
         free_physical_page(buffer);
+        /*
+            sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
+            reading sector 176: success
+            000000B0: 6372 6561 7465 6420 696D 6167 6520 7573  created image us
+            000000C0: 696E 6720 6464 2C20 6C6F 7365 7475 702C  ing dd, losetup,
+            000000D0: 206D 6B65 3266 732C 206D 6F75 6E74 0A68   mke2fs, mount.h
+            000000E0: 6F70 696E 6720 7468 6973 2077 6F72 6B73  oping this works
+            000000F0: 2061 6E64 2077 6520 6361 6E20 7265 6164   and we can read
+            00000100: 2069 740A 676F 6F64 206C 7563 6B21 0A0A   it.good luck!..
+            00000110: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+        */
+
+
 
         klog_debug("Device is GOOD!");
     }
