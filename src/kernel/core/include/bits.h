@@ -8,25 +8,25 @@
 #define SET_BIT(value, bitno)      ((value) | MASK_ON(bitno))
 #define CLEAR_BIT(value, bitno)    ((value) & MASK_OFF(bitno))
 
-#define HIGH_BYTE(value)       (((value) >> 8) & 0xFF)
-#define LOW_BYTE(value)        (((value) >> 0) & 0xFF)
+#define HIGH_BYTE(value)       (uint8_t)(((value) >> 8) & 0xFF)
+#define LOW_BYTE(value)        (uint8_t)(((value) >> 0) & 0xFF)
 
-#define HIGH_WORD(value)       (((value) >> 16) & 0xFFFF)
-#define LOW_WORD(value)        (((value) >>  0) & 0xFFFF)
+#define HIGH_WORD(value)       (uint16_t)(((value) >> 16) & 0xFFFF)
+#define LOW_WORD(value)        (uint16_t)(((value) >>  0) & 0xFFFF)
       
-#define HIGH_DWORD(value)      (((value) >> 32) & 0xFFFFFFFF)
-#define LOW_DWORD(value)       (((value) >>  0) & 0xFFFFFFFF)
+#define HIGH_DWORD(value)      (uint32_t)(((value) >> 32) & 0xFFFFFFFF)
+#define LOW_DWORD(value)       (uint32_t)(((value) >>  0) & 0xFFFFFFFF)
 
 
-#define FOURTH_BYTE(value)     (((value) >> 24) & 0xFF)
-#define THIRD_BYTE(value)      (((value) >> 16) & 0xFF)
-#define SECOND_BYTE(value)     (((value) >>  8) & 0xFF)
-#define FIRST_BYTE(value)      (((value) >>  0) & 0xFF)
+#define FOURTH_BYTE(value)     (uint8_t)(((value) >> 24) & 0xFF)
+#define THIRD_BYTE(value)      (uint8_t)(((value) >> 16) & 0xFF)
+#define SECOND_BYTE(value)     (uint8_t)(((value) >>  8) & 0xFF)
+#define FIRST_BYTE(value)      (uint8_t)(((value) >>  0) & 0xFF)
   
-#define FOURTH_WORD(value)     (((value) >> 48) & 0xFFFF)
-#define THIRD_WORD(value)      (((value) >> 32) & 0xFFFF)
-#define SECOND_WORD(value)     (((value) >> 16) & 0xFFFF)
-#define FIRST_WORD(value)      (((value) >>  0) & 0xFFFF)
+#define FOURTH_WORD(value)     (uint16_t)(((value) >> 48) & 0xFFFF)
+#define THIRD_WORD(value)      (uint16_t)(((value) >> 32) & 0xFFFF)
+#define SECOND_WORD(value)     (uint16_t)(((value) >> 16) & 0xFFFF)
+#define FIRST_WORD(value)      (uint16_t)(((value) >>  0) & 0xFFFF)
 
 #define MASK_ON_1BITS         0x01
 #define MASK_ON_2BITS         0x03

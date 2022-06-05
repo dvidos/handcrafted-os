@@ -158,7 +158,7 @@ void *allocate_physical_page() {
     total_used_pages++;
     popcli();
     void *ptr = page_num_to_address(page_no);
-    klog_trace("allocate_physical_page() -> 0x%p (page_no %d", ptr, page_no);
+    klog_trace("allocate_physical_page() -> 0x%p (page_no %d)", ptr, page_no);
     return ptr;
 }
 

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <klib/string.h>
 #include <memory/physmem.h>
 #include <drivers/pci.h>
@@ -23,8 +24,8 @@ void *allocated_physical_memory_per_port[32];
 
 // FIS - Frame Information Structure
 typedef enum {
-    FIS_TYPE_REG_H2D    = 0x27,  // Register FIS - host to device
-    FIS_TYPE_REG_D2H    = 0x34,  // Register FIS - device to host
+    FIS_TYPE_REG_HOST_TO_DEV    = 0x27,  // Register FIS - host to device
+    FIS_TYPE_REG_DEV_TO_HOST    = 0x34,  // Register FIS - device to host
     FIS_TYPE_DMA_ACT    = 0x39,  // DMA activate FIS - device to host
     FIS_TYPE_DMA_SETUP  = 0x41,  // DMA setup FIS - bidirectional
     FIS_TYPE_DATA       = 0x46,  // Data FIS - bidirectional
@@ -36,7 +37,7 @@ typedef enum {
 // A host to device register FIS is used by the host to send command or control to a device. 
 typedef struct fis_reg_host_to_device_struct {
     // DWORD 0
-    uint8_t  fis_type;    // FIS_TYPE_REG_H2D
+    uint8_t  fis_type;    // FIS_TYPE_REG_HOST_TO_DEV
     uint8_t  pmport:4;    // Port multiplier
     uint8_t  reserved0:3;        // Reserved
     uint8_t  c:1;        // 1: Command, 0: Control
@@ -66,7 +67,7 @@ typedef struct fis_reg_host_to_device_struct {
 // It contains the updated task files such as status, error and other registers.
 typedef struct reg_device_to_host_struct {
     // DWORD 0
-    uint8_t  fis_type;    // FIS_TYPE_REG_D2H
+    uint8_t  fis_type;    // FIS_TYPE_REG_DEV_TO_HOST
     uint8_t  pmport:4;    // Port multiplier
     uint8_t  reserved0:2;      // Reserved
     uint8_t  i:1;         // Interrupt bit
@@ -283,11 +284,14 @@ typedef struct tagHBA_CMD_TBL
 #define HBA_PORT_DET_PRESENT 3
 
 // port commands
-#define HBA_PxCMD_ST    0x0001
-#define HBA_PxCMD_FRE   0x0010
-#define HBA_PxCMD_FR    0x4000
-#define HBA_PxCMD_CR    0x8000
- 
+#define HBA_PxCMD_ST    (1 <<  0) // ST - Start (command processing)
+#define HBA_PxCMD_SUD   (1 <<  1) // SUD - Spin-Up Device
+#define HBA_PxCMD_FRE   (1 <<  4) // FRE - FIS Receive Enable
+#define HBA_PxCMD_FR    (1 << 14) // FR - FIS receive Running
+#define HBA_PxCMD_CR    (1 << 15) // CR - Command list Running
+
+// port interrupt status
+#define HBA_PxIS_TFES   (1 << 30) // TFES - Task File Error Status
 
 
 
@@ -309,7 +313,149 @@ static void send_command(HBA_PORT *port) {
     */
 }
 
-void stop_command_engine(HBA_PORT *port) {
+// Find a free command list slot
+static int find_free_cmd_slot(HBA_PORT *port)
+{
+    // If not set in SACT and CI, the slot is free
+    uint32_t slots = (port->sact | port->ci);
+    for (int i = 0; i < 32; i++)
+    {
+        if (!IS_BIT(slots, i))
+            return i;
+    }
+    klog_info("SATA: Cannot find free command list entry\n");
+    return -1;
+}
+
+
+
+#define ATA_DEV_BUSY 0x80
+#define ATA_DEV_DRQ 0x08
+
+// ATA status register
+#define ATA_SR_BUSY        0x80
+#define ATA_SR_DRDY        0x40
+#define ATA_SR_DF          0x20
+#define ATA_SR_DSC         0x10
+#define ATA_SR_DATA_REQ    0x08
+#define ATA_SR_CORR        0x04
+#define ATA_SR_IDX         0x02
+#define ATA_SR_ERR         0x01
+
+// ATA Commands
+#define ATA_CMD_READ_PIO         0x20
+#define ATA_CMD_READ_PIO_EXT     0x24
+#define ATA_CMD_READ_DMA         0xC8
+#define ATA_CMD_READ_DMA_EXT     0x25
+#define ATA_CMD_WRITE_PIO        0x30
+#define ATA_CMD_WRITE_PIO_EXT    0x34
+#define ATA_CMD_WRITE_DMA        0xCA
+#define ATA_CMD_WRITE_DMA_EXT    0x35
+#define ATA_CMD_CACHE_FLUSH      0xE7
+#define ATA_CMD_CACHE_FLUSH_EXT  0xEA
+#define ATA_CMD_PACKET           0xA0
+#define ATA_CMD_IDENTIFY_PACKET  0xA1
+#define ATA_CMD_IDENTIFY         0xEC
+
+// ATA errors
+#define ATA_ER_BBK    0x80
+#define ATA_ER_UNC    0x40
+#define ATA_ER_MC     0x20
+#define ATA_ER_IDNF   0x10
+#define ATA_ER_MCR    0x08
+#define ATA_ER_ABRT   0x04
+#define ATA_ER_TK0NF  0x02
+#define ATA_ER_AMNF   0x01
+
+
+
+
+// read "count" sectors (512 bytes) from sector offset "start_hi:start_lo" 
+// to "buf" with LBA48 mode from HBA "port"
+// Every PRDT entry contains 8K bytes data payload at most.
+bool sata_read(HBA_PORT *port, uint32_t start_lo, uint32_t start_hi, uint32_t count, uint16_t *buffer) {
+    klog_trace("sata_read(p=x%x, slo=x%x, shi=x%x, count=%d, buffer=x%x)", port, start_lo, start_hi, count, buffer);
+    port->is = (uint32_t)-1;		// Clear pending interrupt bits
+
+    int slot = find_free_cmd_slot(port);
+    if (slot == -1)
+        return false;
+ 
+    HBA_CMD_HEADER *cmd_hdr = &((HBA_CMD_HEADER *)port->clb)[slot];
+    cmd_hdr->cfl = sizeof(FIS_REG_HOST_TO_DEVICE)/sizeof(uint32_t);	// Command FIS size
+    cmd_hdr->w = 0;		// Read from device
+    cmd_hdr->prdtl = (uint16_t)((count - 1) >> 4) + 1;	// PRDT entries count
+ 
+    HBA_CMD_TBL *cmd_tbl = (HBA_CMD_TBL *)cmd_hdr->ctba;
+    memset(cmd_tbl, 0, sizeof(HBA_CMD_TBL) +
+         (cmd_hdr->prdtl - 1) * sizeof(HBA_PRDT_ENTRY));
+ 
+    // 8K bytes (16 sectors) per PRDT
+    int i;
+    for (i = 0; i < cmd_hdr->prdtl - 1; i++) {
+        cmd_tbl->prdt_entry[i].dba = (uint32_t)buffer;
+        cmd_tbl->prdt_entry[i].dbc = 8 * 1024 - 1;	// 8K bytes (this value should always be set to 1 less than the actual value)
+        cmd_tbl->prdt_entry[i].i = 1;
+        buffer += 4 * 1024;	// 4K words
+        count -= 16;	// 16 sectors
+    }
+    // Last entry
+    cmd_tbl->prdt_entry[i].dba = (uint32_t)buffer;
+    cmd_tbl->prdt_entry[i].dbc = (count<<9)-1;	// 512 bytes per sector
+    cmd_tbl->prdt_entry[i].i = 1;
+ 
+    // Setup command
+    FIS_REG_HOST_TO_DEVICE *cmd_fis = (FIS_REG_HOST_TO_DEVICE *)(&cmd_tbl->cfis);
+    cmd_fis->fis_type = FIS_TYPE_REG_HOST_TO_DEV;
+    cmd_fis->c = 1;	// Command
+    cmd_fis->command = ATA_CMD_READ_DMA_EXT;
+ 
+    cmd_fis->lba0 = FIRST_BYTE(start_lo);
+    cmd_fis->lba1 = SECOND_BYTE(start_lo);
+    cmd_fis->lba2 = THIRD_BYTE(start_lo);
+    cmd_fis->device = 1 << 6;	// LBA mode
+ 
+    cmd_fis->lba3 = FOURTH_BYTE(start_lo);
+    cmd_fis->lba4 = FIRST_BYTE(start_hi);
+    cmd_fis->lba5 = SECOND_BYTE(start_hi);
+ 
+    cmd_fis->countl = LOW_BYTE(count);
+    cmd_fis->counth = HIGH_BYTE(count);
+ 
+    // The below loop waits until the port is no longer busy before issuing a new command
+    int times = 0; // Spin lock timeout counter
+    while ((port->tfd & (ATA_SR_BUSY | ATA_SR_DATA_REQ)) && times < 1000000)
+        times++;
+    if (times == 1000000) {
+        klog_error("SATA: Port %p is hung\n", port);
+        return false;
+    }
+ 
+    port->ci = 1 << slot;	// Issue command
+ 
+    // Wait for completion
+    while (true) {
+        // In some longer duration reads, it may be helpful to spin on the DPS bit 
+        // in the PxIS port field as well (1 << 5)
+        if ((port->ci & (1 << slot)) == 0) 
+            break;
+        if (port->is & HBA_PxIS_TFES) {
+            // Task file error
+            klog_error("SATA: Read disk error, port %p\n", port);
+            return false;
+        }
+    }
+    
+    // Check again
+    if (port->is & HBA_PxIS_TFES) {
+        klog_error("Read disk error, port %p\n", port);
+        return false;
+    }
+ 
+    return true;
+}
+ 
+static void stop_command_engine(HBA_PORT *port) {
     // Clear ST (bit0)
     port->cmd &= ~HBA_PxCMD_ST;
  
@@ -326,7 +472,7 @@ void stop_command_engine(HBA_PORT *port) {
     }
 }
 
-void start_command_engine(HBA_PORT *port) {
+static void start_command_engine(HBA_PORT *port) {
     // Wait until CR (bit15) is cleared
     while (port->cmd & HBA_PxCMD_CR);
  
@@ -335,7 +481,7 @@ void start_command_engine(HBA_PORT *port) {
     port->cmd |= HBA_PxCMD_ST; 
 }
 
-void rebase_port(HBA_PORT *port) {
+static void rebase_port(HBA_PORT *port) {
     /* Each port can attach a single SATA device. 
      * Host sends commands to the device using Command List 
      * and device delivers information to the host using Received FIS structure. 
@@ -441,8 +587,12 @@ int probe(pci_device_t *dev) {
         // set memory areas pointers for data transfer
         rebase_port(port);
 
-
-
+        // try to read something.
+        uint16_t *buffer = allocate_physical_page();
+        bool success = sata_read(port, 0, 0, 2, buffer);
+        klog_debug("reading 2 sectors: %s", success ? "success" : "failure");
+        klog_hex16_info((uint8_t *)buffer, 256, 0);
+        free_physical_page(buffer);
 
         klog_debug("Device is GOOD!");
     }
