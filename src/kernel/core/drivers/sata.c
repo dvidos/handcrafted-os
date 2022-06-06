@@ -6,6 +6,7 @@
 #include <klog.h>
 #include <bits.h>
 #include <drivers/screen.h>
+#include <drivers/clock.h>
 
 // based on https://wiki.osdev.org/AHCI
 // and https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf
@@ -378,7 +379,7 @@ static int find_free_cmd_slot(HBA_PORT *port)
 // read "count" sectors (512 bytes) from sector offset "start_hi:start_lo" 
 // to "buf" with LBA48 mode from HBA "port"
 // Every PRDT entry contains 8K bytes data payload at most.
-bool sata_read(HBA_PORT *port, uint32_t start_lo, uint32_t start_hi, uint32_t count, uint16_t *buffer) {
+bool sata_read(HBA_PORT *port, uint32_t start_lo, uint32_t start_hi, uint32_t count, uint8_t *buffer) {
     klog_trace("sata_read(p=x%x, slo=x%x, shi=x%x, count=%d, buffer=x%x)", port, start_lo, start_hi, count, buffer);
     port->is = (uint32_t)-1;		// Clear pending interrupt bits
 
@@ -401,12 +402,12 @@ bool sata_read(HBA_PORT *port, uint32_t start_lo, uint32_t start_hi, uint32_t co
         cmd_tbl->prdt_entry[i].dba = (uint32_t)buffer;
         cmd_tbl->prdt_entry[i].dbc = 8 * 1024 - 1;	// 8K bytes (this value should always be set to 1 less than the actual value)
         cmd_tbl->prdt_entry[i].i = 1;
-        buffer += 4 * 1024;	// 4K words
+        buffer += 8 * 1024;	// 8K bytes
         count -= 16;	// 16 sectors
     }
     // Last entry
     cmd_tbl->prdt_entry[i].dba = (uint32_t)buffer;
-    cmd_tbl->prdt_entry[i].dbc = (count<<9)-1;	// 512 bytes per sector
+    cmd_tbl->prdt_entry[i].dbc = (count << 9) - 1;	// 512 bytes per sector
     cmd_tbl->prdt_entry[i].i = 1;
  
     // Setup command
@@ -459,7 +460,98 @@ bool sata_read(HBA_PORT *port, uint32_t start_lo, uint32_t start_hi, uint32_t co
  
     return true;
 }
+
+// write "count" sectors (512 bytes) from sector offset "start_hi:start_lo" 
+// to "buf" with LBA48 mode from HBA "port"
+// Every PRDT entry contains 8K bytes data payload at most
+bool sata_write(HBA_PORT *port, uint32_t start_lo, uint32_t start_hi, uint32_t count, uint8_t *buffer) {
+    // Clear pending interrupt bits
+    port->is = 0xffff;              
+
+    int slot = find_free_cmd_slot(port);
+    if (slot == -1)
+        return false;
+
+    HBA_CMD_HEADER *cmd_hdr = &((HBA_CMD_HEADER *)port->clb)[slot];
  
+    cmd_hdr->cfl = sizeof(FIS_REG_HOST_TO_DEVICE)/sizeof(uint32_t); // Command FIS size
+    cmd_hdr->w = 1;  // ?
+    cmd_hdr->c = 1;  // ?
+    cmd_hdr->p = 1;  // ?
+    cmd_hdr->prdtl = (uint16_t)((count - 1) >> 4) + 1;	// PRDT entries count
+
+    HBA_CMD_TBL *cmd_tbl = (HBA_CMD_TBL *)cmd_hdr->ctba;
+    memset(cmd_tbl, 0, sizeof(HBA_CMD_TBL) +
+         (cmd_hdr->prdtl - 1) * sizeof(HBA_PRDT_ENTRY));
+ 
+    // 8K bytes, 16 sectors per PRDT
+    int i; 
+    for (i = 0; i < cmd_hdr->prdtl - 1; i++) {
+        cmd_tbl->prdt_entry[i].dba = (uint32_t)buffer;
+        cmd_tbl->prdt_entry[i].dbau = 0;
+        cmd_tbl->prdt_entry[i].dbc = 8 * 1024 - 1; // 8K bytes
+        cmd_tbl->prdt_entry[i].i = 0; // interrupt on completion....
+        buffer += 8 * 1024;  // 8K bytes
+        count -= 16;  // 16 sectors
+    }
+    // Last entry
+    cmd_tbl->prdt_entry[i].dba = (uint32_t)buffer;
+    cmd_tbl->prdt_entry[i].dbau = 0;
+    cmd_tbl->prdt_entry[i].dbc = (count << 9) - 1;   // 512 bytes per sector
+    cmd_tbl->prdt_entry[i].i = 0;  // interrupt on complete
+    
+    // Setup command
+    FIS_REG_HOST_TO_DEVICE *cmd_fis = (FIS_REG_HOST_TO_DEVICE *)(&cmd_tbl->cfis);
+    cmd_fis->fis_type = FIS_TYPE_REG_HOST_TO_DEV;
+    cmd_fis->c = 1;  // Command
+    cmd_fis->command = ATA_CMD_WRITE_DMA_EXT;
+
+    cmd_fis->lba0 = FIRST_BYTE(start_lo);
+    cmd_fis->lba1 = SECOND_BYTE(start_lo);
+    cmd_fis->lba2 = THIRD_BYTE(start_lo);
+    cmd_fis->device = 1 << 6;  // LBA mode
+
+    cmd_fis->lba3 = FOURTH_BYTE(start_lo);
+    cmd_fis->lba4 = FIRST_BYTE(start_hi);
+    cmd_fis->lba5 = SECOND_BYTE(start_hi);
+
+    cmd_fis->countl = LOW_BYTE(count);
+    cmd_fis->counth = HIGH_BYTE(count);
+
+    port->ci = 1;    // Issue command
+
+    // The below loop waits until the port is no longer busy before issuing a new command
+    int times = 0; // Spin lock timeout counter
+    while ((port->tfd & (ATA_SR_BUSY | ATA_SR_DATA_REQ)) && times < 1000000)
+        times++;
+    if (times == 1000000) {
+        klog_error("SATA: Port %p is hung\n", port);
+        return false;
+    }
+    
+
+
+    while (true) {
+        // In some longer duration reads, it may be helpful to spin on the DPS bit 
+        // in the PxIS port field as well (1 << 5)
+        if ((port->ci & (1 << slot)) == 0) 
+            break;
+        if (port->is & HBA_PxIS_TFES) {
+            // Task file error
+            klog_error("SATA: Read disk error, port %p\n", port);
+            return false;
+        }
+    }
+
+    // Check again
+    if (port->is & HBA_PxIS_TFES) {
+            klog_error("Read disk error\n");
+            return false;
+    }
+
+    return true;
+}
+
 static void stop_command_engine(HBA_PORT *port) {
     // Clear ST (bit0)
     port->cmd &= ~HBA_PxCMD_ST;
@@ -595,13 +687,12 @@ int probe(pci_device_t *dev) {
         rebase_port(port);
 
         // try to read something.
-        uint16_t *buffer = allocate_physical_page();
+        uint8_t *buffer = allocate_physical_page();
         memset(buffer, '-', physical_page_size());
-        int sector = 0x16000 / 512; // maybe devide by 512???
+        int sector = 0x16000 / 512;
         bool success = sata_read(port, sector, 0, 1, buffer);
         klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
-        klog_hex16_info((uint8_t *)buffer, 512, sector);
-        free_physical_page(buffer);
+        klog_hex16_info((uint8_t *)buffer, 112, 0);
         /*
             sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
             reading sector 176: success
@@ -614,6 +705,33 @@ int probe(pci_device_t *dev) {
             00000110: 0000 0000 0000 0000 0000 0000 0000 0000  ................
         */
 
+
+        // try to write something.
+        clock_time_t time;
+        get_real_time_clock(&time);
+        buffer[1] = '0' + (time.seconds / 10);
+        buffer[2] = '0' + (time.seconds % 10);
+        klog_hex16_info((uint8_t *)buffer, 112, 0);
+        success = sata_write(port, sector, 0, 1, buffer);
+        klog_debug("writing sector %d: %s", sector, success ? "success" : "failure");
+        memset(buffer, 0, physical_page_size());
+
+        // try to read something.
+        success = sata_read(port, sector, 0, 1, buffer);
+        klog_debug("re-reading sector %d: %s", sector, success ? "success" : "failure");
+        klog_hex16_info((uint8_t *)buffer, 112, 0);
+        free_physical_page(buffer);
+        /*
+            sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
+            reading sector 176: success
+            000000B0: 6372 6561 7465 6420 696D 6167 6520 7573  created image us
+            000000C0: 696E 6720 6464 2C20 6C6F 7365 7475 702C  ing dd, losetup,
+            000000D0: 206D 6B65 3266 732C 206D 6F75 6E74 0A68   mke2fs, mount.h
+            000000E0: 6F70 696E 6720 7468 6973 2077 6F72 6B73  oping this works
+            000000F0: 2061 6E64 2077 6520 6361 6E20 7265 6164   and we can read
+            00000100: 2069 740A 676F 6F64 206C 7563 6B21 0A0A   it.good luck!..
+            00000110: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+        */
 
 
         klog_debug("Device is GOOD!");
