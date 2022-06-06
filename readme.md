@@ -98,6 +98,18 @@ Also the following must be met:
 
 ### things to do
 
+* Fix bug of 0 bytes malloc() from tty manager (i think the logger tty)
+* Give console pci ability to probe and report on specific bus/device/func
+* Make a good buffer class, with memory storage, with string operations
+  that make sure we never write outside our memory area
+  (e.g. insert at point, remove at point, etc) for various operations,
+  allow two separate grow strategies: realloc() and trim (e.g. lose start)
+  one of which is the TTY contents, another is the memory log. 
+  Another can be ext2fs directories etc.
+* If we have dictionaries and lists, we could easily map various devices
+  (e.g. cpu, memory) with lists of subdevices etc, each with their properties.
+* This virtual [display.h](https://github.com/levex/osdev/blob/bba025f8cfced6ad1addc625aaf9dab8fa7aef80/include/display.h#L25) is a good idea.
+* Introduce [module names](https://github.com/levex/osdev/blob/bba025f8cfced6ad1addc625aaf9dab8fa7aef80/include/display.h#L25) in logging
 * implement writing to SATA driver, clean up SATA code
 * implement e2fs filesystem driver, initially RO, then RW on the image we have.
 * make the build system rebuild the image, make this image our HDD solution for now.

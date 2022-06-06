@@ -260,7 +260,7 @@ void collect_pci_devices() {
                 for (uint8_t func = 1; func < 8; func++) {
                     dev = read_pci_device_configuration(bus, device, func);
                     if (dev == NULL)
-                        break;
+                        continue;
                     
                     tail->next = dev;
                     tail = dev;
