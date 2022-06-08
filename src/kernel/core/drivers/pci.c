@@ -545,12 +545,12 @@ static void find_device_driver(pci_device_t *dev) {
 }
 
 void init_pci() {
-    klog_debug("Collecting PCI devices...\n");
+    klog_debug("Collecting PCI devices...");
     collect_pci_devices();
 
     pci_device_t *dev = pci_devices_list;
     while (dev != NULL) {
-        klog_info("B:D:F: %d:%d:%d, vend.id %04x, dev.id %04x, class/sub %02x/%02x, hdr %02x",
+        klog_info("%d:%d:%d, vend/dev %04x/%04x, class/sub %02x/%02x, hdr %02x",
             dev->bus_no,
             dev->device_no,
             dev->func_no,
@@ -560,20 +560,20 @@ void init_pci() {
             dev->config.sub_class,
             dev->config.header_type
         );
-        klog_info("              %s, %s", 
+        klog_info("       %s - %s", 
             get_pci_class_name(dev->config.class_type),
             get_pci_subclass_name(dev->config.class_type, dev->config.sub_class)
         );
-        if ((dev->config.header_type & 0x3) == 0) {
-            klog_info("              BARs: %x %x %x %x %x %x", 
-                dev->config.headers.h00.bar0,
-                dev->config.headers.h00.bar1,
-                dev->config.headers.h00.bar2,
-                dev->config.headers.h00.bar3,
-                dev->config.headers.h00.bar4,
-                dev->config.headers.h00.bar5
-            );
-        }
+        // if ((dev->config.header_type & 0x3) == 0) {
+        //     klog_info("              BARs: %x %x %x %x %x %x", 
+        //         dev->config.headers.h00.bar0,
+        //         dev->config.headers.h00.bar1,
+        //         dev->config.headers.h00.bar2,
+        //         dev->config.headers.h00.bar3,
+        //         dev->config.headers.h00.bar4,
+        //         dev->config.headers.h00.bar5
+        //     );
+        // }
         dev = dev->next;
     }
 

@@ -68,7 +68,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     screen_init();
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_INFO);
     
-    klog_info("C kernel kicking off, loaded at 0x%x - 0x%x (size of %u KB)",
+    klog_info("C kernel started, loaded at 0x%x - 0x%x (%u KB)",
         (uint32_t)&kernel_start_address,
         (uint32_t)&kernel_end_address,
         ((uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address) / 1024

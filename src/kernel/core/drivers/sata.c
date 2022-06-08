@@ -568,26 +568,26 @@ static void rebase_port(HBA_PORT *port) {
 // probing method, must return zero if successfully claimed device
 int probe(pci_device_t *dev) {
     uint32_t base_mem_register = dev->config.headers.h00.bar5;
-    klog_debug("base mem reg for sata is %x", base_mem_register);
-    klog_debug("interrupt pin %d, interrupt line %d", dev->config.headers.h00.interrupt_pin, dev->config.headers.h00.interrupt_line);
+    // klog_debug("base mem reg for sata is %x", base_mem_register);
+    // klog_debug("interrupt pin %d, interrupt line %d", dev->config.headers.h00.interrupt_pin, dev->config.headers.h00.interrupt_line);
     if (base_mem_register == 0)
         return -1;
 
     HBA_MEM *memory = (HBA_MEM *)base_mem_register;
-    klog_debug("AHCI memory area");
-    klog_debug("  Host capability             : 0x%x", memory->cap);
-    klog_debug("  Global host control         : 0x%x", memory->ghc);
-    klog_debug("     AHCI enable      : %d", (bool)(memory->ghc & HBA_GHC_AHCI_ENABLE));
-    klog_debug("     Interrupt enable : %d", (bool)(memory->ghc & HBA_GHC_INTERRUPT_ENABLE));
-    klog_debug("  Interrupt status            : 0x%x", memory->is);
-    klog_debug("  Port Implimented            : 0x%x (%bb)", memory->pi, memory->pi);
-    klog_debug("  Version                     : 0x%x", memory->vs);
-    klog_debug("  Cmd compl coalescing control: 0x%x", memory->ccc_ctl);
-    klog_debug("  Cmd compl coalescing ports  : 0x%x", memory->ccc_pts);
-    klog_debug("  Encl mgm location           : 0x%x", memory->em_loc);
-    klog_debug("  Encl mgm control            : 0x%x", memory->em_ctl);
-    klog_debug("  Host capabilities ext       : 0x%x", memory->cap2);
-    klog_debug("  BIOS handoff ctrl/status    : 0x%x", memory->bohc);
+    // klog_debug("AHCI memory area");
+    // klog_debug("  Host capability             : 0x%x", memory->cap);
+    // klog_debug("  Global host control         : 0x%x", memory->ghc);
+    // klog_debug("     AHCI enable      : %d", (bool)(memory->ghc & HBA_GHC_AHCI_ENABLE));
+    // klog_debug("     Interrupt enable : %d", (bool)(memory->ghc & HBA_GHC_INTERRUPT_ENABLE));
+    // klog_debug("  Interrupt status            : 0x%x", memory->is);
+    // klog_debug("  Port Implimented            : 0x%x (%bb)", memory->pi, memory->pi);
+    // klog_debug("  Version                     : 0x%x", memory->vs);
+    // klog_debug("  Cmd compl coalescing control: 0x%x", memory->ccc_ctl);
+    // klog_debug("  Cmd compl coalescing ports  : 0x%x", memory->ccc_pts);
+    // klog_debug("  Encl mgm location           : 0x%x", memory->em_loc);
+    // klog_debug("  Encl mgm control            : 0x%x", memory->em_ctl);
+    // klog_debug("  Host capabilities ext       : 0x%x", memory->cap2);
+    // klog_debug("  BIOS handoff ctrl/status    : 0x%x", memory->bohc);
 
     for (int port_no = 0; port_no < 32; port_no++) {
         if (!IS_BIT(memory->pi, port_no))
@@ -599,68 +599,69 @@ int probe(pci_device_t *dev) {
         uint8_t device_detection = (port->ssts & 0xF);
 
         if (interface_power_mgm != HBA_PORT_IPM_ACTIVE) {
-            klog_debug("Device not active");
+            klog_debug("Port %d, device not active", port_no);
             continue;
         }
         if (device_detection != HBA_PORT_DET_PRESENT) {
-            klog_debug("Device not powered");
+            klog_debug("Port %d, device not powered", port_no);
             continue;
         }
         if (port->sig != SATA_SIG_ATA) {
-            klog_debug("Device non ATA");
+            klog_debug("Port %d, device non ATA", port_no);
             continue;
         }
         // device is ata, powered, present
         // set memory areas pointers for data transfer
         rebase_port(port);
 
-        // try to read something.
-        uint8_t *buffer = allocate_physical_page();
-        memset(buffer, '-', physical_page_size());
-        int sector = 0x16000 / 512;
-        bool success = sata_read(port, sector, 0, 1, buffer);
-        klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
-        klog_hex16_info((uint8_t *)buffer, 112, 0);
-        /*
-            sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
-            reading sector 176: success
-            000000B0: 6372 6561 7465 6420 696D 6167 6520 7573  created image us
-            000000C0: 696E 6720 6464 2C20 6C6F 7365 7475 702C  ing dd, losetup,
-            000000D0: 206D 6B65 3266 732C 206D 6F75 6E74 0A68   mke2fs, mount.h
-            000000E0: 6F70 696E 6720 7468 6973 2077 6F72 6B73  oping this works
-            000000F0: 2061 6E64 2077 6520 6361 6E20 7265 6164   and we can read
-            00000100: 2069 740A 676F 6F64 206C 7563 6B21 0A0A   it.good luck!..
-            00000110: 0000 0000 0000 0000 0000 0000 0000 0000  ................
-        */
+        // // try to read something.
+        // uint8_t *buffer = allocate_physical_page();
+        // memset(buffer, '-', physical_page_size());
+        // int sector = 0x16000 / 512;
+        // bool success = sata_read(port, sector, 0, 1, buffer);
+        // klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
+        // klog_hex16_info((uint8_t *)buffer, 112, 0);
+        // /*
+        //     sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
+        //     reading sector 176: success
+        //     000000B0: 6372 6561 7465 6420 696D 6167 6520 7573  created image us
+        //     000000C0: 696E 6720 6464 2C20 6C6F 7365 7475 702C  ing dd, losetup,
+        //     000000D0: 206D 6B65 3266 732C 206D 6F75 6E74 0A68   mke2fs, mount.h
+        //     000000E0: 6F70 696E 6720 7468 6973 2077 6F72 6B73  oping this works
+        //     000000F0: 2061 6E64 2077 6520 6361 6E20 7265 6164   and we can read
+        //     00000100: 2069 740A 676F 6F64 206C 7563 6B21 0A0A   it.good luck!..
+        //     00000110: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+        // */
+        // 
+        // // try to write something.
+        // clock_time_t time;
+        // get_real_time_clock(&time);
+        // buffer[0x51] = '0' + (time.seconds / 10);
+        // buffer[0x52] = '0' + (time.seconds % 10);
+        // success = sata_write(port, sector, 0, 1, buffer);
+        // klog_debug("writing sector %d: %s", sector, success ? "success" : "failure");
+        // memset(buffer, 0, physical_page_size());
+        // 
+        // // try to read something.
+        // success = sata_read(port, sector, 0, 1, buffer);
+        // klog_debug("re-reading sector %d: %s", sector, success ? "success" : "failure");
+        // klog_hex16_info((uint8_t *)buffer, 112, 0);
+        // free_physical_page(buffer);
+        // /*
+        //     sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
+        //     reading sector 176: success
+        //     00000000: 6372 6561 7465 6420 696D 6167 6520 7573  created image us
+        //     00000010: 696E 6720 6464 2C20 6C6F 7365 7475 702C  ing dd, losetup,
+        //     00000020: 206D 6B65 3266 732C 206D 6F75 6E74 0A68   mke2fs, mount.h
+        //     00000030: 6F70 696E 6720 7468 6973 2077 6F72 6B73  oping this works
+        //     00000040: 2061 6E64 2077 6520 6361 6E20 7265 6164   and we can read
+        //     00000050: 2035 350A 676F 6F64 206C 7563 6B21 0A0A   55.good luck!..
+        //     00000060: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+        // */
 
 
-        // try to write something.
-        clock_time_t time;
-        get_real_time_clock(&time);
-        buffer[0x51] = '0' + (time.seconds / 10);
-        buffer[0x52] = '0' + (time.seconds % 10);
-        success = sata_write(port, sector, 0, 1, buffer);
-        klog_debug("writing sector %d: %s", sector, success ? "success" : "failure");
-        memset(buffer, 0, physical_page_size());
-
-        // try to read something.
-        success = sata_read(port, sector, 0, 1, buffer);
-        klog_debug("re-reading sector %d: %s", sector, success ? "success" : "failure");
-        klog_hex16_info((uint8_t *)buffer, 112, 0);
-        free_physical_page(buffer);
-        /*
-            sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
-            reading sector 176: success
-            00000000: 6372 6561 7465 6420 696D 6167 6520 7573  created image us
-            00000010: 696E 6720 6464 2C20 6C6F 7365 7475 702C  ing dd, losetup,
-            00000020: 206D 6B65 3266 732C 206D 6F75 6E74 0A68   mke2fs, mount.h
-            00000030: 6F70 696E 6720 7468 6973 2077 6F72 6B73  oping this works
-            00000040: 2061 6E64 2077 6520 6361 6E20 7265 6164   and we can read
-            00000050: 2035 350A 676F 6F64 206C 7563 6B21 0A0A   55.good luck!..
-            00000060: 0000 0000 0000 0000 0000 0000 0000 0000  ................
-        */
-
-
+        // should prepare a storage_dev_t structure 
+        // and register it with the device manager
         klog_debug("Device is GOOD!");
     }
     return 0;
