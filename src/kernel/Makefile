@@ -31,6 +31,7 @@ KERNEL_FILES = \
 	$(wildcard core/multitask/*.c) \
 	$(wildcard core/konsole/*.c) \
 	$(wildcard core/devices/*.c) \
+	$(wildcard core/filesys/*.c) \
 	$(wildcard core/klib/*.c)
 
 
@@ -42,7 +43,8 @@ KERNEL_HEADERS = \
 	$(wildcard core/drivers/*.h) \
 	$(wildcard core/multitask/*.h) \
 	$(wildcard core/konsole/*.h) \
-	$(wildcard core/devices/*.c) \
+	$(wildcard core/devices/*.h) \
+	$(wildcard core/filesys/*.h) \
 	$(wildcard core/klib/*.h)
 
 

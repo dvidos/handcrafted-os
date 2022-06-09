@@ -38,6 +38,10 @@ Examples of device types (each device type has discrete data & operations struct
 * screen
 * clock / timer
 
+Alteratively, instead of a complex device_manager with complex objects hierarchy,
+we can have a tty_manager, a storage_manager etc. Maybe it's not worth the complexity.
+
+
 ## User land 
 
 On user land, the same functionality 

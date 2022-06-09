@@ -11,6 +11,7 @@
 #include <drivers/clock.h>
 #include <drivers/serial.h>
 #include <drivers/pci.h>
+#include <drivers/sata.h>
 #include <memory/physmem.h>
 #include <memory/kheap.h>
 #include <klog.h>
@@ -119,15 +120,19 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
         extern void run_tests();
         printk("Running tests: ");
+        // klogger must be initialized for tests to report errors
         run_tests();
         printk("\nTests finished, pausing forever...");
         for(;;) asm("hlt");
     }
 
     klog_info("Detecting PCI devices...");
-    extern void sata_register_driver();
-    sata_register_driver();
+    sata_register_pci_driver();
     init_pci();
+
+    klog_info("Initializing file system...");
+    extern void init_filesys();
+    init_filesys();
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();
@@ -136,15 +141,16 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_NONE);
     timer_pause_blocking(250);
 
-    // 1: shell / konsole
-    // 2: system monitor
+    // 0: shell / konsole
+    // 1: system monitor
+    // 2: something
     // 3: kernel log
     init_tty_manager(4, 2048);
 
     // now that we have ttys, let's dedicate one to syslog
     klog_set_tty(tty_manager_get_device(3));
     klog_appender_level(LOGAPP_TTY, LOGLEV_DEBUG);
-    
+
     // create desired tasks here, 
     start_process(create_process(process_a_main, "Task A", 2, tty_manager_get_device(0)));
     start_process(create_process(process_b_main, "Task B", 2, tty_manager_get_device(1)));

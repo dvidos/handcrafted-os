@@ -2,11 +2,13 @@
 #include <stdbool.h>
 #include <klib/string.h>
 #include <memory/physmem.h>
+#include <memory/kheap.h>
 #include <drivers/pci.h>
 #include <klog.h>
 #include <bits.h>
 #include <drivers/screen.h>
 #include <drivers/clock.h>
+#include <devices/storage_dev.h>
 
 // based on https://wiki.osdev.org/AHCI
 // and https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf
@@ -21,7 +23,6 @@
  * AHCI describes the memory structure to communicate with the SATA devices
  */
 
-void *allocated_physical_memory_per_port[32];
 
 // FIS - Frame Information Structure
 typedef enum {
@@ -300,8 +301,11 @@ typedef struct tagHBA_CMD_TBL
 #define HBA_PxIS_TFES   (1 << 30) // TFES - Task File Error Status
 
 
-
-
+// anything beyond basic PCI information, for our use
+struct sata_private_data {
+    int port_no;
+    HBA_PORT *port;
+};
 
 static void send_command(HBA_PORT *port) {
     /* 
@@ -373,7 +377,13 @@ static int find_free_cmd_slot(HBA_PORT *port)
 #define ATA_ER_TK0NF  0x02
 #define ATA_ER_AMNF   0x01
 
-bool sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint32_t sector_hi, uint32_t count, uint8_t *buffer) {
+// read or write "count" sectors (512 bytes) from sector offset "sector_hi:sector_lo" 
+// to "buf" with LBA48 mode from HBA "port"
+// Every PRDT entry contains 8K bytes data payload at most.
+static bool sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint32_t sector_hi, uint32_t count, uint8_t *buffer) {
+    klog_trace("sata_rw_operation(op=%s, port=x%x, slo=%x, shi=x%x, count=%d, buffer=x%p)", 
+        read ? "read" : "write", port, sector_lo, sector_hi, count, buffer);
+
     // Clear pending interrupt bits
     port->is = 0xFFFF;
 
@@ -464,22 +474,6 @@ bool sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint32_t s
 
 }
 
-// read "count" sectors (512 bytes) from sector offset "sector_hi:sector_lo" 
-// to "buf" with LBA48 mode from HBA "port"
-// Every PRDT entry contains 8K bytes data payload at most.
-bool sata_read(HBA_PORT *port, uint32_t sector_lo, uint32_t sector_hi, uint32_t count, uint8_t *buffer) {
-    klog_trace("sata_read(p=x%x, slo=x%x, shi=x%x, count=%d, buffer=x%x)", port, sector_lo, sector_hi, count, buffer);
-    return sata_rw_operation(true, port, sector_lo, sector_hi, count, buffer);
-}
-
-// write "count" sectors (512 bytes) from sector offset "sector_hi:sector_lo" 
-// to "buf" with LBA48 mode from HBA "port"
-// Every PRDT entry contains 8K bytes data payload at most
-bool sata_write(HBA_PORT *port, uint32_t sector_lo, uint32_t sector_hi, uint32_t count, uint8_t *buffer) {
-    klog_trace("sata_write(p=x%x, slo=x%x, shi=x%x, count=%d, buffer=x%x)", port, sector_lo, sector_hi, count, buffer);
-    return sata_rw_operation(false, port, sector_lo, sector_hi, count, buffer);
-}
-
 static void stop_command_engine(HBA_PORT *port) {
     // Clear ST (bit0)
     port->cmd &= ~HBA_PxCMD_ST;
@@ -564,6 +558,23 @@ static void rebase_port(HBA_PORT *port) {
     
     start_command_engine(port);
 }
+
+static int storage_dev_sector_size(struct storage_dev *dev) {
+    (void)dev;
+    return 512;
+}
+
+static int storage_dev_read(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
+    struct sata_private_data *priv_data = (struct sata_private_data *)dev->priv_data;
+    return sata_rw_operation(true, priv_data->port, sector_low, sector_hi, sectors, buffer);
+}
+
+static int storage_dev_write(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
+    struct sata_private_data *priv_data = (struct sata_private_data *)dev->priv_data;
+    return sata_rw_operation(false, priv_data->port, sector_low, sector_hi, sectors, buffer);
+}
+
+
 
 // probing method, must return zero if successfully claimed device
 int probe(pci_device_t *dev) {
@@ -658,20 +669,37 @@ int probe(pci_device_t *dev) {
         //     00000050: 2035 350A 676F 6F64 206C 7563 6B21 0A0A   55.good luck!..
         //     00000060: 0000 0000 0000 0000 0000 0000 0000 0000  ................
         // */
+        
+        // prepare registration info
+        char *name = kmalloc(64);
+        sprintfn(name, 64, "SATA Disk, pci dev %d/%d/%d, port #%d", 
+            dev->bus_no, dev->device_no, dev->func_no, port_no);
+        
+        struct sata_private_data *priv_data = kmalloc(sizeof(struct sata_private_data));
+        memset(priv_data, 0, sizeof(struct sata_private_data));
+        priv_data->port_no = port_no;
+        priv_data->port = port;
 
-
-        // should prepare a storage_dev_t structure 
-        // and register it with the device manager
-        klog_debug("Device is GOOD!");
+        struct storage_dev *storage_dev = kmalloc(sizeof(struct storage_dev));
+        memset(storage_dev, 0, sizeof(struct storage_dev));
+        storage_dev->name = name;
+        storage_dev->pci_dev = dev;
+        storage_dev->priv_data = priv_data;
+        storage_dev->ops.sector_size = storage_dev_sector_size;
+        storage_dev->ops.read = storage_dev_read;
+        storage_dev->ops.write = storage_dev_write;
+        
+        storage_mgr_register_device(storage_dev);
+        klog_debug("Registered device \"%s\" as storage dev #%d", storage_dev->name, storage_dev->dev_no);
     }
     return 0;
 }
 
-struct pci_driver sata_driver;
-void sata_register_driver() {
-    memset(allocated_physical_memory_per_port, 0, sizeof(allocated_physical_memory_per_port));
+static struct pci_driver pci_driver;
 
-    sata_driver.name = "SATA Driver";
-    sata_driver.probe = probe;
-    register_pci_driver(1, 6, &sata_driver);
+void sata_register_pci_driver() {
+    memset(&pci_driver, 0, sizeof(pci_driver));
+    pci_driver.name = "SATA Driver";
+    pci_driver.probe = probe;
+    register_pci_driver(1, 6, &pci_driver);
 }
