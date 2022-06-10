@@ -690,7 +690,7 @@ int probe(pci_device_t *dev) {
         storage_dev->ops.write = storage_dev_write;
         
         storage_mgr_register_device(storage_dev);
-        klog_debug("Registered device \"%s\" as storage dev #%d", storage_dev->name, storage_dev->dev_no);
+        klog_debug("Registered port %d as storage dev #%d (%s)", port_no, storage_dev->dev_no, storage_dev->name);
     }
     return 0;
 }

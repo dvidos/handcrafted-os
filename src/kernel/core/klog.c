@@ -38,10 +38,10 @@ static struct {
 static void klog_append(log_level_t level, const char *format, va_list args);
 static void memlog_write(char *str);
 static void memory_log_append(log_level_t level, char *str);
-static void screen_log_append(log_level_t level, char *str, bool preamble);
-static void serial_log_append(log_level_t level, char *str, bool preamble);
-static void file_log_append(log_level_t level, char *str, bool preamble);
-static void tty_log_append(log_level_t level, char *str, bool preamble);
+static void screen_log_append(log_level_t level, char *str, bool decorated);
+static void serial_log_append(log_level_t level, char *str, bool decorated);
+static void file_log_append(log_level_t level, char *str, bool decorated);
+static void tty_log_append(log_level_t level, char *str, bool decorated);
 
 
 void init_klog() {
@@ -161,12 +161,12 @@ static void memory_log_append(log_level_t level, char *str) {
     memlog_write("\n");
 }
 
-static void screen_log_append(log_level_t level, char *str, bool preamble) {
+static void screen_log_append(log_level_t level, char *str, bool decorated) {
     if (level > log_flags.appenders[LOGAPP_SCREEN].level)
         return;
 
     uint8_t old_color = screen_get_color();
-    if (preamble) {
+    if (decorated) {
         if (level < LOGLEV_ERROR)
             screen_set_color(VGA_COLOR_LIGHT_RED);
         else if (level == LOGLEV_WARN)
@@ -174,42 +174,48 @@ static void screen_log_append(log_level_t level, char *str, bool preamble) {
 
     }
     screen_write(str);
-    screen_write("\n");
-    screen_set_color(old_color);
+    if (decorated) {
+        screen_write("\n");
+        screen_set_color(old_color);
+    }
 }
 
-static void serial_log_append(log_level_t level, char *str, bool preamble) {
+static void serial_log_append(log_level_t level, char *str, bool decorated) {
     if (level > log_flags.appenders[LOGAPP_SERIAL].level)
         return;
 
-    if (preamble) {
+    if (decorated) {
         char buff[16];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
         sprintfn(buff, sizeof(buff), "%u.%03u %s ", msecs / 1000, msecs % 1000, level_captions[level]);
         serial_write(buff);
     }
     serial_write(str);
-    serial_write("\n");
+    if (decorated) {
+        serial_write("\n");
+    }
 }
 
-static void file_log_append(log_level_t level, char *str, bool preamble) {
+static void file_log_append(log_level_t level, char *str, bool decorated) {
     ; // not implemented yet. hopefully /var/log/kernel.log
 }
 
-static void tty_log_append(log_level_t level, char *str, bool preamble) {
+static void tty_log_append(log_level_t level, char *str, bool decorated) {
     if (tty_appender == NULL)
         return;
     if (level > log_flags.appenders[LOGAPP_TTY].level)
         return;
 
-    if (preamble) {
+    if (decorated) {
         char buff[16];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
         sprintfn(buff, sizeof(buff), "%u.%03u %s ", msecs / 1000, msecs % 1000, level_captions[level]);
         tty_write_specific_tty(tty_appender, buff);
     }
     tty_write_specific_tty(tty_appender, str);
-    tty_write_specific_tty(tty_appender, "\n");
+    if (decorated) {
+        tty_write_specific_tty(tty_appender, "\n");
+    }
 }
 
 static inline char printable(char c) {
