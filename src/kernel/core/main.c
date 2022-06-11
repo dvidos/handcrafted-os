@@ -12,6 +12,7 @@
 #include <drivers/serial.h>
 #include <drivers/pci.h>
 #include <drivers/sata.h>
+#include <drivers/ata.h>
 #include <memory/physmem.h>
 #include <memory/kheap.h>
 #include <klog.h>
@@ -127,6 +128,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     }
 
     klog_info("Detecting PCI devices...");
+    ata_register_pci_driver();
     sata_register_pci_driver();
     init_pci();
 

@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <devices/storage_dev.h>
 #include <lock.h>
+#include <klog.h>
 
 struct storage_dev *storage_devices_list = NULL;
 int next_dev_no = 1;
@@ -14,6 +15,7 @@ void storage_mgr_register_device(struct storage_dev *dev) {
     dev->next = storage_devices_list;
     storage_devices_list = dev;
     release(&devices_list_lock);
+    klog_debug("Device \"%s\" registered as storage dev #%d", dev->name, dev->dev_no);
 }
 
 struct storage_dev *storage_mgr_get_devices_list() {

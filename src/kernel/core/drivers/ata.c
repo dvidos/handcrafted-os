@@ -1,406 +1,635 @@
 #include <stddef.h>
 #include <stdbool.h>
+#include <bits.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <cpu.h>
 #include <klib/string.h>
 #include <drivers/screen.h>
 #include <drivers/timer.h>
+#include <drivers/pci.h>
+#include <devices/storage_dev.h>
+#include <memory/kheap.h>
 #include <klog.h>
 
 
-// driver for ATA drives, PIO (vs DMA) access for now.
-// based mainly on 
-// http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio
-// and https://wiki.osdev.org/ATA_PIO_Mode
+// heavily influenced (read: copied) from here https://wiki.osdev.org/PCI_IDE_Controller
+// and here: https://github.com/HaontCorporation/os365/blob/master/hdd.h
 
-#define FIRST_BUS_PORT     0x1F0 // through 0x1F7
-#define SECOND_BUS_PORT    0x170 // through 0x177
-#define THIRD_BUS_PORT     0x1E8 // through 1EF
-#define FOURTH_BUS_PORT    0x168 // through 16F
-
-#define FIRST_CONTROL_REG_PORT   0x3F6
-#define SECOND_CONTROL_REG_PORT  0x376
-#define THIRD_CONTROL_REG_PORT   0x3E6
-#define FOURTH_CONTROL_REG_PORT  0x366
-
-// IRQ for primary controller is 14, for secondary it is 15
-
-// these for the io_port
-#define DATA_REGISTER           0
-#define FEATURE_REGISTER        1
-#define ERROR_REGISTER          1 // on reading
-#define SECTOR_COUNT_REGISTER   2
-#define LBA_LOW_REGISTER        3
-#define LBA_MID_REGISTER        4
-#define LBA_HIGH_REGISTER       5
-#define DRIVE_SELECT_REGISTER   6
-#define COMMAND_REGISTER        7
-#define STATUS_REGISTER         7 // on reading
-
-#define CMD_IDENTIFY      0xEC
-#define CMD_READ_LBA28    0x00
-#define CMD_WRITE_LBA28   0x00
-#define CMD_READ_LBA48    0x00
-#define CMD_WRITE_LBA48   0x00
-
-
-#define ERR      0x01  // bit 0 from status register
-#define DRQ      0x08  // bit 3 from status register, drive has data to send or receive
-#define DF       0x20  // bit 5 from status register, drive fault error
-#define RDY      0x40  // bit 6, when disks have spun down
-#define BSY      0x80  // bit 7 from status register
-
-
-#define SRST     0x04  // written to the control register
-
-struct controller_info {
-    uint16_t io_port_base;
-    uint16_t control_port_base;
-    bool exists;
-};
-typedef struct controller_info controller_info_t;
-
-struct drive_info {
-    uint8_t controller_no; // index to the controllers array
-    uint8_t ctrl_drive_no; // drive_no for this controller 0/1
-    bool exists;
-    bool is_atapi;
-    bool is_sata;
-};
-typedef struct drive_info drive_info_t;
-
-// read/write in LBA (Linear Block Address) mode, each block is 512 bytes long.
-// most drives support LBA28 (28 bits for block number)
-// not all support LBA48 (48 bits for block number)
-uint8_t sector_buffer[512];
-controller_info_t controllers[] = {
-    // io-port, control-port, exists
-    { 0x1F0, 0x3F6, 0 },
-    { 0x170, 0x376, 0 },
-};
-drive_info_t drives[] = {
-    // ctrl-no, drive-no, exists, atapi, sata
-    { 0, 0, 0, 0, 0},
-    { 0, 1, 0, 0, 0},
-    { 1, 0, 0, 0, 0},
-    { 1, 1, 0, 0, 0},
+// for use with storage_dev
+struct ide_private_data {
+    char drive_no;
 };
 
-bool is_drive_present(int drive);
-void soft_reset_controller(int controller_no);
-void identify_drive(uint8_t drive_idx);
-static void prepare_lba28_operation(int drive, uint64_t block_num, uint8_t command);
-static void prepare_lba48_operation(int drive, uint64_t block_num, uint8_t command);
-static void wait_for_controller_to_be_ready(int drive);
-static void transfer_256_words_disk_to_memory(int drive);
-static void transfer_256_words_memory_to_disk(int drive);
-void read_block_lba28(uint8_t drive, uint64_t block_num);
-void write_block_lba28(uint8_t drive, uint64_t block_num);
-void read_block_lba48(uint8_t drive, uint64_t block_num);
-void write_block_lba48(uint8_t drive, uint64_t block_num);
 
-void test_hdd() {
-    for (int i = 0; i < (int)(sizeof(controllers) / sizeof(controllers[0])); i++) {
-        soft_reset_controller(i);
-        //controllers[i].exists = is_controller_present(i);
-        //klog_info("Controller #%d is %s", i, controllers[i].exists ? "present" : "absent");
-    }
-    for (int i = 0; i < (int)(sizeof(drives) / sizeof(drives[0])); i++) {
-        // drives[i].exists = is_drive_present(i);
-        identify_drive(i);
-        // klog_info("Drive #%d is %s", i, drives[i].exists ? "present" : "absent");
-    }
 
-    // for (int d = 0; d < (int)(sizeof(drives) / sizeof(drives[0])); d++) {
-    //     if (drives[d].exists) {
-    //         klog_info("---- Drive #%d ----", d);
-    //         // it seems that drive 1:0 is present! (secondary master)
-    //         memset(sector_buffer, 0, sizeof(sector_buffer));
-    //         for (int s = 0; s < 1; s++) {
-    //             // klog_info("Sector %d", s);
-    //             read_block_lba28(d, s);
-    //             // klog_hex16_info((char *)sector_buffer, sizeof(sector_buffer), s * 512);
-    //             klog_hex16_info((char *)sector_buffer, 32, s * 512);
-    //         }
-    //     }
-    // }
+
+// the Command/Status port return values for channel
+#define ATA_SR_BSY     0x80    // Busy
+#define ATA_SR_DRDY    0x40    // Drive ready
+#define ATA_SR_DF      0x20    // Drive write fault
+#define ATA_SR_DSC     0x10    // Drive seek complete
+#define ATA_SR_DRQ     0x08    // Data request ready
+#define ATA_SR_CORR    0x04    // Corrected data
+#define ATA_SR_IDX     0x02    // Index
+#define ATA_SR_ERR     0x01    // Error
+
+// the Features/Error port return values
+#define ATA_ER_BBK      0x80    // Bad block
+#define ATA_ER_UNC      0x40    // Uncorrectable data
+#define ATA_ER_MC       0x20    // Media changed
+#define ATA_ER_IDNF     0x10    // ID mark not found
+#define ATA_ER_MCR      0x08    // Media change request
+#define ATA_ER_ABRT     0x04    // Command aborted
+#define ATA_ER_TK0NF    0x02    // Track 0 not found
+#define ATA_ER_AMNF     0x01    // No address mark
+
+// commands for the Command/Status port
+#define ATA_CMD_READ_PIO          0x20
+#define ATA_CMD_READ_PIO_EXT      0x24
+#define ATA_CMD_READ_DMA          0xC8
+#define ATA_CMD_READ_DMA_EXT      0x25
+#define ATA_CMD_WRITE_PIO         0x30
+#define ATA_CMD_WRITE_PIO_EXT     0x34
+#define ATA_CMD_WRITE_DMA         0xCA
+#define ATA_CMD_WRITE_DMA_EXT     0x35
+#define ATA_CMD_CACHE_FLUSH       0xE7
+#define ATA_CMD_CACHE_FLUSH_EXT   0xEA
+#define ATA_CMD_PACKET            0xA0
+#define ATA_CMD_IDENTIFY_PACKET   0xA1
+#define ATA_CMD_IDENTIFY          0xEC
+
+// IDENTITY commands return 512 bytes of data, this helps parse it.
+#define ATA_IDENT_DEVICETYPE     0
+#define ATA_IDENT_CYLINDERS      2
+#define ATA_IDENT_HEADS          6
+#define ATA_IDENT_SECTORS       12
+#define ATA_IDENT_SERIAL        20
+#define ATA_IDENT_MODEL         54
+#define ATA_IDENT_CAPABILITIES  98
+#define ATA_IDENT_FIELDVALID   106
+#define ATA_IDENT_MAX_LBA      120
+#define ATA_IDENT_COMMANDSETS  164
+#define ATA_IDENT_MAX_LBA_EXT  200
+
+// useful for when selecting a drive
+#define IDE_ATA        0x00
+#define IDE_ATAPI      0x01
+#define ATA_MASTER     0x00
+#define ATA_SLAVE      0x01
+
+// Registers definitions. Some values duplicated for better naming
+// See ide_read_reg()/ide_write_reg() for usage
+#define ATA_REG_DATA       0x00
+#define ATA_REG_ERROR      0x01
+#define ATA_REG_FEATURES   0x01
+#define ATA_REG_SECCOUNT0  0x02
+#define ATA_REG_LBA0       0x03
+#define ATA_REG_LBA1       0x04
+#define ATA_REG_LBA2       0x05
+#define ATA_REG_HDDEVSEL   0x06
+#define ATA_REG_COMMAND    0x07
+#define ATA_REG_STATUS     0x07
+#define ATA_REG_SECCOUNT1  0x08
+#define ATA_REG_LBA3       0x09
+#define ATA_REG_LBA4       0x0A
+#define ATA_REG_LBA5       0x0B
+#define ATA_REG_CONTROL    0x0C
+#define ATA_REG_ALTSTATUS  0x0C
+#define ATA_REG_DEVADDRESS 0x0D
+
+// channel_regs
+#define PRIMARY_CHANNEL    0x00
+#define SECONDARY_CHANNEL  0x01
+ 
+// directions
+#define ATA_READ      0x00
+#define ATA_WRITE     0x01
+
+// custom errors
+#define IDE_NO_ERR                         0
+#define IDE_ERR_DEVICE_FAULT               1
+#define IDE_ERR_STATUS_ERROR               2
+#define IDE_ERR_NO_DATA_REQ                3
+#define IDE_ERR_ADDR_MARK_NOT_FOUND        4
+#define IDE_ERR_NO_MEDIA                   5
+#define IDE_ERR_CMD_ABORTED                6
+#define IDE_ERR_ID_MARK_NOT_FOUND          7
+#define IDE_ERR_UNCORRECTABLE_DATA_ERROR   8
+#define IDE_ERR_BAD_SECTORS                9
+#define IDE_ERR_DRIVE_NOT_FOUND           10
+#define IDE_ERR_INVALID_ADDRESS           11
+#define IDE_ERR_READ_ONLY                 12
+
+
+// for primary / secondary channel
+static struct ide_channel_registers {
+   uint16_t base_port;  // I/O Base.
+   uint16_t ctrl_port;  // Control Base
+   uint16_t bus_master_ide; // Bus Master IDE
+   uint8_t  nIEN;  // nIEN (No Interrupt);
+} channel_regs[2];
+
+uint8_t ide_buf[2048] = {0};
+static volatile uint8_t ide_irq_invoked = 0; // supposedly we turn this to 1 in interrupt handler
+
+// for the four drives
+static struct ide_device {
+   uint8_t  detected;     // 0 (Empty) or 1 (This drive really exists).
+   uint8_t  channel;      // 0 (Primary channel) or 1 (Secondary channel).
+   uint8_t  master_slave; // 0 (Master drive) or 1 (Slave drive).
+   uint16_t type;         // 0: ATA, 1:ATAPI.
+   uint16_t signature;    // drive signature
+   uint16_t capabilities; // Features.
+   uint32_t command_sets; // Command Sets Supported.
+   uint32_t size;         // size in Sectors.
+   uint8_t  model[41];    // model in string.
+} ide_devices[4];
+
+
+// write a value to a register of a channel, e.g. ide_write_reg(PRIMARY_CHANNEL, ATA_REG_COMMAND, ATA_CMD_WRITE_PIO)
+static void ide_write_reg(uint8_t channel, uint8_t reg_no, uint8_t value) {
+
+    if (reg_no > 0x07 && reg_no < 0x0C)
+        ide_write_reg(channel, ATA_REG_CONTROL, 0x80 | channel_regs[channel].nIEN);
+
+    if (reg_no < 0x08)
+        outb(channel_regs[channel].base_port  + reg_no - 0x00, value);
+    else if (reg_no < 0x0C)
+        outb(channel_regs[channel].base_port  + reg_no - 0x06, value);
+    else if (reg_no < 0x0E)
+        outb(channel_regs[channel].ctrl_port  + reg_no - 0x0A, value);
+    else if (reg_no < 0x16)
+        outb(channel_regs[channel].bus_master_ide + reg_no - 0x0E, value);
+
+    if (reg_no > 0x07 && reg_no < 0x0C)
+        ide_write_reg(channel, ATA_REG_CONTROL, channel_regs[channel].nIEN);
 }
 
-void controller_status(int controller_no) {
-    uint8_t status = inb(controllers[controller_no].control_port_base);
-    klog_debug("Controller %d status  reg x%02x: %s%s%s%s%s%s%s%s",
-        controller_no,
-        status,
-        (status & 0x01) ? "ERR " : "",
-        (status & 0x02) ? "IDX " : "",
-        (status & 0x04) ? "CORR " : "",
-        (status & 0x08) ? "DRQ " : "",
-        (status & 0x10) ? "SRV " : "",
-        (status & 0x20) ? "DF " : "",
-        (status & 0x40) ? "RDY " : "",
-        (status & 0x80) ? "BSY " : ""
-    );
-    status = inb(controllers[controller_no].control_port_base + 1);
-    klog_debug("Controller %d address reg x%02x: %s%s%s%s%s%s%s%s",
-        controller_no,
-        status,
-        (status & 0x01) ? "DS0 " : "",
-        (status & 0x02) ? "DS1 " : "",
-        (status & 0x04) ? "HS0 " : "",
-        (status & 0x08) ? "HS1 " : "",
-        (status & 0x10) ? "HS2 " : "",
-        (status & 0x20) ? "HS3 " : "",
-        (status & 0x40) ? "WTG " : "",
-        (status & 0x80) ? "n/a " : ""
-    );
+
+// read a register in a channel (e.g. ide_read_reg(PRIMARY_CHANNEL, ATA_REG_STATUS))
+static uint8_t ide_read_reg(uint8_t channel, uint8_t reg_no) {
+    uint8_t result = 0;
+
+    if (reg_no > 0x07 && reg_no < 0x0C)
+        ide_write_reg(channel, ATA_REG_CONTROL, 0x80 | channel_regs[channel].nIEN);
+
+    if (reg_no < 0x08)
+        result = inb(channel_regs[channel].base_port + reg_no - 0x00);
+    else if (reg_no < 0x0C)
+        result = inb(channel_regs[channel].base_port  + reg_no - 0x06);
+    else if (reg_no < 0x0E)
+        result = inb(channel_regs[channel].ctrl_port  + reg_no - 0x0A);
+    else if (reg_no < 0x16)
+        result = inb(channel_regs[channel].bus_master_ide + reg_no - 0x0E);
+
+    if (reg_no > 0x07 && reg_no < 0x0C)
+        ide_write_reg(channel, ATA_REG_CONTROL, channel_regs[channel].nIEN);
+
+    return result;
 }
 
-bool wait_controller_not_busy(int controller_no) {
-    uint64_t started = timer_get_uptime_msecs();
-    while (true) {
-        uint8_t status = inb(controllers[controller_no].control_port_base);
-        if ((status & BSY) == 0 && (status & DRQ) == 0)
-            return true;
-        if (timer_get_uptime_msecs() - started > 50)
-            return false;
-    }
-}
+// the following reads a number of dwords in PIO mode, useful for IDENTITY
+// the buffer can be a char buffer, but we read 32-bit values from the ports
+static void ide_read_buffer(uint8_t channel, uint8_t reg_no, uint32_t *buffer, uint32_t dwords) {
+    uint32_t result = 0;
 
-bool wait_controller_ready(int controller_no) {
-    uint64_t started = timer_get_uptime_msecs();
-    while (true) {
-        uint8_t status = inb(controllers[controller_no].control_port_base);
-        if (status & RDY)
-            return true;
-        if (timer_get_uptime_msecs() - started > 50)
-            return false;
-    }
-}
+    if (reg_no > 0x07 && reg_no < 0x0C)
+        ide_write_reg(channel, ATA_REG_CONTROL, 0x80 | channel_regs[channel].nIEN);
 
-void soft_reset_controller(int controller_no) {
-    controller_status(controller_no);
-
-    klog_debug("Resetting controller %d...", controller_no);
-    outb(controllers[controller_no].control_port_base, 0);
-    inb(controllers[controller_no].io_port_base); // pause for 30usec
-
-    // to do a reset, send the RST bit for 5usecs on the control port
-    // the master drive is automatically selected
-
-    outb(controllers[controller_no].control_port_base, SRST);
-    (void)inb(0); // pause for 30usec
-    outb(controllers[controller_no].control_port_base, 0);
-
-    if (!wait_controller_not_busy(controller_no)) {
-        klog_debug("Controller failed clearing BSY after reset");
-        return;
-    }
-    if (!wait_controller_ready(controller_no)) {
-        klog_debug("Controller failed getting RDY after reset");
-        return;
-    }
-    controller_status(controller_no);
-}
-
-static void send_command(uint8_t drive_idx, uint8_t command) {
-    // estimated that each IO port read takes 30 usecs
-    
-    uint8_t cno = drives[drive_idx].controller_no;
-    controller_info_t *ctrlr = &controllers[cno];
-    wait_controller_not_busy(cno);
-    wait_controller_ready(cno);
-
-    // drive select first, 
-    uint8_t drive_value = drives[drive_idx].ctrl_drive_no == 0 ? 0xA0 : 0xB0;
-    outb(ctrlr->io_port_base + DRIVE_SELECT_REGISTER, drive_value); 
-
-    wait_controller_not_busy(cno);
-}
-
-void identify_drive(uint8_t drive_idx) {
-
-    uint8_t cno = drives[drive_idx].controller_no;
-    controller_info_t *ctrlr = &controllers[cno];
-
-    // reading the alternate status register 15 times, to delay before selecting a new drive
-    // ideally, the software should remember the last drive we selected
-    // and only pause when we change drives. but that's ok for now.
-    uint8_t status, p1, p2;
-
-
-    klog_info("Identifying drive %d...", drive_idx);
-    wait_controller_not_busy(cno);
-    wait_controller_ready(cno);
-
-    uint8_t drive_value = drives[drive_idx].ctrl_drive_no == 0 ? 0xA0 : 0xB0;
-    outb(ctrlr->io_port_base + DRIVE_SELECT_REGISTER, drive_value); 
-    for (int i = 0; i < 15; i++)
-        status = inb(ctrlr->control_port_base);
-    klog_debug("After drive select + delay, ctrl_port status is %08bb", drive_idx);
-    outb(ctrlr->io_port_base + LBA_LOW_REGISTER, 0); 
-    outb(ctrlr->io_port_base + LBA_MID_REGISTER, 0); 
-    outb(ctrlr->io_port_base + LBA_HIGH_REGISTER, 0); 
-    outb(ctrlr->io_port_base + COMMAND_REGISTER, CMD_IDENTIFY); 
-
-    status = inb(ctrlr->io_port_base + STATUS_REGISTER); 
-    if (status == 0) {
-        // drive does not exist
-        klog_info("Drive does not exist");
-        return;
-    }
-    status = inb(ctrlr->io_port_base + STATUS_REGISTER);
-    klog_debug("Status register after identify %08bb", status);
-
-    // poll the status, until bit 7 (BSY) clears
-    klog_debug("Polling to overcome BSY...");
-    uint64_t started = timer_get_uptime_msecs();
-    while (true) {
-        status = inb(ctrlr->io_port_base + STATUS_REGISTER);
-        if ((status & BSY) == 0)
-            break;
-        if (timer_get_uptime_msecs() - started > 50) {
-            klog_debug("Timed out waiting for BSY to clear, after 100 msecs...");
-            return;
-        }
-    }
-
-    // Because of some ATAPI drives that do not follow spec, at this point 
-    // you need to check the LBAmid and LBAhi ports (0x1F4 and 0x1F5) 
-    // to see if they are non-zero. If so, the drive is not ATA, and 
-    /// you should stop polling. 
-    p1 = inb(ctrlr->io_port_base + LBA_MID_REGISTER);
-    p2 = inb(ctrlr->io_port_base + LBA_HIGH_REGISTER);
-    if (p1 != 0 || p2 != 0) {
-        bool is_atapi = p1 == 0x14 && p2 == 0xEB;
-        bool is_sata = p1 == 0x3C && p2 == 0xC3;
-        if (is_atapi)
-            klog_debug("ATAPI device detected, stopping");
-        if (is_sata)
-            klog_debug("SATA device detected, stopping");
-        if (!is_atapi && !is_sata)
-            klog_debug("Unknown non-ATA device detected, stopping");
-        return;
+    while (dwords-- > 0) {
+        if (reg_no < 0x08)
+            result = inl(channel_regs[channel].base_port + reg_no - 0x00);
+        else if (reg_no < 0x0C)
+            result = inl(channel_regs[channel].base_port  + reg_no - 0x06);
+        else if (reg_no < 0x0E)
+            result = inl(channel_regs[channel].ctrl_port  + reg_no - 0x0A);
+        else if (reg_no < 0x16)
+            result = inl(channel_regs[channel].bus_master_ide + reg_no - 0x0E);
+        
+        *buffer++ = result;
     }
 
-    // Otherwise, continue polling one of the Status ports until 
-    // bit 3 (DRQ, value = 8) sets, or until bit 0 (ERR, value = 1) sets.
-    klog_debug("Waiting for either DRQ or ERR");
-    while (true) {
-        status = inb(ctrlr->io_port_base + STATUS_REGISTER);
-        if (status & ERR) {
-            klog_debug("Error detected, aborting");
-            return;
-        }
-        if (status & DRQ)
-            break;
-    }
-
-    klog_debug("DRQ detected, transfering...");
-    transfer_256_words_disk_to_memory(drive_idx);
-    klog_hex16_info((char *)sector_buffer, 64, 0);
+    if (reg_no > 0x07 && reg_no < 0x0C)
+        ide_write_reg(channel, ATA_REG_CONTROL, channel_regs[channel].nIEN);
 }
 
+// after a command has been issued, where's a standard follow up.
+// this method polls to see successful result or not
+static uint8_t ide_polling(uint8_t channel, bool advanced_check) {
 
+    // delay 400 nanosecond for BSY to be set:
+    // Reading the Alternate Status port wastes 100ns; loop four times.
+    for(int i = 0; i < 4; i++)
+        ide_read_reg(channel, ATA_REG_ALTSTATUS); 
 
-void read_block_lba28(uint8_t drive_idx, uint64_t block_num) {
-    prepare_lba28_operation(drive_idx, block_num, 0x20);
-    wait_for_controller_to_be_ready(drive_idx);
-    transfer_256_words_disk_to_memory(drive_idx);
-}
-
-void write_block_lba28(uint8_t drive_idx, uint64_t block_num) {
-    prepare_lba28_operation(drive_idx, block_num, 0x30);
-    wait_for_controller_to_be_ready(drive_idx);
-    transfer_256_words_memory_to_disk(drive_idx);
-}
-
-void read_block_lba48(uint8_t drive_idx, uint64_t block_num) {
-    prepare_lba48_operation(drive_idx, block_num, 0x24);
-    wait_for_controller_to_be_ready(drive_idx);
-    transfer_256_words_disk_to_memory(drive_idx);
-}
-
-void write_block_lba48(uint8_t drive_idx, uint64_t block_num) {
-    prepare_lba48_operation(drive_idx, block_num, 0x34);
-    wait_for_controller_to_be_ready(drive_idx);
-    transfer_256_words_memory_to_disk(drive_idx);
-}
-
-
-
-static void prepare_lba28_operation(int drive_idx, uint64_t block_num, uint8_t command) {
-    uint16_t base_port = controllers[drives[drive_idx].controller_no].io_port_base;
-    uint16_t ctrl_drive_no = drives[drive_idx].ctrl_drive_no;
-
-    // to read a sector using LBA28
-    // first null byte
-    outb(base_port + 1, 0x00);
-    // then sector count
-    outb(base_port + 2, 0x01);
-    // send the address in 3 bytes:
-    outb(base_port + 3, (block_num >> 0) & 0xFF);
-    outb(base_port + 4, (block_num >> 8) & 0xFF);
-    outb(base_port + 5, (block_num >> 16) & 0xFF);
-    // Send the drive indicator, some magic bits, and highest 4 bits of the block address to port 0x1F6
-    outb(base_port + 6, 0xE0 | (ctrl_drive_no << 4) | ((block_num >> 24) & 0x0F));
-    // then send the command 0x20 or 0x30 to port 1F7
-    outb(base_port + 7, command);
-}
-
-static void prepare_lba48_operation(int drive_idx, uint64_t block_num, uint8_t command) {
-    uint16_t base_port = controllers[drives[drive_idx].controller_no].io_port_base;
-    uint16_t ctrl_drive_no = drives[drive_idx].ctrl_drive_no;
-
-    // to read a sector using LBA48:
-    // send two null bytes first
-    outb(base_port + 1, 0x00);
-    outb(base_port + 1, 0x00);
-    // send 16 bits sector count
-    outb(base_port + 2, 0x00);
-    outb(base_port + 2, 0x01);
-    // Send bits 24-31 to port 0x1F3: 
-    outb(base_port + 3, ((block_num >> 24) & 0xFF));
-    // Send bits 0-7 to port 0x1F3: 
-    outb(base_port + 3, (block_num & 0xFF));
-    // Send bits 32-39 to port 0x1F4: 
-    outb(base_port + 4, ((block_num >> 32) & 0xFF));
-    // Send bits 8-15 to port 0x1F4: 
-    outb(base_port + 4, ((block_num >> 8) & 0xFF));
-    // Send bits 40-47 to port 0x1F5: 
-    outb(base_port + 5, ((block_num >> 40) & 0xFF));
-    // Send bits 16-23 to port 0x1F5: 
-    outb(base_port + 5, ((block_num >> 16) & 0xFF));
-    // Send the drive indicator and some magic bits to port 0x1F6
-    outb(base_port + 6, 0x40 | (ctrl_drive_no << 4));
-    // Send the command 0x24 or 0x34 to port 0x1F7
-    outb(base_port + 7, command);
-
-}
-
-static void wait_for_controller_to_be_ready(int drive_idx) {
-    // Once you've done all this, you just have to wait for the drive to signal that it's ready
-    uint16_t port_base = controllers[drives[drive_idx].controller_no].control_port_base;
-    while (!(inb(port_base + 7) & 0x08)) {
+    // wait for BSY to be cleared:
+    while (ide_read_reg(channel, ATA_REG_STATUS) & ATA_SR_BSY)
         ;
+
+    // this is helpful for some commands
+    if (advanced_check) {
+        uint8_t state = ide_read_reg(channel, ATA_REG_STATUS); 
+
+        // check for error
+        if (state & ATA_SR_ERR)
+            return IDE_ERR_STATUS_ERROR;
+
+        // check for device fault
+        if (state & ATA_SR_DF)
+            return IDE_ERR_DEVICE_FAULT;
+
+        // BSY = 0; DF = 0; ERR = 0, so check for DRQ (should be set)
+        if ((state & ATA_SR_DRQ) == 0)
+            return IDE_ERR_NO_DATA_REQ;
     }
+
+    return 0;
 }
 
-static void transfer_256_words_disk_to_memory(int drive_idx) {
-    // And then read/write your data from/to port 0x1F0 - for read:
-    uint16_t port_base = controllers[drives[drive_idx].controller_no].control_port_base;
-    for (int i = 0; i < 256; i++) {
-        uint16_t word = inw(port_base);
-        sector_buffer[i * 2] = word & 0xFF;
-        sector_buffer[i * 2 + 1] = (word >> 8) & 0xFF;
+/* drive is the drive number which can be from 0 to 3.
+   lba is the LBA address which allows us to access disks up to 2TB.
+   numsects is the number of sectors to be read, it is a char, as reading more than 256 sector immediately may performance issues. If numsects is 0, the ATA controller will know that we want 256 sectors.
+   selector is the segment selector to read from, or write to.
+   edi is the offset in that segment. (the memory address for the data buffer)
+*/
+static uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba, uint8_t numsects, uint16_t data_seg, uint32_t data_ptr) {
+
+    uint8_t  lba_mode /* 0: CHS, 1:LBA28, 2: LBA48 */, dma /* 0: No DMA, 1: DMA */, cmd;
+    uint8_t  lba_io[6];
+    uint32_t channel  = ide_devices[drive].channel; // Read the channel.
+    uint32_t slavebit = ide_devices[drive].master_slave; // Read the drive [Master/Slave]
+    uint32_t bus      = channel_regs[channel].base_port; // Bus Base, like 0x1F0 which is also data port.
+    uint32_t words = 256; // Almost every ATA drive has a sector-size of 512-byte.
+    uint16_t cyl, i;
+    uint8_t  head, sect, err;
+
+    // We don't need IRQs, so we should disable it to prevent problems from happening.
+    // We said before that if bit 1 of the Control Register (which is called nIEN bit), is set, 
+    // no IRQs will be invoked from any drives on this channel, either master or slave.
+    ide_write_reg(channel, ATA_REG_CONTROL, channel_regs[channel].nIEN = (ide_irq_invoked = 0x0) + 0x02);
+
+    // (I) Select one from LBA28, LBA48 or CHS;
+    if (lba >= 0x10000000) { 
+        // Sure drive should support LBA in this case, or you are giving a wrong LBA.
+        // LBA48:
+        lba_mode  = 2;
+        lba_io[0] = (lba & 0x000000FF) >> 0;
+        lba_io[1] = (lba & 0x0000FF00) >> 8;
+        lba_io[2] = (lba & 0x00FF0000) >> 16;
+        lba_io[3] = (lba & 0xFF000000) >> 24;
+        lba_io[4] = 0; // LBA28 is integer, so 32-bits are enough to access 2TB.
+        lba_io[5] = 0; // LBA28 is integer, so 32-bits are enough to access 2TB.
+        head      = 0; // Lower 4-bits of HDDEVSEL are not used here.
+    } else if (ide_devices[drive].capabilities & 0x200)  { // drive supports LBA?
+        // LBA28:
+        lba_mode  = 1;
+        lba_io[0] = (lba & 0x00000FF) >> 0;
+        lba_io[1] = (lba & 0x000FF00) >> 8;
+        lba_io[2] = (lba & 0x0FF0000) >> 16;
+        lba_io[3] = 0; // These Registers are not used here.
+        lba_io[4] = 0; // These Registers are not used here.
+        lba_io[5] = 0; // These Registers are not used here.
+        head      = (lba & 0xF000000) >> 24;
+    } else {
+        // CHS:
+        lba_mode  = 0;
+        sect      = (lba % 63) + 1;
+        cyl       = (lba + 1  - sect) / (16 * 63);
+        lba_io[0] = sect;
+        lba_io[1] = (cyl >> 0) & 0xFF;
+        lba_io[2] = (cyl >> 8) & 0xFF;
+        lba_io[3] = 0;
+        lba_io[4] = 0;
+        lba_io[5] = 0;
+        head      = (lba + 1  - sect) % (16 * 63) / (63); // Head number is written to HDDEVSEL lower 4-bits.
     }
+
+    // (II) See if drive supports DMA or not;
+    dma = 0; // We don't support DMA
+
+    // Wait if the drive is busy
+    while (ide_read_reg(channel, ATA_REG_STATUS) & ATA_SR_BSY)
+        ;
+
+    /*
+        The HDDDEVSEL register now looks like this:
+        Bits 0 : 3: Head Number for CHS.
+        Bit 4: Slave Bit. (0: Selecting Master drive, 1: Selecting Slave drive).
+        Bit 5: Obsolete and isn't used, but should be set.
+        Bit 6: LBA (0: CHS, 1: LBA).
+        Bit 7: Obsolete and isn't used, but should be set.
+    */
+
+    // Select drive from the controller
+    if (lba_mode == 0)
+        ide_write_reg(channel, ATA_REG_HDDEVSEL, 0xA0 | (slavebit << 4) | head); // drive & CHS.
+    else
+        ide_write_reg(channel, ATA_REG_HDDEVSEL, 0xE0 | (slavebit << 4) | head); // drive & LBA   
+
+    // Write Parameters;
+    if (lba_mode == 2) {
+        ide_write_reg(channel, ATA_REG_SECCOUNT1,   0);
+        ide_write_reg(channel, ATA_REG_LBA3,   lba_io[3]);
+        ide_write_reg(channel, ATA_REG_LBA4,   lba_io[4]);
+        ide_write_reg(channel, ATA_REG_LBA5,   lba_io[5]);
+    }
+    ide_write_reg(channel, ATA_REG_SECCOUNT0,   numsects);
+    ide_write_reg(channel, ATA_REG_LBA0,   lba_io[0]);
+    ide_write_reg(channel, ATA_REG_LBA1,   lba_io[1]);
+    ide_write_reg(channel, ATA_REG_LBA2,   lba_io[2]);
+
+    if (lba_mode == 0 && dma == 0 && direction == 0) cmd = ATA_CMD_READ_PIO;
+    if (lba_mode == 1 && dma == 0 && direction == 0) cmd = ATA_CMD_READ_PIO;   
+    if (lba_mode == 2 && dma == 0 && direction == 0) cmd = ATA_CMD_READ_PIO_EXT;   
+    if (lba_mode == 0 && dma == 1 && direction == 0) cmd = ATA_CMD_READ_DMA;
+    if (lba_mode == 1 && dma == 1 && direction == 0) cmd = ATA_CMD_READ_DMA;
+    if (lba_mode == 2 && dma == 1 && direction == 0) cmd = ATA_CMD_READ_DMA_EXT;
+    if (lba_mode == 0 && dma == 0 && direction == 1) cmd = ATA_CMD_WRITE_PIO;
+    if (lba_mode == 1 && dma == 0 && direction == 1) cmd = ATA_CMD_WRITE_PIO;
+    if (lba_mode == 2 && dma == 0 && direction == 1) cmd = ATA_CMD_WRITE_PIO_EXT;
+    if (lba_mode == 0 && dma == 1 && direction == 1) cmd = ATA_CMD_WRITE_DMA;
+    if (lba_mode == 1 && dma == 1 && direction == 1) cmd = ATA_CMD_WRITE_DMA;
+    if (lba_mode == 2 && dma == 1 && direction == 1) cmd = ATA_CMD_WRITE_DMA_EXT;
+    ide_write_reg(channel, ATA_REG_COMMAND, cmd);
+
+    /*
+        After sending the command, we should poll, then we read/write a sector, 
+        then we should poll, then we read/write a sector, until we read/write all sectors needed, 
+        if an error has happened, the function will return a specific error code.
+
+        Notice that after writing, we should execute the CACHE FLUSH command, 
+        and we should poll after it, but without checking for errors.
+    */
+    if (direction == 0) { // PIO Read.
+        for (i = 0; i < numsects; i++) {
+            // Polling, set error and exit if there is.
+            if ((err = ide_polling(channel, true)))
+                return err;
+            
+            asm("pushw %es");
+            asm("mov %%ax, %%es" : : "a"(data_seg));
+            asm("rep insw" : : "c"(words), "d"(bus), "D"(data_ptr)); // Receive Data.
+            asm("popw %es");
+            data_ptr += (words*2);
+        }
+    } else { // PIO Write.
+        for (i = 0; i < numsects; i++) {
+            ide_polling(channel, false); // Polling.
+
+            asm("pushw %ds");
+            asm("mov %%ax, %%ds"::"a"(data_seg));
+            asm("rep outsw"::"c"(words), "d"(bus), "S"(data_ptr)); // Send Data
+            asm("popw %ds");
+            data_ptr += (words*2);
+        }
+
+        uint8_t flush_cmd = lba_mode == 2 ? ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
+        ide_write_reg(channel, ATA_REG_COMMAND, flush_cmd);
+        ide_polling(channel, false);
+    }
+
+    return 0;
 }
-static void transfer_256_words_memory_to_disk(int drive_idx) {
-    // And then read/write your data from/to port 0x1F0 - for write:
-    uint16_t port_base = controllers[drives[drive_idx].controller_no].control_port_base;
-    for (int i = 0; i < 256; i++) {
-        uint16_t word = 
-            (uint16_t)(sector_buffer[i * 2]) | 
-            ((uint16_t)(sector_buffer[i * 2 + 1] << 8));
-        outw(port_base, word);
+
+static char ide_read_sectors(uint8_t drive, uint8_t numsects, uint32_t lba, uint16_t es, uint32_t edi) {
+
+    // Check if the drive presents
+    if (drive > 3 || !ide_devices[drive].detected)
+        return IDE_ERR_DRIVE_NOT_FOUND;
+
+    // Check if inputs are valid
+    if (((lba + numsects) > ide_devices[drive].size) && (ide_devices[drive].type == IDE_ATA))
+        return IDE_ERR_INVALID_ADDRESS;
+
+    if (ide_devices[drive].type == IDE_ATAPI)
+        return IDE_ERR_DRIVE_NOT_FOUND;
+
+    if (ide_devices[drive].type != IDE_ATA)
+        return IDE_ERR_DRIVE_NOT_FOUND;
+
+    // Read in PIO Mode through Polling & IRQs:
+    return  ide_ata_access(ATA_READ, drive, lba, numsects, es, edi);
+}
+
+static char ide_write_sectors(uint8_t drive, uint8_t numsects, uint32_t lba, uint16_t es, uint32_t edi) {
+
+    // Check if the drive presents
+    if (drive > 3 || !ide_devices[drive].detected)
+        return IDE_ERR_DRIVE_NOT_FOUND;
+
+    // Check if inputs are valid
+    if (((lba + numsects) > ide_devices[drive].size) && (ide_devices[drive].type == IDE_ATA))
+        return IDE_ERR_INVALID_ADDRESS;
+
+    if (ide_devices[drive].type == IDE_ATAPI)
+        return IDE_ERR_READ_ONLY;
+
+    // Read in PIO Mode through Polling & IRQs:
+    if (ide_devices[drive].type != IDE_ATA)
+        return IDE_ERR_DRIVE_NOT_FOUND;
+
+    return ide_ata_access(ATA_WRITE, drive, lba, numsects, es, edi);
+}
+
+static uint8_t ide_get_specific_error(uint32_t drive, uint8_t err) {
+    uint8_t st = ide_read_reg(ide_devices[drive].channel, ATA_REG_ERROR);
+
+    if (st & ATA_ER_AMNF)  return IDE_ERR_ADDR_MARK_NOT_FOUND;
+    if (st & ATA_ER_TK0NF) return IDE_ERR_NO_MEDIA;
+    if (st & ATA_ER_ABRT)  return IDE_ERR_CMD_ABORTED;
+    if (st & ATA_ER_MCR)   return IDE_ERR_NO_MEDIA;
+    if (st & ATA_ER_IDNF)  return IDE_ERR_ID_MARK_NOT_FOUND;
+    if (st & ATA_ER_MC)    return IDE_ERR_NO_MEDIA;
+    if (st & ATA_ER_UNC)   return IDE_ERR_UNCORRECTABLE_DATA_ERROR;
+    if (st & ATA_ER_BBK)   return IDE_ERR_BAD_SECTORS;
+
+    return 0;
+}
+
+static int storage_dev_sector_size(struct storage_dev *dev) {
+    (void)dev;
+    return 512;
+}
+
+static int storage_dev_read(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
+    struct ide_private_data *priv_data = (struct ide_private_data *)dev->priv_data;
+    return ide_read_sectors(priv_data->drive_no, sectors, sector_low, 0, (uint32_t)buffer);
+}
+
+static int storage_dev_write(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
+    struct ide_private_data *priv_data = (struct ide_private_data *)dev->priv_data;
+    return ide_write_sectors(priv_data->drive_no, sectors, sector_low, 0, (uint32_t)buffer);
+}
+
+static struct storage_dev_ops ide_ops = {
+    .sector_size = storage_dev_sector_size,
+    .read = storage_dev_read,
+    .write = storage_dev_write
+};
+
+static void register_storage_device(int dev_no, pci_device_t *pci_device) {
+    // prepare registration info
+    char *name = kmalloc(80);
+    sprintfn(name, 80, "IDE %s %s drive: %s",
+        ide_devices[dev_no].channel == 0 ? "primary" : "secondary",
+        ide_devices[dev_no].master_slave == 0 ? "master" : "slave",
+        ide_devices[dev_no].model
+    );
+
+    struct ide_private_data *priv_data = kmalloc(sizeof(struct ide_private_data));
+    memset(priv_data, 0, sizeof(struct ide_private_data));
+    priv_data->drive_no = dev_no;
+
+    struct storage_dev *storage_dev = kmalloc(sizeof(struct storage_dev));
+    memset(storage_dev, 0, sizeof(struct storage_dev));
+    storage_dev->name = name;
+    storage_dev->pci_dev = pci_device;
+    storage_dev->priv_data = priv_data;
+    storage_dev->ops = &ide_ops;
+
+    storage_mgr_register_device(storage_dev);
+}
+
+static bool probe_device(uint8_t channel, uint8_t master_slave, int dev_no) {
+
+    ide_devices[dev_no].detected = 0; // assuming no drive here.
+
+    // select drive
+    ide_write_reg(channel, ATA_REG_HDDEVSEL, 0xA0 | (master_slave << 4));
+    timer_pause_blocking(1); // Wait 1ms for drive select to work.
+
+    // send ATA identify command
+    ide_write_reg(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+    timer_pause_blocking(1); // This function should be implemented in your OS. which waits for 1 ms. it is based on System Timer Device Driver.
+
+    // polling
+    if (!ide_read_reg(channel, ATA_REG_STATUS))
+        return false; // If Status = 0, No Device.
+
+    uint8_t type = IDE_ATA;
+    uint8_t status;
+    uint8_t err = 0;
+    while(1) {
+        status = ide_read_reg(channel, ATA_REG_STATUS);
+        if (status & ATA_SR_ERR) { 
+            err = 1; // if err, device is not ATA, maybe ATAPI
+            break;
+        } 
+
+        if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) 
+            break; // everything is ok
     }
+    if (err) {
+        // could be an ATAPI device
+        // uint8_t cl = ide_read_reg(channel, ATA_REG_LBA1);
+        // uint8_t ch = ide_read_reg(channel, ATA_REG_LBA2);
+
+        // if ((cl == 0x14 && ch ==0xEB) || (cl == 0x69 && ch ==0x96))
+        //     type = IDE_ATAPI;
+        // else
+        //     continue; // unknown type (and always not be a device).
+
+        // ide_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
+        // timer_pause_blocking(1);
+        return false; // we dont care to support ATAPI for now.
+    }
+
+    // read identification space of the device
+    ide_read_buffer(channel, ATA_REG_DATA, (uint32_t *)ide_buf, 128);
+    // klog_info("Identify results");
+    // klog_hex16_info(ide_buf, 512, 0);
+
+    ide_devices[dev_no].detected     = 1;
+    ide_devices[dev_no].type         = type;
+    ide_devices[dev_no].channel      = channel;
+    ide_devices[dev_no].master_slave = master_slave;
+    ide_devices[dev_no].signature    = ((uint16_t *)(ide_buf + ATA_IDENT_DEVICETYPE   ))[0];
+    ide_devices[dev_no].capabilities = ((uint16_t *)(ide_buf + ATA_IDENT_CAPABILITIES ))[0];
+    ide_devices[dev_no].command_sets = ((uint32_t *)(ide_buf + ATA_IDENT_COMMANDSETS  ))[0];
+
+    // Get Size:
+    if (IS_BIT(ide_devices[dev_no].command_sets, 26)) {
+        // Device uses 48-Bit Addressing:
+        ide_devices[dev_no].size = ((uint32_t *)(ide_buf + ATA_IDENT_MAX_LBA_EXT))[0];
+        // Note that Quafios is 32-Bit Operating System, So last 2 Words are ignored.
+    } else {
+        // Device uses CHS or 28-bit Addressing:
+        ide_devices[dev_no].size = ((uint32_t *)(ide_buf + ATA_IDENT_MAX_LBA))[0];
+    }
+
+    // String indicates model of device (like Western Digital HDD and SONY DVD-RW...):
+    for(int i = 0; i < 40; i += 2) {
+        ide_devices[dev_no].model[i]     = ide_buf[i + ATA_IDENT_MODEL + 1];
+        ide_devices[dev_no].model[i + 1] = ide_buf[i + ATA_IDENT_MODEL];
+    }
+    ide_devices[dev_no].model[40] = 0; // terminate
+    for (int i = 39; i > 0 && ide_devices[dev_no].model[i] == ' '; i--) {
+        ide_devices[dev_no].model[i] = '\0'; // trim spaces from the right
+    }
+
+    return true;
+}
+
+// probing method, called from PCI driver, must return zero if successfully claimed device
+static int probe(pci_device_t *dev) {
+
+    uint8_t pif = dev->config.prog_if;
+    klog_debug("IDE driver, probind device %d:%d:%d, pif x%x (%8bb)", dev->bus_no, dev->device_no, dev->func_no, pif, pif);
+    memset(&ide_devices, 0, sizeof(ide_devices));
+
+    uint16_t bar0 = dev->config.headers.h00.bar0 & 0xFFFFFFFC;
+    uint16_t bar1 = dev->config.headers.h00.bar1 & 0xFFFFFFFC;
+    uint16_t bar2 = dev->config.headers.h00.bar2 & 0xFFFFFFFC;
+    uint16_t bar3 = dev->config.headers.h00.bar3 & 0xFFFFFFFC;
+    uint16_t bar4 = dev->config.headers.h00.bar4 & 0xFFFFFFFC;
+
+    // Detect I/O Ports which interface IDE Controller:
+    channel_regs[PRIMARY_CHANNEL  ].base_port  = bar0 ? bar0 : 0x1F0;
+    channel_regs[PRIMARY_CHANNEL  ].ctrl_port  = bar1 ? bar1 : 0x3F4;
+    channel_regs[SECONDARY_CHANNEL].base_port  = bar2 ? bar2 : 0x170;
+    channel_regs[SECONDARY_CHANNEL].ctrl_port  = bar3 ? bar3 : 0x374;
+    channel_regs[PRIMARY_CHANNEL  ].bus_master_ide = bar4 + 0;
+    channel_regs[SECONDARY_CHANNEL].bus_master_ide = bar4 + 8;   
+    ide_write_reg(PRIMARY_CHANNEL,   ATA_REG_CONTROL, 2);
+    ide_write_reg(SECONDARY_CHANNEL, ATA_REG_CONTROL, 2);
+
+    // enumerate devices
+    int dev_no = 0;
+    for (int channel = 0; channel < 2; channel++) {
+        for (int master_slave = 0; master_slave < 2; master_slave++) {
+            
+            if (!probe_device(channel, master_slave, dev_no))
+                continue;
+            
+            klog_info("Detected %s %s %s drive: \"%s\"",
+                ide_devices[dev_no].channel == 0 ? "primary" : "secondary",
+                ide_devices[dev_no].master_slave == 0 ? "master" : "slave",
+                ide_devices[dev_no].type == 0 ? "ATA" : "ATAPI",
+                ide_devices[dev_no].model
+            );
+
+            // let's try to read a sector or two.
+            klog_info("Reading boot sector");
+            ide_ata_access(ATA_READ, dev_no, 0, 1, 0, (uint32_t)ide_buf);
+            klog_hex16_info(ide_buf, 512, 0);
+            klog_info("Reading second sector");
+            ide_ata_access(ATA_READ, dev_no, 1, 1, 0, (uint32_t)ide_buf);
+            klog_hex16_info(ide_buf, 512, 512);
+
+            register_storage_device(dev_no, dev);
+            dev_no++;
+        }
+    }
+
+    return 0;
+}
+
+static struct pci_driver pci_driver = {
+    .name = "IDE Controller Driver",
+    .probe = probe
+};
+
+void ata_register_pci_driver() {
+    register_pci_driver(1, 1, &pci_driver);
 }

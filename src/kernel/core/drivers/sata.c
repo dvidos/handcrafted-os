@@ -574,10 +574,14 @@ static int storage_dev_write(struct storage_dev *dev, uint32_t sector_low, uint3
     return sata_rw_operation(false, priv_data->port, sector_low, sector_hi, sectors, buffer);
 }
 
-
+static struct storage_dev_ops sata_ops = {
+    .sector_size = storage_dev_sector_size,
+    .read = storage_dev_read,
+    .write = storage_dev_write
+};
 
 // probing method, must return zero if successfully claimed device
-int probe(pci_device_t *dev) {
+static int probe(pci_device_t *dev) {
     uint32_t base_mem_register = dev->config.headers.h00.bar5;
     // klog_debug("base mem reg for sata is %x", base_mem_register);
     // klog_debug("interrupt pin %d, interrupt line %d", dev->config.headers.h00.interrupt_pin, dev->config.headers.h00.interrupt_line);
@@ -685,21 +689,18 @@ int probe(pci_device_t *dev) {
         storage_dev->name = name;
         storage_dev->pci_dev = dev;
         storage_dev->priv_data = priv_data;
-        storage_dev->ops.sector_size = storage_dev_sector_size;
-        storage_dev->ops.read = storage_dev_read;
-        storage_dev->ops.write = storage_dev_write;
+        storage_dev->ops = &sata_ops;
         
         storage_mgr_register_device(storage_dev);
-        klog_debug("Registered port %d as storage dev #%d (%s)", port_no, storage_dev->dev_no, storage_dev->name);
     }
     return 0;
 }
 
-static struct pci_driver pci_driver;
+static struct pci_driver pci_driver = {
+    .name = "Serial ATA Controller Driver",
+    .probe = probe
+};
 
 void sata_register_pci_driver() {
-    memset(&pci_driver, 0, sizeof(pci_driver));
-    pci_driver.name = "SATA Driver";
-    pci_driver.probe = probe;
     register_pci_driver(1, 6, &pci_driver);
 }

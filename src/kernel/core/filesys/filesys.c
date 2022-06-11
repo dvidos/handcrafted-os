@@ -36,12 +36,12 @@ static void check_storage_device(struct storage_dev *dev) {
     // for each partition, see if there is a file system
     // find a way to mount each disk in a... namespace.
 
-    klog_debug("Looking for MBR on disk %d", dev->dev_no);
-    int sectors = 8;
-    dev->ops.read(dev, 0, 0, sectors, io_page);
-    klog_hex16_info(io_page, sectors * 512, 0);    
-    check_legacy_partition_table(io_page);
-    check_uefi_partition_table(io_page);
+    // klog_debug("Looking for MBR on disk %d", dev->dev_no);
+    // int sectors = 8;
+    // dev->ops.read(dev, 0, 0, sectors, io_page);
+    // klog_hex16_info(io_page, sectors * 512, 0);    
+    // check_legacy_partition_table(io_page);
+    // check_uefi_partition_table(io_page);
 }
 
 void init_filesys() {
