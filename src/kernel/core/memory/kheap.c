@@ -65,7 +65,7 @@ void init_kernel_heap() {
 
 // allocate a chunk of memory. min size restrictions apply
 void *kmalloc(size_t size) {
-    size = size < 256 ? 256 : size;
+    // size = size < 256 ? 256 : size;
     
     // find the first free block that is equal or larger than size
     memory_block_t *curr = kernel_heap.list_head;

@@ -377,11 +377,18 @@ static int find_free_cmd_slot(HBA_PORT *port)
 #define ATA_ER_TK0NF  0x02
 #define ATA_ER_AMNF   0x01
 
+// errors returned
+#define ERR_NO_CMD_SLOT      1
+#define ERR_PORT_HUNG_BSY    2
+#define ERR_TASK_FILE_ERROR  3
+
+
+
 // read or write "count" sectors (512 bytes) from sector offset "sector_hi:sector_lo" 
 // to "buf" with LBA48 mode from HBA "port"
 // Every PRDT entry contains 8K bytes data payload at most.
-static bool sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint32_t sector_hi, uint32_t count, uint8_t *buffer) {
-    klog_trace("sata_rw_operation(op=%s, port=x%x, slo=%x, shi=x%x, count=%d, buffer=x%p)", 
+static int sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint32_t sector_hi, uint32_t count, uint8_t *buffer) {
+    klog_trace("sata_rw_operation(op=%s, port=0x%x, sec_lo=0x%x, sec_hi=0x%x, count=%d, buffer=0x%p)", 
         read ? "read" : "write", port, sector_lo, sector_hi, count, buffer);
 
     // Clear pending interrupt bits
@@ -389,7 +396,7 @@ static bool sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uin
 
     int slot = find_free_cmd_slot(port);
     if (slot == -1)
-        return false;
+        return -ERR_NO_CMD_SLOT;
  
     HBA_CMD_HEADER *cmd_hdr = &((HBA_CMD_HEADER *)port->clb)[slot];
     cmd_hdr->cfl = sizeof(FIS_REG_HOST_TO_DEVICE)/sizeof(uint32_t);	// Command FIS size
@@ -445,7 +452,7 @@ static bool sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uin
         times++;
     if (times == 1000000) {
         klog_error("SATA: Port %p is hung\n", port);
-        return false;
+        return -ERR_PORT_HUNG_BSY;
     }
  
     // Issue the command
@@ -460,18 +467,17 @@ static bool sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uin
         if (port->is & HBA_PxIS_TFES) {
             // Task file error
             klog_error("SATA: Read disk error, port %p\n", port);
-            return false;
+            return -ERR_TASK_FILE_ERROR;
         }
     }
     
     // Check again
     if (port->is & HBA_PxIS_TFES) {
         klog_error("Read disk error, port %p\n", port);
-        return false;
+        return -ERR_TASK_FILE_ERROR;
     }
  
-    return true;
-
+    return 0;
 }
 
 static void stop_command_engine(HBA_PORT *port) {
@@ -581,10 +587,10 @@ static struct storage_dev_ops sata_ops = {
 };
 
 // probing method, must return zero if successfully claimed device
-static int probe(pci_device_t *dev) {
-    uint32_t base_mem_register = dev->config.headers.h00.bar5;
+static int probe(pci_device_t *pci_dev) {
+    uint32_t base_mem_register = pci_dev->config.headers.h00.bar5;
     // klog_debug("base mem reg for sata is %x", base_mem_register);
-    // klog_debug("interrupt pin %d, interrupt line %d", dev->config.headers.h00.interrupt_pin, dev->config.headers.h00.interrupt_line);
+    // klog_debug("interrupt pin %d, interrupt line %d", pci_dev->config.headers.h00.interrupt_pin, pci_dev->config.headers.h00.interrupt_line);
     if (base_mem_register == 0)
         return -1;
 
@@ -614,15 +620,12 @@ static int probe(pci_device_t *dev) {
         uint8_t device_detection = (port->ssts & 0xF);
 
         if (interface_power_mgm != HBA_PORT_IPM_ACTIVE) {
-            klog_debug("Port %d, device not active", port_no);
             continue;
         }
         if (device_detection != HBA_PORT_DET_PRESENT) {
-            klog_debug("Port %d, device not powered", port_no);
             continue;
         }
         if (port->sig != SATA_SIG_ATA) {
-            klog_debug("Port %d, device non ATA", port_no);
             continue;
         }
         // device is ata, powered, present
@@ -677,7 +680,7 @@ static int probe(pci_device_t *dev) {
         // prepare registration info
         char *name = kmalloc(64);
         sprintfn(name, 64, "SATA Disk, pci dev %d/%d/%d, port #%d", 
-            dev->bus_no, dev->device_no, dev->func_no, port_no);
+            pci_dev->bus_no, pci_dev->device_no, pci_dev->func_no, port_no);
         
         struct sata_private_data *priv_data = kmalloc(sizeof(struct sata_private_data));
         memset(priv_data, 0, sizeof(struct sata_private_data));
@@ -687,7 +690,7 @@ static int probe(pci_device_t *dev) {
         struct storage_dev *storage_dev = kmalloc(sizeof(struct storage_dev));
         memset(storage_dev, 0, sizeof(struct storage_dev));
         storage_dev->name = name;
-        storage_dev->pci_dev = dev;
+        storage_dev->pci_dev = pci_dev;
         storage_dev->priv_data = priv_data;
         storage_dev->ops = &sata_ops;
         

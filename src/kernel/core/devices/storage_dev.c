@@ -12,8 +12,16 @@ lock_t devices_list_lock;
 void storage_mgr_register_device(struct storage_dev *dev) {
     acquire(&devices_list_lock);
     dev->dev_no = next_dev_no++;
-    dev->next = storage_devices_list;
-    storage_devices_list = dev;
+    dev->next = NULL;
+    
+    if (storage_devices_list == NULL) {
+        storage_devices_list = dev;
+    } else {
+        struct storage_dev *p = storage_devices_list;
+        while (p->next != NULL)
+            p = p->next;
+        p->next = dev;
+    }
     release(&devices_list_lock);
     klog_debug("Device \"%s\" registered as storage dev #%d", dev->name, dev->dev_no);
 }

@@ -537,7 +537,7 @@ static void find_device_driver(pci_device_t *dev) {
         );
         int err = reg->driver->probe(dev);
         if (err == 0) {
-            klog_debug("PCI driver \"%s\" reported capturing device %d:%d:%d", reg->driver->name, dev->bus_no, dev->device_no, dev->func_no);
+            // klog_debug("PCI driver \"%s\" reported capturing device %d:%d:%d", reg->driver->name, dev->bus_no, dev->device_no, dev->func_no);
             break;
         }
         reg = reg->next;

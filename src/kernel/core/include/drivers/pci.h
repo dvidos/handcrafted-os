@@ -23,7 +23,7 @@ struct pci_driver {
     // they will take a pointer to a pci_device_t struct
     // pci subsystem passes the device id for the driver to see if it will support it
     // the driver should return zero if successfully claiming the device
-    int (*probe)(pci_device_t *dev);
+    int (*probe)(pci_device_t *pci_dev);
 };
 
 void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *driver);

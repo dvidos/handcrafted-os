@@ -230,6 +230,7 @@ static uint8_t ide_polling(uint8_t channel, bool advanced_check) {
     // this is helpful for some commands
     if (advanced_check) {
         uint8_t state = ide_read_reg(channel, ATA_REG_STATUS); 
+        klog_debug("IDE poll, state=0x%02x (%08bb)", state, state);
 
         // check for error
         if (state & ATA_SR_ERR)
@@ -239,6 +240,7 @@ static uint8_t ide_polling(uint8_t channel, bool advanced_check) {
         if (state & ATA_SR_DF)
             return IDE_ERR_DEVICE_FAULT;
 
+        // timer_pause_blocking(1);
         // BSY = 0; DF = 0; ERR = 0, so check for DRQ (should be set)
         if ((state & ATA_SR_DRQ) == 0)
             return IDE_ERR_NO_DATA_REQ;
@@ -254,6 +256,8 @@ static uint8_t ide_polling(uint8_t channel, bool advanced_check) {
    edi is the offset in that segment. (the memory address for the data buffer)
 */
 static uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba, uint8_t numsects, uint16_t data_seg, uint32_t data_ptr) {
+    klog_trace("ide_ata_access(dir=%s, drive=%d, lba=%d, num_sects=%d, data_seg=0x%x, data_ptr=0x%x)", 
+        direction == ATA_WRITE ? "WRITE" : "READ", drive, lba, numsects, data_seg, data_ptr);
 
     uint8_t  lba_mode /* 0: CHS, 1:LBA28, 2: LBA48 */, dma /* 0: No DMA, 1: DMA */, cmd;
     uint8_t  lba_io[6];
@@ -261,7 +265,7 @@ static uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba, ui
     uint32_t slavebit = ide_devices[drive].master_slave; // Read the drive [Master/Slave]
     uint32_t bus      = channel_regs[channel].base_port; // Bus Base, like 0x1F0 which is also data port.
     uint32_t words = 256; // Almost every ATA drive has a sector-size of 512-byte.
-    uint16_t cyl, i;
+    uint16_t cyl;
     uint8_t  head, sect, err;
 
     // We don't need IRQs, so we should disable it to prevent problems from happening.
@@ -269,7 +273,7 @@ static uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba, ui
     // no IRQs will be invoked from any drives on this channel, either master or slave.
     ide_write_reg(channel, ATA_REG_CONTROL, channel_regs[channel].nIEN = (ide_irq_invoked = 0x0) + 0x02);
 
-    // (I) Select one from LBA28, LBA48 or CHS;
+    // select one from LBA28, LBA48 or CHS
     if (lba >= 0x10000000) { 
         // Sure drive should support LBA in this case, or you are giving a wrong LBA.
         // LBA48:
@@ -362,8 +366,7 @@ static uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba, ui
         and we should poll after it, but without checking for errors.
     */
     if (direction == 0) { // PIO Read.
-        for (i = 0; i < numsects; i++) {
-            // Polling, set error and exit if there is.
+        for (int i = 0; i < numsects; i++) {
             if ((err = ide_polling(channel, true)))
                 return err;
             
@@ -374,7 +377,7 @@ static uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba, ui
             data_ptr += (words*2);
         }
     } else { // PIO Write.
-        for (i = 0; i < numsects; i++) {
+        for (int i = 0; i < numsects; i++) {
             ide_polling(channel, false); // Polling.
 
             asm("pushw %ds");
@@ -392,7 +395,7 @@ static uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba, ui
     return 0;
 }
 
-static char ide_read_sectors(uint8_t drive, uint8_t numsects, uint32_t lba, uint16_t es, uint32_t edi) {
+static char ide_read_sectors(uint8_t drive, uint32_t lba, uint8_t numsects, uint16_t es, uint32_t edi) {
 
     // Check if the drive presents
     if (drive > 3 || !ide_devices[drive].detected)
@@ -412,7 +415,7 @@ static char ide_read_sectors(uint8_t drive, uint8_t numsects, uint32_t lba, uint
     return  ide_ata_access(ATA_READ, drive, lba, numsects, es, edi);
 }
 
-static char ide_write_sectors(uint8_t drive, uint8_t numsects, uint32_t lba, uint16_t es, uint32_t edi) {
+static char ide_write_sectors(uint8_t drive, uint32_t lba, uint8_t numsects, uint16_t es, uint32_t edi) {
 
     // Check if the drive presents
     if (drive > 3 || !ide_devices[drive].detected)
@@ -454,12 +457,12 @@ static int storage_dev_sector_size(struct storage_dev *dev) {
 
 static int storage_dev_read(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
     struct ide_private_data *priv_data = (struct ide_private_data *)dev->priv_data;
-    return ide_read_sectors(priv_data->drive_no, sectors, sector_low, 0, (uint32_t)buffer);
+    return ide_read_sectors(priv_data->drive_no, sector_low, sectors, 0, (uint32_t)buffer);
 }
 
 static int storage_dev_write(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
     struct ide_private_data *priv_data = (struct ide_private_data *)dev->priv_data;
-    return ide_write_sectors(priv_data->drive_no, sectors, sector_low, 0, (uint32_t)buffer);
+    return ide_write_sectors(priv_data->drive_no, sector_low, sectors, 0, (uint32_t)buffer);
 }
 
 static struct storage_dev_ops ide_ops = {
@@ -572,17 +575,17 @@ static bool probe_device(uint8_t channel, uint8_t master_slave, int dev_no) {
 }
 
 // probing method, called from PCI driver, must return zero if successfully claimed device
-static int probe(pci_device_t *dev) {
+static int probe(pci_device_t *pci_dev) {
 
-    uint8_t pif = dev->config.prog_if;
-    klog_debug("IDE driver, probind device %d:%d:%d, pif x%x (%8bb)", dev->bus_no, dev->device_no, dev->func_no, pif, pif);
+    uint8_t pif = pci_dev->config.prog_if;
+    klog_debug("IDE driver probing device %d:%d:%d, pif 0x%x (%8bb)", pci_dev->bus_no, pci_dev->device_no, pci_dev->func_no, pif, pif);
     memset(&ide_devices, 0, sizeof(ide_devices));
 
-    uint16_t bar0 = dev->config.headers.h00.bar0 & 0xFFFFFFFC;
-    uint16_t bar1 = dev->config.headers.h00.bar1 & 0xFFFFFFFC;
-    uint16_t bar2 = dev->config.headers.h00.bar2 & 0xFFFFFFFC;
-    uint16_t bar3 = dev->config.headers.h00.bar3 & 0xFFFFFFFC;
-    uint16_t bar4 = dev->config.headers.h00.bar4 & 0xFFFFFFFC;
+    uint16_t bar0 = pci_dev->config.headers.h00.bar0 & 0xFFFFFFFC;
+    uint16_t bar1 = pci_dev->config.headers.h00.bar1 & 0xFFFFFFFC;
+    uint16_t bar2 = pci_dev->config.headers.h00.bar2 & 0xFFFFFFFC;
+    uint16_t bar3 = pci_dev->config.headers.h00.bar3 & 0xFFFFFFFC;
+    uint16_t bar4 = pci_dev->config.headers.h00.bar4 & 0xFFFFFFFC;
 
     // Detect I/O Ports which interface IDE Controller:
     channel_regs[PRIMARY_CHANNEL  ].base_port  = bar0 ? bar0 : 0x1F0;
@@ -610,14 +613,14 @@ static int probe(pci_device_t *dev) {
             );
 
             // let's try to read a sector or two.
-            klog_info("Reading boot sector");
-            ide_ata_access(ATA_READ, dev_no, 0, 1, 0, (uint32_t)ide_buf);
-            klog_hex16_info(ide_buf, 512, 0);
-            klog_info("Reading second sector");
-            ide_ata_access(ATA_READ, dev_no, 1, 1, 0, (uint32_t)ide_buf);
-            klog_hex16_info(ide_buf, 512, 512);
+            // klog_info("Reading boot sector");
+            // ide_ata_access(ATA_READ, dev_no, 0, 1, 0, (uint32_t)ide_buf);
+            // klog_hex16_info(ide_buf, 512, 0);
+            // klog_info("Reading second sector");
+            // ide_ata_access(ATA_READ, dev_no, 1, 1, 0, (uint32_t)ide_buf);
+            // klog_hex16_info(ide_buf, 512, 512);
 
-            register_storage_device(dev_no, dev);
+            register_storage_device(dev_no, pci_dev);
             dev_no++;
         }
     }
