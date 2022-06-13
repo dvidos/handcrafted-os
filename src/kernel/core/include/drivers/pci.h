@@ -158,6 +158,7 @@ struct pci_device {
     uint8_t device_no;
     uint8_t func_no;
     pci_configuration_t config;
+    void *driver_private_data;
     struct pci_device *next;
 } __attribute__((packed));
 

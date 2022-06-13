@@ -7,11 +7,12 @@
 #include <devices/storage_dev.h>
 
 
-static char *io_page; // 4K long
+static char *buffer; // each page is 4K long
 
 struct partition {
-    struct storage_dev *dev;
     char *name;
+    uint8_t part_no;
+    struct storage_dev *dev;
     uint32_t first_sector;
     uint32_t num_sectors;
     bool bootable;
@@ -19,6 +20,7 @@ struct partition {
 };
 
 struct partition *partitions_list;
+
 
 static void add_partition(struct partition *partition) {
     if (partitions_list == NULL)
@@ -33,23 +35,25 @@ static void add_partition(struct partition *partition) {
 }
 
 
-static bool check_gpt_partition_table(struct storage_dev *dev) {
+static void check_gpt_partition_table(struct storage_dev *dev) {
     // we ignore LBA 0, going straight to 1.
-    int err = dev->ops->read(dev, 1, 0, 1, io_page);
+    int err = dev->ops->read(dev, 1, 0, 1, buffer);
     klog_debug("Reading sector 1: err=%d", err);
+    if (err)
+        return;
 
-    bool found = memcmp(io_page, "EFI PART", 8) == 0;
+    bool found = memcmp(buffer, "EFI PART", 8) == 0;
     if (!found) {
         klog_debug("GTP partition table not found");
-        return false;
+        return;
     }
 
     // this may mean maximum partitions, not just active, in some configurations
-    uint32_t number_of_partitions = *(uint32_t*)&io_page[0x50];
+    uint32_t number_of_partitions = *(uint32_t*)&buffer[0x50];
     klog_debug("GPT found, has %d partitions", number_of_partitions);
 
     
-    uint64_t partition_entries_table_address_64 = *(uint64_t*)&io_page[0x48];
+    uint64_t partition_entries_table_address_64 = *(uint64_t*)&buffer[0x48];
     if (HIGH_DWORD(partition_entries_table_address_64))
         panic("Partition entries LBA requires more than 32 bits!");
     uint32_t partition_entries_table_address = LOW_DWORD(partition_entries_table_address_64);
@@ -57,15 +61,15 @@ static bool check_gpt_partition_table(struct storage_dev *dev) {
     if (partition_entries_table_address == 0)
         partition_entries_table_address = 2; // entries usually located at LBA 2
 
-    uint32_t partition_entry_size = *(uint32_t*)&io_page[0x54];
+    uint32_t partition_entry_size = *(uint32_t*)&buffer[0x54];
     klog_debug("partition_entry_size %d", partition_entry_size);
 
     int entry_offset = 0;
     int remaining = 0;
     int sector_size = dev->ops->sector_size(dev);
-    for (uint32_t i = 0; i < number_of_partitions; i++) {
+    for (uint32_t part_no = 0; part_no < number_of_partitions; part_no++) {
         if (remaining == 0) {
-            int err = dev->ops->read(dev, partition_entries_table_address, 0, 1, io_page);
+            int err = dev->ops->read(dev, partition_entries_table_address, 0, 1, buffer);
             // klog_debug("Reading sector %d: err=%d", partition_entries_table_address, err);
             // klog_hex16_info(io_page, sector_size, 0);
             partition_entries_table_address++;
@@ -80,7 +84,7 @@ static bool check_gpt_partition_table(struct storage_dev *dev) {
         uint64_t attributes;
 
         // an all zeros type GUID means partition entry is unused
-        memcpy(type_guid, io_page + entry_offset + 0, 16);
+        memcpy(type_guid, buffer + entry_offset + 0, 16);
         bool all_zeros = true;
         for (int i = 0; i < 16; i++) {
             if (type_guid[i] != 0) {
@@ -94,15 +98,15 @@ static bool check_gpt_partition_table(struct storage_dev *dev) {
             continue;
         }
 
-        memcpy(partition_guid, io_page + entry_offset + 0x10, 16);
-        starting_lba = *(uint64_t *)(io_page + entry_offset + 0x20);
-        ending_lba = *(uint64_t *)(io_page + entry_offset + 0x28);
-        attributes = *(uint64_t *)(io_page + entry_offset + 0x30);
+        memcpy(partition_guid, buffer + entry_offset + 0x10, 16);
+        starting_lba = *(uint64_t *)(buffer + entry_offset + 0x20);
+        ending_lba = *(uint64_t *)(buffer + entry_offset + 0x28);
+        attributes = *(uint64_t *)(buffer + entry_offset + 0x30);
         if (HIGH_DWORD(starting_lba) != 0 || HIGH_DWORD(ending_lba) != 0)
             panic("Partition sectors contain addresses > 32 bits long");
         
         klog_debug("Part %d, type=%02x%02x%02x%02x start=0x%08x:%08x, end=0x%08x:%08x, attr=0x%08x:%08x",
-            i,
+            part_no,
             type_guid[0], type_guid[1], type_guid[2], type_guid[3], 
             HIGH_DWORD(starting_lba), LOW_DWORD(starting_lba),
             HIGH_DWORD(ending_lba), LOW_DWORD(ending_lba),
@@ -118,14 +122,15 @@ static bool check_gpt_partition_table(struct storage_dev *dev) {
 
         char *name = kmalloc(64);
         sprintfn(name, 64, "Partition %d (%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)",
-            i,
+            part_no,
             partition_guid[0], partition_guid[1], partition_guid[2], partition_guid[3], 
             partition_guid[4], partition_guid[5], partition_guid[6], partition_guid[7], 
             partition_guid[8], partition_guid[9], partition_guid[10], partition_guid[11], 
             partition_guid[12], partition_guid[13], partition_guid[14], partition_guid[15]);
         struct partition *part = kmalloc(sizeof(struct partition));
-        part->dev = dev;
         part->name = name;
+        part->part_no = part_no + 1;
+        part->dev = dev;
         part->first_sector = LOW_DWORD(starting_lba);
         part->num_sectors = ending_lba - starting_lba;
         part->bootable = (attributes & 0x02);
@@ -135,72 +140,119 @@ static bool check_gpt_partition_table(struct storage_dev *dev) {
         entry_offset += partition_entry_size;
         remaining -= partition_entry_size;
     }
-
-    return found;
 }
 
-static bool check_legacy_partition_table(struct storage_dev *dev) {
-    int err = dev->ops->read(dev, 0, 0, 1, io_page);
-    // klog_debug("Reading sector 0: err=%d", err);
 
-    klog_debug("Looking for legacy partition");
-    klog_hex16_info(io_page + 0x1BE, 64, 0x1BE);
+static void check_legacy_partition_table(struct storage_dev *dev, uint32_t starting_sector, uint8_t ext_part_num) {
+    int err = dev->ops->read(dev, starting_sector, 0, 1, buffer);
+    klog_debug("Reading sector %d: err=%d", starting_sector, err);
+    if (err)
+        return;
+    
+    // using this to mark the discovery of an extended partition as well.
+    uint32_t extended_partition_offset = 0;
 
+    klog_debug("Looking for legacy partition, at sector %d", starting_sector);
+    // klog_hex16_info(buffer + 0x1BE, 64, 0x1BE);
 
     // partition entries at 1BE, 1CE, 1DE, 1EE
-    for (int offset = 0x1BE; offset < 0x1FE; offset += 0x10) {
-        bool all_zeros = true;
-        for (int i = 0; i < 16; i++) {
-            if (io_page[offset + i] != 0) {
-                all_zeros = false;
-                break;
-            }
-        }
-        if (all_zeros)
-            continue;
+    for (int entry_no = 0; entry_no < 4; entry_no++) {
+        int offset = 0x1BE + entry_no * 0x10;
+        uint8_t  boot_indicator = *(uint8_t  *)(buffer + offset + 0x0);
+        uint8_t  start_head     = *(uint8_t  *)(buffer + offset + 0x1);
+        uint8_t  start_sector   = *(uint8_t  *)(buffer + offset + 0x2);
+        uint16_t start_cylinder = *(uint8_t  *)(buffer + offset + 0x3);
+        uint8_t  system_id      = *(uint8_t  *)(buffer + offset + 0x4);
+        uint8_t  end_head       = *(uint8_t  *)(buffer + offset + 0x5);
+        uint8_t  end_sector     = *(uint8_t  *)(buffer + offset + 0x6);
+        uint16_t end_cylinder   = *(uint8_t  *)(buffer + offset + 0x7);
+        uint32_t sector_offset      = *(uint32_t *)(buffer + offset + 0x8);
+        uint32_t num_sectors    = *(uint32_t *)(buffer + offset + 0xC);
+        
+        // two bits on upper byte of cylinders are stored in bits 6 &7 of sector
+        start_cylinder = ((start_sector >> 6) << 8) | start_cylinder;
+        start_sector = start_sector & 0x3F;
+        end_cylinder = ((end_sector >> 6) << 8) | end_cylinder;
+        end_sector = end_sector & 0x3F;
 
-        klog_debug("Found legacy partition table entry at 0x%x !!!", offset);
-        klog_debug("attr 0x%x, type 0x%x, first sector %d, sectors %d", 
-            (uint8_t)io_page[offset + 0x0],
-            (uint8_t)io_page[offset + 0x4],
-            (uint32_t)io_page[offset + 0x8],
-            (uint32_t)io_page[offset + 0xC]
+        klog_debug("Entry %d data: boot=0x%02x, id=%02x, CHS start %d,%d,%d end %d,%d,%d, lba=%d, sectors=%d",
+            entry_no,
+            boot_indicator,
+            system_id,
+            start_cylinder,
+            start_head,
+            start_sector,
+            end_cylinder,
+            end_head,
+            end_sector,
+            sector_offset,
+            num_sectors
         );
+
+        if (system_id == 0x00)
+            continue;
+        
+        if (system_id == 0x05 || system_id == 0x0F) {
+            extended_partition_offset = sector_offset;
+            continue;
+        }
+
+        struct partition *part = kmalloc(sizeof(struct partition));
+        part->name = kmalloc(64);
+        if (starting_sector == 0) {
+            part->part_no = entry_no + 1;
+            sprintfn(part->name, 64, "Primary partition %d", part->part_no);
+        } else {
+            part->part_no = ext_part_num++;
+            sprintfn(part->name, 64, "Logical partition %d", part->part_no);
+        }
+        part->bootable = IS_BIT(boot_indicator, 7);
+        part->first_sector = starting_sector + sector_offset;
+        part->num_sectors = num_sectors;
+        part->dev = dev;
+        add_partition(part);
     }
 
-    return false;
+    // now that we're done parsing our shared buffer, we can recurse
+    if (extended_partition_offset) {
+        check_legacy_partition_table(dev, starting_sector + extended_partition_offset, ext_part_num);
+    }
 }
 
 static void check_storage_device(struct storage_dev *dev) {
-    // see if there is a partition table
-    // for each partition, see if there is a file system
-    // find a way to mount each disk in a... namespace.
-
-    // klog_debug("Looking for MBR on disk %d", dev->dev_no);
-    // int sectors = 8;
-    // dev->ops.read(dev, 0, 0, sectors, io_page);
-    // klog_hex16_info(io_page, sectors * 512, 0);    
-    // check_legacy_partition_table(io_page);
-    // check_uefi_partition_table(io_page);
-
     // first we check for GPT, and if nothing if found, 
-    bool found = check_gpt_partition_table(dev);
-    if (!found) {
-        // check legacy only if GPT not found
-        found = check_legacy_partition_table(dev);
+    partitions_list = NULL;
+    check_gpt_partition_table(dev);
+    if (partitions_list == NULL) {
+        check_legacy_partition_table(dev, 0, 5);
+    }
+
+    // now print them
+    struct partition *p = partitions_list;
+    klog_info("Partitions found:");
+    while (p != NULL) {
+        klog_info("  %d: %s (%d sectors, start at %d)", p->part_no, p->name, p->num_sectors, p->first_sector);
+        p = p->next;
     }
 }
 
 void init_filesys() {
-    io_page = allocate_physical_page();
+    buffer = allocate_physical_page();
 
     // see if we have any disks
     struct storage_dev *dev = storage_mgr_get_devices_list();
     while (dev != NULL) {
         klog_debug("fs: checking storage device \"%s\"", dev->name);
+
+        // on the Pro Book laptop,
+        // it seems we do them in opposite order (cd rom first)
+        // and because we are failing, we stop.
+        // err... why do we, that's weird...
+        // maybe we need a master list of all PCI Devices -> Drives -> Partitions
+
         check_storage_device(dev);
         dev = dev->next;
     }
 
-    free_physical_page(io_page);
+    free_physical_page(buffer);
 }
