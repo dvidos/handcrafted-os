@@ -24,6 +24,10 @@
 #include <konsole/konsole.h>
 #include <devices/tty.h>
 #include <konsole/readline.h>
+#include <filesys/partition.h>
+#include <filesys/vfs.h>
+#include <filesys/fat.h>
+#include <filesys/ext2.h>
 
 
 
@@ -133,8 +137,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_pci();
 
     klog_info("Initializing file system...");
-    extern void init_filesys();
-    init_filesys();
+    discover_storage_dev_partitions(storage_mgr_get_devices_list());
+    fat_register_vfs_driver();
+    ext2_register_vfs_driver();
+    vfs_discover_and_mount_filesystems(get_partitions_list());
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();

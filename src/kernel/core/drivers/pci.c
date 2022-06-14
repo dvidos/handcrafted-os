@@ -517,8 +517,16 @@ void register_pci_driver(uint8_t class, uint8_t subclass, struct pci_driver *dri
     reg->class = class;
     reg->subclass = subclass;
     reg->driver = driver;
-    reg->next = pci_registered_drivers_list;
-    pci_registered_drivers_list = reg;
+    reg->next = NULL;
+
+    if (pci_registered_drivers_list == NULL)
+        pci_registered_drivers_list = reg;
+    else {
+        pci_driver_registration_t *p = pci_registered_drivers_list;
+        while (p->next != NULL)
+            p = p->next;
+        p->next = reg;
+    }
 }
 
 static void find_device_driver(pci_device_t *dev) {
@@ -548,6 +556,7 @@ void init_pci() {
     klog_debug("Collecting PCI devices...");
     collect_pci_devices();
 
+    // now print them
     pci_device_t *dev = pci_devices_list;
     while (dev != NULL) {
         klog_info("%d:%d:%d, vend/dev %04x/%04x, class/sub %02x/%02x, hdr %02x",
@@ -564,16 +573,6 @@ void init_pci() {
             get_pci_class_name(dev->config.class_type),
             get_pci_subclass_name(dev->config.class_type, dev->config.sub_class)
         );
-        // if ((dev->config.header_type & 0x3) == 0) {
-        //     klog_info("              BARs: %x %x %x %x %x %x", 
-        //         dev->config.headers.h00.bar0,
-        //         dev->config.headers.h00.bar1,
-        //         dev->config.headers.h00.bar2,
-        //         dev->config.headers.h00.bar3,
-        //         dev->config.headers.h00.bar4,
-        //         dev->config.headers.h00.bar5
-        //     );
-        // }
         dev = dev->next;
     }
 

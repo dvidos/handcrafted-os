@@ -1,3 +1,6 @@
+#ifndef _STORAGE_DEV_H
+#define _STORAGE_DEV_H
+
 #include <stdint.h>
 #include <stddef.h>
 #include <drivers/pci.h>
@@ -25,3 +28,6 @@ void storage_mgr_register_device(struct storage_dev *dev);
 struct storage_dev *storage_mgr_get_devices_list();
 struct storage_dev *storage_mgr_get_device(int dev_no);
 
+
+
+#endif

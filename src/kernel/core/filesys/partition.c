@@ -5,27 +5,18 @@
 #include <memory/physmem.h>
 #include <memory/kheap.h>
 #include <devices/storage_dev.h>
+#include <filesys/partition.h>
 
+static struct partition *partitions_list = NULL;
 
-static char *buffer; // each page is 4K long
-
-struct partition {
-    char *name;
-    uint8_t part_no;
-    struct storage_dev *dev;
-    uint32_t first_sector;
-    uint32_t num_sectors;
-    bool bootable;
-    struct partition *next;
-};
-
-struct partition *partitions_list;
-
+struct partition *get_partitions_list() {
+    return partitions_list;
+}
 
 static void add_partition(struct partition *partition) {
-    if (partitions_list == NULL)
+    if (partitions_list == NULL) {
         partitions_list = partition;
-    else {
+    } else {
         struct partition *p = partitions_list;
         while (p->next != NULL)
             p = p->next;
@@ -34,8 +25,7 @@ static void add_partition(struct partition *partition) {
     partition->next = NULL;
 }
 
-
-static void check_gpt_partition_table(struct storage_dev *dev) {
+static void check_gpt_partition_table(struct storage_dev *dev, char *buffer) {
     // we ignore LBA 0, going straight to 1.
     int err = dev->ops->read(dev, 1, 0, 1, buffer);
     klog_debug("Reading sector 1: err=%d", err);
@@ -51,7 +41,6 @@ static void check_gpt_partition_table(struct storage_dev *dev) {
     // this may mean maximum partitions, not just active, in some configurations
     uint32_t number_of_partitions = *(uint32_t*)&buffer[0x50];
     klog_debug("GPT found, has %d partitions", number_of_partitions);
-
     
     uint64_t partition_entries_table_address_64 = *(uint64_t*)&buffer[0x48];
     if (HIGH_DWORD(partition_entries_table_address_64))
@@ -143,7 +132,7 @@ static void check_gpt_partition_table(struct storage_dev *dev) {
 }
 
 
-static void check_legacy_partition_table(struct storage_dev *dev, uint32_t starting_sector, uint8_t ext_part_num) {
+static void check_legacy_partition_table(struct storage_dev *dev, uint32_t starting_sector, uint8_t ext_part_num, char *buffer) {
     int err = dev->ops->read(dev, starting_sector, 0, 1, buffer);
     klog_debug("Reading sector %d: err=%d", starting_sector, err);
     if (err)
@@ -215,44 +204,45 @@ static void check_legacy_partition_table(struct storage_dev *dev, uint32_t start
 
     // now that we're done parsing our shared buffer, we can recurse
     if (extended_partition_offset) {
-        check_legacy_partition_table(dev, starting_sector + extended_partition_offset, ext_part_num);
+        check_legacy_partition_table(dev, starting_sector + extended_partition_offset, ext_part_num, buffer);
     }
 }
 
-static void check_storage_device(struct storage_dev *dev) {
+static void check_storage_device(struct storage_dev *dev, char *buffer) {
     // first we check for GPT, and if nothing if found, 
-    partitions_list = NULL;
-    check_gpt_partition_table(dev);
+    check_gpt_partition_table(dev, buffer);
     if (partitions_list == NULL) {
-        check_legacy_partition_table(dev, 0, 5);
-    }
-
-    // now print them
-    struct partition *p = partitions_list;
-    klog_info("Partitions found:");
-    while (p != NULL) {
-        klog_info("  %d: %s (%d sectors, start at %d)", p->part_no, p->name, p->num_sectors, p->first_sector);
-        p = p->next;
+        check_legacy_partition_table(dev, 0, 5, buffer);
     }
 }
 
-void init_filesys() {
-    buffer = allocate_physical_page();
+void discover_storage_dev_partitions(struct storage_dev *devices_list) {
+    struct storage_dev *dev;
 
     // see if we have any disks
-    struct storage_dev *dev = storage_mgr_get_devices_list();
+    dev = devices_list;
+    char *buffer = allocate_physical_page();
     while (dev != NULL) {
         klog_debug("fs: checking storage device \"%s\"", dev->name);
+        check_storage_device(dev, buffer);
+        dev = dev->next;
+    }
+    free_physical_page(buffer);
 
-        // on the Pro Book laptop,
-        // it seems we do them in opposite order (cd rom first)
-        // and because we are failing, we stop.
-        // err... why do we, that's weird...
-        // maybe we need a master list of all PCI Devices -> Drives -> Partitions
-
-        check_storage_device(dev);
+    // print disks available
+    dev = devices_list;
+    klog_info("Disks found:");
+    while (dev != NULL) {
+        klog_info("- dev #%d: %s", dev->dev_no, dev->name);
         dev = dev->next;
     }
 
-    free_physical_page(buffer);
+    // now print them
+    struct partition *part = partitions_list;
+    klog_info("Partitions found:");
+    while (part != NULL) {
+        klog_info("- dev #%d, p #%d: %s (%d sectors, start at %d)", 
+            part->dev->dev_no, part->part_no, part->name, part->num_sectors, part->first_sector);
+        part = part->next;
+    }
 }
