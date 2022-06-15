@@ -13,7 +13,7 @@ struct storage_dev {
     char *name;             // prepared by driver, human readable
     pci_device_t *pci_dev;  // possible pci device
     struct storage_dev_ops *ops;  // operations for use by file system
-    void *priv_data;        // for private use of driver
+    void *driver_priv_data;        // for private use of driver
 
     struct storage_dev *next;    // next device in list
 };

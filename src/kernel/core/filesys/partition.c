@@ -155,7 +155,7 @@ static void check_legacy_partition_table(struct storage_dev *dev, uint32_t start
         uint8_t  end_head       = *(uint8_t  *)(buffer + offset + 0x5);
         uint8_t  end_sector     = *(uint8_t  *)(buffer + offset + 0x6);
         uint16_t end_cylinder   = *(uint8_t  *)(buffer + offset + 0x7);
-        uint32_t sector_offset      = *(uint32_t *)(buffer + offset + 0x8);
+        uint32_t sector_offset  = *(uint32_t *)(buffer + offset + 0x8);
         uint32_t num_sectors    = *(uint32_t *)(buffer + offset + 0xC);
         
         // two bits on upper byte of cylinders are stored in bits 6 &7 of sector
@@ -198,6 +198,7 @@ static void check_legacy_partition_table(struct storage_dev *dev, uint32_t start
         part->bootable = IS_BIT(boot_indicator, 7);
         part->first_sector = starting_sector + sector_offset;
         part->num_sectors = num_sectors;
+        part->legacy_type = system_id;
         part->dev = dev;
         add_partition(part);
     }

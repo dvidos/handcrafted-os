@@ -571,12 +571,12 @@ static int storage_dev_sector_size(struct storage_dev *dev) {
 }
 
 static int storage_dev_read(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
-    struct sata_private_data *priv_data = (struct sata_private_data *)dev->priv_data;
+    struct sata_private_data *priv_data = (struct sata_private_data *)dev->driver_priv_data;
     return sata_rw_operation(true, priv_data->port, sector_low, sector_hi, sectors, buffer);
 }
 
 static int storage_dev_write(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
-    struct sata_private_data *priv_data = (struct sata_private_data *)dev->priv_data;
+    struct sata_private_data *priv_data = (struct sata_private_data *)dev->driver_priv_data;
     return sata_rw_operation(false, priv_data->port, sector_low, sector_hi, sectors, buffer);
 }
 
@@ -691,7 +691,7 @@ static int probe(pci_device_t *pci_dev) {
         memset(storage_dev, 0, sizeof(struct storage_dev));
         storage_dev->name = name;
         storage_dev->pci_dev = pci_dev;
-        storage_dev->priv_data = priv_data;
+        storage_dev->driver_priv_data = priv_data;
         storage_dev->ops = &sata_ops;
         
         storage_mgr_register_device(storage_dev);

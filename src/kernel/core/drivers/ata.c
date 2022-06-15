@@ -466,13 +466,13 @@ static int storage_dev_sector_size(struct storage_dev *dev) {
 
 static int storage_dev_read(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
     struct pci_dev_driver_data *driver_data = dev->pci_dev->driver_private_data;
-    struct storage_dev_driver_data *storage_data = dev->priv_data;
+    struct storage_dev_driver_data *storage_data = dev->driver_priv_data;
     return read_sectors(driver_data, storage_data->drive_no, sector_low, sectors, 0, (uint32_t)buffer);
 }
 
 static int storage_dev_write(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
     struct pci_dev_driver_data *driver_data = dev->pci_dev->driver_private_data;
-    struct storage_dev_driver_data *storage_data = dev->priv_data;
+    struct storage_dev_driver_data *storage_data = dev->driver_priv_data;
     return write_sectors(driver_data, storage_data->drive_no, sector_low, sectors, 0, (uint32_t)buffer);
 }
 
@@ -500,7 +500,7 @@ static void register_storage_device(struct pci_dev_driver_data *data, int drive_
     memset(storage_dev, 0, sizeof(struct storage_dev));
     storage_dev->name = name;
     storage_dev->pci_dev = pci_device;
-    storage_dev->priv_data = priv_data;
+    storage_dev->driver_priv_data = priv_data;
     storage_dev->ops = &ide_ops;
 
     storage_mgr_register_device(storage_dev);

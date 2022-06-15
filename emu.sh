@@ -21,7 +21,7 @@ qemu-system-i386 \
     -device ahci,id=ahci \
     -device ide-hd,drive=disk1,bus=ahci.0 \
     \
-    -drive file=dos_disk.img,if=ide,index=1,media=disk,format=raw  \
+    -drive file=dos_disk.img,if=ide,index=0,media=disk,format=raw  \
     -drive file=handcrafted-os.iso,if=ide,index=2,media=cdrom    \
     \
     -boot order=d
