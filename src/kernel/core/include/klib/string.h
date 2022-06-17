@@ -29,5 +29,7 @@ unsigned int atoui(char *buffer);
 void sprintfn(char *buffer, int buffsize, const char *format, ...);
 void vsprintfn(char *buffer, int buffsize, const char *format, va_list args);
 
+int tolower(int c);
+int toupper(int c);
 
 #endif
