@@ -25,17 +25,17 @@ static void add_partition(struct partition *partition) {
     partition->next = NULL;
 }
 
-static void check_gpt_partition_table(struct storage_dev *dev, char *buffer) {
+static bool check_gpt_partition_table(struct storage_dev *dev, char *buffer) {
     // we ignore LBA 0, going straight to 1.
     int err = dev->ops->read(dev, 1, 0, 1, buffer);
     klog_debug("Reading sector 1: err=%d", err);
     if (err)
-        return;
+        return false;
 
     bool found = memcmp(buffer, "EFI PART", 8) == 0;
     if (!found) {
         klog_debug("GTP partition table not found");
-        return;
+        return false;
     }
 
     // this may mean maximum partitions, not just active, in some configurations
@@ -129,14 +129,16 @@ static void check_gpt_partition_table(struct storage_dev *dev, char *buffer) {
         entry_offset += partition_entry_size;
         remaining -= partition_entry_size;
     }
+
+    return true;
 }
 
 
-static void check_legacy_partition_table(struct storage_dev *dev, uint32_t starting_sector, uint8_t ext_part_num, char *buffer) {
+static bool check_legacy_partition_table(struct storage_dev *dev, uint32_t starting_sector, uint8_t ext_part_num, char *buffer) {
     int err = dev->ops->read(dev, starting_sector, 0, 1, buffer);
     klog_debug("Reading sector %d: err=%d", starting_sector, err);
     if (err)
-        return;
+        return false;
     
     // using this to mark the discovery of an extended partition as well.
     uint32_t extended_partition_offset = 0;
@@ -145,6 +147,7 @@ static void check_legacy_partition_table(struct storage_dev *dev, uint32_t start
     // klog_hex16_info(buffer + 0x1BE, 64, 0x1BE);
 
     // partition entries at 1BE, 1CE, 1DE, 1EE
+    bool found_something = false;
     for (int entry_no = 0; entry_no < 4; entry_no++) {
         int offset = 0x1BE + entry_no * 0x10;
         uint8_t  boot_indicator = *(uint8_t  *)(buffer + offset + 0x0);
@@ -200,21 +203,27 @@ static void check_legacy_partition_table(struct storage_dev *dev, uint32_t start
         part->num_sectors = num_sectors;
         part->legacy_type = system_id;
         part->dev = dev;
+        found_something = true;
         add_partition(part);
     }
 
     // now that we're done parsing our shared buffer, we can recurse
     if (extended_partition_offset) {
-        check_legacy_partition_table(dev, starting_sector + extended_partition_offset, ext_part_num, buffer);
+        if (check_legacy_partition_table(dev, starting_sector + extended_partition_offset, ext_part_num, buffer))
+            found_something = true;
     }
+
+    return found_something;
 }
 
 static void check_storage_device(struct storage_dev *dev, char *buffer) {
     // first we check for GPT, and if nothing if found, 
-    check_gpt_partition_table(dev, buffer);
-    if (partitions_list == NULL) {
-        check_legacy_partition_table(dev, 0, 5, buffer);
-    }
+    if (check_gpt_partition_table(dev, buffer))
+        return;
+    check_legacy_partition_table(dev, 0, 5, buffer);
+
+    // there may be a case we have a filesystem without partitions,
+    // but it's an exception to the rule. We won't support this for now.
 }
 
 void discover_storage_dev_partitions(struct storage_dev *devices_list) {

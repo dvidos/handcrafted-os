@@ -35,6 +35,9 @@ void vfs_discover_and_mount_filesystems(struct partition *partitions_list) {
 
         partition = partition->next;
     }
+
+    // keep in mind that floppies some other storage media (e.g. usb sticks)
+    // may have a file system without partitions
 }
 
 

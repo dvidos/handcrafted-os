@@ -28,14 +28,13 @@
 #define SECOND_WORD(value)     (uint16_t)(((value) >> 16) & 0xFFFF)
 #define FIRST_WORD(value)      (uint16_t)(((value) >>  0) & 0xFFFF)
 
-#define MASK_ON_1BITS         0x01
-#define MASK_ON_2BITS         0x03
-#define MASK_ON_3BITS         0x07
-#define MASK_ON_4BITS         0x0F
-#define MASK_ON_5BITS         0x1F
-#define MASK_ON_6BITS         0x3F
-#define MASK_ON_7BITS         0x7F
-#define MASK_ON_8BITS         0xFF
+
+// e.g. MASK_OF(4) --> 0xF
+#define MASK64_OF(bits_count)     (0xFFFFFFFFFFFFFFFFu >> (64 - (bits_count)))
+#define MASK32_OF(bits_count)     (        0xFFFFFFFFu >> (32 - (bits_count)))
+
+// for example BIT_RANGE(u32, 12, 5), bit numbers are inclusive and zero-based
+#define BIT_RANGE(value, hi_bit_no, lo_bit_no)     (((value)>>(lo_bit_no)) & MASK64_OF((hi_bit_no)-(lo_bit_no)+1))
 
 
 #define SWAP_16(x)                  \

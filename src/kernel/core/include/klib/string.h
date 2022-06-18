@@ -32,4 +32,7 @@ void vsprintfn(char *buffer, int buffsize, const char *format, va_list args);
 int tolower(int c);
 int toupper(int c);
 
+void ucs2str_to_cstr(char *ucs2str, char *cstr);
+
+
 #endif

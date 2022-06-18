@@ -272,5 +272,7 @@ as well as spinlock code. Although the repo is weird, lots of little gems in the
 * a nice description of the concepts of linux (e.g. IPC) is located [here](https://tldp.org/LDP/tlk/tlk-toc.html)
 * another nice repository with good libc implementation is [here](https://github.com/system76/coreboot)
 * the whole [SBUnix](https://github.com/rajesh5310/SBUnix) is really nice!
+* nice tutorial for the basic GUI framework for windows [here](http://www.osdever.net/tutorials/view/gui-development) - for when we get bored of the black console screen!
+
 
 

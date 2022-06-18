@@ -493,5 +493,21 @@ int toupper(int c) {
     return (c >= 'a' && c <= 'z') ? (c & ~(int)0x20) : c;
 }
 
+// convert a UCS-2 string to an old-style C string, as possible
+void ucs2str_to_cstr(char *ucs2str, char *cstr) {
+    uint16_t ucs2_char = *(uint16_t *)ucs2str;
+    while (ucs2_char != 0x0000) {
+        if ((ucs2_char & ~0x7F) == 0) {
+            // simple ascii char
+            *cstr++ = (char)ucs2_char;
+        } else {
+            // special character
+            *cstr++ = '?';
+        }
+        ucs2str += 2;
+        ucs2_char = *(uint16_t *)ucs2str;
+    }
+    *cstr = '\0';
+}
 
 
