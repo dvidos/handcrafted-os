@@ -13,6 +13,15 @@ struct partition *get_partitions_list() {
     return partitions_list;
 }
 
+struct partition *get_partition(struct storage_dev *dev, uint8_t part_no) {
+    struct partition *p = partitions_list;
+    while (p != NULL) {
+        if (p->dev == dev && p->part_no == part_no)
+            return p;
+    }
+    return NULL;
+}
+
 static void add_partition(struct partition *partition) {
     if (partitions_list == NULL) {
         partitions_list = partition;

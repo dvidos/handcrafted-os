@@ -5,6 +5,7 @@
 #include <memory/kheap.h>
 #include <klog.h>
 #include <klib/string.h>
+#include <errors.h>
 
 #define min(a, b)  ((a) < (b) ? (a) : (b))
 
@@ -91,7 +92,7 @@ struct fat_info {
     uint8_t *cluster_buffer;
 };
 
-struct dir_entry {
+struct fat_dir_entry {
     char short_name[12+1]; // 8 + dot + 3 + zero term
     char long_name_ucs2[512 + 2]; // UCS-2 format
 
@@ -218,7 +219,7 @@ static void debug_fat_info(struct fat_info *info) {
     klog_debug("  root dir sectors size       %d", info->root_dir_sectors_size);
 }
 
-static void debug_dir_entry(bool title, struct dir_entry *entry) {
+static void debug_fat_dir_entry(bool title, struct fat_dir_entry *entry) {
     if (title) {
         //         |  ABCDEFGH.ABC 0x12 RHADSV 1234-12-12 12:12:12 1234-12-12 12:12:12 123456789 123456789 Xxxxxxxx
         klog_debug("  File name    Attr Flags  Cr.Date    Cr.Time  Mod.Date   Mod.Time      Size   Cluster Long file name");
@@ -258,8 +259,8 @@ static void debug_dir_entry(bool title, struct dir_entry *entry) {
 }
 
 // reads a directory entry and advances offset. returns false when no nore entries available.
-static bool get_dir_entry(uint8_t *buffer, int buffer_len, int *offset, struct dir_entry *entry) {
-    memset(entry, 0, sizeof(struct dir_entry));
+static bool get_fat_dir_entry(uint8_t *buffer, int buffer_len, int *offset, struct fat_dir_entry *entry) {
+    memset(entry, 0, sizeof(struct fat_dir_entry));
     while (true) {
         // if we went past the buffer, no valid entry must be found
         if (*offset >= buffer_len)
@@ -339,23 +340,58 @@ static bool get_dir_entry(uint8_t *buffer, int buffer_len, int *offset, struct d
     }
 }
 
+static int fat_opendir(char *path, file_t *file) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+static int fat_closedir(file_t *file) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+static int fat_open(char *path, file_t *file) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+static int fat_read(file_t *file, char *buffer, int bytes) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+static int fat_close(file_t *file) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+struct file_ops fat_file_operations = {
+    .opendir = fat_opendir,
+    .readdir = fat_readdir,
+    .closedir = fat_closedir,
+    .open = fat_open,
+    .read = fat_read,
+    .close = fat_close
+};
+
 static int probe(struct partition *partition);
+static struct file_ops *get_file_operations();
+
 static struct file_system_driver vfs_driver = {
     .name = "FAT",
-    .probe = probe
+    .probe = probe,
+    .get_file_operations = get_file_operations
 };
 void fat_register_vfs_driver() {
     vfs_register_file_system_driver(&vfs_driver);
 }
 
-#define ERR_NO_FAT   -1
 
 static int probe(struct partition *partition) {
     klog_trace("FAT probing partition #%d (legacy type 0x%02x)", partition->part_no, partition->legacy_type);
 
     if (sizeof(fat_boot_sector_t) != 512) {
         klog_error("Boot sector struct would not align with reading of a sector");
-        return ERR_NO_FAT;
+        return ERR_NOT_SUPPORTED;
     }
     
     uint8_t *page = allocate_physical_page();
@@ -389,7 +425,7 @@ static int probe(struct partition *partition) {
     ) {
         klog_debug("Does not look like a FAT MBR");
         kfree(boot_sector);
-        return ERR_NO_FAT;
+        return ERR_NOT_SUPPORTED;
     }
 
     struct fat_info *info = kmalloc(sizeof(struct fat_info));
@@ -418,7 +454,7 @@ static int probe(struct partition *partition) {
         klog_debug("Neither FAT12/16, nor FAT32, unsupported");
         kfree(info);
         kfree(boot_sector);
-        return ERR_NO_FAT;
+        return ERR_NOT_SUPPORTED;
     }
 
     info->bytes_per_sector = boot_sector->bytes_per_sector;
@@ -473,18 +509,18 @@ static int probe(struct partition *partition) {
     klog_info("Root dir contents (first sector only)");
     klog_hex16_info(info->sector_buffer, 512, 0);
     
-    struct dir_entry entry;
+    struct fat_dir_entry entry;
     int offset = 0;
     uint32_t readme_cluster = 0;
     uint32_t readme_size = 0;
     uint32_t large_cluster = 0;
     uint32_t large_size = 0;
 
-    debug_dir_entry(true, NULL);
+    debug_fat_dir_entry(true, NULL);
     while (true) {
-        if (!get_dir_entry(info->sector_buffer, 512, &offset, &entry))
+        if (!get_fat_dir_entry(info->sector_buffer, 512, &offset, &entry))
             break;
-        debug_dir_entry(false, &entry);
+        debug_fat_dir_entry(false, &entry);
 
         // let's try to read a file
         if (strcmp(entry.short_name, "README.TXT") == 0) {
@@ -508,8 +544,8 @@ static int probe(struct partition *partition) {
             klog_debug("Reading large file, cluster=%d, %d bytes remaining", large_cluster, large_size);
             int err = read_cluster(info, large_cluster, info->cluster_buffer);
             if (err) break;
-            klog_debug("Large file excerpt:");
-            klog_hex16_info(info->cluster_buffer, 64, 0);
+            // klog_debug("Large file excerpt:");
+            // klog_hex16_info(info->cluster_buffer, 64, 0);
 
             large_size -= min(large_size, info->bytes_per_sector * info->sectors_per_cluster);
             if (large_size == 0) {
@@ -528,6 +564,10 @@ static int probe(struct partition *partition) {
         }
     }
 
+    // we should register something with the VFS?
     return 0;
 }
 
+struct file_ops *get_file_operations() {
+    return &fat_file_operations;
+}
