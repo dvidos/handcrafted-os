@@ -497,7 +497,7 @@ int toupper(int c) {
 void ucs2str_to_cstr(char *ucs2str, char *cstr) {
     uint16_t ucs2_char = *(uint16_t *)ucs2str;
     while (ucs2_char != 0x0000) {
-        if ((ucs2_char & ~0x7F) == 0) {
+        if (ucs2_char >= 0x20 && ucs2_char <= 0x7e) {
             // simple ascii char
             *cstr++ = (char)ucs2_char;
         } else {

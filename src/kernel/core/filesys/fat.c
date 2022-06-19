@@ -110,12 +110,19 @@ struct dir_entry {
     uint32_t first_cluster;
     uint32_t file_size;
 
-    uint16_t create_year;
-    uint8_t create_month;
-    uint8_t create_day;
-    uint8_t create_hour;
-    uint8_t create_min;
-    uint8_t create_sec;
+    uint16_t created_year;
+    uint8_t created_month;
+    uint8_t created_day;
+    uint8_t created_hour;
+    uint8_t created_min;
+    uint8_t created_sec;
+
+    uint16_t modified_year;
+    uint8_t modified_month;
+    uint8_t modified_day;
+    uint8_t modified_hour;
+    uint8_t modified_min;
+    uint8_t modified_sec;
 };
 
 #define ATTR_READONLY   0x01
@@ -158,13 +165,15 @@ static uint32_t get_next_cluster_no(struct fat_info *info, uint32_t current_clus
 }
 
 static int read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
-    return info->partition->dev->ops->read(
+    int err = info->partition->dev->ops->read(
         info->partition->dev,
         info->data_clusters_starting_lba + ((cluster_no - 2) * info->sectors_per_cluster),
         0,
         info->sectors_per_cluster,
         buffer
     );
+    klog_trace("read_cluster(info, %d, 0x%p) --> %d", cluster_no, buffer, err);
+    return err;
 }
 
 static int write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
@@ -184,6 +193,68 @@ static int read_fat(struct fat_info *info) {
 static int write_fat(struct fat_info *info) {
     // we should write twice
     return -1;
+}
+
+static void debug_fat_info(struct fat_info *info) {
+    klog_debug("FAT info");
+    klog_debug("  type                   FAT%d", info->fat_type == FAT32 ? 32 : (info->fat_type == FAT16 ? 16 : 12));
+    klog_debug("  bytes per sector       %d", info->bytes_per_sector);
+    klog_debug("  sectors per cluster    %d", info->sectors_per_cluster);
+    klog_debug("  cluster size in bytes  %d", info->sectors_per_cluster * info->bytes_per_sector);
+    klog_debug("  sectors per fat        %d", info->sectors_per_fat);
+    klog_debug("  fat size in bytes      %d", info->sectors_per_fat * info->bytes_per_sector);
+    klog_debug("  number of fats         %d", info->boot_sector->number_of_fats);
+    klog_debug("  ---");
+    klog_debug("  reserved sector count  %d", info->boot_sector->reserved_sector_count);
+    klog_debug("  sectors per fat-16     %d", info->boot_sector->sectors_per_fat_16);
+    klog_debug("  sectors per fat-32     %d", info->boot_sector->types.fat_32.sectors_per_fat_32);
+    klog_debug("  total sectors 16 bits  %d", info->boot_sector->total_sectors_16bits);
+    klog_debug("  total sectors 32 bits  %d", info->boot_sector->total_sectors_32bits);
+    klog_debug("  ---");
+    klog_debug("  partition start lba         %d", info->partition->first_sector);
+    klog_debug("  fat starting lba            %d", info->fat_starting_lba);
+    klog_debug("  data clusters starting lba  %d", info->data_clusters_starting_lba);
+    klog_debug("  root dir starting lba       %d", info->root_dir_starting_lba);
+    klog_debug("  root dir sectors size       %d", info->root_dir_sectors_size);
+}
+
+static void debug_dir_entry(bool title, struct dir_entry *entry) {
+    if (title) {
+        //         |  ABCDEFGH.ABC 0x12 RHADSV 1234-12-12 12:12:12 1234-12-12 12:12:12 123456789 123456789 Xxxxxxxx
+        klog_debug("  File name    Attr Flags  Cr.Date    Cr.Time  Mod.Date   Mod.Time      Size   Cluster Long file name");
+    } else {
+        char cstr[256+1];
+        ucs2str_to_cstr(entry->long_name_ucs2, cstr);
+        klog_debug(
+            "  %-12s 0x%02x %c%c%c%c%c%c %04d-%02d-%02d %02d:%02d:%02d %04d-%02d-%02d %02d:%02d:%02d %9d %9d %s",
+            entry->short_name,
+            entry->attributes.value,
+            entry->attributes.flags.read_only ? 'R' : '-',
+            entry->attributes.flags.hidden ? 'H' : '-',
+            entry->attributes.flags.archive ? 'A' : '-',
+            entry->attributes.flags.directory ? 'D' : '-',
+            entry->attributes.flags.volume_label ? 'V' : '-',
+            entry->attributes.flags.system ? 'S' : '-',
+
+            entry->created_year,
+            entry->created_month,
+            entry->created_day,
+            entry->created_hour,
+            entry->created_min,
+            entry->created_sec,
+
+            entry->modified_year,
+            entry->modified_month,
+            entry->modified_day,
+            entry->modified_hour,
+            entry->modified_min,
+            entry->modified_sec,
+
+            entry->file_size,
+            entry->first_cluster,
+            cstr
+        );
+    }
 }
 
 // reads a directory entry and advances offset. returns false when no nore entries available.
@@ -226,20 +297,30 @@ static bool get_dir_entry(uint8_t *buffer, int buffer_len, int *offset, struct d
         
         // so we should have a normal, short entry, parse it.
         entry->attributes.value = attributes;
-        uint16_t cluster_low = *(uint16_t*)&buffer[*offset + 0x14];
-        uint16_t cluster_hi  = *(uint16_t*)&buffer[*offset + 0x1a];
+        uint16_t cluster_hi = *(uint16_t*)&buffer[*offset + 0x14];
+        uint16_t cluster_low = *(uint16_t*)&buffer[*offset + 0x1a];
         entry->first_cluster = ((uint32_t)cluster_hi) << 16 | (uint32_t)cluster_low;
         entry->file_size = *(uint32_t *)&buffer[*offset + 0x1c];
 
         uint16_t timestamp = *(uint16_t *)&buffer[*offset + 0x0E];
-        entry->create_hour = BIT_RANGE(timestamp, 15, 11);
-        entry->create_min  = BIT_RANGE(timestamp, 10,  5);
-        entry->create_sec  = BIT_RANGE(timestamp,  4,  0) * 2; // stores secs/2
+        entry->created_hour = BIT_RANGE(timestamp, 15, 11);
+        entry->created_min  = BIT_RANGE(timestamp, 10,  5);
+        entry->created_sec  = BIT_RANGE(timestamp,  4,  0) * 2; // stores secs/2
 
         timestamp = *(uint16_t *)&buffer[*offset + 0x10];
-        entry->create_year = 1980 + BIT_RANGE(timestamp, 15, 9);
-        entry->create_month = BIT_RANGE(timestamp, 8, 5);
-        entry->create_day = BIT_RANGE(timestamp, 4, 0);
+        entry->created_year = 1980 + BIT_RANGE(timestamp, 15, 9);
+        entry->created_month = BIT_RANGE(timestamp, 8, 5);
+        entry->created_day = BIT_RANGE(timestamp, 4, 0);
+
+        timestamp = *(uint16_t *)&buffer[*offset + 0x16];
+        entry->modified_hour = BIT_RANGE(timestamp, 15, 11);
+        entry->modified_min  = BIT_RANGE(timestamp, 10,  5);
+        entry->modified_sec  = BIT_RANGE(timestamp,  4,  0) * 2; // stores secs/2
+
+        timestamp = *(uint16_t *)&buffer[*offset + 0x18];
+        entry->modified_year = 1980 + BIT_RANGE(timestamp, 15, 9);
+        entry->modified_month = BIT_RANGE(timestamp, 8, 5);
+        entry->modified_day = BIT_RANGE(timestamp, 4, 0);
 
         // parse short name
         memset(entry->short_name, 0, sizeof(entry->short_name));
@@ -383,27 +464,7 @@ static int probe(struct partition *partition) {
     info->partition->dev->ops->read(info->partition->dev,
         info->root_dir_starting_lba, 0, 1, info->sector_buffer);
     
-    klog_debug("FAT info");
-    klog_debug("  type                   FAT%s", info->fat_type == FAT32 ? 32 : (info->fat_type == FAT16 ? 16 : 12));
-    klog_debug("  bytes per sector       %d", info->bytes_per_sector);
-    klog_debug("  sectors per cluster    %d", info->sectors_per_cluster);
-    klog_debug("  cluster size in bytes  %d", info->sectors_per_cluster * info->bytes_per_sector);
-    klog_debug("  sectors per fat        %d", info->sectors_per_fat);
-    klog_debug("  fat size in bytes      %d", info->sectors_per_fat * info->bytes_per_sector);
-    klog_debug("  number of fats         %d", info->boot_sector->number_of_fats);
-    klog_debug("  ---");
-    klog_debug("  reserved sector count  %d", info->boot_sector->reserved_sector_count);
-    klog_debug("  sectors per fat-16     %d", info->boot_sector->sectors_per_fat_16);
-    klog_debug("  sectors per fat-32     %d", info->boot_sector->types.fat_32.sectors_per_fat_32);
-    klog_debug("  total sectors 16 bits  %d", info->boot_sector->total_sectors_16bits);
-    klog_debug("  total sectors 32 bits  %d", info->boot_sector->total_sectors_32bits);
-    klog_debug("  ---");
-    klog_debug("  partition start lba         %d", info->partition->first_sector);
-    klog_debug("  fat starting lba            %d", info->fat_starting_lba);
-    klog_debug("  data clusters starting lba  %d", info->data_clusters_starting_lba);
-    klog_debug("  root dir starting lba       %d", info->root_dir_starting_lba);
-    klog_debug("  root dir sectors size       %d", info->root_dir_sectors_size);
-
+    debug_fat_info(info);
 
     klog_info("FAT contents (excerpt)");
     klog_hex16_info(info->fat_buffer, 
@@ -412,41 +473,59 @@ static int probe(struct partition *partition) {
     klog_info("Root dir contents (first sector only)");
     klog_hex16_info(info->sector_buffer, 512, 0);
     
-
-    int max_entries = (info->sectors_per_cluster * info->bytes_per_sector) / 32;
-    char cstr[256+1];
     struct dir_entry entry;
     int offset = 0;
-    //         |  ABCDEFGH.ABC 0x12 RHADSV 1234-12-12 12:12:12 123456789 123456789 Xxxxxxxx
-    klog_debug("  File name    Attr Flags  Cr.Date    Cr.Time       Size   Cluster Long file name");
+    uint32_t readme_cluster = 0;
+    uint32_t readme_size = 0;
+    uint32_t large_cluster = 0;
+    uint32_t large_size = 0;
+
+    debug_dir_entry(true, NULL);
     while (true) {
         if (!get_dir_entry(info->sector_buffer, 512, &offset, &entry))
             break;
+        debug_dir_entry(false, &entry);
 
-        ucs2str_to_cstr(entry.long_name_ucs2, cstr);
+        // let's try to read a file
+        if (strcmp(entry.short_name, "README.TXT") == 0) {
+            readme_cluster = entry.first_cluster;
+            readme_size = entry.file_size;
+        } else if (strcmp(entry.short_name, "RAND-LRG.BIN") == 0) {
+            large_cluster = entry.first_cluster;
+            large_size = entry.file_size;
+        }
+    }
 
-        klog_debug(
-            "  %-12s 0x%02x %c%c%c%c%c%c %04d-%02d-%02d %02d:%02d:%02d %9d %9d %s",
-            entry.short_name,
-            entry.attributes.value,
-            entry.attributes.flags.read_only ? 'R' : '-',
-            entry.attributes.flags.hidden ? 'H' : '-',
-            entry.attributes.flags.archive ? 'A' : '-',
-            entry.attributes.flags.directory ? 'D' : '-',
-            entry.attributes.flags.volume_label ? 'V' : '-',
-            entry.attributes.flags.system ? 'S' : '-',
-            entry.create_year,
-            entry.create_month,
-            entry.create_day,
-            entry.create_hour,
-            entry.create_min,
-            entry.create_sec,
-            entry.file_size,
-            entry.first_cluster,
-            cstr
-        );
-        // to print the long file name, for now I do a hack
+    if (readme_cluster > 0) {
+        read_cluster(info, readme_cluster, info->cluster_buffer);
+        klog_debug("Readme file contents:");
+        info->cluster_buffer[readme_size] = '\0';
+        klog_debug("%s", info->cluster_buffer);
+    }
 
+    if (large_cluster > 0) {
+        while (large_size > 0) {
+            klog_debug("Reading large file, cluster=%d, %d bytes remaining", large_cluster, large_size);
+            int err = read_cluster(info, large_cluster, info->cluster_buffer);
+            if (err) break;
+            klog_debug("Large file excerpt:");
+            klog_hex16_info(info->cluster_buffer, 64, 0);
+
+            large_size -= min(large_size, info->bytes_per_sector * info->sectors_per_cluster);
+            if (large_size == 0) {
+                klog_debug("Size zero, exiting");
+                break;
+
+            }
+
+            // we need to find the other cluster.
+            large_cluster = get_next_cluster_no(info, large_cluster);
+            klog_debug("Next cluster is %d (0x%x)", large_cluster, large_cluster);
+            if (large_cluster == 0xFFFFFFFF) {
+                klog_debug("no other cluster, exiting");
+                break;
+            }
+        }
     }
 
     return 0;
