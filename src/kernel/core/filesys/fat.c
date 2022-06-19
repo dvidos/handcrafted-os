@@ -503,11 +503,11 @@ static int probe(struct partition *partition) {
     debug_fat_info(info);
 
     klog_info("FAT contents (excerpt)");
-    klog_hex16_info(info->fat_buffer, 
+    klog_hex16_debug(info->fat_buffer, 
         min(info->sectors_per_fat * info->boot_sector->bytes_per_sector, 128), 
         0);
     klog_info("Root dir contents (first sector only)");
-    klog_hex16_info(info->sector_buffer, 512, 0);
+    klog_hex16_debug(info->sector_buffer, 512, 0);
     
     struct fat_dir_entry entry;
     int offset = 0;

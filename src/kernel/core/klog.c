@@ -222,10 +222,10 @@ static inline char printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-void klog_hex16_info(uint8_t *buffer, size_t length, uint32_t start_address) {
+void klog_hex16_debug(uint8_t *buffer, size_t length, uint32_t start_address) {
     while (length > 0) {
         // using xxd's format, seems nice
-        klog_info("%08x: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
+        klog_debug("%08x: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
             start_address,
             buffer[0], buffer[1], buffer[2], buffer[3], 
             buffer[4], buffer[5], buffer[6], buffer[7],

@@ -36,7 +36,7 @@ void klog_warn(const char *format, ...);
 void klog_error(const char *format, ...);
 void klog_critical(const char *format, ...);
 
-void klog_hex16_info(uint8_t *buffer, size_t length, uint32_t start_address);
+void klog_hex16_debug(uint8_t *buffer, size_t length, uint32_t start_address);
 
 
 
