@@ -1,0 +1,375 @@
+#include <filesys/vfs.h>
+#include <memory/kheap.h>
+#include <klib/string.h>
+#include <klog.h>
+#include <errors.h>
+#include "fat_priv.h"
+
+static int fat16_root_dir_open(file_t *file)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+
+    int err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
+                                                  fat_info->root_dir_starting_lba, 0,
+                                                  fat_info->sectors_per_cluster,
+                                                  file_info->cluster_buffer);
+    if (err)
+        return err;
+
+    file_info->cluster_buffer = 0;
+    file_info->curr_cluster_no = 0;
+    file_info->offset = 0;
+    file_info->size = 0;
+    return SUCCESS;
+}
+
+static int fat16_root_dir_read(file_t *file, struct fat_dir_entry *entry)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    int err;
+
+    if (file_info->offset >= fat_info->bytes_per_cluster)
+    {
+        // FAT12/16 has limited amount of root dir entries, make sure we don't overflow
+        int root_dir_bytes = fat_info->boot_sector->root_entry_count * 32;
+        int bytes_read = (file_info->curr_cluster_no + 1) * fat_info->bytes_per_cluster;
+        if (bytes_read >= root_dir_bytes)
+            return ERR_NO_MORE_CONTENT;
+
+        // we need to read the next sectors of the root dir, in the cluster buffer
+        // despite the root dir not being part of the data clusters area
+        file_info->curr_cluster_no++;
+
+        err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
+                                                  fat_info->root_dir_starting_lba + (file_info->curr_cluster_no * fat_info->sectors_per_cluster),
+                                                  0,
+                                                  fat_info->sectors_per_cluster,
+                                                  file_info->cluster_buffer);
+        if (err)
+            return err;
+
+        // reset offset in the buffer, to read the new entries
+        file_info->offset = 0;
+    }
+
+    // otherwise read something, load as needed
+    return extract_next_dir_entry(file_info->cluster_buffer,
+                                  fat_info->bytes_per_cluster,
+                                  &file_info->offset,
+                                  entry);
+}
+
+static int fat16_root_dir_close(file_t *file)
+{
+    // we did not allocate anything, so...
+    return SUCCESS;
+}
+
+static int cluster_dir_open(file_t *file, uint32_t cluster_no)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+
+    int err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
+                                                  cluster_no, 0,
+                                                  fat_info->sectors_per_cluster,
+                                                  file_info->cluster_buffer);
+    if (err)
+        return err;
+
+    file_info->cluster_buffer = 0;
+    file_info->curr_cluster_no = 0;
+    file_info->offset = 0;
+    file_info->size = 0;
+    return SUCCESS;
+}
+
+static int cluster_dir_read(file_t *file, struct fat_dir_entry *entry)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    int err;
+
+    if (file_info->offset >= fat_info->bytes_per_cluster)
+    {
+        // we need to find the next cluster. if end of chain, we
+        uint32_t next_cluster_no = 0;
+        int err = get_next_cluster_no(fat_info, 
+            file_info->curr_cluster_no, &next_cluster_no, file_info->cluster_buffer);
+        if (err)
+            return err;
+        if (next_cluster_no > fat_info->largest_cluster_no)
+            return ERR_NO_MORE_CONTENT;
+
+        // we need to read the next sectors of the root dir, in the cluster buffer
+        // despite the root dir not being part of the data clusters area
+        file_info->curr_cluster_no = next_cluster_no;
+
+        err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
+                                                  fat_info->root_dir_starting_lba + (file_info->curr_cluster_no * fat_info->sectors_per_cluster),
+                                                  0,
+                                                  fat_info->sectors_per_cluster,
+                                                  file_info->cluster_buffer);
+        if (err)
+            return err;
+
+        // reset offset in the buffer, to read the new entries
+        file_info->offset = 0;
+    }
+
+    // otherwise read something, load as needed
+    return extract_next_dir_entry(file_info->cluster_buffer,
+                                  fat_info->bytes_per_cluster,
+                                  &file_info->offset,
+                                  entry);
+}
+
+static int cluster_dir_close(file_t *file)
+{
+    // we did not allocate anything, so...
+    return SUCCESS;
+}
+
+static int get_next_path_part(char *path, int *offset, char *buffer)
+{
+    char *start = path + *offset;
+    if (*start == '/')
+        start++;
+    if (*start == '\0')
+        return ERR_NO_MORE_CONTENT;
+
+    char *end = strchr(start, '/');
+    if (end == NULL)
+    {
+        // strcpy() copies the zero terminator as well
+        strcpy(buffer, start);
+    }
+    else
+    {
+        int length = end - start;
+        memcpy(buffer, start, length);
+        buffer[length] = '\0';
+    }
+    (*offset) += strlen(buffer);
+    return SUCCESS;
+}
+
+// loops to find the target_name in the root directory
+static int find_dir_entry_in_root_dir(file_t *file, char *target_name, struct fat_dir_entry *entry) {
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    int err;
+    bool found = false;
+
+    if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16) {
+        err = fat16_root_dir_open(file);
+        if (err)
+            return err;
+        while (true) {
+            if (err == ERR_NO_MORE_CONTENT)
+                break;
+            if (err)
+                return err;
+            if (strcmp(entry->short_name, target_name) == 0) {
+                found = true;
+                break;
+            }
+        }
+        err = fat16_root_dir_close(file);
+        if (err)
+            return err;
+    } else {
+        err = cluster_dir_open(file, fat_info->boot_sector->types.fat_32.root_dir_cluster);
+        if (err)
+            return err;
+        while (true) {
+            err = cluster_dir_read(file, entry);
+            if (err == ERR_NO_MORE_CONTENT)
+                break;
+            if (err)
+                return err;
+            if (strcmp(entry->short_name, target_name) == 0) {
+                found = true;
+                break;
+            }
+        }
+        err = cluster_dir_close(file);
+        if (err)
+            return err;
+    }
+
+    return found ? SUCCESS : ERR_NOT_FOUND;
+}
+
+// loops to find the target_name in a non-root directory
+static int find_dir_entry_in_non_root_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, struct fat_dir_entry *entry) {
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    int err;
+    bool found = false;
+
+    err = cluster_dir_open(file, dir_cluster_no);
+    if (err)
+        return err;
+    while (true) {
+        err = cluster_dir_read(file, entry);
+        if (err == ERR_NO_MORE_CONTENT)
+            break;
+        if (err)
+            return err;
+        if (strcmp(entry->short_name, target_name) == 0) {
+            found = true;
+            break;
+        }
+    }
+    err = cluster_dir_close(file);
+    if (err)
+        return err;
+
+    return found ? SUCCESS : ERR_NOT_FOUND;
+}
+
+// walks a non-empty path, to find the final dir_entry
+static int find_dir_entry_for_path(file_t *file, char *path, struct fat_dir_entry *entry)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    int err;
+    bool found = false;
+
+    char *target_name = kmalloc(512);
+    int offset = 0;
+    err = get_next_path_part(path, &offset, target_name);
+    if (err) { 
+        kfree(target_name);
+        return ERR_BAD_ARGUMENT; // this should not happen, we expect at least one name in the path
+    }
+
+    // this is the first time, so look at root folder
+    err = find_dir_entry_in_root_dir(file, target_name, entry);
+    if (err) {
+        kfree(target_name);
+        return err;
+    }
+    
+    // now continue to the next path part
+    uint32_t cluster_no = entry->first_cluster_no;
+    while (true) {
+        err = get_next_path_part(path, &offset, target_name);
+        if (err == ERR_NO_MORE_CONTENT) {
+            // that means the last entry was the last one, so we suceeded
+            found = true;
+            break;
+        }
+        // otherwise, look for this entry as well
+        err = find_dir_entry_in_non_root_dir(file, cluster_no, target_name, entry);
+        if (err) {
+            kfree(target_name);
+            return err;
+        }
+    }
+
+    kfree(target_name);
+    return SUCCESS;
+}
+
+static int fat_opendir(char *path, file_t *file)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = kmalloc(sizeof(struct fat_priv_file_info));
+    memset(file_info, 0, sizeof(struct fat_priv_file_info));
+    file->driver_priv_data = file_info;
+    file_info->cluster_buffer = kmalloc(fat_info->bytes_per_sector);
+    file_info->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
+
+    file_info->is_root_directory = (strlen(path) == 1 && *path == '/');
+    if (file_info->is_root_directory)
+    {
+        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16)
+            return fat16_root_dir_open(file);
+        else
+            return cluster_dir_open(file, fat_info->boot_sector->types.fat_32.root_dir_cluster);
+    }
+    else
+    {
+        // follow the path to the dir first
+        int err = find_dir_entry_for_path(file, path, file_info->dir_entry);
+        if (err)
+            return err;
+        if (!file_info->dir_entry->attributes.flags.directory)
+            return ERR_NOT_A_DIRECTORY;
+        return cluster_dir_open(file, file_info->dir_entry->first_cluster_no);
+    }
+}
+
+static int fat_readdir(file_t *file, struct dir_entry *dir_entry)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_dir_entry *fat_entry = kmalloc(sizeof(struct fat_dir_entry));
+    int err;
+
+    if (file_info->is_root_directory)
+    {
+        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16)
+            err = fat16_root_dir_read(file, fat_entry);
+        else
+            err = cluster_dir_read(file, fat_entry);
+    }
+    else
+    {
+        err = cluster_dir_read(file, fat_entry);
+    }
+
+    if (err)
+    {
+        kfree(fat_entry);
+        return err;
+    }
+
+    strcpy(dir_entry->short_name, fat_entry->short_name);
+    dir_entry->file_size = fat_entry->file_size;
+    return SUCCESS;
+}
+
+static int fat_closedir(file_t *file)
+{
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    int err;
+
+    if (file_info->is_root_directory)
+    {
+        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16)
+            err = fat16_root_dir_close(file);
+        else
+            err = cluster_dir_close(file);
+    }
+    else
+    {
+        err = cluster_dir_close(file);
+    }
+
+    // we must free what we allocated in open()
+    kfree(file_info->cluster_buffer);
+    kfree(file_info->dir_entry);
+    kfree(file_info);
+    return err;
+}
+
+static int fat_open(char *path, file_t *file)
+{
+    return ERR_NOT_IMPLEMENTED;
+}
+
+static int fat_read(file_t *file, char *buffer, int length)
+{
+    return ERR_NOT_IMPLEMENTED;
+}
+
+static int fat_close(file_t *file)
+{
+    return SUCCESS;
+}

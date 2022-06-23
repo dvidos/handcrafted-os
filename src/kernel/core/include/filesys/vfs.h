@@ -45,12 +45,10 @@ typedef struct file {
     struct storage_dev *storage_dev;
     struct partition *partition;
     struct file_system_driver *driver;
-
+    
     char *path; // relative to mount point
     void *driver_priv_data;
     struct file_ops *ops;
-
-    struct file *next;
 } file_t;
 
 struct file_ops {
@@ -69,7 +67,6 @@ int vfs_closedir(file_t *file);
 int vfs_open(char *path, file_t *file);
 int vfs_read(file_t *file, char *buffer, int bytes);
 int vfs_close(file_t *file);
-
 
 
 

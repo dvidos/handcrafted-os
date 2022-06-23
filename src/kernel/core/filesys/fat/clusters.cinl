@@ -1,0 +1,87 @@
+#include "fat_priv.h"
+#include <errors.h>
+
+
+static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_no, uint32_t *next_cluster_no, char *sector_buffer) {
+
+    uint32_t offset_in_fat;
+    if (info->fat_type == FAT12) {
+        // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
+        offset_in_fat = current_cluster_no + (current_cluster_no / 2);
+    } else if (info->fat_type == FAT16) {
+        offset_in_fat = current_cluster_no * 2; // two bytes for 16 bits
+    } else if (info->fat_type == FAT32) {
+        offset_in_fat = current_cluster_no * 4; // four bytes for 32 bits
+    } else {
+        return ERR_NOT_SUPPORTED;
+    }
+
+    // find the sector of FAT to load and load it.
+    uint32_t fat_sector_no    = offset_in_fat / info->bytes_per_sector;
+    uint32_t offset_in_sector = offset_in_fat % info->bytes_per_sector;
+
+    int err = info->partition->dev->ops->read(info->partition->dev,
+        info->fat_starting_lba + fat_sector_no, 0,
+        1, sector_buffer
+    );
+    if (err)
+        return err;
+
+    // now that we have the sector, extract the next cluster_no
+    if (info->fat_type == FAT12) {
+        uint16_t word = *(uint16_t *)&sector_buffer[offset_in_sector];
+
+        // see if we rounded down (when we divided by two)
+        if (current_cluster_no & 0x0001)
+            word >>= 4;    // use three higher nibbles (out of the four)
+        else
+            word &= 0xFFF; // use three lower nibbles (out of the four)
+
+        *next_cluster_no = word;
+    } else if (info->fat_type == FAT16) {
+        *next_cluster_no = *(uint16_t *)&sector_buffer[offset_in_sector];
+
+    } else if (info->fat_type == FAT32) {
+        *next_cluster_no = 
+            (*(uint32_t *)&sector_buffer[offset_in_sector])
+            & 0x0FFFFFFF; // ignore four upper bits
+
+    } else {
+        return ERR_NOT_SUPPORTED;
+    }
+
+    return SUCCESS;
+}
+
+static int read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
+    int err = info->partition->dev->ops->read(
+        info->partition->dev,
+        info->data_clusters_starting_lba + ((cluster_no - 2) * info->sectors_per_cluster),
+        0,
+        info->sectors_per_cluster,
+        buffer
+    );
+    klog_trace("read_cluster(info, %d, 0x%p) --> %d", cluster_no, buffer, err);
+    return err;
+}
+
+static int write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
+    return -1;
+}
+
+// static int read_fat(struct fat_info *info) {
+//     return info->partition->dev->ops->read(
+//         info->partition->dev,
+//         info->fat_starting_lba,
+//         0,
+//         info->sectors_per_fat,
+//         info->fat_buffer
+//     );
+// }
+
+// static int write_fat(struct fat_info *info) {
+//     // we should write twice
+//     return -1;
+// }
+
+

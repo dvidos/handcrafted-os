@@ -3,20 +3,26 @@
 
 
 // typical unix / linux philosophy, given that it's easy for a function to return an int.
-// zero:       success
-// negative:   error
-// posigtive:  some value
+// zero:      success
+// negative:  error
+// positive:  some value
 
-#define NO_ERROR 0
-#define ERR_NOT_FOUND        -1   // usually returned from strpos() etc
-#define ERR_NO_DEVICE        -2
-#define ERR_NO_PARTITION     -3
-#define ERR_NO_DRIVER_FOUND  -4
-#define ERR_NOT_SUPPORTED    -5
-#define ERR_NOT_IMPLEMENTED  -6
+#define SUCCESS                   NO_ERROR
+#define NO_ERROR                  0
 
-
-
+#define ERR_NOT_FOUND             -1   // usually returned from strpos() etc
+#define ERR_NO_MORE_CONTENT       -2   // for functions that read requential content
+#define ERR_PARTIAL_CONTENT_ONLY  -3   // reading dirs etc, means loading next sector is needed
+#define ERR_NOT_SUPPORTED         -4
+#define ERR_NOT_IMPLEMENTED       -5
+#define ERR_BAD_ARGUMENT          -6
+#define ERR_BAD_VALUE             -7
+     
+#define ERR_NO_DEVICE            -10
+#define ERR_NO_PARTITION         -11
+#define ERR_NO_DRIVER_FOUND      -12
+#define ERR_NOT_A_DIRECTORY      -13
+#define ERR_NOT_A_FILE           -14
 
 
 

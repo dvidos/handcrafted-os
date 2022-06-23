@@ -32,8 +32,12 @@ KERNEL_FILES = \
 	$(wildcard core/konsole/*.c) \
 	$(wildcard core/devices/*.c) \
 	$(wildcard core/filesys/*.c) \
+	$(wildcard core/filesys/fat/*.c) \
 	$(wildcard core/klib/*.c)
 
+
+KERNEL_C_INCLUDES = \
+	$(wildcard core/filesys/fat/*.cincl)
 
 KERNEL_HEADERS = \
 	$(wildcard core/*.h) \
@@ -45,6 +49,7 @@ KERNEL_HEADERS = \
 	$(wildcard core/konsole/*.h) \
 	$(wildcard core/devices/*.h) \
 	$(wildcard core/filesys/*.h) \
+	$(wildcard core/filesys/fat*.h) \
 	$(wildcard core/klib/*.h)
 
 

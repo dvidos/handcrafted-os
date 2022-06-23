@@ -1,0 +1,94 @@
+#include "fat_priv.h"
+#include <bits.h>
+#include <klib/string.h>
+#include <klog.h>
+#include <errors.h>
+
+
+// reads a directory entry and advances offset. returns false when no nore entries available.
+static bool extract_next_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry) {
+    bool long_entries_found = false;
+
+    memset(entry, 0, sizeof(struct fat_dir_entry));
+    while (true) {
+        // if we went past the buffer, no valid entry must be found
+        if (*offset >= buffer_len && long_entries_found && strlen(entry->short_name) == 0) {
+            klog_error("It seems directory entry is split between buffers (sectors or clusters), long name found, but ran out of buffer before short entry found");
+            return ERR_PARTIAL_CONTENT_ONLY;
+        }
+
+        // see what this entry is about
+        uint8_t attributes = buffer[*offset + 0x0B];
+        uint8_t first_name_byte = buffer[*offset];
+
+        // if long name, collect it for now
+        if (attributes == ATTR_LONG_NAME) {
+            uint8_t seq_no = buffer[*offset] & 0x3F; // starts with 1
+            uint8_t is_last = buffer[*offset] & 0x40;
+            // collect them into the long_entry field
+            // each dir entry in the buffer can hold up to 13 UCS-2 characters
+            int long_offset = (seq_no - 1) * (13 * 2);
+            memcpy(entry->long_name_ucs2 + long_offset +  0, buffer + *offset + 0x01, 10);
+            memcpy(entry->long_name_ucs2 + long_offset + 10, buffer + *offset + 0x0E, 12);
+            memcpy(entry->long_name_ucs2 + long_offset + 22, buffer + *offset + 0x1C,  4);
+            long_entries_found = true;
+            (*offset) += 32;
+            continue;
+        }
+
+        // if zeros, we finished reading
+        if (first_name_byte == DIR_NAME_END_OF_LIST) {
+            // we don't need to advance pointer, this way we'll always return EOF
+            return ERR_NO_MORE_CONTENT;
+        }
+        
+        // if deleted entry, skip this one
+        if (first_name_byte == DIR_NAME_DELETED) {
+            *offset += 32;
+            continue;
+        }
+        
+        // so we should have a normal, short entry, parse it.
+        entry->attributes.value = attributes;
+        uint16_t cluster_hi = *(uint16_t*)&buffer[*offset + 0x14];
+        uint16_t cluster_low = *(uint16_t*)&buffer[*offset + 0x1a];
+        entry->first_cluster_no = ((uint32_t)cluster_hi) << 16 | (uint32_t)cluster_low;
+        entry->file_size = *(uint32_t *)&buffer[*offset + 0x1c];
+
+        uint16_t timestamp = *(uint16_t *)&buffer[*offset + 0x0E];
+        entry->created_hour = BIT_RANGE(timestamp, 15, 11);
+        entry->created_min  = BIT_RANGE(timestamp, 10,  5);
+        entry->created_sec  = BIT_RANGE(timestamp,  4,  0) * 2; // stores secs/2
+
+        timestamp = *(uint16_t *)&buffer[*offset + 0x10];
+        entry->created_year = 1980 + BIT_RANGE(timestamp, 15, 9);
+        entry->created_month = BIT_RANGE(timestamp, 8, 5);
+        entry->created_day = BIT_RANGE(timestamp, 4, 0);
+
+        timestamp = *(uint16_t *)&buffer[*offset + 0x16];
+        entry->modified_hour = BIT_RANGE(timestamp, 15, 11);
+        entry->modified_min  = BIT_RANGE(timestamp, 10,  5);
+        entry->modified_sec  = BIT_RANGE(timestamp,  4,  0) * 2; // stores secs/2
+
+        timestamp = *(uint16_t *)&buffer[*offset + 0x18];
+        entry->modified_year = 1980 + BIT_RANGE(timestamp, 15, 9);
+        entry->modified_month = BIT_RANGE(timestamp, 8, 5);
+        entry->modified_day = BIT_RANGE(timestamp, 4, 0);
+
+        // parse short name
+        memset(entry->short_name, 0, sizeof(entry->short_name));
+        for (int i = 0; i < 8; i++)
+            if (buffer[*offset + i] != ' ')
+                entry->short_name[i] = buffer[*offset + i];
+        if (buffer[*offset + 8] != ' ')
+            entry->short_name[strlen(entry->short_name)] = '.';
+        for (int i = 8; i < 11; i++)
+            if (buffer[*offset + i] != ' ')
+                entry->short_name[strlen(entry->short_name)] = buffer[*offset + i];
+
+        // if we gotten here, we just got an entry
+        (*offset) += 32;
+        return SUCCESS;
+    }
+}
+
