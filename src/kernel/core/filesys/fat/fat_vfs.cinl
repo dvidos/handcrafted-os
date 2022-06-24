@@ -1,7 +1,7 @@
 #include <errors.h>
+#include <klib/string.h>
 #include "fat_priv.h"
-#include "klib/string.h"
-
+#include "file_ops.cinl"
 
 static int fat_probe(struct partition *partition) {
     klog_trace("FAT probing partition #%d (legacy type 0x%02x)", partition->part_no, partition->legacy_type);
@@ -109,6 +109,7 @@ static int fat_probe(struct partition *partition) {
     }
 
     partition->filesys_priv_data = info;
+    debug_fat_info(info);
 
     // read_fat(info);
 

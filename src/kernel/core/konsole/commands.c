@@ -4,6 +4,7 @@
 #include <drivers/screen.h>
 #include <drivers/keyboard.h>
 #include <cpu.h>
+#include <errors.h>
 #include <bits.h>
 #include <multiboot.h>
 #include <drivers/clock.h>
@@ -12,6 +13,7 @@
 #include <memory/physmem.h>
 #include <konsole/readline.h>
 #include <konsole/commands.h>
+#include <filesys/vfs.h>
 
 
 
@@ -308,7 +310,70 @@ static int do_pci_info(int argc, char **argv) {
     }
     return 0;
 }
+static int do_mounts() {
+    struct mount_info *mount = vfs_get_mounts_list();
+    while (mount != NULL) {
+        printf("dev #%d, part %d, path=\"%s\", driver=\"%s\"\n", 
+            mount->dev->dev_no, 
+            mount->part->part_no,
+            mount->path,
+            mount->driver->name
+        );
+        mount = mount->next;
+    }
+    return 0;
+}
+static int do_dir(int argc, char **argv) {
+    if (argc == 0) {
+        printf("Usage: dir <path>\n");
+        return 1;
+    }
+    char *path = argv[0];
+    file_t f;
+    struct dir_entry entry;
+    int err;
+    err = vfs_opendir(path, &f);
+    if (err) {
+        printf("opendir() error %d\n", err);
+        return 1;
+    }
+    while (true) {
+        err = vfs_readdir(&f, &entry);
+        if (err == ERR_NO_MORE_CONTENT)
+            break;
+        if (err) {
+            printf("readdir() error %d\n", err);
+            return 1;
+        }
+        printf("%12d  %s\n", entry.file_size, entry.short_name);
+    }
+    err = vfs_closedir(&f);
+    if (err) {
+        printf("closedir() error %d\n", err);
+        return 1;
+    }
+    return 0;
+}
 
+static int do_partitions(int argc, char **argv) {
+    struct partition *p = get_partitions_list();
+    //     " 12   12   12 123456789 123456789  1234.6  Xxxxxx"
+    printf("Dev Part Type    Sector   Sectors      MB  Name\n");
+    while (p != NULL) {
+        printf(" %2d   %2d   %02x %9d %9d  %4d.%d  %s\n",
+            p->dev->dev_no,
+            p->part_no,
+            p->legacy_type,
+            p->first_sector,
+            p->num_sectors,
+            (p->num_sectors * 512) / (1024 * 1024),
+            ((p->num_sectors * 512) / (1024 * 100)) % 10,
+            p->name
+        );
+        p = p->next;
+    }
+    return 0;
+}
 
 // any function can have the argc/argv signature if they want
 struct command commands[] = {
@@ -330,6 +395,9 @@ struct command commands[] = {
     {"kheap", "Dump kernel heap", do_kheap},
     {"phys", "Physical Memory Dump", do_phys_mem_dump},
     {"pci", "PCI system info", do_pci_info},
+    {"mounts", "Show mounted filesystems", do_mounts},
+    {"dir", "Show contents of a directory", do_dir},
+    {"partitions", "Show partition information", do_partitions},
     {NULL, NULL, NULL} // last one must be NULL
 };
 

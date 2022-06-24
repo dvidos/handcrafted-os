@@ -1,7 +1,9 @@
 
 *.o
+*.d
 *.bin
 *.iso
+*.gch
 kernel/*.o
 .vscode/*
 qemu.log

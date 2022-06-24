@@ -12,7 +12,7 @@
 #include "debug.cinl"
 #include "clusters.cinl"
 #include "file_ops.cinl"
-#include "vfs.cinl"
+#include "fat_vfs.cinl"
 
 // this is the only public method. all the rest go through pointers
 void fat_register_vfs_driver() {

@@ -18,6 +18,7 @@ struct partition *get_partition(struct storage_dev *dev, uint8_t part_no) {
     while (p != NULL) {
         if (p->dev == dev && p->part_no == part_no)
             return p;
+        p = p->next;
     }
     return NULL;
 }

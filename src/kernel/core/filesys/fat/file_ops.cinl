@@ -1,3 +1,6 @@
+#ifndef _FILE_OPS_CINL
+#define _FILE_OPS_CINL
+
 #include <filesys/vfs.h>
 #include <memory/kheap.h>
 #include <klib/string.h>
@@ -17,7 +20,10 @@ static int fat16_root_dir_open(file_t *file)
     if (err)
         return err;
 
-    file_info->cluster_buffer = 0;
+    klog_debug("fat16_root_dir_open(), read %d sectors at LBA %d", fat_info->sectors_per_cluster, fat_info->root_dir_starting_lba);
+    klog_hex16_debug(file_info->cluster_buffer, fat_info->bytes_per_cluster, 0);
+
+    file_info->first_cluster_no = 0;
     file_info->curr_cluster_no = 0;
     file_info->offset = 0;
     file_info->size = 0;
@@ -42,13 +48,17 @@ static int fat16_root_dir_read(file_t *file, struct fat_dir_entry *entry)
         // despite the root dir not being part of the data clusters area
         file_info->curr_cluster_no++;
 
+        uint32_t lba = fat_info->root_dir_starting_lba + (file_info->curr_cluster_no * fat_info->sectors_per_cluster);
         err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
-                                                  fat_info->root_dir_starting_lba + (file_info->curr_cluster_no * fat_info->sectors_per_cluster),
+                                                  lba,
                                                   0,
                                                   fat_info->sectors_per_cluster,
                                                   file_info->cluster_buffer);
         if (err)
             return err;
+
+        klog_debug("fat16_root_dir_read(), read %d sectors at LBA %d", fat_info->sectors_per_cluster, lba);
+        klog_hex16_debug(file_info->cluster_buffer, fat_info->bytes_per_cluster, 0);
 
         // reset offset in the buffer, to read the new entries
         file_info->offset = 0;
@@ -72,15 +82,18 @@ static int cluster_dir_open(file_t *file, uint32_t cluster_no)
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
 
+    uint32_t lba = fat_info->data_clusters_starting_lba + (cluster_no - 2) * fat_info->sectors_per_cluster;
     int err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
-                                                  cluster_no, 0,
-                                                  fat_info->sectors_per_cluster,
-                                                  file_info->cluster_buffer);
+        lba, 0,
+        fat_info->sectors_per_cluster,
+        file_info->cluster_buffer);
     if (err)
         return err;
 
-    file_info->cluster_buffer = 0;
-    file_info->curr_cluster_no = 0;
+    klog_debug("cluster_dir_open(), read %d sectors at LBA %d", fat_info->sectors_per_cluster, lba);
+    klog_hex16_debug(file_info->cluster_buffer, fat_info->bytes_per_cluster, 0);
+
+    file_info->curr_cluster_no = cluster_no;
     file_info->offset = 0;
     file_info->size = 0;
     return SUCCESS;
@@ -107,13 +120,17 @@ static int cluster_dir_read(file_t *file, struct fat_dir_entry *entry)
         // despite the root dir not being part of the data clusters area
         file_info->curr_cluster_no = next_cluster_no;
 
+        uint32_t lba = fat_info->root_dir_starting_lba + (file_info->curr_cluster_no * fat_info->sectors_per_cluster);
         err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
-                                                  fat_info->root_dir_starting_lba + (file_info->curr_cluster_no * fat_info->sectors_per_cluster),
+                                                  lba,
                                                   0,
                                                   fat_info->sectors_per_cluster,
                                                   file_info->cluster_buffer);
         if (err)
             return err;
+
+        klog_debug("cluster_dir_read(), read %d sectors at LBA %d", fat_info->sectors_per_cluster, lba);
+        klog_hex16_debug(file_info->cluster_buffer, fat_info->bytes_per_cluster, 0);
 
         // reset offset in the buffer, to read the new entries
         file_info->offset = 0;
@@ -283,14 +300,16 @@ static int fat_opendir(char *path, file_t *file)
     file->driver_priv_data = file_info;
     file_info->cluster_buffer = kmalloc(fat_info->bytes_per_sector);
     file_info->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
+    klog_trace("fat_opendir(fat_type=%d, path=%s)", fat_info->fat_type, path);
 
     file_info->is_root_directory = (strlen(path) == 1 && *path == '/');
     if (file_info->is_root_directory)
     {
-        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16)
+        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16) {
             return fat16_root_dir_open(file);
-        else
+        } else {
             return cluster_dir_open(file, fat_info->boot_sector->types.fat_32.root_dir_cluster);
+        }
     }
     else
     {
@@ -306,31 +325,33 @@ static int fat_opendir(char *path, file_t *file)
 
 static int fat_readdir(file_t *file, struct dir_entry *dir_entry)
 {
+    klog_trace("fat_readdir()");
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
     struct fat_dir_entry *fat_entry = kmalloc(sizeof(struct fat_dir_entry));
     int err;
 
-    if (file_info->is_root_directory)
-    {
-        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16)
+    if (file_info->is_root_directory) {
+        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16) {
+klog_trace("a");
             err = fat16_root_dir_read(file, fat_entry);
-        else
+        } else {
+klog_trace("b");
             err = cluster_dir_read(file, fat_entry);
-    }
-    else
-    {
+        }
+    } else {
+klog_trace("c");
         err = cluster_dir_read(file, fat_entry);
     }
 
-    if (err)
-    {
+    if (err) {
         kfree(fat_entry);
         return err;
     }
 
     strcpy(dir_entry->short_name, fat_entry->short_name);
     dir_entry->file_size = fat_entry->file_size;
+    kfree(fat_entry);
     return SUCCESS;
 }
 
@@ -373,3 +394,6 @@ static int fat_close(file_t *file)
 {
     return SUCCESS;
 }
+
+
+#endif

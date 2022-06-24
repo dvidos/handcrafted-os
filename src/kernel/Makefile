@@ -1,7 +1,7 @@
 # Common macros
 #   $@ is the target for multiple targets (separated by space)
 #   $? are the dependencies newer than the target
-#   $^ are all the dependences
+#   $^ are all the dependencies
 #
 # For implicit rules (e.g. ".c.o:")
 #   $< is the target that caused the action
@@ -24,7 +24,7 @@ CFLAGS = -std=gnu99 -ffreestanding -O3 \
 		-Wno-array-bounds \
 		-Wno-pointer-sign
 
-KERNEL_FILES = \
+KERNEL_C_FILES = \
 	$(wildcard core/*.c) \
 	$(wildcard core/memory/*.c) \
 	$(wildcard core/drivers/*.c) \
@@ -34,10 +34,6 @@ KERNEL_FILES = \
 	$(wildcard core/filesys/*.c) \
 	$(wildcard core/filesys/fat/*.c) \
 	$(wildcard core/klib/*.c)
-
-
-KERNEL_C_INCLUDES = \
-	$(wildcard core/filesys/fat/*.cincl)
 
 KERNEL_HEADERS = \
 	$(wildcard core/*.h) \
@@ -52,7 +48,6 @@ KERNEL_HEADERS = \
 	$(wildcard core/filesys/fat*.h) \
 	$(wildcard core/klib/*.h)
 
-
 KERNEL_ASM_FILES = \
 	$(wildcard core/*.asm) \
 	$(wildcard core/boot/*.asm) \
@@ -61,8 +56,9 @@ KERNEL_ASM_FILES = \
 SYSROOT_DIR = ../../sysroot
 KERNEL_LIB = $(SYSROOT_DIR)/usr/lib/libk.a
 
-KERNEL_OBJS = $(KERNEL_FILES:.c=.o)
+KERNEL_C_OBJS = $(KERNEL_C_FILES:.c=.o)
 KERNEL_ASM_OBJS = $(KERNEL_ASM_FILES:.asm=.o)
+KERNEL_OBJ_DEPS = $(KERNEL_C_OBJS:.o=.d)
 
 .PHONY:
 
@@ -77,8 +73,8 @@ boot/boot_sector.bin: boot/boot_sector.asm
 
 # for info on putting this on an .iso image
 # and burning a USB stick, see https://wiki.osdev.org/Bare_Bones
-kernel.bin: boot/multiboot.o $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) linker.ld 
-	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib boot/multiboot.o $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) -lgcc
+kernel.bin: boot/multiboot.o $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) linker.ld 
+	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib boot/multiboot.o $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) -lgcc
 
 
 boot/multiboot.o: boot/multiboot.S
@@ -86,7 +82,7 @@ boot/multiboot.o: boot/multiboot.S
 
 
 core/%.o: core/%.c $(KERNEL_HEADERS) Makefile
-	$(CC) -c $< -o $@ $(CFLAGS)
+	$(CC) -MD -c $< -o $@ $(CFLAGS)
 
 
 core/%.o: core/%.asm
@@ -96,8 +92,13 @@ core/%.o: core/%.S
 	$(AS) $< -o $@
 
 clean:
-	rm -f *.o *.bin boot/*.o core/*.o
+	rm -f $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_OBJ_DEPS)
+	rm -f *.bin */*.o */*/*.o  *.gch */*.gch */*/*.gch
 
 install:
 	mkdir -p $(SYSROOT_DIR)/boot
 	cp --preserve=timestamps kernel.bin $(SYSROOT_DIR)/boot
+
+
+# include depenedencies files, produced by "gcc -MD"
+-include $(KERNEL_OBJ_DEPS)
