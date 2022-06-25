@@ -107,8 +107,12 @@ void kfree(void *ptr) {
     memory_block_t *next = block->next;
     memory_block_t *prev = block->prev;
 
-    if (block->magic != KMEM_MAGIC)
+    if (block->magic != KMEM_MAGIC) {
+        klog_critical("Buffer overflow on ptr=0x%x, some content follows, last 16 bytes is our memory_block", ptr);
+        klog_hex16_debug(((char*)block) - 0x70, sizeof(memory_block_t) * 8, ((uint32_t)block) - 0x70);
         panic("Buffer underflow detected");
+    }
+
     if (next != NULL && next->magic != KMEM_MAGIC)
         panic("Buffer overflow detected");
     if (!block->used)

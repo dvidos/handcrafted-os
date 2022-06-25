@@ -90,6 +90,11 @@ static int parse_path_and_prepare_file_structure(char *path, file_t *file) {
     if (mount == NULL)
         return ERR_NOT_FOUND;
 
+    // let's go with the second mount for now.
+    if (mount->next == NULL)
+        return ERR_NOT_FOUND;
+    mount = mount->next;
+
     // we need to fill in the file_t structure.
     file->storage_dev = mount->dev;
     file->partition = mount->part;

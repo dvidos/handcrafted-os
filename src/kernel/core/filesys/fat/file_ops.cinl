@@ -16,9 +16,9 @@ static int fat16_root_dir_open(file_t *file)
     struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
 
     int err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
-                                                  fat_info->root_dir_starting_lba, 0,
-                                                  fat_info->sectors_per_cluster,
-                                                  file_info->cluster_buffer);
+        fat_info->root_dir_starting_lba, 0, 
+        fat_info->sectors_per_cluster,
+        file_info->cluster_buffer);
     if (err)
         return err;
 
@@ -41,6 +41,8 @@ static int fat16_root_dir_read(file_t *file, struct fat_dir_entry *entry)
 
     if (file_info->offset >= fat_info->bytes_per_cluster)
     {
+        klog_debug("offset %d > than cluster buffer size %d, loading next cluster of root dir", file_info->offset, fat_info->bytes_per_cluster);
+
         // FAT12/16 has limited amount of root dir entries, make sure we don't overflow
         int root_dir_bytes = fat_info->boot_sector->root_entry_count * 32;
         int bytes_read = (file_info->curr_cluster_no + 1) * fat_info->bytes_per_cluster;
@@ -311,7 +313,7 @@ static int fat_opendir(char *path, file_t *file)
     struct fat_priv_file_info *file_info = kmalloc(sizeof(struct fat_priv_file_info));
     memset(file_info, 0, sizeof(struct fat_priv_file_info));
     file->driver_priv_data = file_info;
-    file_info->cluster_buffer = kmalloc(fat_info->bytes_per_sector);
+    file_info->cluster_buffer = kmalloc(fat_info->bytes_per_cluster);
     file_info->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
     klog_trace("fat_opendir(fat_type=FAT%d, path=\"%s\")", 
         fat_info->fat_type == FAT32 ? 32 : (fat_info->fat_type == FAT16 ? 16 : 12), 
