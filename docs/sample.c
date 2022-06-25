@@ -7,13 +7,14 @@ int close(int h);
 int seek(int h, int pos, int origin);
 
 // dir manipulation
+struct direntry;
 int opendir(char *path);
-int readdir(int h, char *buffer);
+int readdir(int h, struct direntry *entry);
 int closedir(int h);
 
 // file info, creation, deletion
-typedef struct stat fstat;
-int stat(char *path, fstat *stat);
+struct stat;
+int stat(char *path, struct stat *stat);
 int touch(char *path);
 int mkdir(char *path);
 int unlink(char *path);
