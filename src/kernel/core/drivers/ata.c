@@ -404,9 +404,9 @@ static uint8_t ata_rw_operation(struct pci_dev_driver_data *data, uint8_t direct
     return 0;
 }
 
-static char read_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uint32_t lba, uint8_t numsects, uint16_t es, uint32_t edi) {
-
-    klog_debug("read_sectors(drive_no=%d)", drive_no);
+static char read_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uint32_t lba, uint8_t numsects, uint16_t es, uint32_t edi)
+{
+    klog_trace("IDE: read_sectors(drive_no=%d, lba=%d, num_sects=%d)", drive_no, lba, numsects);
 
     // Check if the drive presents
     if (drive_no > 3 || !data->drives[drive_no].detected) {
@@ -428,6 +428,8 @@ static char read_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uin
 }
 
 static char write_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uint32_t lba, uint8_t numsects, uint16_t es, uint32_t edi) {
+
+    klog_trace("IDE: write_sectors(drive_no=%d, lba=%d, num_sects=%d)", drive_no, lba, numsects);
 
     // Check if the drive presents
     if (drive_no > 3 || !data->drives[drive_no].detected)

@@ -14,6 +14,7 @@
 #include <konsole/readline.h>
 #include <konsole/commands.h>
 #include <filesys/vfs.h>
+#include <klog.h>
 
 
 
@@ -334,7 +335,7 @@ static int do_dir(int argc, char **argv) {
     int err;
     err = vfs_opendir(path, &f);
     if (err) {
-        printf("opendir() error %d\n", err);
+        printf("vfs_closedir() error %d\n", err);
         return 1;
     }
     while (true) {
@@ -342,7 +343,7 @@ static int do_dir(int argc, char **argv) {
         if (err == ERR_NO_MORE_CONTENT)
             break;
         if (err) {
-            printf("readdir() error %d\n", err);
+            printf("vfs_closedir() error %d\n", err);
             return 1;
         }
         printf("%-4s  %04d-%02d-%02d %02d:%02d:%02d  %12d  %s\n", 
@@ -360,7 +361,7 @@ static int do_dir(int argc, char **argv) {
     }
     err = vfs_closedir(&f);
     if (err) {
-        printf("closedir() error %d\n", err);
+        printf("vfs_closedir() error %d\n", err);
         return 1;
     }
     return 0;

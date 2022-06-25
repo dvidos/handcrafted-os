@@ -105,9 +105,8 @@ static int parse_path_and_prepare_file_structure(char *path, file_t *file) {
 int vfs_opendir(char *path, file_t *file) {
     klog_trace("vfs_opendir(path=\"%s\", file=0x%p)", path, file);
     int err = parse_path_and_prepare_file_structure(path, file);
-    if (err)
+    if (err) 
         return err;
-    klog_trace("path prepared");
     return file->ops->opendir(file->path, file);
 }
 
@@ -119,10 +118,7 @@ int vfs_readdir(file_t *file, struct dir_entry *dir_entry) {
 int vfs_closedir(file_t *file) {
     klog_trace("vfs_closedir(file=0x%p)", file);
     int err = file->ops->closedir(file);
-    if (err)
-        return err;
-    kfree(file);
-    return SUCCESS;
+    return err;
 }
 
 int vfs_open(char *path, file_t *file) {

@@ -6,7 +6,7 @@
 
 
 // reads a directory entry and advances offset. returns false when no nore entries available.
-static bool extract_next_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry) {
+static int extract_next_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry) {
     bool long_entries_found = false;
 
     memset(entry, 0, sizeof(struct fat_dir_entry));
