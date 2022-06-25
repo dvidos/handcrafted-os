@@ -345,7 +345,18 @@ static int do_dir(int argc, char **argv) {
             printf("readdir() error %d\n", err);
             return 1;
         }
-        printf("%12d  %s\n", entry.file_size, entry.short_name);
+        printf("%-4s  %04d-%02d-%02d %02d:%02d:%02d  %12d  %s\n", 
+            entry.flags.dir ? "dir" : 
+                (entry.flags.label ? "vol" : 
+                    (entry.flags.read_only ? "RO" : "file")),
+            entry.modified.year,
+            entry.modified.month,
+            entry.modified.day,
+            entry.modified.hours,
+            entry.modified.minutes,
+            entry.modified.seconds,
+            entry.file_size, 
+            entry.short_name);
     }
     err = vfs_closedir(&f);
     if (err) {

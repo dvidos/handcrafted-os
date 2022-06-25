@@ -333,14 +333,11 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry)
 
     if (file_info->is_root_directory) {
         if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16) {
-klog_trace("a");
             err = fat16_root_dir_read(file, fat_entry);
         } else {
-klog_trace("b");
             err = cluster_dir_read(file, fat_entry);
         }
     } else {
-klog_trace("c");
         err = cluster_dir_read(file, fat_entry);
     }
 
@@ -351,6 +348,22 @@ klog_trace("c");
 
     strcpy(dir_entry->short_name, fat_entry->short_name);
     dir_entry->file_size = fat_entry->file_size;
+    dir_entry->flags.label = fat_entry->attributes.flags.volume_label;
+    dir_entry->flags.dir = fat_entry->attributes.flags.directory;
+    dir_entry->flags.read_only = fat_entry->attributes.flags.read_only;
+    dir_entry->created.year = fat_entry->created_year;
+    dir_entry->created.month = fat_entry->created_month;
+    dir_entry->created.day = fat_entry->created_day;
+    dir_entry->created.hours = fat_entry->created_hour;
+    dir_entry->created.minutes = fat_entry->created_min;
+    dir_entry->created.seconds = fat_entry->created_sec;
+    dir_entry->modified.year = fat_entry->modified_year;
+    dir_entry->modified.month = fat_entry->modified_month;
+    dir_entry->modified.day = fat_entry->modified_day;
+    dir_entry->modified.hours = fat_entry->modified_hour;
+    dir_entry->modified.minutes = fat_entry->modified_min;
+    dir_entry->modified.seconds = fat_entry->modified_sec;
+
     kfree(fat_entry);
     return SUCCESS;
 }

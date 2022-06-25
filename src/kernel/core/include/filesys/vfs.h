@@ -34,9 +34,25 @@ struct mount_info *vfs_get_mounts_list();
 int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path);
 int vfs_umount(char *path);
 
+struct file_timestamp {
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hours;
+    uint8_t minutes;
+    uint8_t seconds;
+};
+
 typedef struct dir_entry {
     char short_name[12+1];
     char file_size;
+    struct {
+        uint8_t label: 1;
+        uint8_t dir: 1;
+        uint8_t read_only: 1;
+    } flags;
+    struct file_timestamp created;
+    struct file_timestamp modified;
 } dir_entry_t;
 
 struct file_ops;
