@@ -1,4 +1,8 @@
 
+// memory management
+void *malloc(int size);
+void free(void *ptr);
+
 // file manipulation
 int open(char *file, int flags);
 int read(int h, char *buffer, int size);
@@ -35,7 +39,7 @@ int receive(int from, msg *msg);
 int sendreceive(int to, msg *msg);
 int notify(int who, msg *msg);
 
-// console (tty) manipulation
+// console (per process tty) manipulation
 int printf(char *format, ...);
 int getchar();
 int putchar(int c);
@@ -48,6 +52,20 @@ int clrscr();
 typedef struct dtime dtime;
 int datetime(dtime *dtime);
 unsigned long long uptime();
+
+// socket manipulation?
+
+
+
+/* possible data structures and algorithms in library
+    - good, safe string class, 
+    - good, multibyte string class (ucs2 / utf16)
+    - list / collection functionality
+    - hashtable functionality
+    - sorting functionality
+    - json manipulating functionality
+*/
+ 
 
 
 // how about beyond just terminal apps...

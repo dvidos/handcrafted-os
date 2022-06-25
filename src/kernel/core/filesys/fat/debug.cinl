@@ -23,8 +23,8 @@ static void debug_fat_info(struct fat_info *info) {
     klog_debug("  root dir sectors size       %d", info->root_dir_sectors_size);
 }
 
-static void debug_fat_dir_entry(bool title, struct fat_dir_entry *entry) {
-    if (title) {
+static void debug_fat_dir_entry(bool title_line, struct fat_dir_entry *entry) {
+    if (title_line) {
         //         |  ABCDEFGH.ABC 0x12 RHADSV 1234-12-12 12:12:12 1234-12-12 12:12:12 123456789 123456789 Xxxxxxxx
         klog_debug("  File name    Attr Flags  Cr.Date    Cr.Time  Mod.Date   Mod.Time      Size   Cluster Long file name");
     } else {

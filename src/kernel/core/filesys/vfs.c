@@ -137,6 +137,10 @@ int vfs_read(file_t *file, char *buffer, int bytes) {
     return file->ops->read(file, buffer, bytes);
 }
 
+int vfs_seek(file_t *file, int position, enum seek_origin origin) {
+    return file->ops->seek(file, position, origin);
+}
+
 int vfs_close(file_t *file) {
     int err = file->ops->close(file);
     if (err)

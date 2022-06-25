@@ -1,9 +1,10 @@
-#ifndef _FILE_OPS_CINL
-#define _FILE_OPS_CINL
+#ifndef _FAT_DIR_OPS_CINL
+#define _FAT_DIR_OPS_CINL
 
 #include <filesys/vfs.h>
 #include <memory/kheap.h>
 #include <klib/string.h>
+#include <klib/path.h>
 #include <klog.h>
 #include <errors.h>
 #include "fat_priv.h"
@@ -152,37 +153,10 @@ static int dir_in_data_clusters_close(file_t *file) {
     return SUCCESS;
 }
 
-static int get_next_path_part(char *path, int *offset, char *buffer) {
-    klog_trace("get_next_path_part(path=\"%s\", offset=%d", path, *offset);
-    char *start = path + *offset;
-    if (*start == '/') {
-        start++;
-        (*offset)++;
-    }
-    if (*start == '\0') {
-        buffer[0] = '\0';
-        return ERR_NO_MORE_CONTENT;
-    }
-
-    char *end = strchr(start, '/');
-    if (end == NULL)
-    {
-        // strcpy() copies the zero terminator as well
-        strcpy(buffer, start);
-    }
-    else
-    {
-        int length = end - start;
-        memcpy(buffer, start, length);
-        buffer[length] = '\0';
-    }
-    (*offset) += strlen(buffer);
-    return SUCCESS;
-}
 
 // loops to find the target_name in the root directory
-static int find_dir_entry_in_root_dir(file_t *file, char *target_name, struct fat_dir_entry *entry) {
-    klog_trace("find_dir_entry_in_root_dir(target=\"%s\")", target_name);
+static int find_entry_in_root_dir(file_t *file, char *target_name, struct fat_dir_entry *entry) {
+    klog_trace("find_entry_in_root_dir(target=\"%s\")", target_name);
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
     int err;
@@ -230,8 +204,8 @@ static int find_dir_entry_in_root_dir(file_t *file, char *target_name, struct fa
 }
 
 // loops to find the target_name in a non-root directory
-static int find_dir_entry_in_non_root_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, struct fat_dir_entry *entry) {
-    klog_trace("find_dir_entry_in_non_root_dir(cluster=%d, target=\"%s\")", dir_cluster_no, target_name);
+static int find_entry_in_sub_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, struct fat_dir_entry *entry) {
+    klog_trace("find_entry_in_sub_dir(cluster=%d, target=\"%s\")", dir_cluster_no, target_name);
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
     int err;
@@ -259,9 +233,9 @@ static int find_dir_entry_in_non_root_dir(file_t *file, uint32_t dir_cluster_no,
 }
 
 // walks a non-empty path, to find the final dir_entry
-static int find_dir_entry_for_path(file_t *file, char *path, struct fat_dir_entry *entry)
+static int find_entry_for_path(file_t *file, char *path, struct fat_dir_entry *entry)
 {
-    klog_trace("find_dir_entry_for_path(path=%s)", path);
+    klog_trace("find_entry_for_path(path=%s)", path);
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
     int err;
@@ -277,8 +251,8 @@ static int find_dir_entry_for_path(file_t *file, char *path, struct fat_dir_entr
     }
 
     // this is the first time, so look at root folder
-    err = find_dir_entry_in_root_dir(file, target_name, entry);
-    klog_debug("find_dir_entry_in_root_dir() -> %d", err);
+    err = find_entry_in_root_dir(file, target_name, entry);
+    klog_debug("find_entry_in_root_dir() -> %d", err);
     if (err) {
         kfree(target_name);
         return err;
@@ -295,8 +269,8 @@ static int find_dir_entry_for_path(file_t *file, char *path, struct fat_dir_entr
             break;
         }
         // otherwise, look for this entry as well
-        err = find_dir_entry_in_non_root_dir(file, cluster_no, target_name, entry);
-        klog_debug("find_dir_entry_in_root_dir() -> %d", err);
+        err = find_entry_in_sub_dir(file, cluster_no, target_name, entry);
+        klog_debug("find_entry_in_sub_dir() -> %d", err);
         if (err) {
             kfree(target_name);
             return err;
@@ -332,7 +306,7 @@ static int fat_opendir(char *path, file_t *file)
     else
     {
         // follow the path to the dir first
-        int err = find_dir_entry_for_path(file, path, file_info->dir_entry);
+        int err = find_entry_for_path(file, path, file_info->dir_entry);
         if (err)
             return err;
         if (!file_info->dir_entry->attributes.flags.directory)
@@ -395,17 +369,6 @@ static int fat_closedir(file_t *file) {
     return err;
 }
 
-static int fat_open(char *path, file_t *file) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-static int fat_read(file_t *file, char *buffer, int length) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-static int fat_close(file_t *file) {
-    return SUCCESS;
-}
 
 
 #endif

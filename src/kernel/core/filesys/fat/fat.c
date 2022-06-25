@@ -8,11 +8,20 @@
  */
 
 
+#include "fat_priv.h"
+
 #include "dir_entry.cinl"
 #include "debug.cinl"
 #include "clusters.cinl"
-#include "file_ops.cinl"
+#include "fat_dir_ops.cinl"
+#include "fat_file_ops.cinl"
 #include "fat_vfs.cinl"
+
+static struct file_system_driver vfs_driver = {
+    .name = "FAT",
+    .probe = fat_probe,
+    .get_file_operations = fat_get_file_operations
+};
 
 // this is the only public method. all the rest go through pointers
 void fat_register_vfs_driver() {

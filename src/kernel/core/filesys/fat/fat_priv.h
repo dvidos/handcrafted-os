@@ -153,5 +153,45 @@ struct fat_priv_file_info {
 };
 
 
+// clusters
+static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_no, uint32_t *next_cluster_no, char *sector_buffer);
+static int read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
+static int write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
+
+// debug
+static void debug_fat_info(struct fat_info *info);
+static void debug_fat_dir_entry(bool title_line, struct fat_dir_entry *entry);
+
+// dir entries
+static int extract_next_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry);
+
+// fat vfs interaction
+static int fat_probe(struct partition *partition);
+static struct file_ops *fat_get_file_operations();
+
+// fat dir operations
+static int fat16_root_dir_open(file_t *file);
+static int fat16_root_dir_read(file_t *file, struct fat_dir_entry *entry);
+static int fat16_root_dir_close(file_t *file);
+
+static int dir_in_data_clusters_open(file_t *file, uint32_t cluster_no);
+static int dir_in_data_clusters_read(file_t *file, struct fat_dir_entry *entry);
+static int dir_in_data_clusters_close(file_t *file);
+
+static int find_entry_in_root_dir(file_t *file, char *target_name, struct fat_dir_entry *entry);
+static int find_entry_in_sub_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, struct fat_dir_entry *entry);
+static int find_entry_for_path(file_t *file, char *path, struct fat_dir_entry *entry);
+
+static int fat_opendir(char *path, file_t *file);
+static int fat_readdir(file_t *file, struct dir_entry *dir_entry);
+static int fat_closedir(file_t *file);
+
+// file operations
+static int fat_open(char *path, file_t *file);
+static int fat_read(file_t *file, char *buffer, int length);
+static int fat_seek(file_t *file, int position, enum seek_origin origin);
+static int fat_close(file_t *file);
+
+
 
 #endif

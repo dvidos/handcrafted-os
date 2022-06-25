@@ -67,6 +67,12 @@ typedef struct file {
     struct file_ops *ops;
 } file_t;
 
+enum seek_origin {
+    SEEK_START,
+    SEEK_CURRENT,
+    SEEK_END
+};
+
 struct file_ops {
     int (*opendir)(char *path, file_t *file);
     int (*readdir)(file_t *file, dir_entry_t *entry);
@@ -74,14 +80,17 @@ struct file_ops {
 
     int (*open)(char *path, file_t *file);
     int (*read)(file_t *file, char *buffer, int bytes);
+    int (*seek)(file_t *file, int position, enum seek_origin origin);
     int (*close)(file_t *file);
 };
 
 int vfs_opendir(char *path, file_t *file);
 int vfs_readdir(file_t *file, struct dir_entry *dir_entry);
 int vfs_closedir(file_t *file);
+
 int vfs_open(char *path, file_t *file);
 int vfs_read(file_t *file, char *buffer, int bytes);
+int vfs_seek(file_t *file, int position, enum seek_origin origin);
 int vfs_close(file_t *file);
 
 

@@ -69,19 +69,4 @@ static int write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *bu
     return -1;
 }
 
-// static int read_fat(struct fat_info *info) {
-//     return info->partition->dev->ops->read(
-//         info->partition->dev,
-//         info->fat_starting_lba,
-//         0,
-//         info->sectors_per_fat,
-//         info->fat_buffer
-//     );
-// }
-
-// static int write_fat(struct fat_info *info) {
-//     // we should write twice
-//     return -1;
-// }
-
 
