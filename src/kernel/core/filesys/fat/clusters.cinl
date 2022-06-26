@@ -1,9 +1,8 @@
 #include "fat_priv.h"
 #include <errors.h>
 
-
+// reads FAT to find the next cluster number in chain.
 static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_no, uint32_t *next_cluster_no, char *sector_buffer) {
-
     uint32_t offset_in_fat;
     if (info->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
@@ -53,7 +52,20 @@ static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_n
     return SUCCESS;
 }
 
-static int read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
+// determines if cluster number is a end-of-chain value
+static bool is_end_of_cluster_chain(struct fat_info *fat_info, uint32_t cluster_no) {
+    if (fat_info->fat_type == FAT12) {
+        return cluster_no >= 0x0FFFFFF8 || cluster_no > fat_info->largest_cluster_no;
+    } else if (fat_info->fat_type == FAT16) {
+        return cluster_no >= 0xFFF8 || cluster_no > fat_info->largest_cluster_no;
+    } else if (fat_info->fat_type == FAT32) {
+        return cluster_no >= 0xFF8 || cluster_no > fat_info->largest_cluster_no;
+    }
+
+    return true;
+}
+
+static int fat_read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
     int err = info->partition->dev->ops->read(
         info->partition->dev,
         info->data_clusters_starting_lba + ((cluster_no - 2) * info->sectors_per_cluster),
@@ -61,11 +73,11 @@ static int read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buf
         info->sectors_per_cluster,
         buffer
     );
-    klog_trace("read_cluster(info, %d, 0x%p) --> %d", cluster_no, buffer, err);
+    klog_trace("fat_read_cluster(info, %d, 0x%p) --> %d", cluster_no, buffer, err);
     return err;
 }
 
-static int write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
+static int fat_write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {
     return -1;
 }
 

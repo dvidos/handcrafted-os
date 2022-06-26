@@ -335,7 +335,7 @@ static int do_dir(int argc, char **argv) {
     int err;
     err = vfs_opendir(path, &f);
     if (err) {
-        printf("vfs_closedir() error %d\n", err);
+        printf("vfs_opendir() error %d\n", err);
         return 1;
     }
     while (true) {
@@ -343,7 +343,7 @@ static int do_dir(int argc, char **argv) {
         if (err == ERR_NO_MORE_CONTENT)
             break;
         if (err) {
-            printf("vfs_closedir() error %d\n", err);
+            printf("vfs_readdir() error %d\n", err);
             return 1;
         }
         printf("%-4s  %04d-%02d-%02d %02d:%02d:%02d  %12d  %s\n", 
@@ -387,6 +387,43 @@ static int do_partitions(int argc, char **argv) {
     return 0;
 }
 
+static int do_cat(int argc, char **argv) {
+    if (argc == 0) {
+        printf("Usage: cat <file path>\n");
+        return 1;
+    }
+    char *path = argv[0];
+    file_t f;
+    char buffer[256];
+    int err = vfs_open(path, &f);
+    if (err) {
+        printf("vfs_open() error %d\n", err);
+        return 1;
+    }
+    while (true) {
+        int bytes_read = vfs_read(&f, buffer, sizeof(buffer));
+        if (bytes_read == 0)
+            break;
+        if (bytes_read < 0) {
+            printf("vfs_read() error %d\n", bytes_read);
+            return 1;
+        }
+        // dumb binary protection
+        for (int i = 0; i < bytes_read; i++) {
+            char c = (buffer[i] >= ' ' && buffer[i] <= '~') ? buffer[i] : '.';
+            printf("%c", c);
+        }
+    }
+    err = vfs_close(&f);
+    if (err) {
+        printf("vfs_close() error %d\n", err);
+        return 1;
+    }
+    printf("\n");
+    return 0;
+}
+
+
 // any function can have the argc/argv signature if they want
 struct command commands[] = {
     {"print", "Print arguments (to test parsing)", do_print},
@@ -410,6 +447,7 @@ struct command commands[] = {
     {"mounts", "Show mounted filesystems", do_mounts},
     {"dir", "Show contents of a directory", do_dir},
     {"partitions", "Show partition information", do_partitions},
+    {"cat", "Load and display a file's contents", do_cat},
     {NULL, NULL, NULL} // last one must be NULL
 };
 

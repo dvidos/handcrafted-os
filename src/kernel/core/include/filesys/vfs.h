@@ -45,7 +45,7 @@ struct file_timestamp {
 
 typedef struct dir_entry {
     char short_name[12+1];
-    char file_size;
+    uint32_t file_size;
     struct {
         uint8_t label: 1;
         uint8_t dir: 1;
@@ -80,7 +80,7 @@ struct file_ops {
 
     int (*open)(char *path, file_t *file);
     int (*read)(file_t *file, char *buffer, int bytes);
-    int (*seek)(file_t *file, int position, enum seek_origin origin);
+    int (*seek)(file_t *file, int offset, enum seek_origin origin);
     int (*close)(file_t *file);
 };
 
@@ -90,7 +90,7 @@ int vfs_closedir(file_t *file);
 
 int vfs_open(char *path, file_t *file);
 int vfs_read(file_t *file, char *buffer, int bytes);
-int vfs_seek(file_t *file, int position, enum seek_origin origin);
+int vfs_seek(file_t *file, int offset, enum seek_origin origin);
 int vfs_close(file_t *file);
 
 

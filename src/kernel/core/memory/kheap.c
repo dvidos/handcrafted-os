@@ -107,16 +107,28 @@ void kfree(void *ptr) {
     memory_block_t *next = block->next;
     memory_block_t *prev = block->prev;
 
+    if (ptr < kernel_heap.start_address || 
+        ptr > kernel_heap.end_address) {
+        klog_critical("Freeing memory with is not managed by kernel heap. ptr=0x%x, mng is 0x%x..0x%x", 
+            ptr, kernel_heap.start_address, kernel_heap.end_address);
+        return;
+    }
     if (block->magic != KMEM_MAGIC) {
-        klog_critical("Buffer overflow on ptr=0x%x, some content follows, last 16 bytes is our memory_block", ptr);
+        klog_critical("Buffer underflow on ptr=0x%x, some content follows, last 16 bytes is our memory_block", ptr);
         klog_hex16_debug(((char*)block) - 0x70, sizeof(memory_block_t) * 8, ((uint32_t)block) - 0x70);
         panic("Buffer underflow detected");
     }
 
-    if (next != NULL && next->magic != KMEM_MAGIC)
+    if (next != NULL && next->magic != KMEM_MAGIC) {
+        klog_critical("Buffer overflow on ptr=0x%x, some content follows, first 16 bytes is our memory_block", ptr);
+        klog_hex16_debug(((char*)block) - 0x10, 0x70 + sizeof(memory_block_t), ((uint32_t)block) - 0x10);
         panic("Buffer overflow detected");
-    if (!block->used)
-        return; // already freed
+    }
+
+    if (!block->used) {
+        klog_warn("Freed memory at ptr=0x%x is already free", ptr);
+        return;
+    }
     
     block->used = false;
     kernel_heap.available_memory += block->size;

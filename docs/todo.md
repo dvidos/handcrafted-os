@@ -1,5 +1,10 @@
 # things to do
 
+
+* test FAT code with
+    * directory entry that spans many clusters (e.g. more than 64 dir entries)
+    * text file that spans many clusters (e.g. > 2K)
+
 * Fix bug of 0 bytes malloc() from tty manager (i think the logger tty)
 * Improve the keyboard driver (see [here](http://www.brokenthorn.com/Resources/OSDev19.html))
 * Give console pci ability to probe and report on specific bus/device/func

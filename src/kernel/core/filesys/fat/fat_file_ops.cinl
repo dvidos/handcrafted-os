@@ -8,7 +8,36 @@
 #include <errors.h>
 #include "fat_priv.h"
 
+#define min(a, b)     ((a) <= (b) ? (a) : (b))
 
+static inline uint32_t get_new_position(file_t *file, int offset, enum seek_origin origin) {
+    uint32_t position = ((struct fat_priv_file_info *)file->driver_priv_data)->offset;
+    uint32_t size = ((struct fat_priv_file_info *)file->driver_priv_data)->size;
+
+    if (origin == SEEK_START) {
+        if (offset < 0)
+            return 0;
+        return ((uint32_t)offset <= size) ? (uint32_t)offset : size;
+
+    } else if (origin == SEEK_END) { 
+        if (offset > 0)
+            return size;
+        offset *= (-1); // turn it positive
+        if ((uint32_t)offset > size)
+            return 0; // cannot go further back than zero
+        return size - (uint32_t)offset;
+
+    } else if (origin == SEEK_CURRENT) {
+        if (position + offset > size)
+            return size;
+        // if offset would take us higher than zero, don't allow it
+        if (offset < 0 && ((uint32_t)(offset * -1)) > size)
+            return 0;
+        return position + offset;
+    }
+
+    return position;
+}
 
 static int fat_open(char *path, file_t *file) {
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
@@ -17,55 +46,101 @@ static int fat_open(char *path, file_t *file) {
     file->driver_priv_data = file_info;
     file_info->cluster_buffer = kmalloc(fat_info->bytes_per_cluster);
     file_info->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
-    klog_trace("fat_opendir(fat_type=FAT%d, path=\"%s\")", 
+    klog_trace("fat_open(fat_type=FAT%d, path=\"%s\")", 
         fat_info->fat_type == FAT32 ? 32 : (fat_info->fat_type == FAT16 ? 16 : 12), 
         path);
 
-    file_info->is_root_directory = (strlen(path) == 1 && *path == '/');
-    if (file_info->is_root_directory)
-    {
-        if (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16) {
-            return fat16_root_dir_open(file);
-        } else {
-            // tested and works
-            return dir_in_data_clusters_open(file, fat_info->boot_sector->types.fat_32.root_dir_cluster);
-        }
-    }
-    else
-    {
-        // follow the path to the dir first
-        int err = find_entry_for_path(file, path, file_info->dir_entry);
-        if (err)
-            return err;
-        if (!file_info->dir_entry->attributes.flags.directory)
-            return ERR_NOT_A_DIRECTORY;
-        return dir_in_data_clusters_open(file, file_info->dir_entry->first_cluster_no);
-    }
+    // follow the path to the dir first
+    int err = find_entry_for_path(file, path, file_info->dir_entry);
+    if (err)
+        return err;
+    if (file_info->dir_entry->attributes.flags.directory ||
+        file_info->dir_entry->attributes.flags.volume_label)
+        return ERR_NOT_A_FILE;
+    klog_debug("File directory entry");
+    debug_fat_dir_entry(true, NULL);
+    debug_fat_dir_entry(false, file_info->dir_entry);
+
+    // read the first cluster, to prepare for reading
+    err = fat_read_cluster(fat_info, file_info->dir_entry->first_cluster_no, file_info->cluster_buffer);
+    if (err)
+        return err;
+    klog_debug("File cluster contents");
+    klog_hex16_debug(file_info->cluster_buffer, fat_info->bytes_per_cluster, 0);
+    
+    file_info->cluster_chain_no = 0;
+    file_info->first_cluster_no = file_info->dir_entry->first_cluster_no;
+    file_info->curr_cluster_no = file_info->dir_entry->first_cluster_no;
+    file_info->size = file_info->dir_entry->file_size;
+    file_info->offset = 0;
+    
+    return SUCCESS;
 }
 
 static int fat_read(file_t *file, char *buffer, int length) {
-    return ERR_NOT_IMPLEMENTED;
+    klog_trace("fat_read(length=%d)", length);
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    int bytes_actually_read = 0;
+    int err;
+
+    // don't allow reading past EOF
+    if (file_info->offset + length > file_info->size)
+        length = file_info->size - file_info->offset;
+    
+    while (true) {
+        // copy what we can from the current cluster
+        int offset_in_cluster = file_info->offset - (file_info->cluster_chain_no * fat_info->bytes_per_cluster);
+        int available_in_cluster = fat_info->bytes_per_cluster - offset_in_cluster;
+        int chunk_len = min(length, available_in_cluster);
+        memcpy(buffer + bytes_actually_read, file_info->cluster_buffer + offset_in_cluster, chunk_len);
+        bytes_actually_read += chunk_len;
+        length -= chunk_len;
+        file_info->offset += chunk_len;
+        if (length == 0)
+            break;
+
+        if (file_info->offset < file_info->size && length > 0) {
+            // we need to load next cluster
+            uint32_t next_cluster_no;
+            err = get_next_cluster_no(fat_info, file_info->curr_cluster_no, &next_cluster_no, file_info->cluster_buffer);
+            if (err)
+                return err;
+
+            if (is_end_of_cluster_chain(fat_info, next_cluster_no)) {
+                klog_debug("fat_read(): corruption detected, file size reports more data, but end of cluster chain encountered");
+                return ERR_BAD_VALUE;
+            }
+
+            file_info->cluster_chain_no++;
+            file_info->curr_cluster_no = next_cluster_no;
+            err = fat_read_cluster(fat_info, file_info->curr_cluster_no, file_info->cluster_buffer);
+            if (err)
+                return err;
+        }
+    }
+
+    // instead of success, we return the bytes we actually read
+    return bytes_actually_read;
 }
 
-static int fat_seek(file_t *file, int position, enum seek_origin origin) {
+static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
+    // either we will implement ways to navigate both forwards and backwards,
+    // or we always nabigate from the start, while seeking a specific position.
+    // make sure before leaving this method, we are ready to read, just like open() does
     return ERR_NOT_IMPLEMENTED;
 }
 
 static int fat_close(file_t *file) {
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
-    int err;
-
-    if (file_info->is_root_directory && (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16))
-        err = fat16_root_dir_close(file);
-    else
-        err = dir_in_data_clusters_close(file);
 
     // we must free what we allocated in open()
     kfree(file_info->cluster_buffer);
     kfree(file_info->dir_entry);
     kfree(file_info);
-    return err;
+
+    return SUCCESS;
 }
 
 

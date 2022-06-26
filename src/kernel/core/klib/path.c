@@ -6,7 +6,7 @@
 
 
 int get_next_path_part(char *path, int *offset, char *buffer) {
-    klog_trace("get_next_path_part(path=\"%s\", offset=%d", path, *offset);
+    klog_trace("get_next_path_part(path=\"%s\", offset=%d)", path, *offset);
     char *start = path + *offset;
     if (*start == '/') {
         start++;

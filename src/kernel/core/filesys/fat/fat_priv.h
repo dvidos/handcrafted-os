@@ -147,16 +147,17 @@ struct fat_priv_file_info {
     bool is_root_directory;           // check if root directory (as it is special in FAT16)
     uint32_t first_cluster_no;        // first cluster of the file/dir (unless root dir in FAT16)
     uint32_t curr_cluster_no;         // tracks current cluster, can be equal to the first
+    uint32_t cluster_chain_no;        // cluster incremental number, zero based (e.g. 3rd cluster in the chain)
     char *cluster_buffer;             // buffer for reading / writing the cluster
-    uint32_t offset;                  // offset in file or directory contents
-    uint32_t size;                    // current file size, to detect EOF
+    uint32_t offset;                  // offset in bytes in file or directory contents
+    uint32_t size;                    // current file size, in bytes, to detect EOF
 };
 
 
 // clusters
 static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_no, uint32_t *next_cluster_no, char *sector_buffer);
-static int read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
-static int write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
+static int fat_read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
+static int fat_write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
 
 // debug
 static void debug_fat_info(struct fat_info *info);
@@ -189,7 +190,7 @@ static int fat_closedir(file_t *file);
 // file operations
 static int fat_open(char *path, file_t *file);
 static int fat_read(file_t *file, char *buffer, int length);
-static int fat_seek(file_t *file, int position, enum seek_origin origin);
+static int fat_seek(file_t *file, int offset, enum seek_origin origin);
 static int fat_close(file_t *file);
 
 
