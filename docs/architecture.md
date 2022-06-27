@@ -15,7 +15,9 @@ The main components of each part are the following:
 
 Currently solving this with GRUB2, and Multiboot specification.
 
-Attempted and may come back to the typical MBR 512 bytes first sector of a disk
+Attempted and may come back to the typical MBR 512 bytes first sector of a disk,
+plus a second stage boot loader. At the minimum, we have to identify memory size
+and maybe support the [multiboot specification](https://www.gnu.org/software/grub/manual/multiboot/multiboot.html).
 
 ## Kernel<a id="kernel"></a>
 
@@ -23,24 +25,32 @@ A monolithic piece of software, that is overseeing the hardware and offers
 a more friendly environment for programs to run on. Consists of various 
 modules:
 
-* startup - a piece of assembly that allows the bootload to jump to
-* kernel - the system initialization code
-* GDT - the general descriptor table, describing memory segments
-* IDT - the interrupt descriptor table, describing interrupt handlers
-* memory - memory management, paging, allocation
-* screen - a simple console driver using the vga memory mapped address
-* keyboard - driver for reading, decoding and enqueuing key presses
-* timer - the programmable timer, ticking every millisecond
-* clock - the real time clock, ticking every second
-* ports - code for reading and writing data from / to CPU ports
-* string - utility functions like strlen(), strcpy() etc
-* process - multi tasking
-* konsole - a psudo shell for interactive testing of things
-* tests - a file with various unit tests
+* [startup](#k_startup) - a piece of assembly that allows the bootload to jump to
+* [main](#k_main) - the system initialization code
+* [PIC](#k_pic) - the programmable interrupt controller, for handling hardware IRQs
+* [GDT](#k_gdt) - the general descriptor table, describing memory segments
+* [IDT](#k_idt) - the interrupt descriptor table, describing interrupt handlers
+* [memory](#k_memory) - memory management, paging, allocation
+* [screen](#k_screen) - a simple console driver using the vga memory mapped address
+* [keyboard](#k_keyboard) - driver for reading, decoding and enqueuing key presses
+* [timer](#k_timer) - the programmable timer, ticking every millisecond
+* [clock](#k_clock) - the real time clock, ticking every second
+* [multi tasking](#k_multi_tasking) - the functionality of running multiple processes at a time
+* [devices](#k_devices) - device manager and devices
+* [vfs](#k_vfs) - the Virtual File System, i.e. file operations
+* [tests](#k_tests) - a file with various unit tests
 
-A rundown of concerns of each subsystem would be in order.
 
-### startup
+### startup<a id="k_startup"></a>
+
+A small piece of assembly is responsible for enabling the C kernel to launch.
+Most importantly it prepares a stack for C calls to work, as well as pushing 
+the registers in the stack with the pointers containing information from 
+the multiboot specificaion.
+
+It then calls the C kernel `main()` method.
+
+### kernel main<a id="k_main"></a>
 
 In general, when kernel is starting up, it is responsible
 of understanding the environment it runs in (e.g. what memory is available), 
@@ -52,7 +62,16 @@ The information available are:
 * boot info contains a lot of information (memory, boot drive, parameters, etc)
 * we can detect the kernel addresses fom two variables in the linker script
 
-### PIC - Programmable Interrupt Controller
+The `main()` method is the one kicking everything off. It sets up
+memory segments, creates the interrupt descriptor tables, discovers PCI devices
+and everything else. 
+
+At the end of the initialization code, it gives the console (screen & keyboard) 
+to the tty manager, so that ttys can be switched and managed, and it also gives 
+up this thread in favor of starting multitasking. The main thread then becomes 
+the idle task that is just cleaning up terminated processes.
+
+### PIC - Programmable Interrupt Controller <a id="k_pic"></a>
 
 In real mode, we'd care about IRQs 0 through 15. 
 Unfortunately, in protected mode, these are reserved by Intel
@@ -64,15 +83,15 @@ otherwise they will not fire. IRQ 2 is also the cascade
 IRQ for the slave chip, so it should be enabled for IRQs 
 8 and up, to fire.
 
-### GDT - General Descriptor Table
+### GDT - General Descriptor Table <a id="k_gdt"></a>
 
 (8 for kernel code, 16 for kernel data, needed for protected mode and IDT)
 
-### IDT - Interrupt Descriptor Table
+### IDT - Interrupt Descriptor Table <a id="k_idt"></a>
 
 (needed to intercept keyboard and others)
 
-### memory
+### memory <a id="k_memory"></a>
 
 Memory broadly consists of three things:
 
@@ -97,8 +116,7 @@ In order to support virtual addressing and mapping, there is lots of literature
 around the Page Directory, the Page Tables and the CR3 register. 
 We don't support virtual addressing or hot swapping of pages for now.
 
-
-### screen
+### screen <a id="k_screen"></a>
 
 We use a simple driver writing to the VGA memory in address 0xB8000.
 
@@ -109,7 +127,14 @@ and one for the actual character.
 New lines, scrolling, backspace and other niceties are implemented 
 in our software.
 
-### keyboard
+The idea is that the kernel writes to screen directly through the 
+screen driver (e.g. printk()). Towards the end of initialization,
+the tty manager is kicked off and each process is given a tty to interact with,
+therefore, processes using printf() are not actually writing directly to screen,
+but to a memory buffer, which may appear on screen if the proper tty is selected,
+and can be scrolled up or down for the user's viewing convenience.
+
+### keyboard <a id="k_keyboard"></a>
 
 The keyboard fires IRQ 1. 
 
@@ -119,10 +144,18 @@ receive the scancode in the subsequent interrupt call.
 
 In general, bit 7 indicates whether the key was pressed or released.
 
-It is up to the keyboard to implement any queue to save keystrokes,
-so that applications can ask for them.
+We have not yet implemented a multi language keyboard driver.
 
-### timer
+For the time being, the tty manager, through a callback hook, 
+receives notification of the key stroke, which he proceeds to place
+in the queue of the currently visible tty.
+
+When a process requests calls `tty_read_key()` it will be blocked
+until a keystroke is available. When the keyboard interrupt handler 
+places the keystroke in the keys queue, it wakes up the process,
+if that process is waiting for on a keyboard event.
+
+### timer <a id="k_timer"></a>
 
 The Programmable Timer is setup to fire about once every millisecond.
 It fires IRQ 0
@@ -133,7 +166,7 @@ delays or measurements in software at millisecond precision.
 We also use it to fire the scheduler, to either switch tasks 
 when their timeslice expires, or to wake up tasks sleeping on the timer.
 
-### clock
+### clock <a id="k_clock"></a>
 
 Real time clock can give us the date and time. 
 
@@ -144,7 +177,7 @@ and divide the calls in software.
 It fires IRQ 8 and everytime it fires, one must read the register C, 
 for the interrupt to fire again.
 
-### multi task
+### multi tasking <a id="k_multi_tasking"></a>
 
 Task switching works by switching one stack frame for another (changing the stack pointer).
 
@@ -188,16 +221,31 @@ For extra functionality, there are the following methods:
   * `acquire_semaphore()` and  `release_semaphore()`. It allows the task to claim the semaphore if applicable, or blocks until the semaphore is available. Releasing the semaphore possibly unblocks  processes that are blocked waiting for it.
   * `acquire_mutex()` and `release_mutex()` are identical to semaphores, with a limit of one.
 
-
-### hdd
+### PCI - Hard disks et al
 
 (ATA PIO is slow, DMA for later)
 
-### filesys
+### VFS - Virtual File System <a id="k_vfs"></a>
 
-(FAT for starting, maybe ext2 for later on)
+In a Unix-line system, there is one filesystem, resident in the memory of the 
+logical volume manager, under which various filesystems are being mounted.
+Examples are physical disks (e.g. providing contents of the /etc or /bin directories),
+or virtual systems (e.g. the /proc or /dev filesystems)
 
-## LibC<a id="libc"></a>
+In our kernel, we have a VFS module that maintains a list of mounts 
+and provides a uniform interface through functions such as `vfs_open()`, `vfs_read()`, `vfs_close()`.
+
+To interface between a flat physical address space and the abstraction of 
+directories and files, various file system drivers can be implemented. 
+They register themselves by calling the `vfs_register_file_system_driver()` call,
+so that, when a logical volume (e.g. a partition) is discovered, the driver's 
+`probe()` method is called, to check whether the filesystem on the volume
+can be mounted and used.
+
+For the time being we are implementing support for FAT12, FAT16 and FAT32 file systems, and
+plan to support ext2 filesystem in the near future.
+
+## LibC <a id="libc"></a>
 
 We shall not have the standard C library in our operating system.
 Therefore we need to build its replacement. 
