@@ -233,6 +233,11 @@ void isr_handler(registers_t regs) {
         case 0x28:
             real_time_clock_interrupt_interrupt_handler(&regs);
             break;
+        case 0x100:
+            klog_warn("Received interrupt %d (0x%x)", regs.int_no, regs.int_no);
+            // should return 56 somewhere
+            asm("mov $56, %eax");
+            break;
         default:
             klog_warn("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code);
     }

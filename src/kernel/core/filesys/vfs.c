@@ -156,7 +156,7 @@ void vfs_discover_and_mount_filesystems(struct partition *partitions_list) {
         // and? which partition do we mount as root? where do we mount them?
         if (driver != NULL) {
             char name[10];
-            sprintfn(name, sizeof(name), "/sd%dp%d", partition->dev->dev_no, partition->part_no);
+            sprintfn(name, sizeof(name), "/d%dp%d", partition->dev->dev_no, partition->part_no);
             vfs_mount(partition->dev->dev_no, partition->part_no, name);
         }
         partition = partition->next;

@@ -5,6 +5,7 @@
     * directory entry that spans many clusters (e.g. more than 64 dir entries)
     * text file that spans many clusters (e.g. > 2K)
 
+* loading and executing programs (ELF format), implement syscall (int 0x80)
 * Fix bug of 0 bytes malloc() from tty manager (i think the logger tty)
 * Improve the keyboard driver (see [here](http://www.brokenthorn.com/Resources/OSDev19.html))
 * Give console pci ability to probe and report on specific bus/device/func
@@ -45,7 +46,6 @@ prior allocation.
 * file system driver (read / write some filesystem)
 * libc for usermode
 * porting a compiler for our os (maybe [this](https://wiki.osdev.org/Porting_GCC_to_your_OS) helps)
-* loading and executing programs
 * user mode file system operations (open, read, write, close etc)
 * primitive tools (tiny shell, ls, cat, echo, tiny vi etc)
 * greek language keyboard mapping and utf8 support, even in console
@@ -61,6 +61,8 @@ prior allocation.
     * maybe it can have pages, left and right or something like that
     * programs should not even be aware of it
 * a random number generator ([example](https://wiki.osdev.org/Random_Number_Generator))
+* sorting, hashing and other algorithmic implementations
+* a man page system, for writing and displaying man pages
 
 ## things done
 
