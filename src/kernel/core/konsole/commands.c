@@ -324,12 +324,8 @@ static int do_mounts() {
     }
     return 0;
 }
-static int do_dir(int argc, char **argv) {
-    if (argc == 0) {
-        printf("Usage: dir <path>\n");
-        return 1;
-    }
-    char *path = argv[0];
+static int do_ls(int argc, char **argv) {
+    char *path = (argc == 0) ? "/" : argv[0];
     file_t f;
     struct dir_entry entry;
     int err;
@@ -410,7 +406,7 @@ static int do_cat(int argc, char **argv) {
         }
         // dumb binary protection
         for (int i = 0; i < bytes_read; i++) {
-            char c = (buffer[i] >= ' ' && buffer[i] <= '~') ? buffer[i] : '.';
+            char c = (buffer[i] == '\n' || (buffer[i] >= ' ' && buffer[i] <= '~')) ? buffer[i] : '.';
             printf("%c", c);
         }
     }
@@ -423,6 +419,16 @@ static int do_cat(int argc, char **argv) {
     return 0;
 }
 
+static int do_exec(int argc, char **argv) {
+    if (argc == 0) {
+        printf("Usage: exec <file>\n");
+        return 1;
+    }
+    char *path = argv[0];
+    // should exec directly from disk?
+    printf("Yeah... you'd wish!\n");
+    return -1;
+}
 
 // any function can have the argc/argv signature if they want
 struct command commands[] = {
@@ -445,9 +451,10 @@ struct command commands[] = {
     {"phys", "Physical Memory Dump", do_phys_mem_dump},
     {"pci", "PCI system info", do_pci_info},
     {"mounts", "Show mounted filesystems", do_mounts},
-    {"dir", "Show contents of a directory", do_dir},
+    {"ls", "Show contents of a directory", do_ls},
     {"partitions", "Show partition information", do_partitions},
     {"cat", "Load and display a file's contents", do_cat},
+    {"exec", "Load and execute a file from disk", do_exec},
     {NULL, NULL, NULL} // last one must be NULL
 };
 

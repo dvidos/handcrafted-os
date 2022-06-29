@@ -79,12 +79,12 @@ static int extract_next_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t
         memset(entry->short_name, 0, sizeof(entry->short_name));
         for (int i = 0; i < 8; i++)
             if (buffer[*offset + i] != ' ')
-                entry->short_name[i] = buffer[*offset + i];
+                entry->short_name[i] = tolower(buffer[*offset + i]);
         if (buffer[*offset + 8] != ' ')
             entry->short_name[strlen(entry->short_name)] = '.';
         for (int i = 8; i < 11; i++)
             if (buffer[*offset + i] != ' ')
-                entry->short_name[strlen(entry->short_name)] = buffer[*offset + i];
+                entry->short_name[strlen(entry->short_name)] = tolower(buffer[*offset + i]);
 
         // if we gotten here, we just got an entry
         (*offset) += 32;
