@@ -3,6 +3,7 @@
 
 // reads FAT to find the next cluster number in chain.
 static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_no, uint32_t *next_cluster_no, char *sector_buffer) {
+    klog_trace("get_next_cluster_no(%d)", current_cluster_no);
     uint32_t offset_in_fat;
     if (info->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
@@ -52,17 +53,42 @@ static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_n
     return SUCCESS;
 }
 
-// determines if cluster number is a end-of-chain value
-static bool is_end_of_cluster_chain(struct fat_info *fat_info, uint32_t cluster_no) {
-    if (fat_info->fat_type == FAT12) {
-        return cluster_no >= 0x0FFFFFF8 || cluster_no > fat_info->largest_cluster_no;
-    } else if (fat_info->fat_type == FAT16) {
-        return cluster_no >= 0xFFF8 || cluster_no > fat_info->largest_cluster_no;
-    } else if (fat_info->fat_type == FAT32) {
-        return cluster_no >= 0xFF8 || cluster_no > fat_info->largest_cluster_no;
+// returns the n'th cluster no in the chain of cluster nos.
+static int get_n_index_cluster_no(file_t *file, uint32_t cluster_n_index, uint32_t *cluster_no) {
+    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
+    klog_trace("get_n_index_cluster_no(cluster_n_index=%d)", cluster_n_index);
+
+    uint32_t curr_cluster_no = file_info->first_cluster_no;
+
+    while (cluster_n_index-- > 0) {
+        // some opportunity for improvement, if we did not load the same FAT sector each time.
+        uint32_t next_cluster_no = 0;
+        int err = get_next_cluster_no(fat_info, curr_cluster_no, &next_cluster_no, file_info->cluster_buffer);
+        if (err)
+            return err;
+        curr_cluster_no = next_cluster_no;
     }
 
-    return true;
+    *cluster_no = curr_cluster_no;
+    return SUCCESS;
+}
+
+
+// determines if cluster number is a end-of-chain value
+static bool is_end_of_cluster_chain(struct fat_info *fat_info, uint32_t cluster_no) {
+
+    bool is_end = false;
+    if (fat_info->fat_type == FAT12) {
+        is_end = cluster_no >= 0x0FFFFFF8 || cluster_no > fat_info->largest_cluster_no;
+    } else if (fat_info->fat_type == FAT16) {
+        is_end = cluster_no >= 0xFFF8 || cluster_no > fat_info->largest_cluster_no;
+    } else if (fat_info->fat_type == FAT32) {
+        is_end = cluster_no >= 0xFF8 || cluster_no > fat_info->largest_cluster_no;
+    }
+
+    klog_trace("is_end_of_cluster_chain((cluster_no=%d) -> %s", cluster_no, is_end ? "true" : "false");
+    return is_end;
 }
 
 static int fat_read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer) {

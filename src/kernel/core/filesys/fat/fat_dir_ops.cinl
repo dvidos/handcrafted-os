@@ -14,7 +14,7 @@ static int fat16_root_dir_open(file_t *file)
 {
     klog_trace("fat16_root_dir_open()");
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
 
     int err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
         fat_info->root_dir_starting_lba, 0, 
@@ -37,7 +37,7 @@ static int fat16_root_dir_read(file_t *file, struct fat_dir_entry *entry)
 {
     klog_trace("fat16_root_dir_read()");
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
     int err;
 
     if (file_info->offset >= fat_info->bytes_per_cluster)
@@ -71,7 +71,7 @@ static int fat16_root_dir_read(file_t *file, struct fat_dir_entry *entry)
     }
 
     // otherwise read something, load as needed
-    err = extract_next_dir_entry(file_info->cluster_buffer, fat_info->bytes_per_cluster,
+    err = extract_dir_entry(file_info->cluster_buffer, fat_info->bytes_per_cluster,
             &file_info->offset, entry);
     return err;
 }
@@ -85,7 +85,7 @@ static int fat16_root_dir_close(file_t *file) {
 static int dir_in_data_clusters_open(file_t *file, uint32_t cluster_no) {
     klog_trace("dir_in_data_clusters_open(cluster=%d)", cluster_no);
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
 
     uint32_t lba = fat_info->data_clusters_starting_lba + (cluster_no - 2) * fat_info->sectors_per_cluster;
     int err = fat_info->partition->dev->ops->read(fat_info->partition->dev,
@@ -108,7 +108,7 @@ static int dir_in_data_clusters_read(file_t *file, struct fat_dir_entry *entry)
 {
     klog_trace("dir_in_data_clusters_read()");
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
     int err;
 
     if (file_info->offset >= fat_info->bytes_per_cluster)
@@ -142,7 +142,7 @@ static int dir_in_data_clusters_read(file_t *file, struct fat_dir_entry *entry)
     }
 
     // otherwise read something, load as needed
-    err = extract_next_dir_entry(file_info->cluster_buffer, fat_info->bytes_per_cluster,
+    err = extract_dir_entry(file_info->cluster_buffer, fat_info->bytes_per_cluster,
             &file_info->offset, entry);
     return err;
 }
@@ -158,7 +158,7 @@ static int dir_in_data_clusters_close(file_t *file) {
 static int find_entry_in_root_dir(file_t *file, char *target_name, struct fat_dir_entry *entry) {
     klog_trace("find_entry_in_root_dir(target=\"%s\")", target_name);
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
     int err;
     bool found = false;
 
@@ -207,7 +207,7 @@ static int find_entry_in_root_dir(file_t *file, char *target_name, struct fat_di
 static int find_entry_in_sub_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, struct fat_dir_entry *entry) {
     klog_trace("find_entry_in_sub_dir(cluster=%d, target=\"%s\")", dir_cluster_no, target_name);
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
     int err;
     bool found = false;
 
@@ -237,7 +237,7 @@ static int find_entry_for_path(file_t *file, char *path, struct fat_dir_entry *e
 {
     klog_trace("find_entry_for_path(path=%s)", path);
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
     int err;
     bool found = false;
 
@@ -286,7 +286,7 @@ static int fat_opendir(char *path, file_t *file)
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *file_info = kmalloc(sizeof(struct fat_priv_file_info));
     memset(file_info, 0, sizeof(struct fat_priv_file_info));
-    file->driver_priv_data = file_info;
+    file->filesys_priv_data = file_info;
     file_info->cluster_buffer = kmalloc(fat_info->bytes_per_cluster);
     file_info->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
     klog_trace("fat_opendir(fat_type=FAT%d, path=\"%s\")", 
@@ -319,7 +319,7 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry)
 {
     klog_trace("fat_readdir()");
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
     struct fat_dir_entry *fat_entry = kmalloc(sizeof(struct fat_dir_entry));
     int err;
 
@@ -354,7 +354,7 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry)
 
 static int fat_closedir(file_t *file) {
     struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->driver_priv_data;
+    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
     int err;
 
     if (file_info->is_root_directory && (fat_info->fat_type == FAT12 || fat_info->fat_type == FAT16))

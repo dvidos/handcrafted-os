@@ -147,7 +147,7 @@ struct fat_priv_file_info {
     bool is_root_directory;           // check if root directory (as it is special in FAT16)
     uint32_t first_cluster_no;        // first cluster of the file/dir (unless root dir in FAT16)
     uint32_t curr_cluster_no;         // tracks current cluster, can be equal to the first
-    uint32_t cluster_chain_no;        // cluster incremental number, zero based (e.g. 3rd cluster in the chain)
+    uint32_t cluster_n_index;         // cluster incremental number, zero based (e.g. 3rd cluster in the chain)
     char *cluster_buffer;             // buffer for reading / writing the cluster
     uint32_t offset;                  // offset in bytes in file or directory contents
     uint32_t size;                    // current file size, in bytes, to detect EOF
@@ -156,6 +156,7 @@ struct fat_priv_file_info {
 
 // clusters
 static int get_next_cluster_no(struct fat_info *info, uint32_t current_cluster_no, uint32_t *next_cluster_no, char *sector_buffer);
+static int get_n_index_cluster_no(file_t *file, uint32_t cluster_n_index, uint32_t *cluster_no);
 static int fat_read_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
 static int fat_write_cluster(struct fat_info *info, uint32_t cluster_no, uint8_t *buffer);
 
@@ -164,7 +165,7 @@ static void debug_fat_info(struct fat_info *info);
 static void debug_fat_dir_entry(bool title_line, struct fat_dir_entry *entry);
 
 // dir entries
-static int extract_next_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry);
+static int extract_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry);
 
 // fat vfs interaction
 static int fat_probe(struct partition *partition);
@@ -188,6 +189,7 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry);
 static int fat_closedir(file_t *file);
 
 // file operations
+static uint32_t calculate_new_file_offset(file_t *file, int offset, enum seek_origin origin);
 static int fat_open(char *path, file_t *file);
 static int fat_read(file_t *file, char *buffer, int length);
 static int fat_seek(file_t *file, int offset, enum seek_origin origin);
