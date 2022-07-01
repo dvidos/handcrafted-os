@@ -15,6 +15,7 @@
 #include <konsole/commands.h>
 #include <filesys/vfs.h>
 #include <klog.h>
+#include <exec.h>
 
 
 
@@ -426,8 +427,7 @@ static int do_exec(int argc, char **argv) {
     }
     char *path = argv[0];
     // should exec directly from disk?
-    printf("Yeah... you'd wish!\n");
-    return -1;
+    return exec(path);
 }
 
 // any function can have the argc/argv signature if they want

@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+// this one to create a data segment
+int some_variable = 0;
 
 int syscall(int arg1, int arg2) {
     (void)arg1;

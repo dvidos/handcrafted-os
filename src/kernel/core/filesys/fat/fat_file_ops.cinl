@@ -164,7 +164,7 @@ static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
     file_info->curr_cluster_no = cluster_no;
     file_info->cluster_n_index = cluster_n_index;
     file_info->offset = final_position;
-    return SUCCESS;
+    return (int)final_position;
 }
 
 static int fat_close(file_t *file) {

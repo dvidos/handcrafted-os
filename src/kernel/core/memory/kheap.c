@@ -7,7 +7,7 @@
 #include <memory/physmem.h>
 
 #define KMEM_MAGIC            0x6AFE // something that fits in 14 bits
-#define KHEAP_SIZE          0x100000 // 1 MB for now, we'll see
+#define KHEAP_SIZE          0x200000 // 2 MB for now, we'll see (we started and exhausted 1 MB)
 
 
 // doubly linked list allows fast consolidation with prev / next blocks
@@ -72,7 +72,8 @@ void *kmalloc(size_t size) {
     while (curr != NULL && (curr->used || curr->size < size))
         curr = curr->next;
     if (curr == NULL) {
-        klog_warn("kmalloc(%u) -> Could not find a free block, returning null");
+        klog_warn("kmalloc(%u) -> Could not find a free block, returning null", size);
+        panic("malloc failed. what now?");
         return NULL;
     }
 

@@ -306,7 +306,7 @@ static void enqueue_key_event(tty_t *tty, key_event_t *event) {
         klog_warn("Key buffer full for tty %d, dropping event", tty->dev_no);
         return;
     }
-    klog_trace("tty: enqueueing key event on tty %d", tty->dev_no);
+    // klog_trace("tty: enqueueing key event on tty %d", tty->dev_no);
     acquire(&tty->keys_buffer_lock);
     memcpy(&tty->keys_buffer[tty->keys_buffer_len], event, sizeof(key_event_t));
     tty->keys_buffer_len++;
@@ -318,7 +318,7 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
         memset(event, 0, sizeof(key_event_t));
         return;
     }
-    klog_trace("tty: dequeueing key event from tty %d", tty->dev_no);
+    // klog_trace("tty: dequeueing key event from tty %d", tty->dev_no);
     acquire(&tty->keys_buffer_lock);
     memcpy(event, &tty->keys_buffer[0], sizeof(key_event_t));
     tty->keys_buffer_len--;
@@ -330,7 +330,7 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
 static void draw_tty_buffer_to_screen(tty_t *tty) {
     // this to be used when switching ttys and when scrolling
     // try to avoid flicker
-    klog_trace("tty: drawing tty %d to screen", tty->dev_no);
+    // klog_trace("tty: drawing tty %d to screen", tty->dev_no);
     
     uint8_t header_color = (VGA_COLOR_BLUE << 4) | VGA_COLOR_LIGHT_CYAN;
     int row;

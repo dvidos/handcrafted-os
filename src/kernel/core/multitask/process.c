@@ -168,7 +168,7 @@ void sleep(int milliseconds) {
         return;
     lock_scheduler();
 
-    klog_trace("process %s going to sleep for %d msecs", running_proc->name, milliseconds);
+    // klog_trace("process %s going to sleep for %d msecs", running_proc->name, milliseconds);
     running_proc->wake_up_time = timer_get_uptime_msecs() + milliseconds;
     running_proc->state = BLOCKED;
     running_proc->block_reason = SLEEPING;

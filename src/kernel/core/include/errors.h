@@ -24,6 +24,9 @@
 #define ERR_NOT_A_DIRECTORY      -13
 #define ERR_NOT_A_FILE           -14
 
+#define ERR_READING_FILE         -20
+#define ERR_WRITING_FILE         -21
+
 
 
 #endif

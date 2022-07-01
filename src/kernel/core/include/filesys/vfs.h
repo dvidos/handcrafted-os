@@ -63,7 +63,7 @@ typedef struct file {
     struct file_system_driver *driver;
     
     char *path; // relative to mount point
-    void *driver_priv_data;
+    void *filesys_priv_data;
     struct file_ops *ops;
 } file_t;
 

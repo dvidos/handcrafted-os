@@ -14,7 +14,7 @@ CFLAGS = \
 	-ffreestanding \
 	-Wall -Wextra \
 	-O2 \
-	-g \
+	-g0 \
 	-I$(OUR_INCLUDES_DIR) \
 	$(OUR_LIBC)
 

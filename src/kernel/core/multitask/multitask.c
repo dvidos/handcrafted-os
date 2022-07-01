@@ -82,7 +82,7 @@ static void wake_sleeping_tasks() {
     process_t *proc = dequeue(&temp_list);
     while (proc != NULL) {
         if (proc->block_reason == SLEEPING && proc->wake_up_time > 0 && now >= proc->wake_up_time) {
-            klog_trace("process %s ready to run, sleep time expired", proc->name);
+            // klog_trace("process %s ready to run, sleep time expired", proc->name);
             proc->state = READY;
             proc->block_reason = 0;
             proc->block_channel = NULL;

@@ -153,7 +153,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // 1: system monitor
     // 2: something
     // 3: kernel log
-    init_tty_manager(4, 2048);
+    init_tty_manager(4, 100);
 
     // now that we have ttys, let's dedicate one to syslog
     klog_set_tty(tty_manager_get_device(3));
