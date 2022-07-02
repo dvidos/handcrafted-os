@@ -14,10 +14,15 @@
 set -e
 
 
+echo Making libc...
 cd src/libc && make
 cd ../..
+
+echo Making kernel...
 cd src/kernel && make
 cd ../..
+
+echo Making user programs...
 cd src/user && make
 cd ../..
 

@@ -221,19 +221,17 @@ void isr_handler(registers_t regs) {
 }
 
 // things pushed in the isr0x80 we have in assembly appear as arguments here
+// see isr0x80 in idt_low.asm for how things are pushed
 struct syscall_stack
 {
     union {
         struct {
-            uint32_t original_ds;                  // Data segment selector
-            uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pusha.
-            uint32_t eip, cs, eflags, useresp, ss; // Pushed by the processor automatically (int/iret)
-        } regs;
-        struct {
-            uint32_t unused0;
-            uint32_t arg5, arg4, unused1, unused2, arg1, arg3, arg2, sysno;
-            uint32_t unused3, unused4, unused5, unused6, unused7;
+            uint32_t original_ds;  // ignore
+            uint32_t arg5, arg4, arg3, arg2, arg1, sysno;
         } passed;
+        struct {
+            uint32_t dword[12];
+        } uniform;
     };
 };
 
@@ -241,14 +239,13 @@ int isr_syscall(struct syscall_stack stack) {
     // it seems we are in the stack of the user process
     
     klog_warn("Received syscall interrupt!");
-
     klog_debug("  sysno = %d (eax)", stack.passed.sysno);
     klog_debug("  arg1  = %d (0x%08x) (ebx)", stack.passed.arg1, stack.passed.arg1);
     klog_debug("  arg2  = %d (0x%08x) (ecx)", stack.passed.arg2, stack.passed.arg2);
     klog_debug("  arg3  = %d (0x%08x) (edx)", stack.passed.arg3, stack.passed.arg3);
     klog_debug("  arg4  = %d (0x%08x) (esi)", stack.passed.arg4, stack.passed.arg4);
     klog_debug("  arg5  = %d (0x%08x) (edi)", stack.passed.arg5, stack.passed.arg5);
-
-    klog_debug("Returning sysno + 10");
-    return stack.passed.sysno + 10;
+    
+    // both positive and negative values tested and supported
+    return stack.passed.sysno - 3;
 }

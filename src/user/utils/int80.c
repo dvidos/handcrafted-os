@@ -70,9 +70,9 @@ int main(int argc, char *argv[]) {
     (void)argv;
 
     int a = 0;
-    a = syscall(1, 0x11111111, -1, -2, 0x22222222, 0x33333333);
-    a = syscall(2, 0x44444444,  a,  a, 0x55555555, 0x66666666);
-    a = syscall(3, 0x77777777,  a,  a, 0x88888888, 123);
+    a = syscall(1, 0x22222222, 0x33333333, 0x44444444, 0x55555555, 0x66666666);
+    a = syscall(a, 0x77777777, 0x88888888, 0x99999999, 0xaaaaaaaa, 0xbbbbbbbb);
+    a = syscall(a, 0xbbbbbbbb, 0xcccccccc, 0xdddddddd, 0xeeeeeeee, 0xffffffff);
 
     return a;
 }

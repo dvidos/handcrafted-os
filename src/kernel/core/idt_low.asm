@@ -135,16 +135,27 @@ IRQ 47
 ; and finally restores the stack frame.
 isr0x80:
   cli
-  pusha                    ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
 
-  mov ax, ds               ; Lower 16-bits of eax = ds.
-  push eax                 ; save the data segment descriptor
+  ; in our libc, the syscall() method puts the arguments in:
+  ; eax=sysno, ebx, ecx, edx, esi, edi = args 1-5
+  ; pushing them so that our C isr handler can find them as arguments
+  ; if you change this, change the arguments to the isr_syscall() C method accordingly
+  push eax
+  push ebx
+  push ecx
+  push edx
+  push esi
+  push edi
 
-  mov ax, 0x10  ; load the kernel data segment descriptor
-  mov ds, ax
-  mov es, ax
-  mov fs, ax
-  mov gs, ax
+  ; then we'll use EDX to save and restore the segments
+  ; and load the data segment descriptor of the kernel
+  mov dx, ds    ; Lower 16-bits of edx = ds.
+  push edx      ; save the data segment descriptor
+  mov dx, 0x10  ; load the kernel data segment descriptor
+  mov ds, dx
+  mov es, dx
+  mov fs, dx
+  mov gs, dx
 
   ; as a debugging aid, try to print something at top of screen, then halt
   ; mov byte [gs:0xb8000], '['
@@ -154,19 +165,17 @@ isr0x80:
 
   call isr_syscall
 
-  ; this next kills our eax return value,
-  ; we should store it on a local variable just before returning...
-  ; pushing the registers is important for calling the C function
-  ; but we must preserve the returned value as well.
+  ; restore the original segment descriptors, without affecting eax (return value)
+  pop edx
+  mov ds, dx
+  mov es, dx
+  mov fs, dx
+  mov gs, dx
 
-  pop eax        ; reload the original data segment descriptor
-  mov ds, ax
-  mov es, ax
-  mov fs, ax
-  mov gs, ax
+  ; we have to clean up the values we pushed,
+  ; but without affecting eax, which contains the return value
+  ; we pushed 6 variabels of 4 bytes each, so add 24 to sp
+  add esp, 24
 
-  popa                     ; Pops edi,esi,ebp...
   sti
   iret           ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
-
-
