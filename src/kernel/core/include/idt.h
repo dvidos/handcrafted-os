@@ -14,7 +14,6 @@ typedef struct registers
 
 
 void init_idt(uint16_t code_segment_selector);
-void print_registers(registers_t regs);
 
 
 

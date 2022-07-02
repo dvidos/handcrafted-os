@@ -1,3 +1,4 @@
+#include <bits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -203,11 +204,39 @@ void isr_handler(registers_t regs) {
             // should return 56 somewhere
             __asm__("mov $56, %eax");
             break;
+        case 0x0D:
+            // General Protection Fault, see https://wiki.osdev.org/Exceptions#General_Protection_Fault
+            char *tables[] = { "GDT", "IDT", "LDT", "IDT" };
+            int table = BIT_RANGE(regs.err_code, 2, 1);
+            int entry = BIT_RANGE(regs.err_code, 15, 3);
+            klog_error("Received General Protection Fault (int 0x%x), error_code=0x%x, is_external=%d, table=%s, index=%d", 
+                regs.int_no, regs.err_code,
+                regs.err_code & 0x1,
+                table < 4 ? tables[table] : "?",
+                entry
+            );
+            break;
         default:
-            klog_warn("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code);
+            klog_warn("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code );
     }
 
     // we need to send end-of-interrupt acknowledgement 
     // to the PIC, to enable subsequent interrupts
     pic_send_eoi(regs.int_no);
+}
+
+int isr_syscall(registers_t regs) {
+    klog_warn("Received syscall interrupt");
+    klog_debug("  regs.EAX = 0x%x", regs.eax);
+    klog_debug("  regs.EBX = 0x%x", regs.ebx);
+    klog_debug("  regs.ECX = 0x%x", regs.ecx);
+    klog_debug("  regs.EDX = 0x%x", regs.edx);
+    klog_debug("  regs.ESP = 0x%x", regs.esp);
+    klog_debug("  regs.EBP = 0x%x", regs.ebp);
+    klog_debug("  regs.ESI = 0x%x", regs.esi);
+    klog_debug("  regs.EDI = 0x%x", regs.edi);
+    klog_debug("  regs.EDI = 0x%x", regs.edi);
+    klog_debug("  regs.CS  = 0x%x", regs.cs);
+    klog_debug("  regs.DS  = 0x%x", regs.ds);
+    return 0;
 }

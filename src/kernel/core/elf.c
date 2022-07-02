@@ -430,7 +430,7 @@ int load_elf_file(file_t *file) {
     }
 
     // find highest address, to understand what to allocate
-    uint32_t highest_virtual_address = UINT32_MAX;
+    uint32_t highest_virtual_address = 0;
     for (int i = 0; i < header->phnum; i++) {
         elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
         if (program->p_type != PT_LOAD)
@@ -443,13 +443,19 @@ int load_elf_file(file_t *file) {
     // Windows allocate 1MB, Linux x86_64 allocates 8MB !!!
     // remember, stack grows downards
     uint32_t stack_end_vaddress = highest_virtual_address;
-    highest_virtual_address += 256 * 1024;
+    uint32_t stack_size = 256 * 1024;
+    highest_virtual_address += stack_size;
 
 
     // we need to load the segments in the specific virtual address, 
     // therefore we need virtual memory, or risk loading somewhere!
     // let's be risky for now!!!! :-) 
     // otherwise, allocate some pages...    
+    debug_elf_program_header(true, NULL);
+    for (int i = 0; i < header->phnum; i++) {
+        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
+        debug_elf_program_header(false, program);
+    }
     for (int i = 0; i < header->phnum; i++) {
         elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
         if (program->p_type != PT_LOAD)
@@ -458,6 +464,9 @@ int load_elf_file(file_t *file) {
         // allocate and map virtual memory, or use specificed address directly
         // initialize for memory size, but load for file size
         // TODO: allocate memory, implement paging etc.
+        klog_trace("loading elf segment from file offset 0x%x (%d bytes) into memory addr 0x%x (%d bytes)", 
+            program->p_offset, program->p_filesz,
+            program->p_vaddr, program->p_memsz);
         uint8_t *segment_ptr = (uint8_t *)program->p_vaddr;
         memset(segment_ptr, 0, program->p_memsz);
         err = vfs_seek(file, program->p_offset, SEEK_START);
@@ -477,12 +486,16 @@ int load_elf_file(file_t *file) {
     // maybe we need to give the process a lot of info, such as the cr0 page
     // the stack location, the jump point, etc.
 
-    klog_debug("ELF \"%s\" loaded address 0x%08x..0x%08x, total size %d KB", 
+    uint32_t program_size = highest_virtual_address - lowest_virtual_address;
+    klog_debug("ELF \"%s\" loaded address 0x%x..0x%x, total size %d KB", 
         file->path,
         lowest_virtual_address,
         highest_virtual_address,
-        (highest_virtual_address - lowest_virtual_address) / 1024
+        program_size / 1024
     );
+    klog_debug("Entry point at 0x%x", header->entry);
+    klog_hex16_debug((uint8_t *)lowest_virtual_address, program_size - stack_size, lowest_virtual_address);
+
 
     tty_t *tty = tty_manager_get_device(1);
     process_t *process = create_process(

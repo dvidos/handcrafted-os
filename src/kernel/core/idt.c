@@ -114,18 +114,19 @@ extern void irq44();
 extern void irq45();
 extern void irq46();
 extern void irq47();
+extern void isr0x80();
 
 // defined in assembly
 extern void load_idt_descriptor(uint32_t);
 
 
-void set_gate(uint8_t entry, uint32_t offset, uint16_t selector, uint8_t gate_type, uint8_t dpl) {
+void set_gate(uint8_t entry, uint32_t offset, uint16_t selector, uint8_t gate_type, uint8_t priv_level) {
     gates[entry].offset_lo = (offset & 0xFFFF);
     gates[entry].segment_selector = selector;
     gates[entry].reserved = 0;
     gates[entry].gate_type = gate_type;
     gates[entry].zero = 0;
-    gates[entry].privilege_level = dpl;
+    gates[entry].privilege_level = priv_level;
     gates[entry].present = 1;
     gates[entry].offset_hi = ((offset >> 16) & 0xFFFF);
 }
@@ -185,6 +186,8 @@ void init_idt(uint16_t code_segment_selector) {
     set_gate(45, (uint32_t)irq45, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
     set_gate(46, (uint32_t)irq46, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
     set_gate(47, (uint32_t)irq47, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
+
+    set_gate(0x80, (uint32_t)isr0x80, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
 
     idt_descriptor.size = sizeof(gates) - 1;
     idt_descriptor.offset = (uint32_t)gates;
