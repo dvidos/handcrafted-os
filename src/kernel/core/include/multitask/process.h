@@ -14,8 +14,16 @@ typedef struct process process_t;
 typedef void (* func_ptr)();
 
 
+// idle runs on the lowest priority level
+#define PRIORITY_KERNEL           0
+#define PRIORITY_DRIVERS          1
+#define PRIORITY_USER_PROGRAM     4
+#define PRIORITY_IDLE_TASK        7
+
+
 // create & initialize a process, don't start it yet, optinal association with a tty
-process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty);
+// process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty);
+process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty);
 
 // this appends the process on the ready queues
 void start_process(process_t *process);
@@ -68,12 +76,13 @@ enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 // reasons a process can be blocked
 enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT };
 
+
 // the fundamental process information for multi tasking
 struct process {
     uint32_t pid;
     char *name;
     struct process *next; // each process can only belong to one list
-    void *stack_buffer;
+    // void *stack_buffer;
     func_ptr entry_point;
     uint8_t  priority;
     union { // two views of the same piece of information

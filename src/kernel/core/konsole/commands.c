@@ -426,8 +426,29 @@ static int do_exec(int argc, char **argv) {
         return 1;
     }
     char *path = argv[0];
-    // should exec directly from disk?
-    return exec(path);
+    int err = exec(path);
+    printf("exec(\"%s\") -> %d", argv[0], err);
+    return err;
+}
+
+static int do_ascii(int argc, char **argv) {
+    printf("Ascii table presentation\n");
+
+    char buffer[80];
+    printf("   00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f \n");
+    for (int i = 0; i < 16; i++) {
+        sprintfn(buffer, sizeof(buffer), "%x0 ", i);
+        for (int j = 0; j < 16; j++) {
+            unsigned char c = (unsigned char)(i * 16 + j);
+            buffer[3 + (j * 3) + 0] = c < 16 ? '.' : c;
+            buffer[3 + (j * 3) + 1] = ' ';
+            buffer[3 + (j * 3) + 2] = ' ';
+        }
+        buffer[3 + 16 * 3 + 0] = '\n';
+        buffer[3 + 16 * 3 + 1] = '\0';
+        printf(buffer);
+    }
+    return 0;
 }
 
 // any function can have the argc/argv signature if they want
@@ -455,6 +476,7 @@ struct command commands[] = {
     {"partitions", "Show partition information", do_partitions},
     {"cat", "Load and display a file's contents", do_cat},
     {"exec", "Load and execute a file from disk", do_exec},
+    {"ascii", "Display ascii table", do_ascii},
     {NULL, NULL, NULL} // last one must be NULL
 };
 

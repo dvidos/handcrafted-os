@@ -25,7 +25,8 @@ void init_multitasking() {
     memset((char *)&terminated_list, 0, sizeof(terminated_list));
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
-    process_t *idle = create_process(NULL, "Idle", PROCESS_PRIORITY_LEVELS - 1, NULL);
+    char *idle_stack = kmalloc(1024);
+    process_t *idle = create_process(NULL, "Idle", idle_stack + 1024, PROCESS_PRIORITY_LEVELS - 1, NULL);
     running_proc = idle;
     running_proc->state = RUNNING;
 
@@ -52,8 +53,9 @@ void start_multitasking() {
             process_t *proc = dequeue(&terminated_list);
             klog_trace("idle task cleaning up terminated process %s", proc->name);
             // clean up things here or in a function
-            if (proc->stack_buffer != NULL)
-                kfree(proc->stack_buffer);
+            // TODO: better cleanup, see what exec() creates
+            // if (proc->stack_buffer != NULL)
+            //     kfree(proc->stack_buffer);
             kfree(proc);
         }
         

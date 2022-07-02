@@ -53,11 +53,6 @@ uint8_t kernel_start_address;
 uint8_t kernel_end_address;
 multiboot_info_t saved_multiboot_info;
 
-void process_a_main();
-void process_b_main();
-void process_c_main();
-
-
 
 // arguments from the multiboot loader, normally left by GRUB
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
@@ -149,20 +144,20 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_NONE);
     timer_pause_blocking(250);
 
-    // 0: shell / konsole
-    // 1: system monitor
-    // 2: something
-    // 3: kernel log
-    init_tty_manager(4, 100);
+    // tty 0 - Alt+1: shell / konsole
+    // tty 1 - Alt+2: for running user processes (for now)
+    // tty 2 - Alt+3: background seconds timer
+    // tty 3 - Alt+4: system monitor (phys memory, paging, heap, processes, devices etc)
+    // tty 4 - Alt+5: kernel log
+    init_tty_manager(5, 100);
 
     // now that we have ttys, let's dedicate one to syslog
-    klog_set_tty(tty_manager_get_device(3));
-    klog_appender_level(LOGAPP_TTY, LOGLEV_DEBUG);
+    klog_set_tty(tty_manager_get_device(4));
+    klog_appender_level(LOGAPP_TTY, LOGLEV_INFO);
 
     // create desired tasks here, 
-    start_process(create_process(process_a_main, "Task A", 2, tty_manager_get_device(0)));
-    start_process(create_process(process_b_main, "Task B", 2, tty_manager_get_device(1)));
-    start_process(create_process(process_c_main, "System Monitor", 2, tty_manager_get_device(2)));
+    void create_some_processes();
+    create_some_processes();
 
     // start_multitasking() will never return
     klog_info("Starting multitasking, goodbye from main()!");
@@ -170,53 +165,23 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     panic("start_multitasking() returned to main");
 }
 
-
-void process_a_main() {
+void console_task_main() {
     tty_t *tty = tty_manager_get_device(0);
     tty_set_title("Kernel Console");
-    tty_write("Welcome to konsole, enter \"?\" for help");
+    tty_write("Welcome to konsole, enter \"?\" or \"help\" for help");
     konsole(tty);
 }
 
-void process_b_main() {
-    tty_t *tty = tty_manager_get_device(1);
-    tty_set_title("Numbers counting on red backgroudn");
-    char buffer[32];
-    char *message = "Hello from process A! - use Ctrl+Alt+Fn to switch ttys";
-    tty_write(message);
+void create_some_processes() {
+    char *stack = kmalloc(4096);
+    tty_t *tty = tty_manager_get_device(0);
+    process_t *console_proc = create_process(console_task_main, "Console", (stack + 4096), PRIORITY_KERNEL, tty);
+    start_process(console_proc);
 
+    // we can trigger a multipage monitor app with memory, processes etc.
 
-    int i = 0;
-    tty_set_color(VGA_COLOR_RED << 4 | VGA_COLOR_WHITE);
-    while (true) {
-        sprintfn(buffer, sizeof(buffer), "\nTask A, i=%d...", i++);
-        tty_write(buffer);
-        sleep(1000);
-
-        if (i % 60 == 0)
-            klog_info("Just fyi, i is %d", i);
-    }
-}
-
-void process_c_main() {
-    tty_t *tty = tty_manager_get_device(2);
-    tty_set_title("Ascii table presentation");
-
-    tty_set_color(VGA_COLOR_BLUE << 4 | VGA_COLOR_WHITE);
-    char buffer[80];
-    tty_write("   00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f \n");
-    for (int i = 0; i < 16; i++) {
-        sprintfn(buffer, sizeof(buffer), "%x0 ", i);
-        for (int j = 0; j < 16; j++) {
-            unsigned char c = (unsigned char)(i * 16 + j);
-            buffer[3 + (j * 3) + 0] = c < 16 ? '.' : c;
-            buffer[3 + (j * 3) + 1] = ' ';
-            buffer[3 + (j * 3) + 2] = ' ';
-        }
-        buffer[3 + 16 * 3 + 0] = '\n';
-        buffer[3 + 16 * 3 + 1] = '\0';
-        tty_write(buffer);
-    }
+    // start_process(create_process(process_b_main, "Task B", 2, tty_manager_get_device(1)));
+    // start_process(create_process(process_c_main, "System Monitor", 2, tty_manager_get_device(2)));
 }
 
 void isr_handler(registers_t regs) {

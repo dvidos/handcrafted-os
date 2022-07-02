@@ -205,6 +205,8 @@ static void task_entry_point_wrapper() {
 
     // call the entry point method
     // only the running task would execute this method
+    // for exec() this points to the _start() method of crt0
+
     running_proc->entry_point();
 
     // terminate and later free the process
@@ -212,24 +214,25 @@ static void task_entry_point_wrapper() {
 }
 
 // a way to create process
-process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty) {
+process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
         klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
     }
     
-    int stack_size = 4096;
+    // int stack_size = 4096;
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
-    char *stack_ptr = kmalloc(stack_size);
-    memset(stack_ptr, 0, stack_size);
+    // char *stack_ptr = kmalloc(stack_size);
+    // memset(stack_ptr, 0, stack_size);
     
     pushcli();
     p->pid = ++last_pid;
     popcli();
 
-    p->stack_buffer = stack_ptr;
-    p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t) - 64);
+    // p->stack_buffer = stack_ptr;
+    // p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t));
+    p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
     p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
     p->entry_point = entry_point;
     p->priority = priority;

@@ -6,8 +6,7 @@
 #include <multitask/proclist.h>
 
 // 0=highest priority, 1,2... lower priorities. 
-// idle runs on the lowest priority level
-#define PROCESS_PRIORITY_LEVELS         5
+#define PROCESS_PRIORITY_LEVELS   8
 
 // how many msecs to allow each process. Something between 5 and 100
 #define DEFAULT_TASK_TIMESLICE_MSECS   30
