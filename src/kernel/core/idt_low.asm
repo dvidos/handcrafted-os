@@ -134,34 +134,39 @@ IRQ 47
 ; up for kernel mode segments, calls the C-level handler,
 ; and finally restores the stack frame.
 isr0x80:
-   cli
-   pusha                    ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
+  cli
+  pusha                    ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
 
-   mov ax, ds               ; Lower 16-bits of eax = ds.
-   push eax                 ; save the data segment descriptor
+  mov ax, ds               ; Lower 16-bits of eax = ds.
+  push eax                 ; save the data segment descriptor
 
-   mov ax, 0x10  ; load the kernel data segment descriptor
-   mov ds, ax
-   mov es, ax
-   mov fs, ax
-   mov gs, ax
+  mov ax, 0x10  ; load the kernel data segment descriptor
+  mov ds, ax
+  mov es, ax
+  mov fs, ax
+  mov gs, ax
 
-   ; as a debugging aid, try to print something at top of screen, then halt
-   ; mov byte [gs:0xb8000], '['
-   ; mov byte [gs:0xb8002], '!'
-   ; mov byte [gs:0xb8004], ']'
-   ; hlt
+  ; as a debugging aid, try to print something at top of screen, then halt
+  ; mov byte [gs:0xb8000], '['
+  ; mov byte [gs:0xb8002], '!'
+  ; mov byte [gs:0xb8004], ']'
+  ; hlt
 
-   call isr_syscall
-   
-   pop eax        ; reload the original data segment descriptor
-   mov ds, ax
-   mov es, ax
-   mov fs, ax
-   mov gs, ax
+  call isr_syscall
 
-   popa                     ; Pops edi,esi,ebp...
-   sti
-   iret           ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+  ; this next kills our eax return value,
+  ; we should store it on a local variable just before returning...
+  ; pushing the registers is important for calling the C function
+  ; but we must preserve the returned value as well.
+
+  pop eax        ; reload the original data segment descriptor
+  mov ds, ax
+  mov es, ax
+  mov fs, ax
+  mov gs, ax
+
+  popa                     ; Pops edi,esi,ebp...
+  sti
+  iret           ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
 

@@ -444,6 +444,7 @@ int load_elf_file(file_t *file) {
     // remember, stack grows downards
     uint32_t stack_end_vaddress = highest_virtual_address;
     uint32_t stack_size = 256 * 1024;
+    memset((char *)highest_virtual_address, 0x00, stack_size);
     highest_virtual_address += stack_size;
 
 
@@ -494,8 +495,8 @@ int load_elf_file(file_t *file) {
         program_size / 1024
     );
     klog_debug("Entry point at 0x%x", header->entry);
-    klog_hex16_debug((uint8_t *)lowest_virtual_address, program_size - stack_size, lowest_virtual_address);
-
+    klog_debug("Stack top   at 0x%x", highest_virtual_address);
+    // klog_hex16_debug((uint8_t *)lowest_virtual_address, program_size - stack_size, lowest_virtual_address);
 
     tty_t *tty = tty_manager_get_device(1);
     process_t *process = create_process(
