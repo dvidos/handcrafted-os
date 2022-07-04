@@ -1,11 +1,17 @@
 # things to do
 
 
-* test FAT code with
-    * directory entry that spans many clusters (e.g. more than 64 dir entries)
-    * text file that spans many clusters (e.g. > 2K)
-
-* loading and executing programs (ELF format), implement syscall (int 0x80)
+* Implement writing in FAT filesystem
+* Possibly implement a full ext2 file system
+* Finalize the small vi editor
+* Implement virtual memory paging (with cr0 support)
+* Make physical memory manager to be two step allocation system:
+    * a 4KB page contains 32K bits and can track 32K pages
+    * A 4 GB system consists of 1M pages. To track them, we need 32 4KB pages (128 Kb).
+    * When allocating the pages, we mark 32 of them as busy and reuse them for tracking the rest
+    * If we have an array of 32 long ints, we can track their address or page num,
+    * Then we need only one 32 bit number to mark which tracking pages contain free pages!
+* Fix bug FAT code to read more than 32 dir entries
 * Fix bug of 0 bytes malloc() from tty manager (i think the logger tty)
 * Improve the keyboard driver (see [here](http://www.brokenthorn.com/Resources/OSDev19.html))
 * Give console pci ability to probe and report on specific bus/device/func
@@ -37,7 +43,6 @@ pci devices will need to be devices etc.
 something sile the one described [here](https://tiswww.case.edu/php/chet/readline/history.html#SEC6).
 Essentially, allow add, get, index, remove operations without fear of running out, or without 
 prior allocation.
-* Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
 * Basic libc functionality [more](https://wiki.osdev.org/Creating_a_C_Library)
 * put konsole in a task, maybe allow it to own a tty device
 * implement IPC using `send(target, message)`, `receive(target, &message)`, `sendrec()` and `notify()`. See "synchronous message passing" [here](http://www.brokenthorn.com/Resources/OSDev25.html)
@@ -62,10 +67,12 @@ prior allocation.
     * programs should not even be aware of it
 * a random number generator ([example](https://wiki.osdev.org/Random_Number_Generator))
 * sorting, hashing and other algorithmic implementations
-* a man page system, for writing and displaying man pages
+* a man page system, for writing and displaying man pages (eg in usr/share/man/xxxxx.txt)
 
 ## things done
 
+* Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
+* loading and executing programs (ELF format), implement syscall (int 0x80) -- success July 2, 2022
 * improve the headers in the kernel, put them in a single folder, 
 with whatever public interface they will contain.
 * organize folders, especially process could be a subfolder inside kernel, with a single public header and mutliple internal headers and c files

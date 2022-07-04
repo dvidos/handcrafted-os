@@ -11,7 +11,8 @@ SOURCE_FILES = \
 	$(wildcard stdio/*.c) \
 	$(wildcard stdlib/*.c) \
 	$(wildcard proc/*.c) \
-	$(wildcard string/*.c)
+	$(wildcard string/*.c) \
+	$(wildcard sys/*.c)
 
 LIBC_OBJ_FILES = $(SOURCE_FILES:.c=.o)
 LIBK_OBJ_FILES = $(SOURCE_FILES:.c=.libk.o)
