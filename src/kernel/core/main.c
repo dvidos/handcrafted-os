@@ -114,6 +114,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_info("Initializing Kernel Heap...");
     init_kernel_heap();
 
+    // klog_info("Initializing virtual memory mapping...");
+    // init_virtual_memory_paging();
+
     klog_info("Enabling interrupts & NMI...");
     sti();
     enable_nmi();

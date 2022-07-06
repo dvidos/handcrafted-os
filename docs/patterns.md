@@ -34,3 +34,8 @@ This allows us to export functions with pointers to this structure,
 without external code ever knowing the contents of that structure.
 
 
+## generics in C
+
+Generally done through macros, Linux has some of them.
+
+
