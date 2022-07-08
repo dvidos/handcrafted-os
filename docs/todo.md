@@ -1,6 +1,8 @@
 # things to do
 
-
+* Make more clear how the kernel loading works
+    * get more variables / symbol addresses from linker script
+    * make sure kernel heap starts right after kernel, so we can map it and extend it
 * Improve malloc() in the K&R style, 
     * by keeping a list in the free blocks only
     * by wrapping the to-be-returned block with only one magic byte at each side

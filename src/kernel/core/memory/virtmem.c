@@ -275,7 +275,7 @@ void unmap_virtual_address(void *virtual_addr, void *page_dir_addr) {
 
 // map a range to itself
 void identity_map_range(void *start_addr, void *end_addr, void *page_dir_addr) {
-    for (void *addr = start_addr; addr < end_addr; addr += 4096) {
+    for (void *addr = start_addr; addr <= end_addr; addr += 4096) {
         map_virtual_address_to_physical(addr, addr, page_dir_addr);
     }
 }
@@ -334,16 +334,16 @@ void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_add
     memset(kernel_page_direcory, 0, 4096);
     identity_map_range(kernel_start_address, kernel_end_address, kernel_page_direcory);
 
-    klog_debug("Kernel page directory contents:");
-    klog_hex16_debug(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
+    // klog_debug("Kernel page directory contents:");
+    // klog_hex16_debug(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
 
-    void *pt = get_entry_address(get_table_entry(kernel_page_direcory, 0));
-    klog_debug("Kernel first page table contents:");
-    klog_hex16_debug(pt, 4096, (uint32_t)pt);
+    // void *pt = get_entry_address(get_table_entry(kernel_page_direcory, 0));
+    // klog_debug("Kernel first page table contents:");
+    // klog_hex16_debug(pt, 4096, (uint32_t)pt);
 
-    void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
-    void *pa = resolve_virtual_to_physical_address(va, kernel_page_direcory);
-    klog_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
+    // void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
+    // void *pa = resolve_virtual_to_physical_address(va, kernel_page_direcory);
+    // klog_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
 
     // now enable paging (fingers crossed!)
     set_page_directory_address_in_cpu(kernel_page_direcory);
@@ -364,8 +364,8 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
     void *page_dir_address = 0;
     __asm__ __volatile__("mov %%cr3, %0" : "=g"(page_dir_address));
 
-    klog_warn("Page fault, %s %s page by %s process, at 0x%x, page directory at 0x%p",
-        write_attempt ? "writing" : "reading",
+    klog_warn("Page fault, %s %s page by %s process, at 0x%x, page dir at 0x%p",
+        write_attempt ? "writing on" : "reading a",
         page_present ? "protected" : "missing",
         supervisor_code ? "supervisor" : "user",
         memory_address,
