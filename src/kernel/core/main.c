@@ -15,6 +15,7 @@
 #include <drivers/sata.h>
 #include <drivers/ata.h>
 #include <memory/physmem.h>
+#include <memory/virtmem.h>
 #include <memory/kheap.h>
 #include <klog.h>
 #include <klib/string.h>
@@ -112,10 +113,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
     
     klog_info("Initializing Kernel Heap...");
-    init_kernel_heap();
+    init_kernel_heap(2048);
 
-    // klog_info("Initializing virtual memory mapping...");
-    // init_virtual_memory_paging();
+    klog_info("Initializing virtual memory mapping...");
+    init_virtual_memory_paging(0, (void *)(4 * 1024 * 1024));
 
     klog_info("Enabling interrupts & NMI...");
     sti();
@@ -201,6 +202,10 @@ void isr_handler(registers_t regs) {
             break;
         case 0x28:
             real_time_clock_interrupt_interrupt_handler(&regs);
+            break;
+        case 0x0E:
+            // Page Fault: https://wiki.osdev.org/Exceptions#Page_Fault
+            virtual_memory_page_fault_handler(regs.err_code);
             break;
         case 0x0D:
             // General Protection Fault, see https://wiki.osdev.org/Exceptions#General_Protection_Fault

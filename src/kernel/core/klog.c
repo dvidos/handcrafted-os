@@ -154,7 +154,7 @@ static void memory_log_append(log_level_t level, char *str) {
     // first write preamble
     char buff[16];
     uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
-    sprintfn(buff, sizeof(buff), "%u.%03u %s ", msecs / 1000, msecs % 1000, level_captions[level]);
+    sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
 
     memlog_write(buff);
     memlog_write(str);
@@ -187,7 +187,7 @@ static void serial_log_append(log_level_t level, char *str, bool decorated) {
     if (decorated) {
         char buff[16];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
-        sprintfn(buff, sizeof(buff), "%u.%03u %s ", msecs / 1000, msecs % 1000, level_captions[level]);
+        sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
         serial_write(buff);
     }
     serial_write(str);
@@ -209,7 +209,7 @@ static void tty_log_append(log_level_t level, char *str, bool decorated) {
     if (decorated) {
         char buff[16];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
-        sprintfn(buff, sizeof(buff), "%u.%03u %s ", msecs / 1000, msecs % 1000, level_captions[level]);
+        sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
         tty_write_specific_tty(tty_appender, buff);
     }
     tty_write_specific_tty(tty_appender, str);

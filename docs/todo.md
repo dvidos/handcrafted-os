@@ -1,6 +1,12 @@
 # things to do
 
 
+* Improve malloc() in the K&R style, 
+    * by keeping a list in the free blocks only
+    * by wrapping the to-be-returned block with only one magic byte at each side
+    * by being able to ask for more memory from the system (even non-continuous)
+    * by merging freed blocks with possible adjacent free blocks
+    * see https://stackoverflow.com/questions/13159564/explain-this-implementation-of-malloc-from-the-kr-book
 * Implement writing in FAT filesystem
 * Possibly implement a full ext2 file system
 * Finalize the small vi editor

@@ -33,9 +33,17 @@
 #define MASK64_OF(bits_count)     (0xFFFFFFFFFFFFFFFFu >> (64 - (bits_count)))
 #define MASK32_OF(bits_count)     (        0xFFFFFFFFu >> (32 - (bits_count)))
 
-// for example BIT_RANGE(u32, 12, 5), bit numbers are inclusive and zero-based
+// for example BIT_RANGE(address, 12, 5), bit numbers are inclusive and zero-based
 #define BIT_RANGE(value, hi_bit_no, lo_bit_no)     (((value)>>(lo_bit_no)) & MASK64_OF((hi_bit_no)-(lo_bit_no)+1))
 
+// useful in memory paging
+#define ROUND_UP_4K(number)      (((number) + 0xFFF) & ~0xFFF)
+#define ROUND_DOWN_4K(number)    (((number)        ) & ~0xFFF)
+
+
+
+// linux has smarter approach, processor specific mactos
+// FROM/TO LITTLE/LARGE ENDIAN ()
 
 #define SWAP_16(x)                  \
   ( (((x) >> 8) & 0xff)             \
@@ -56,9 +64,6 @@
     | (((x) & 0x0000000000ff0000ull) << 24)  \
     | (((x) & 0x000000000000ff00ull) << 40)  \
     | (((x) & 0x00000000000000ffull) << 56))
-
-#define ALIGN_PTR(ptr, granularity)  \
-  (((ptr) + (granularity) - 1) & (~((granularity) - 1)))
 
 
 #endif
