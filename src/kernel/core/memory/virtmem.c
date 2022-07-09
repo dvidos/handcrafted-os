@@ -198,13 +198,13 @@ void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, vo
     uint32_t page_dir_index = virt_addr_to_page_directory_index(virtual_addr);
     uint32_t page_dir_entry = get_table_entry(page_dir_addr, page_dir_index);
     void *page_table_address;
-    klog_debug("pd address = 0x%p, pd index = %d, pd entry = 0x%x", page_dir_addr, page_dir_index, page_dir_entry);
+    // klog_debug("pd address = 0x%p, pd index = %d, pd entry = 0x%x", page_dir_addr, page_dir_index, page_dir_entry);
 
     if (is_entry_present(page_dir_entry)) {
         page_table_address = get_entry_address(page_dir_entry);
     } else {
         // we need to create one
-        page_table_address = allocate_physical_page();
+        page_table_address = allocate_physical_page((void *)0);
         klog_debug("Allocated new physical page at 0x%p for new page table", page_table_address);
         memset(page_table_address, 0, 4096);
         uint32_t page_dir_value = create_directory_entry_value(
@@ -215,7 +215,7 @@ void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, vo
             true, // write enabled
             true  // page present
         );
-        klog_debug("new page_dir entry value = 0x%08x", page_dir_value);
+        // klog_debug("new page_dir entry value = 0x%08x", page_dir_value);
         set_table_entry(page_dir_addr, page_dir_index, page_dir_value);
     }
 
@@ -235,7 +235,7 @@ void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, vo
         true, // writable
         true  // page present
     );
-    klog_debug("new page_table entry value = 0x%08x", page_table_entry);
+    // klog_debug("new page_table entry value = 0x%08x", page_table_entry);
     set_table_entry(page_table_address, page_table_index, page_table_entry);
 }
 
@@ -330,7 +330,7 @@ void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_add
         panic("Virtual memory supports 4KB pages only");
     
     // create a page directory for kernel.
-    kernel_page_direcory = allocate_physical_page();
+    kernel_page_direcory = allocate_physical_page((void *)0);
     memset(kernel_page_direcory, 0, 4096);
     identity_map_range(kernel_start_address, kernel_end_address, kernel_page_direcory);
 

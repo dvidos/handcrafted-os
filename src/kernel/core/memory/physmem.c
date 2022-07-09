@@ -41,7 +41,7 @@ int physical_page_size() {
 }
 
 
-void init_physical_memory_manager(multiboot_info_t *info, uint8_t *kernel_start_address, uint8_t *kernel_end_address) {
+void init_physical_memory_manager(multiboot_info_t *info, void *kernel_start_address, void *kernel_end_address) {
     // mark all of it as used, will open up the available physical_memory_upper_limit
     memset((char *)page_status_bitmaps, 0xFF, sizeof(page_status_bitmaps));
     highest_memory_address = 0;
@@ -152,9 +152,10 @@ static int find_first_free_physical_page_no(int min_page_no) {
     return -1;
 }
 
-void *allocate_physical_page() {
+void *allocate_physical_page(void *minimum_address) {
     pushcli();
-    int page_no = find_first_free_physical_page_no(0);
+    int min_page_no = round_up_4k((uint32_t)minimum_address) / PAGE_SIZE;
+    int page_no = find_first_free_physical_page_no(min_page_no);
     if (page_no == -1)
         panic("Cannot find free page to allocate");
     mark_page_used(page_no);
@@ -166,13 +167,13 @@ void *allocate_physical_page() {
     return ptr;
 }
 
-void *allocate_consecutive_physical_pages(size_t size_in_bytes) {
+void *allocate_consecutive_physical_pages(size_t size_in_bytes, void *minimum_address) {
     if (size_in_bytes <= PAGE_SIZE)
-        return allocate_physical_page();
+        return allocate_physical_page(minimum_address);
     
     pushcli();
     int pages_needed = round_up_4k(size_in_bytes) / PAGE_SIZE;
-    int search_starting_page = 0;
+    int search_starting_page = round_up_4k((uint32_t)minimum_address) / PAGE_SIZE;
     int first_free_page_no = -1;
     while (true) {
         first_free_page_no = find_first_free_physical_page_no(search_starting_page);

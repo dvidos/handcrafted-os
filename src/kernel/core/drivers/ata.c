@@ -611,7 +611,7 @@ static int probe(pci_device_t *pci_dev) {
     write_register(driver_data->channels + PRIMARY_CHANNEL,   ATA_REG_CONTROL, 2);
     write_register(driver_data->channels + SECONDARY_CHANNEL, ATA_REG_CONTROL, 2);
 
-    char *page = allocate_physical_page();
+    char *page = allocate_physical_page((void *)0);
     
     // enumerate devices
     for (int channel_no = 0; channel_no < 2; channel_no++) {

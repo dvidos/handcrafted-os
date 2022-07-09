@@ -49,10 +49,19 @@
 #endif
 
 
-// these two defined in the linker.ld script
+// these are defined in the linker.ld script
 // use their *addresses*, not their values!
-uint8_t kernel_start_address;
-uint8_t kernel_end_address;
+void kernel_start_address() {}
+void kernel_text_end_address() {}
+void kernel_rodata_end_address() {}
+void kernel_data_end_address() {}
+void kernel_bss_end_address() {}
+void kernel_end_address() {}
+
+void kernel_text_size() {}
+void kernel_data_size() {}
+void kernel_rodata_size() {}
+void kernel_bss_size() {}
 multiboot_info_t saved_multiboot_info;
 
 
@@ -71,11 +80,14 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     screen_init();
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_INFO);
     
-    klog_info("C kernel started, loaded at 0x%x - 0x%x (%u KB)",
-        (uint32_t)&kernel_start_address,
-        (uint32_t)&kernel_end_address,
-        ((uint32_t)&kernel_end_address - (uint32_t)&kernel_start_address) / 1024
-    );
+    klog_info("C kernel started");
+    klog_info("  - kernel start address: %d KB  (0x%x)", (size_t)&kernel_start_address / 1024, (size_t)&kernel_start_address);
+    klog_info("  - kernel end address:   %d KB  (0x%x)", (size_t)&kernel_end_address / 1024, (size_t)&kernel_end_address);
+    klog_info("  - text size:            %4d KB", ((size_t)&kernel_text_size) / 1024);
+    klog_info("  - ro data size:         %4d KB", ((size_t)&kernel_rodata_size) / 1024);
+    klog_info("  - rw data size:         %4d KB", ((size_t)&kernel_data_size) / 1024);
+    klog_info("  - bss & stack size:     %4d KB", ((size_t)&kernel_bss_size) / 1024);
+    klog_info("  - total kernel size:    %4d KB", ((size_t)&kernel_end_address - (size_t)&kernel_start_address) / 1024);
 
     if (boot_magic == 0x2BADB002) {
         klog_info("Bootloader info detected, copying it, size of %d bytes", sizeof(multiboot_info_t));
@@ -103,7 +115,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_real_time_clock(15);
 
     klog_info("Initializing Physical Memory Manager...");
-    init_physical_memory_manager(&saved_multiboot_info, &kernel_start_address, &kernel_end_address);
+    init_physical_memory_manager((void *)&saved_multiboot_info, (void *)&kernel_start_address, &kernel_end_address);
 
     klog_info("Initializing Serial Port 1 for logging...");
     init_serial_port();
@@ -113,10 +125,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
     
     klog_info("Initializing Kernel Heap...");
-    init_kernel_heap(2048);
+    init_kernel_heap(2048 * 1024, (void *)&kernel_end_address);
 
     klog_info("Initializing virtual memory mapping...");
-    init_virtual_memory_paging(0, (void *)(4 * 1024 * 1024));
+    init_virtual_memory_paging(0, (void *)(2 * 1024 * 1024));
 
     klog_info("Enabling interrupts & NMI...");
     sti();

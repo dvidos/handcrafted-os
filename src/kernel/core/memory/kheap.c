@@ -7,7 +7,6 @@
 #include <memory/physmem.h>
 
 #define KMEM_MAGIC            0x6AFE // something that fits in 14 bits
-#define KHEAP_SIZE          0x200000 // 2 MB for now, we'll see (we started and exhausted 1 MB)
 
 
 // doubly linked list allows fast consolidation with prev / next blocks
@@ -35,20 +34,20 @@ typedef struct memory_heap memory_heap_t;
 
 memory_heap_t kernel_heap;
 
-void init_kernel_heap() {
-    void *heap = allocate_consecutive_physical_pages(KHEAP_SIZE);
+void init_kernel_heap(size_t heap_size, void *minimum_address) {
+    void *heap = allocate_consecutive_physical_pages(heap_size, minimum_address);
     if (heap == NULL)
         panic("Failed allocating physical memory for kernel heap");
     kernel_heap.start_address = heap;
-    kernel_heap.end_address = heap + KHEAP_SIZE;
-    kernel_heap.available_memory = KHEAP_SIZE - 2 * sizeof(memory_block_t);
+    kernel_heap.end_address = heap + heap_size;
+    kernel_heap.available_memory = heap_size - 2 * sizeof(memory_block_t);
 
     // putting a block at the end of the area, to detect possible overflow
     memory_block_t *head = (memory_block_t *)(kernel_heap.start_address);
     memory_block_t *tail = (memory_block_t *)(kernel_heap.end_address - sizeof(memory_block_t));
 
     head->used = 0;
-    head->size = KHEAP_SIZE - 2 * sizeof(memory_block_t);
+    head->size = heap_size - 2 * sizeof(memory_block_t);
     head->magic = KMEM_MAGIC;
     head->next = tail;
     head->prev = NULL;

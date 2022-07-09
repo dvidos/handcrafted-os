@@ -11,7 +11,7 @@ ENTRY(_start)
    kernel image. */
 SECTIONS
 {
-	/* Begin putting sections at 1 MiB, a conventional place for kernels to be
+	/* Begin putting sections at 1 MB, a conventional place for kernels to be
 	   loaded at by the bootloader. 100k works for loading on low memory as well */
 	. = 1M;
     kernel_start_address = .;
@@ -24,18 +24,21 @@ SECTIONS
 		*(.multiboot)
 		*(.text)
 	}
+	kernel_text_end_address = .;
 
 	/* Read-only data. */
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
 		*(.rodata)
 	}
+	kernel_rodata_end_address = .;
 
 	/* Read-write data (initialized) */
 	.data BLOCK(4K) : ALIGN(4K)
 	{
 		*(.data)
 	}
+	kernel_data_end_address = .;
 
 	/* Read-write data (uninitialized) and stack */
 	.bss BLOCK(4K) : ALIGN(4K)
@@ -43,6 +46,12 @@ SECTIONS
 		*(COMMON)
 		*(.bss)
 	}
+	kernel_bss_end_address = .;
+
+    kernel_text_size = SIZEOF(.text);
+    kernel_rodata_size = SIZEOF(.rodata);
+    kernel_data_size = SIZEOF(.data);
+    kernel_bss_size = SIZEOF(.bss);
 
 	/* The compiler may produce other sections, by default it will put them in
 	   a segment with the same name. Simply add stuff here as needed. */

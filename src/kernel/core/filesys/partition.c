@@ -241,7 +241,7 @@ void discover_storage_dev_partitions(struct storage_dev *devices_list) {
 
     // see if we have any disks
     dev = devices_list;
-    char *buffer = allocate_physical_page();
+    char *buffer = allocate_physical_page((void *)0);
     while (dev != NULL) {
         klog_debug("fs: checking storage device \"%s\"", dev->name);
         check_storage_device(dev, buffer);

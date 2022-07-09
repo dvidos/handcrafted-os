@@ -529,7 +529,7 @@ static void rebase_port(HBA_PORT *port) {
      * A total of: 9472 bytes, rounded up to 3 pages of 4K => 12288
      */
     int port_memory_size = 12288;
-    char *port_memory_addr = allocate_consecutive_physical_pages(port_memory_size);
+    char *port_memory_addr = allocate_consecutive_physical_pages(port_memory_size, (void *)0);
     if (port_memory_addr == NULL)
         panic("Cannot allocate 12K for SATA drive");
     memset(port_memory_addr, 0, port_memory_size);
