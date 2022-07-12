@@ -296,6 +296,11 @@ void set_page_directory_address_in_cpu(void *address) {
     );
 }
 
+inline void invalidate_paging_cached_address(void *virtual_addr) {
+    // supported on i486+
+    asm volatile("invlpg (%0)" : : "r" ((uint32_t)virtual_addr) : "memory");
+}
+
 void enable_memory_paging_cpu_bit() {
     klog_trace("Enabling memory paging in CPU");
 

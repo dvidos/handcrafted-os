@@ -11,6 +11,9 @@ void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, vo
 // unmap a virtual address (remove paging entries)
 void unmap_virtual_address(void *virtual_addr, void *page_dir_addr);
 
+// invalidate TLB cache
+void invalidate_paging_cached_address(void *virtual_addr);
+
 // identity map a whole range of addresses
 void identity_map_range(void *start_addr, void *end_addr, void *page_dir_addr);
 

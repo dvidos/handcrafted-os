@@ -94,7 +94,7 @@ int main() {
     // manipulate processes (fork, wait, change priority, etc)
     // manipulate files (how about databases?)
     // manipulate terminal or graphical window
-    // manipulate inter-process messages
+    // manipulate inter-process messages (e.g. send or wait for messages)
     // manipulate network?
 
     // how to make an OS useful today? similar to what Unix did, back in the day
