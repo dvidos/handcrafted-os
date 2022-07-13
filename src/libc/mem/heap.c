@@ -1,6 +1,3 @@
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
 
 #define MEM_MAGIC             0x6A3E // something that fits in 14 bits
 

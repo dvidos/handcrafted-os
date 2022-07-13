@@ -1,5 +1,3 @@
-#include <stdbool.h>
-#include <stdint.h>
 #include <klib/string.h>
 #include <drivers/screen.h>
 #include <drivers/keyboard.h>

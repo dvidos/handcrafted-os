@@ -2,7 +2,6 @@
 #define _FAT_PRIV_H
 
 
-#include <stdint.h>
 #include <filesys/vfs.h>
 #include <filesys/partition.h>
 

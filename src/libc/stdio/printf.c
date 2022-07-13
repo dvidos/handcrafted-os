@@ -1,8 +1,6 @@
 #include <limits.h>
-#include <stdbool.h>
-#include <stdarg.h>
+#include <va_list.h>
 #include <stdio.h>
-#include <stddef.h>
 #include <string.h>
 
 static bool print(const char* data, size_t length) {

@@ -1,5 +1,3 @@
-#include <stdint.h>
-#include <stdbool.h>
 #include <bits.h>
 #include <memory/physmem.h>
 #include <drivers/screen.h>

@@ -7,7 +7,8 @@ int puts(const char* string) {
 		// use driver to write directly to screen
 		((void)string);
 		return -1;
-	#elif __is_libc
-	 	return syscall(SYS_PUTCHAR, string, 0, 0, 0, 0);
+	#endif
+	#if __is_libc
+	 	return syscall(SYS_PUTCHAR, (int)string, 0, 0, 0, 0);
 	#endif
 }

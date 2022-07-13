@@ -1,5 +1,3 @@
-#include <stdint.h>
-#include <stddef.h>
 #include <devices/storage_dev.h>
 #include <lock.h>
 #include <klog.h>

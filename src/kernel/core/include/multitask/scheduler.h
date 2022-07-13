@@ -1,7 +1,6 @@
 #ifndef _SCHEDULER_H
 #define _SCHEDULER_H
 
-#include <stdbool.h>
 #include <multitask/process.h>
 #include <multitask/proclist.h>
 

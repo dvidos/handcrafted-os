@@ -1,8 +1,7 @@
 #ifndef _CPU_H
 #define _CPU_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <ctypes.h>
 
 
 // suffix	meaning	number of bits

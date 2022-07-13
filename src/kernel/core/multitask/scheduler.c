@@ -1,5 +1,3 @@
-#include <stddef.h>
-#include <stdbool.h>
 #include <multitask/scheduler.h>
 #include <multitask/process.h>
 #include <multitask/proclist.h>

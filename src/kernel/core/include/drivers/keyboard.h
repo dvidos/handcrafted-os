@@ -1,8 +1,8 @@
 #ifndef _KEYBOARD_H
 #define _KEYBOARD_H
 
+#include <ctypes.h>
 #include <idt.h>
-#include <stdbool.h>
 
 
 #define KEY_ESCAPE             1
@@ -62,7 +62,6 @@
 #define KEY_MEDIA_APPS        55 // context menu
 #define KEY_SUPER             56
 
-#include <stdint.h>
 
 struct key_event {
     uint8_t printable; // e.g. 'A' (in the future, support for utf8) - zero if no printable for this keystroke

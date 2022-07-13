@@ -1,7 +1,7 @@
 #ifndef _PROCESS_H
 #define _PROCESS_H
 
-#include <stdint.h>
+#include <ctypes.h>
 #include <devices/tty.h>
 
 // posix has it, i think

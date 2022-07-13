@@ -1,5 +1,3 @@
-#include <stddef.h>
-#include <stdbool.h>
 #include <multitask/process.h>
 #include <memory/kheap.h>
 #include <drivers/screen.h>
@@ -240,6 +238,14 @@ void tty_set_color(int color) {
     tty->color = color;
     if (tty_mgr_data.active_tty == tty)
         screen_set_color(color);
+}
+
+int tty_get_color() {
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        return 0;
+    
+    return tty->color;
 }
 
 void tty_clear() {

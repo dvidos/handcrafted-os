@@ -1,9 +1,7 @@
 #ifndef _PHYSMEM_H
 #define _PHYSMEM_H
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
+#include <ctypes.h>
 #include <multiboot.h>
 
 int physical_page_size();

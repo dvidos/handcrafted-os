@@ -1,7 +1,7 @@
 #ifndef _PCI_H
 #define _PCI_H
 
-#include <stdint.h>
+#include <ctypes.h>
 
 typedef struct pci_device pci_device_t;
 typedef struct pci_configuration pci_configuration_t;

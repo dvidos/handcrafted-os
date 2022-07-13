@@ -1,5 +1,3 @@
-#include <stdint.h>
-#include <stdbool.h>
 #include <klib/string.h>
 #include <memory/physmem.h>
 #include <memory/kheap.h>

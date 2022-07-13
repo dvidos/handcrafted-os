@@ -1,6 +1,3 @@
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
 #include <drivers/screen.h>
 #include <klib/string.h>
 #include <klog.h>

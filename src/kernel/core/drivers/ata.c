@@ -1,8 +1,4 @@
-#include <stddef.h>
-#include <stdbool.h>
 #include <bits.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <cpu.h>
 #include <klib/string.h>
 #include <drivers/screen.h>

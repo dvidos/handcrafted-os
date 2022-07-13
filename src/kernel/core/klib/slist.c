@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <klib/string.h>
 #include <memory/kheap.h>
 #include <klib/slist.h>

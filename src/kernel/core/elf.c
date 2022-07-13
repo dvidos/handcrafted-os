@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <errors.h>
 #include <klog.h>
 #include <filesys/vfs.h>

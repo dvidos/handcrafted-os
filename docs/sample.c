@@ -2,6 +2,7 @@
 // memory management
 void *malloc(int size);
 void free(void *ptr);
+void *sbrk(int diff); // allocate virtual space at the end of the process
 
 // file manipulation
 int open(char *file, int flags);

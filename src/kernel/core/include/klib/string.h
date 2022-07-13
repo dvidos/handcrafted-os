@@ -1,9 +1,8 @@
 #ifndef _STRING_H
 #define _STRING_H
 
-#include <stddef.h>
 #include <stdarg.h>
-
+#include <ctypes.h>
 
 int strlen(const char* str);
 int strcmp(char *a, char *b);

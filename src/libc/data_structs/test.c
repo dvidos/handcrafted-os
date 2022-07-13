@@ -1,5 +1,3 @@
-#include <stdbool.h>
-#include <stdint.h>
 #include <string.h>
 #include "item_ops.h"
 #include "list.h"

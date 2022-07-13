@@ -1,8 +1,7 @@
 #ifndef _STORAGE_DEV_H
 #define _STORAGE_DEV_H
 
-#include <stdint.h>
-#include <stddef.h>
+#include <ctypes.h>
 #include <drivers/pci.h>
 
 struct storage_dev_ops;

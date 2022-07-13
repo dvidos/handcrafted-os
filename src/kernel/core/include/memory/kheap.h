@@ -1,7 +1,7 @@
 #ifndef _KHEAP_H
 #define _KHEAP_H
 
-#include <stddef.h>
+#include <ctypes.h>
 
 
 // naive effort, needs to rewrite completely

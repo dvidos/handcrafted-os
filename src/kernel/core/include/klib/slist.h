@@ -1,6 +1,9 @@
 #ifndef _SLIST_H
 #define _SLIST_H
 
+#include <ctypes.h>
+
+
 // maintains a list of strings (strongly typed list)
 typedef struct slist slist_t;
 

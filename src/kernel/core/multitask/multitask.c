@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <multitask/multitask.h>
 #include <multitask/process.h>
 #include <multitask/scheduler.h>

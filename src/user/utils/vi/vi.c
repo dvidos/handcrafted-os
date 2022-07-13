@@ -1,4 +1,3 @@
-#include <stdbool.h>
 
 /**
  * If we are building an editor, ideally,
@@ -63,8 +62,7 @@ void destroy_multi_line_buffer_viewport(mlbv_t *vp);
 // #define LINUX_COMPATIBILITY 1
 // #ifdef LINUX_COMPATIBILITY
 
-//     #include <stdbool.h>
-//     #include <termios.h>
+//     //     #include <termios.h>
 //     #include <unistd.h>
 //     #include <stdio.h>
 //     #include <string.h>

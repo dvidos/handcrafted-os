@@ -1,5 +1,4 @@
-#include <stdint.h>
-#include <stdbool.h>
+#include <ctypes.h>
 #include <drivers/screen.h>
 #include <cpu.h>
 

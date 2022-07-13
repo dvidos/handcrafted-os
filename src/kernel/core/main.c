@@ -1,7 +1,5 @@
+#include <ctypes.h>
 #include <bits.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <gdt.h>
 #include <idt.h>
 #include <pic.h>

@@ -1,8 +1,7 @@
 #ifndef _SCREEN_H
 #define _SCREEN_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <ctypes.h>
 
 
 void screen_init(void);

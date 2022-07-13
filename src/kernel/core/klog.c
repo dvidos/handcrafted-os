@@ -1,6 +1,4 @@
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
+#include <va_list.h>
 #include <klib/string.h>
 #include <klib/strbuff.h>
 #include <drivers/serial.h>

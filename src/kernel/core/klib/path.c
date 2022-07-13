@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <klib/string.h>
 #include <errors.h>
 #include <klog.h>

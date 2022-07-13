@@ -1,10 +1,8 @@
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <errors.h>
 #include <klog.h>
 #include <multitask/process.h>
 #include <devices/tty.h>
+#include "../../libc/include/syscall.h"
 
 
 
@@ -25,21 +23,30 @@ struct syscall_stack
 };
 
 
-void sys_puts(char *message) {
+int sys_puts(char *message) {
     process_t *proc = running_process();
     if (proc != NULL && proc->tty != NULL) {
         tty_write(message);
         tty_write("\n");
+        return 0;
     }
+    return -1;
 }
 
 int isr_syscall(struct syscall_stack stack) {
     // it seems we are in the stack of the user process
-    int err = SUCCESS;
+    int return_value = 0;
     
     switch (stack.passed.sysno) {
-        case 1:
-            sys_puts((char *)stack.passed.arg1);
+        case SYS_ECHO_TEST:
+            return_value = stack.passed.arg1;
+            break;
+        case SYS_ADD_TEST:
+            return_value = stack.passed.arg1 + stack.passed.arg2 + stack.passed.arg3 +
+                stack.passed.arg4 + stack.passed.arg5;
+            break;
+        case SYS_PUTS:
+            return_value = sys_puts((char *)stack.passed.arg1);
             break;
         default:
             klog_warn("Received syscall interrupt!");
@@ -49,10 +56,9 @@ int isr_syscall(struct syscall_stack stack) {
             klog_debug("  arg3  = %d (0x%08x) (edx)", stack.passed.arg3, stack.passed.arg3);
             klog_debug("  arg4  = %d (0x%08x) (esi)", stack.passed.arg4, stack.passed.arg4);
             klog_debug("  arg5  = %d (0x%08x) (edi)", stack.passed.arg5, stack.passed.arg5);
-            err = stack.passed.sysno + 5;
             break;
     }
     
     // both positive and negative values tested and supported
-    return err;
+    return return_value;
 }

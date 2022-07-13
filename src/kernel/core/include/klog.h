@@ -1,9 +1,7 @@
 #ifndef _KLOG_H
 #define _KLOG_H
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
+#include <ctypes.h>
 #include <devices/tty.h>
 
 typedef enum log_level {

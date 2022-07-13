@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <cpu.h>
 #include <bits.h>
 #include <klog.h>

@@ -1,7 +1,6 @@
 #ifndef _PARTITIONS_H
 #define _PARTITIONS_H
 
-#include <stdbool.h>
 #include <devices/storage_dev.h>
 
 

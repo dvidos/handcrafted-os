@@ -1,4 +1,3 @@
-#include <stddef.h>
 
 #define O_RDONLY     0x0
 #define O_WRONLY     0x1

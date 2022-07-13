@@ -1,5 +1,3 @@
-#include <stdint.h>
-#include <stddef.h>
 #include <klib/string.h>
 #include <klog.h>
 

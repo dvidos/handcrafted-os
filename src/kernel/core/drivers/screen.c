@@ -1,7 +1,4 @@
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdarg.h>
+#include <va_list.h>
 #include <limits.h>
 #include <klib/string.h>
 #include <cpu.h>
