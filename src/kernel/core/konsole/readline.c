@@ -100,7 +100,7 @@ char *readline(readline_t *rl) {
         // ideally this will block us and wake us up accordingly
         key_event_t e;
         tty_read_key(&e);
-        if (e.special_key == KEY_ENTER) {
+        if (e.special_key == KEY_ENTER || e.special_key == KEY_KP_ENTER) {
             do_accept_entry(rl);
             return rl->line;
         } else if (e.ctrl_down && e.printable == '/') {

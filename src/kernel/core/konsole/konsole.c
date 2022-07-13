@@ -68,9 +68,8 @@ void execute_line(char *line) {
         cmd++;
     }
     if (cmd->cmd == NULL) {
-        tty_write("Unknown command: ");
         tty_write(cmd_name);
-        tty_write("\n");
+        tty_write(": command not found\n");
         return;
     }
 
