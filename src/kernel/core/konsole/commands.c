@@ -1,5 +1,3 @@
-#include <stdbool.h>
-#include <stdbool.h>
 #include <klib/string.h>
 #include <drivers/screen.h>
 #include <drivers/keyboard.h>
@@ -451,6 +449,22 @@ static int do_ascii(int argc, char **argv) {
     return 0;
 }
 
+static int do_colors(int argc, char **argv) {
+    printf("Console colors\n");
+    int old = tty_get_color();
+
+    for (int bg = 0; bg < 16; bg++) {
+        for (int fg = 0; fg < 16; fg++) {
+            tty_set_color(bg << 4 | fg);
+            printf(" Abc");
+        }
+        printf(" \n");
+    }
+
+    tty_set_color(old);
+    return 0;
+}
+
 // any function can have the argc/argv signature if they want
 struct command commands[] = {
     {"print", "Print arguments (to test parsing)", do_print},
@@ -477,6 +491,7 @@ struct command commands[] = {
     {"cat", "Load and display a file's contents", do_cat},
     {"exec", "Load and execute a file from disk", do_exec},
     {"ascii", "Display ascii table", do_ascii},
+    {"colors", "Display available colors", do_colors},
     {NULL, NULL, NULL} // last one must be NULL
 };
 
