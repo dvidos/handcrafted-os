@@ -1,5 +1,14 @@
 # things to do
 
+* Maybe I want to get fast to a place where I can boot the OS and 
+and have an environment where I can improve it, e.g. test and compile apps
+or something.
+* Finish the things we have in the middle could help
+  * FAT system, write(), touch(), mkdir(), unlink() etc
+  * SysCall, make everything supported, write libc functions
+* Actually eating own dogfood can be the ultimate goal. Actually use if for day to day operations...
+* Sounds like implementing TCP/IP will lead to exciting capabilities.
+We may need a wifi or ethernet driver for that...
 * Solve the oxymoron of the physical pages memory allocator, in the presence of virtual mapping???
   * i.e. the bitmaps we use for housekeeping must be mapped to kernel
 * Make more clear how the kernel loading works
@@ -14,13 +23,13 @@
 * Implement writing in FAT filesystem
 * Possibly implement a full ext2 file system
 * Finalize the small vi editor
-* Implement virtual memory paging (with cr0 support)
 * Make physical memory manager to be two step allocation system:
   * a 4KB page contains 32K bits and can track 32K pages
   * A 4 GB system consists of 1M pages. To track them, we need 32 4KB pages (128 Kb).
   * When allocating the pages, we mark 32 of them as busy and reuse them for tracking the rest
   * If we have an array of 32 long ints, we can track their address or page num,
   * Then we need only one 32 bit number to mark which tracking pages contain free pages!
+  * Make sure any pages we use for tracking the physical memory are always mapped 1:1 in the virtual memory mapper.
 * Fix bug FAT code to read more than 32 dir entries
 * Fix bug of 0 bytes malloc() from tty manager (i think the logger tty)
 * Improve the keyboard driver (see [here](http://www.brokenthorn.com/Resources/OSDev19.html))
@@ -38,9 +47,6 @@
 * implement writing to SATA driver, clean up SATA code
 * implement e2fs filesystem driver, initially RO, then RW on the image we have.
 * make the build system rebuild the image, make this image our HDD solution for now.
-* find out why the ProBook did not detect the 0/3/2 HDD devices, fix, write driver for them.
-  fix it, so that we identify / start using those disks.
-* take a look at levex/osdev in github for good ideas and PCI/ATA/EXT2 drivers
 * good implementation of a circular buffer, with both reading and writing pointers
 * good implementation of a list, similar to linux kernel, [here](https://kernel.org/doc/html/latest/core-api/kernel-api.html#list-management-functions)
 * improve PCI devices, at least allow class/subclass names, to see what drivers
@@ -78,9 +84,15 @@ prior allocation.
 * a random number generator ([example](https://wiki.osdev.org/Random_Number_Generator))
 * sorting, hashing and other algorithmic implementations
 * a man page system, for writing and displaying man pages (eg in usr/share/man/xxxxx.txt)
+* [NetSurf](http://www.netsurf-browser.org/) seems to be a good browser we could port over.
+* Instead of GLib ToaruOS uses the [newLib](https://sourceware.org/newlib/) which is more lightweight
+* The ToaruOS guy also said that porting `gcc` over was easy, as all it needs is to read and write files.
+* The ToaruOS also seems to have a nice integrated gui architecture with a windows approach similar to what we used for our TTYs.
+
 
 ## things done
 
+* Implement virtual memory paging (with cr0 support)
 * Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
 * loading and executing programs (ELF format), implement syscall (int 0x80) -- success July 2, 2022
 * improve the headers in the kernel, put them in a single folder,

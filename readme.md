@@ -88,4 +88,4 @@ image. To facilitate the process, the following scripts exist:
 * [The Little book about OS development](https://littleosbook.github.io/)
 * [Intel 80386 Programmer's Reference Manual](https://logix.cz/michal/doc/i386/), an unofficial copy with nicely explained, low level information and details.
 * [BrokenThorn OS Development](http://www.brokenthorn.com/Resources/OSDevIndex.html), a collection of pages with nice and thorough explanatory information.
-
+* [Github Showcases Open Source Operating Systems](https://github.com/topics/operating-system)
