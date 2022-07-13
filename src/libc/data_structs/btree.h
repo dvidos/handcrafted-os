@@ -20,10 +20,13 @@ struct btree_struct {
     bool (*contains)(btree_t *btree, char *key);
     void *(*get)(btree_t *btree, char *key);
     void (*set)(btree_t *btree, char *key, void *item);
-    void (*delete)(btree_t *btree, char *key);
+    void (*remove)(btree_t *btree, char *key);
+    
+    void *(*get_min)(btree_t *btree);
+    void *(*get_max)(btree_t *btree);
     
     void (*pre_order_traverse)(btree_t *btree, void_key_item_consumer *consumer);
-    void (*on_order_traverse)(btree_t *btree, void_key_item_consumer *consumer);
+    void (*in_order_traverse)(btree_t *btree, void_key_item_consumer *consumer);
     void (*post_order_traverse)(btree_t *btree, void_key_item_consumer *consumer);
 };
 
