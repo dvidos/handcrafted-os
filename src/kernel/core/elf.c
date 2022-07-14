@@ -497,7 +497,12 @@ int load_elf_file(file_t *file) {
     klog_debug("Stack top   at 0x%x", highest_virtual_address);
     // klog_hex16_debug((uint8_t *)lowest_virtual_address, program_size - stack_size, lowest_virtual_address);
 
-    tty_t *tty = tty_manager_get_device(1);
+    // this has to move away from here though.
+    // in a while we can define open files as well (stdin, out, err)
+    // and we have to transfer both args and environment
+    tty_t *tty = running_process()->tty;
+    if (tty == NULL)
+        tty = tty_manager_get_device(0);
     process_t *process = create_process(
         (func_ptr)header->entry,
         file->path,
