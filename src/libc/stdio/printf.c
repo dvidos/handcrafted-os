@@ -2,6 +2,7 @@
 #include <va_list.h>
 #include <stdio.h>
 #include <string.h>
+#include <kern_calls.h>
 
 static bool print(const char* data, size_t length) {
 	const unsigned char* bytes = (const unsigned char*) data;

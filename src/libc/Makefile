@@ -3,10 +3,14 @@ LD = i686-elf-ld
 AS = i686-elf-as
 AR = i686-elf-ar
 
-LIBC_CFLAGS = -std=gnu99 -ffreestanding -Wall -Wextra -O2 -g -D__is_libc -Iinclude
-LIBK_CFLAGS = -std=gnu99 -ffreestanding -Wall -Wextra -O2 -g -D__is_libk -Iinclude
+COMMON_CFLAGS = -std=gnu99 -ffreestanding   \
+	-Wall -Wextra -Werror  \
+	-O2 -g -Iinclude
+LIBC_CFLAGS = $(COMMON_CFLAGS) -D__is_libc
+LIBK_CFLAGS = $(COMMON_CFLAGS) -D__is_libk
 
 SOURCE_FILES = \
+	$(wildcard *.c) \
 	$(wildcard arch/*.c) \
 	$(wildcard stdio/*.c) \
 	$(wildcard stdlib/*.c) \

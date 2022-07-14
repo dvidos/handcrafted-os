@@ -13,6 +13,7 @@ CFLAGS = \
 	-nostdlib \
 	-ffreestanding \
 	-Wall -Wextra \
+	-Werror   \
 	-O2 \
 	-g0 \
 	-I$(OUR_INCLUDES_DIR) \

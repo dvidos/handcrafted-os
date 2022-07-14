@@ -12,15 +12,16 @@
 #define SYS_ADD_TEST          2  // test, returns sum of args 1 - 5
 
 // pseudo-tty manipulation
-#define SYS_PUTS             11  // arg1 = string
-#define SYS_PUTCHAR          12  // arg1 = char
-#define SYS_CLEAR_SCREEN     13  // no args
-#define SYS_WHERE_XY         14  // returns x, y in hi/lo byte, zero based
-#define SYS_GOTO_XY          15  // arg1 = x, arg2 = y, zero based
-#define SYS_SCREEN_DIMS      16  // returns cols/rows in hi/lo byte
-#define SYS_COLOR            17  // arg1 = color, returns old color
-#define SYS_GET_KEY_EVENT    18  // returns... a lot of info (we have 4 bytes)
-#define SYS_GET_MOUSE_EVENT  19  // returns... a lot of info (we have 4 bytes)
+#define SYS_PUTS               11  // arg1 = string
+#define SYS_PUTCHAR            12  // arg1 = char
+#define SYS_CLEAR_SCREEN       13  // no args
+#define SYS_WHERE_XY           14  // returns x, y in hi/lo byte, zero based
+#define SYS_GOTO_XY            15  // arg1 = x, arg2 = y, zero based
+#define SYS_SCREEN_DIMENSIONS  16  // returns cols/rows in hi/lo byte
+#define SYS_GET_SCREEN_COLOR   17  // arg1 = color, returns old color
+#define SYS_SET_SCREEN_COLOR   18  // arg1 = color, returns old color
+#define SYS_GET_KEY_EVENT      19  // returns... a lot of info (we have 4 bytes)
+#define SYS_GET_MOUSE_EVENT    20  // returns... a lot of info (we have 4 bytes)
 
 // files manipulation
 #define SYS_OPEN             21  // arg1 = file path, returns handle or error<0

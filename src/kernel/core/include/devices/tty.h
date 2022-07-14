@@ -21,6 +21,7 @@ void tty_clear();
 void tty_get_cursor(uint8_t *row, uint8_t *col);
 void tty_set_cursor(uint8_t row, uint8_t col);
 void tty_set_title(char *title);
+void tty_get_dimensions(int *rows, int *cols);
 
 // print to current tty
 void printf(char *format, ...);

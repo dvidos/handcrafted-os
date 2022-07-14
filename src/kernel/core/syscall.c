@@ -23,15 +23,55 @@ struct syscall_stack
 };
 
 
-int sys_puts(char *message) {
-    process_t *proc = running_process();
-    if (proc != NULL && proc->tty != NULL) {
-        tty_write(message);
-        tty_write("\n");
-        return 0;
-    }
-    return -1;
+static int sys_puts(char *message) {
+    // we don't write a "\n" per se. we don't like to. there.
+    tty_write(message);
+    return 0;
 }
+
+static int sys_putchar(int c) {
+    char buff[2];
+    buff[0] = (char)c;
+    buff[1] = '\0';
+    tty_write(buff);
+    return 0;
+}
+
+static int sys_clear_screen() {
+    tty_clear();
+    return 0;
+}
+
+static int sys_where_xy(int *x, int *y) {
+    uint8_t row, col;
+    tty_get_cursor(&row, &col);
+    *x = col;
+    *y = row;
+    return 0;
+}
+
+static int sys_goto_xy(int x, int y) {
+    tty_set_cursor(y, x);
+    return 0;
+}
+
+static int sys_screen_dimensions(int *cols, int *rows) {
+    tty_get_dimensions(rows, cols);
+    return 0;
+}
+
+static int sys_get_screen_color() {
+    return tty_get_color();
+}
+
+static int sys_set_screen_color(int color) {
+    tty_set_color(color);
+    return 0;
+}
+
+
+
+
 
 int isr_syscall(struct syscall_stack stack) {
     // it seems we are in the stack of the user process
@@ -45,9 +85,127 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = stack.passed.arg1 + stack.passed.arg2 + stack.passed.arg3 +
                 stack.passed.arg4 + stack.passed.arg5;
             break;
-        case SYS_PUTS:
+        case SYS_PUTS:   // arg1 = string
             return_value = sys_puts((char *)stack.passed.arg1);
             break;
+        case SYS_PUTCHAR:   // arg1 = char
+            return_value = sys_putchar(stack.passed.arg1);
+            break;
+        case SYS_CLEAR_SCREEN:   // no args
+            return_value = sys_clear_screen();
+            break;
+        case SYS_WHERE_XY:   // arg1 = *x, arg2 = *y
+            return_value = sys_where_xy((int *)stack.passed.arg1, (int *)stack.passed.arg2);
+            break;
+        case SYS_GOTO_XY:   // arg1 = x, arg2 = y, zero based
+            return_value = sys_goto_xy(stack.passed.arg1, stack.passed.arg2);
+            break;
+        case SYS_SCREEN_DIMENSIONS:   // arg1 = *cols, arg2 = *rows
+            return_value = sys_screen_dimensions((int *)stack.passed.arg1, (int *)stack.passed.arg2);
+            break;
+        case SYS_GET_SCREEN_COLOR:
+            return_value = sys_get_screen_color();
+            break;
+        case SYS_SET_SCREEN_COLOR:
+            return_value = sys_set_screen_color(stack.passed.arg1);
+            break;
+        case SYS_GET_KEY_EVENT:   // returns... a lot of info (we have 4 bytes)
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_GET_MOUSE_EVENT:   // returns... a lot of info (we have 4 bytes)
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_OPEN:   // arg1 = file path, returns handle or error<0
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_READ:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_WRITE:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_SEEK:   // arg1 = handle, arg2 = offset, arg3 = origin, returns new position
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_CLOSE:   // arg1 = handle
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_OPEN_DIR:   // arg1 = dir path, return handle or error<0
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_CLOSE_DIR:   // arg1 = handle
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_STAT:   // arg1 = path, arg2 = stat pointer
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_TOUCH:   // arg1 = path
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_MKDIR:   // arg1 = path
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_UNLINK:   // arg1 = path (dir or file)
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_GET_PID:   // returns pid
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_GET_PPID:   // returns ppid
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_FORK:   // returns 0 in child, child PID in parent, neg error in parent
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_EXEC:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_WAIT:   // arg1 = pid
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_SLEEP:   // arg1 = millisecs
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_EXIT:   // arg1 = exit code
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_SBRK:   // arg1 = signed desired diff, returns pointer to new area
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_GET_UPTIME:   // returns msecs since boot (32 bits = 49 days)
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+        case SYS_GET_CLOCK:   // arg1 = dtime pointer
+            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            return_value = -1;
+            break;
+
         default:
             klog_warn("Received syscall interrupt!");
             klog_debug("  sysno = %d (eax)", stack.passed.sysno);

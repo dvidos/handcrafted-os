@@ -28,5 +28,7 @@ void _start() {
 
     // then call the atexit() functions,
     // we could call terminate() to remove our process from the running / ready list
+    (void)exit_code;
+    // exit(exit_code);
 }
 

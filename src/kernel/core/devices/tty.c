@@ -291,6 +291,13 @@ void tty_set_cursor(uint8_t row, uint8_t col) {
     );
 }
 
+void tty_get_dimensions(int *rows, int *cols) {
+    if (rows != NULL)
+        *rows = screen_rows() - tty_mgr_data.header_lines;
+    if (cols != NULL)
+        *cols = screen_cols();
+}
+
 void tty_set_title(char *title) {
     tty_t *tty = running_process()->tty;
     if (tty == NULL)

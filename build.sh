@@ -15,17 +15,21 @@ set -e
 
 
 echo Making libc...
-cd src/libc && make
+cd src/libc
+make
 cd ../..
 
 echo Making kernel...
-cd src/kernel && make
+cd src/kernel
+make
 cd ../..
 
 echo Making user programs...
-cd src/user && make
+cd src/user
+make
 cd ../..
 
+cp sysroot/bin/* /mnt/userImg
 
 # to make the images use something like the below
 # ---------------------------------------------------
@@ -36,4 +40,15 @@ cd ../..
 # umount /mnt/userImg                    (user unmounts)
 # cp sysroot/bin/* /mnt/userImg/bin      (copy compiled user programs)
 # 
+
+# after each boot I need to do:
+#-----------------------------------------
+# sudo mknod /dev/loop100 b 7 100
+# sudo chown dimitris:dimitris /dev/loop100
+# losetup /dev/loop100 ./imgs/disk10mb-fat16.img 
+# mount /mnt/userImg
+# cp sysroot/bin/* /mnt/userImg/
+
+
+
 
