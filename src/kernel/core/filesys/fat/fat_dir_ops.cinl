@@ -375,5 +375,11 @@ static int fat_closedir(file_t *file) {
 }
 
 
+static int fat_mkdir(file_t *file, char *path) {
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    return ERR_NOT_IMPLEMENTED; 
+}
+
 
 #endif

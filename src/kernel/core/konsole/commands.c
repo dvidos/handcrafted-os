@@ -465,6 +465,39 @@ static int do_colors(int argc, char **argv) {
     return 0;
 }
 
+int do_touch(int argc, char *argv[]) {
+    if (argc == 0) {
+        printf("Usage: touch <file>\n");
+        return 1;
+    }
+    int err = vfs_touch(argv[0]);
+    if (err)
+        printf("Error %d", err);
+    return err;
+}
+
+int do_mkdir(int argc, char *argv[]) {
+    if (argc == 0) {
+        printf("Usage: mkdir <name>\n");
+        return 1;
+    }
+    int err = vfs_mkdir(argv[0]);
+    if (err)
+        printf("Error %d", err);
+    return err;
+}
+
+int do_unlink(int argc, char *argv[]) {
+    if (argc == 0) {
+        printf("Usage: unlink <path>\n");
+        return 1;
+    }
+    int err = vfs_unlink(argv[0]);
+    if (err)
+        printf("Error %d", err);
+    return err;
+}
+
 // any function can have the argc/argv signature if they want
 struct command commands[] = {
     {"print", "Print arguments (to test parsing)", do_print},
@@ -492,6 +525,9 @@ struct command commands[] = {
     {"exec", "Load and execute a file from disk", do_exec},
     {"ascii", "Display ascii table", do_ascii},
     {"colors", "Display available colors", do_colors},
+    {"touch", "Create a file", do_touch},
+    {"mkdir", "Create a directory", do_mkdir},
+    {"unlink", "Delete a file or dir", do_unlink},
     {NULL, NULL, NULL} // last one must be NULL
 };
 

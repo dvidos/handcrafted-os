@@ -83,7 +83,7 @@ int vfs_umount(char *path) {
 }
 
 
-static int parse_path_and_prepare_file_structure(char *path, file_t *file) {
+static int resolve_file_system_and_prepare_file_structure(char *path, file_t *file) {
     // in theory, we would parse the path to find the mount point and mounted path
     // but for now, let's assume only one mounted system
     struct mount_info *mount = mounts_list;
@@ -109,43 +109,90 @@ static int parse_path_and_prepare_file_structure(char *path, file_t *file) {
 
 int vfs_opendir(char *path, file_t *file) {
     klog_trace("vfs_opendir(path=\"%s\", file=0x%p)", path, file);
-    int err = parse_path_and_prepare_file_structure(path, file);
+    int err = resolve_file_system_and_prepare_file_structure(path, file);
     if (err) 
         return err;
+    if (file->ops->opendir == NULL)
+        return ERR_NOT_SUPPORTED;
     return file->ops->opendir(file->path, file);
 }
 
 int vfs_readdir(file_t *file, struct dir_entry *dir_entry) {
     klog_trace("vfs_readdir(file=0x%p, entry=0x%p)", file, dir_entry);
+    if (file->ops->readdir == NULL)
+        return ERR_NOT_SUPPORTED;
     return file->ops->readdir(file, dir_entry);
 }
 
 int vfs_closedir(file_t *file) {
     klog_trace("vfs_closedir(file=0x%p)", file);
+    if (file->ops->closedir == NULL)
+        return ERR_NOT_SUPPORTED;
     int err = file->ops->closedir(file);
     return err;
 }
 
 int vfs_open(char *path, file_t *file) {
-    int err = parse_path_and_prepare_file_structure(path, file);
+    int err = resolve_file_system_and_prepare_file_structure(path, file);
     if (err)
         return err;
+    if (file->ops->open == NULL)
+        return ERR_NOT_SUPPORTED;
     return file->ops->open(file->path, file);
 }
 
 int vfs_read(file_t *file, char *buffer, int bytes) {
+    if (file->ops->read == NULL)
+        return ERR_NOT_SUPPORTED;
     return file->ops->read(file, buffer, bytes);
 }
 
+int vfs_write(file_t *file, char *buffer, int bytes) {
+    if (file->ops->write == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file->ops->write(file, buffer, bytes);
+}
+
 int vfs_seek(file_t *file, int offset, enum seek_origin origin) {
+    if (file->ops->seek == NULL)
+        return ERR_NOT_SUPPORTED;
     return file->ops->seek(file, offset, origin);
 }
 
 int vfs_close(file_t *file) {
-    int err = file->ops->close(file);
+    if (file->ops->close == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file->ops->close(file);
+}
+
+int vfs_touch(char *path) {
+    file_t file;
+    int err = resolve_file_system_and_prepare_file_structure(path, &file);
     if (err)
         return err;
-    return SUCCESS;
+    if (file.ops->touch == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file.ops->touch(file.path, &file);
+}
+
+int vfs_mkdir(char *path) {
+    file_t file;
+    int err = resolve_file_system_and_prepare_file_structure(path, &file);
+    if (err)
+        return err;
+    if (file.ops->mkdir == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file.ops->mkdir(file.path, &file);
+}
+
+int vfs_unlink(char *path) {
+    file_t file;
+    int err = resolve_file_system_and_prepare_file_structure(path, &file);
+    if (err)
+        return err;
+    if (file.ops->unlink == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file.ops->unlink(file.path, &file);
 }
 
 void vfs_discover_and_mount_filesystems(struct partition *partitions_list) {

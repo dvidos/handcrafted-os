@@ -73,6 +73,15 @@ enum seek_origin {
     SEEK_END
 };
 
+// to implement
+#define OPEN_RDWR       0x00  // allows both reading and writing (default)
+#define OPEN_RDONLY     0x01  // disallows writing operations
+#define OPEN_WRONLY     0x02  // disallows reading operations
+#define OPEN_CREATE     0x04  // file created if not existing
+#define OPEN_APPEND     0x08  // auto seeks end before each write
+#define OPEN_TRUNC      0x10  // if allowed, truncate to zero len upon opening
+
+
 struct file_ops {
     int (*opendir)(char *path, file_t *file);
     int (*readdir)(file_t *file, dir_entry_t *entry);
@@ -83,6 +92,10 @@ struct file_ops {
     int (*write)(file_t *file, char *buffer, int bytes);
     int (*seek)(file_t *file, int offset, enum seek_origin origin);
     int (*close)(file_t *file);
+
+    int (*touch)(char *path, file_t *file);
+    int (*mkdir)(char *path, file_t *file);
+    int (*unlink)(char *path, file_t *file);
 };
 
 int vfs_opendir(char *path, file_t *file);
@@ -95,7 +108,9 @@ int vfs_write(file_t *file, char *buffer, int bytes);
 int vfs_seek(file_t *file, int offset, enum seek_origin origin);
 int vfs_close(file_t *file);
 
-
+int vfs_touch(char *path);
+int vfs_mkdir(char *path);
+int vfs_unlink(char *path);
 
 
 #endif
