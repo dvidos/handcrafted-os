@@ -195,6 +195,23 @@ struct fat_priv_file_info {
 };
 
 
+// stored in the private data of a file_t pointer
+struct fat_priv_dir_info {
+    // we'll need some more things for fat16, e.g. load sectors etc.
+    bool is_fat16_root;               // check if the file is the root directory (as it is special in FAT16)
+
+    struct {
+        struct sector *sector;
+        uint32_t offset_in_sector;
+    } fat16root;
+
+    // for FAT32 and subdirs of FAT16,
+    // we use file operations to manipulate the directory contents 
+    struct fat_priv_file_info *pf;    
+};
+
+
+
 // clusters low level work
 static int read_fat_sector(struct fat_info *info, uint32_t sector_no, struct sector *sector);
 static int write_fat_sector(struct fat_info *info, struct sector *sector);

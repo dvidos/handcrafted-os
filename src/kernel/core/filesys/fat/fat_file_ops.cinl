@@ -220,21 +220,5 @@ static int fat_close(file_t *file) {
     return SUCCESS;
 }
 
-static int fat_touch(char *path, file_t *file) {
-    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
-    int err = ERR_NOT_IMPLEMENTED;
-    
-    return err;
-}
-
-static int fat_unlink(char *path, file_t *file) {
-    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
-    int err = ERR_NOT_IMPLEMENTED;
-    
-    return err;
-}
-
 
 #endif

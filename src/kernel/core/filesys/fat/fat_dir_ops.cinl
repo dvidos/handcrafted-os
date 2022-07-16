@@ -378,8 +378,71 @@ static int fat_closedir(file_t *file) {
 static int fat_mkdir(file_t *file, char *path) {
     struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
-    return ERR_NOT_IMPLEMENTED; 
+    int err = ERR_NOT_IMPLEMENTED; 
+
+    // find directory entry for the path (parent path)
+    // create entry
+
+    return err;
 }
+
+static int fat_touch(char *path, file_t *file) {
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    int err = ERR_NOT_IMPLEMENTED;
+    
+    // find directory entry for the path (parent path)
+    // create entry
+
+    return err;
+}
+
+static int fat_unlink(char *path, file_t *file) {
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    int err = ERR_NOT_IMPLEMENTED;
+    
+    // find dirctory entry
+    // invalidate it.
+
+    return err;
+}
+
+
+/*
+    most probably we need something similar to the approach in clusters.cincl.
+    Essentially, ability to navigate the clusters of a directory as needed
+        also transparently navigate sectors of root directory in FAT16 as well.
+    Then, abiltiy to treat the entries in a directory as parts of a file:
+    - read an entry (and advance some pointer)
+    - remove (invalidate) an entry
+    - add an entry at end of table (e.g. to change long file name)
+    - update an entry in place (e.g. file size, first cluster no for a new file, update date)
+    Let's keep the UCS-2 encoding, maybe we can add english later on.
+    Maybe beyond just "priv_fat_file_data", we need "priv_fat_dir_data" type
+    Maybe we can treat directories as files with var-length dentries as contents?
+        yes, but not the root directory...
+*/
+
+
+// opening and closing directories
+int open_root_dir(struct fat_info *fat, struct fat_priv_dir_info *pd);
+int open_cluster_dir(struct fat_info *fat, uint32_t cluster_no, struct fat_priv_dir_info *pd);
+int close_dir(struct fat_info *fat, struct fat_priv_dir_info *pd);
+
+// operations inside directories
+int read_dir_entry(struct fat_info *fat, struct fat_priv_dir_info *pd, struct fat_dir_entry *entry);
+int invalidate_dir_entry(struct fat_info *fat, struct fat_priv_dir_info *pd, uint32_t entry_offset);
+int update_dir_entry_in_place(struct fat_info *fat, struct fat_priv_dir_info *pd, uint32_t entry_offset, struct fat_dir_entry *entry);
+int append_dir_entry(struct fat_info *fat, struct fat_priv_dir_info *pd, struct fat_dir_entry *entry);
+
+// working with paths
+int find_named_entry_in_dir(struct fat_info *fat, struct fat_priv_dir_info *pd, uint8_t *name, struct fat_dir_entry *entry);
+int find_path_entry(struct fat_info *fat, struct fat_priv_dir_info *pd, uint8_t *path, struct fat_dir_entry *entry);
+
+
+
+
 
 
 #endif
