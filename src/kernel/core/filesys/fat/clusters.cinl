@@ -2,9 +2,9 @@
 #include <errors.h>
 
 
-static int read_fat_sector(struct fat_info *info, uint32_t sector_no, struct sector *sector) {
-    int err = info->partition->dev->ops->read(info->partition->dev,
-        info->fat_starting_lba + sector_no, 0,
+static int read_fat_sector(struct fat_info *fat, uint32_t sector_no, struct sector *sector) {
+    int err = fat->partition->dev->ops->read(fat->partition->dev,
+        fat->fat_starting_lba + sector_no, 0,
         1, sector->buffer
     );
     if (err == 0) {
@@ -15,9 +15,9 @@ static int read_fat_sector(struct fat_info *info, uint32_t sector_no, struct sec
     return err;
 }
 
-static int write_fat_sector(struct fat_info *info, struct sector *sector) {
-    int err = info->partition->dev->ops->write(info->partition->dev,
-        info->fat_starting_lba + sector->sector_no, 0,
+static int write_fat_sector(struct fat_info *fat, struct sector *sector) {
+    int err = fat->partition->dev->ops->write(fat->partition->dev,
+        fat->fat_starting_lba + sector->sector_no, 0,
         1, sector->buffer
     );
     klog_trace("write_fat_sector(sector=%d) -> %d", sector->sector_no, err);
@@ -27,32 +27,32 @@ static int write_fat_sector(struct fat_info *info, struct sector *sector) {
     return err;
 }
 
-static int get_fat_entry_value(struct fat_info *info, struct sector *sector, uint32_t cluster_no, uint32_t *value) {
+static int get_fat_entry_value(struct fat_info *fat, struct sector *sector, uint32_t cluster_no, uint32_t *value) {
     klog_trace("get_fat_entry_value(cluster=%d)", cluster_no);
     uint32_t offset_in_fat;
-    if (info->fat_type == FAT12) {
+    if (fat->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
         offset_in_fat = cluster_no + (cluster_no / 2);
-    } else if (info->fat_type == FAT16) {
+    } else if (fat->fat_type == FAT16) {
         offset_in_fat = cluster_no * 2; // two bytes for 16 bits
-    } else if (info->fat_type == FAT32) {
+    } else if (fat->fat_type == FAT32) {
         offset_in_fat = cluster_no * 4; // four bytes for 32 bits
     } else {
         return ERR_NOT_SUPPORTED;
     }
 
     // find the sector of FAT to load and load it.
-    uint32_t fat_sector_no    = offset_in_fat / info->bytes_per_sector;
-    uint32_t offset_in_sector = offset_in_fat % info->bytes_per_sector;
+    uint32_t fat_sector_no    = offset_in_fat / fat->bytes_per_sector;
+    uint32_t offset_in_sector = offset_in_fat % fat->bytes_per_sector;
 
     if (sector->sector_no != fat_sector_no) {
-        int err = read_fat_sector(info, fat_sector_no, sector);
+        int err = read_fat_sector(fat, fat_sector_no, sector);
         if (err)
             return err;
     }
 
     // now that we have the sector, extract the next cluster_no
-    if (info->fat_type == FAT12) {
+    if (fat->fat_type == FAT12) {
         uint16_t word = *(uint16_t *)(sector->buffer + offset_in_sector);
 
         // see if we rounded down (when we divided by two)
@@ -62,10 +62,10 @@ static int get_fat_entry_value(struct fat_info *info, struct sector *sector, uin
             word &= 0xFFF; // use three lower nibbles (out of the four)
 
         *value = word;
-    } else if (info->fat_type == FAT16) {
+    } else if (fat->fat_type == FAT16) {
         *value = *(uint16_t *)(sector->buffer + offset_in_sector);
 
-    } else if (info->fat_type == FAT32) {
+    } else if (fat->fat_type == FAT32) {
         *value = 
             (*(uint32_t *)(sector->buffer + offset_in_sector))
             & 0x0FFFFFFF; // ignore four upper bits
@@ -78,32 +78,32 @@ static int get_fat_entry_value(struct fat_info *info, struct sector *sector, uin
     return SUCCESS;
 }
 
-static int set_fat_entry_value(struct fat_info *info, struct sector *sector, uint32_t cluster_no, uint32_t value) {
+static int set_fat_entry_value(struct fat_info *fat, struct sector *sector, uint32_t cluster_no, uint32_t value) {
     klog_trace("set_fat_entry_value(cluster=%d, value=%d)", cluster_no, value);
     uint32_t offset_in_fat;
-    if (info->fat_type == FAT12) {
+    if (fat->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
         offset_in_fat = cluster_no + (cluster_no / 2);
-    } else if (info->fat_type == FAT16) {
+    } else if (fat->fat_type == FAT16) {
         offset_in_fat = cluster_no * 2; // two bytes for 16 bits
-    } else if (info->fat_type == FAT32) {
+    } else if (fat->fat_type == FAT32) {
         offset_in_fat = cluster_no * 4; // four bytes for 32 bits
     } else {
         return ERR_NOT_SUPPORTED;
     }
 
     // find the sector of FAT to load and load it.
-    uint32_t fat_sector_no    = offset_in_fat / info->bytes_per_sector;
-    uint32_t offset_in_sector = offset_in_fat % info->bytes_per_sector;
+    uint32_t fat_sector_no    = offset_in_fat / fat->bytes_per_sector;
+    uint32_t offset_in_sector = offset_in_fat % fat->bytes_per_sector;
 
     if (sector->sector_no != fat_sector_no) {
-        int err = read_fat_sector(info, fat_sector_no, sector);
+        int err = read_fat_sector(fat, fat_sector_no, sector);
         if (err)
             return err;
     }
 
     // now that we have the sector, set the value
-    if (info->fat_type == FAT12) {
+    if (fat->fat_type == FAT12) {
         uint16_t word = *(uint16_t *)(sector->buffer + offset_in_sector);
 
         // see if we rounded down (when we divided by two)
@@ -113,10 +113,10 @@ static int set_fat_entry_value(struct fat_info *info, struct sector *sector, uin
             word = (word & 0xF000) | (value & 0xFFF); // use three lower nibbles (out of the four)
 
         *(uint16_t *)(sector->buffer + offset_in_sector) = word;
-    } else if (info->fat_type == FAT16) {
+    } else if (fat->fat_type == FAT16) {
         *(uint16_t *)(sector->buffer + offset_in_sector) = value;
 
-    } else if (info->fat_type == FAT32) {
+    } else if (fat->fat_type == FAT32) {
         // clear four upper bits
         *(uint32_t *)(sector->buffer + offset_in_sector) = value & 0x0FFFFFFF;
 
@@ -128,15 +128,15 @@ static int set_fat_entry_value(struct fat_info *info, struct sector *sector, uin
     return SUCCESS;
 }
 
-static bool is_end_of_chain_entry_value(struct fat_info *info, uint32_t value) {
-    return value == info->end_of_chain_value || value > info->largest_cluster_no;
+static bool is_end_of_chain_entry_value(struct fat_info *fat, uint32_t value) {
+    return value == fat->end_of_chain_value || value > fat->largest_cluster_no;
 }
 
-static int find_a_free_cluster(struct fat_info *info, struct sector *sector, uint32_t *cluster_no) {
+static int find_a_free_cluster(struct fat_info *fat, struct sector *sector, uint32_t *cluster_no) {
     klog_trace("find_a_free_cluster()");
     uint32_t value;
-    for (uint32_t cl = 2; cl < info->largest_cluster_no; cl++) {
-        int err = get_fat_entry_value(info, sector, cl, &value);
+    for (uint32_t cl = 2; cl < fat->largest_cluster_no; cl++) {
+        int err = get_fat_entry_value(fat, sector, cl, &value);
         if (err)
             return err;
         if (value == 0) {
@@ -149,13 +149,13 @@ static int find_a_free_cluster(struct fat_info *info, struct sector *sector, uin
     return ERR_NO_SPACE_LEFT;
 }
 
-static int get_n_index_cluster_no(struct fat_info *info, struct sector *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no) {
+static int get_n_index_cluster_no(struct fat_info *fat, struct sector *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no) {
     klog_trace("get_n_index_cluster_no(cluster_n_index=%d)", cluster_n_index);
 
     uint32_t curr_cluster_no = first_cluster;
     uint32_t value = 0;
     while (cluster_n_index-- > 0) {
-        int err = get_fat_entry_value(info, sector, curr_cluster_no, &value);
+        int err = get_fat_entry_value(fat, sector, curr_cluster_no, &value);
         if (err)
             return err;
         curr_cluster_no = value;
@@ -165,12 +165,12 @@ static int get_n_index_cluster_no(struct fat_info *info, struct sector *sector, 
     return SUCCESS;
 }
 
-static int read_data_cluster(struct fat_info *info, uint32_t cluster_no, struct cluster *cluster) {
-    int err = info->partition->dev->ops->read(
-        info->partition->dev,
-        info->data_clusters_starting_lba + ((cluster_no - 2) * info->sectors_per_cluster),
+static int read_data_cluster(struct fat_info *fat, uint32_t cluster_no, struct cluster *cluster) {
+    int err = fat->partition->dev->ops->read(
+        fat->partition->dev,
+        fat->data_clusters_starting_lba + ((cluster_no - 2) * fat->sectors_per_cluster),
         0,
-        info->sectors_per_cluster,
+        fat->sectors_per_cluster,
         cluster->buffer
     );
     if (err == 0) {
@@ -181,12 +181,12 @@ static int read_data_cluster(struct fat_info *info, uint32_t cluster_no, struct 
     return err;
 }
 
-static int write_data_cluster(struct fat_info *info, struct cluster *cluster) {
-    int err = info->partition->dev->ops->write(
-        info->partition->dev,
-        info->data_clusters_starting_lba + ((cluster->cluster_no - 2) * info->sectors_per_cluster),
+static int write_data_cluster(struct fat_info *fat, struct cluster *cluster) {
+    int err = fat->partition->dev->ops->write(
+        fat->partition->dev,
+        fat->data_clusters_starting_lba + ((cluster->cluster_no - 2) * fat->sectors_per_cluster),
         0,
-        info->sectors_per_cluster,
+        fat->sectors_per_cluster,
         cluster->buffer
     );
     if (err == 0) {
@@ -196,4 +196,115 @@ static int write_data_cluster(struct fat_info *info, struct cluster *cluster) {
     return err;
 }
 
+
+// make sure a file is allocated for writing, used for new files
+static int ensure_first_cluster_allocated(struct fat_info *fat, struct fat_priv_file_info *pf) {
+    int err;
+
+    if (pf->first_cluster_no > 0)
+        return SUCCESS;
+
+    // we see need to allocate. assuming caller has locked.
+    // find a free cluster to allocate for this file
+    uint32_t new_cluster_no;
+    err = find_a_free_cluster(fat, pf->sector, &new_cluster_no);
+    if (err) return err;
+    
+    // but also mark the new one as end-of-chain, i.e. non-free
+    err = set_fat_entry_value(fat, pf->sector, new_cluster_no, fat->end_of_chain_value);
+    if (err) return err;
+    err = write_fat_sector(fat, pf->sector);
+    if (err) return err;
+
+    // clear this sector
+    memset(pf->cluster->buffer, 0, fat->bytes_per_cluster);
+    pf->cluster->cluster_no = new_cluster_no;
+    pf->cluster->dirty = false;
+    pf->cluster_n_index = 0;
+
+    // TODO: this needs to be persisted in the directory entry...
+    pf->first_cluster_no = new_cluster_no;
+    return SUCCESS;
+}
+
+
+// reads next data cluster, creating it if needed. pf->cluster assumed to contain current cluster
+static int move_to_next_data_cluster(struct fat_info *fat, struct fat_priv_file_info *pf, bool create_if_needed) {
+    int err;
+
+    // before losing contents, persist current cluster if dirty
+    if (pf->cluster->dirty) {
+        err = write_data_cluster(fat, pf->cluster);
+        if (err) return err;
+    }
+
+    uint32_t next_cluster_no;
+    err = get_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, &next_cluster_no);
+    if (err) return err;
+
+    if (!is_end_of_chain_entry_value(fat, next_cluster_no)) {
+        err = read_data_cluster(fat, next_cluster_no, pf->cluster);
+        if (err) return err;
+
+        pf->cluster_n_index++;
+
+    } else if (create_if_needed) {
+
+        // find a free cluster to allocate for this file
+        uint32_t new_cluster_no;
+        err = find_a_free_cluster(fat, pf->sector, &new_cluster_no);
+        if (err) return err;
+        
+        // we must write the pointer from the previous cluster to this one
+        err = set_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, new_cluster_no);
+        if (err) return err;
+        err = write_fat_sector(fat, pf->sector);
+        if (err) return err;
+        
+        // but also mark the new one as end-of-chain, i.e. non-free
+        err = set_fat_entry_value(fat, pf->sector, new_cluster_no, fat->end_of_chain_value);
+        if (err) return err;
+        err = write_fat_sector(fat, pf->sector);
+        if (err) return err;
+
+        memset(pf->cluster->buffer, 0, fat->bytes_per_cluster);
+        pf->cluster->cluster_no = new_cluster_no;
+        pf->cluster->dirty = false;
+        pf->cluster_n_index++;
+
+    } else {
+
+        // we found end of cluster chain and we cannot create
+        return ERR_NO_MORE_CONTENT;
+    }
+
+    return SUCCESS;
+}
+
+// ensures the n'th cluster of the file is loaded
+static int move_to_n_index_data_cluster(struct fat_info *fat, struct fat_priv_file_info *pf, uint32_t cluster_n_index) {
+    int err;
+
+    // maybe we don't need to do anything
+    if (cluster_n_index == pf->cluster_n_index)
+        return SUCCESS;
+    
+    // discover the cluster to load
+    uint32_t target_cluster_no;
+    err = get_n_index_cluster_no(fat, pf->sector, pf->first_cluster_no, pf->cluster_n_index, &target_cluster_no);
+    if (err) return err;
+
+    // make sure we write our cluster first
+    if (pf->cluster->dirty) {
+        err = write_data_cluster(fat, pf->cluster);
+        if (err) return err;
+    }
+
+    // now load the cluster
+    err = read_data_cluster(fat, target_cluster_no, pf->cluster);
+    if (err) return err;
+
+    pf->cluster_n_index = cluster_n_index;
+    return SUCCESS;
+}
 

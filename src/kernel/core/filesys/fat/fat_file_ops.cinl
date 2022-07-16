@@ -107,6 +107,10 @@ static int fat_read(file_t *file, char *buffer, int length) {
     int bytes_actually_read = 0;
     int err;
 
+    length = max(length, 0);
+    if (length == 0)
+        return SUCCESS;
+    
     // don't allow reading past EOF
     if (pf->offset + length > pf->size)
         length = pf->size - pf->offset;
@@ -125,27 +129,8 @@ static int fat_read(file_t *file, char *buffer, int length) {
 
         if (pf->offset < pf->size && length > 0) {
             // we need to load next cluster
-            uint32_t next_cluster_no;
-            err = fat->ops->get_fat_entry_value(
-                    fat, pf->sector, 
-                    pf->cluster->cluster_no, 
-                    &next_cluster_no);
-            if (err)
-                return err;
-
-            if (fat->ops->is_end_of_chain_entry_value(fat, next_cluster_no)) {
-                klog_debug("fat_read(): corruption detected, file size reports more data, but end of cluster chain encountered");
-                return ERR_BAD_VALUE;
-            }
-
-            pf->cluster_n_index++;
-            err = fat->ops->read_data_cluster(
-                fat, 
-                next_cluster_no, 
-                pf->cluster
-            );
-            if (err)
-                return err;
+            err = fat->ops->move_to_next_data_cluster(fat, pf, false);
+            if (err) return err;
         }
     }
 
@@ -160,7 +145,16 @@ static int fat_write(file_t *file, char *buffer, int length) {
     int bytes_actually_written = 0;
     int err = 0;
 
+    length = max(length, 0);
+    if (length == 0)
+        return SUCCESS;
+    
+    // avoid return, to make sure we unlock this
     acquire(&fat_write_lock);
+
+    // ensure there is a cluster to write, even a first one, for new files
+    fat->ops->ensure_first_cluster_allocated(fat, pf);
+
     while (true) {
         // copy what we can into the current cluster
         int offset_in_cluster = pf->offset - (pf->cluster_n_index * fat->bytes_per_cluster);
@@ -168,57 +162,19 @@ static int fat_write(file_t *file, char *buffer, int length) {
         int chunk_len = min(length, remaining_in_cluster);
 
         memcpy(pf->cluster->buffer + offset_in_cluster, buffer + bytes_actually_written, chunk_len);
+        pf->cluster->dirty = true;
         bytes_actually_written += chunk_len;
-        length -= chunk_len;
         pf->offset += chunk_len;
         pf->size = max(pf->size, pf->offset);
+
+        length -= chunk_len;
         if (length == 0)
             goto exit;
 
-        // we need to load next cluster, save current first
-        err = fat->ops->write_data_cluster(fat, pf->cluster);
+        // move to next cluster, writing this if dirty
+        err = fat->ops->move_to_next_data_cluster(fat, pf, true);
         if (err)
             goto exit;
-        
-        uint32_t next_cluster_no;
-        err = fat->ops->get_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, &next_cluster_no);
-        if (err)
-            goto exit;
-
-        if (!fat->ops->is_end_of_chain_entry_value(fat, next_cluster_no)) {
-            // read the next cluster so we can overwrite it
-            err = fat->ops->read_data_cluster(fat, next_cluster_no, pf->cluster);
-            if (err)
-                goto exit;
-            
-            pf->cluster_n_index++;
-            
-        } else {
-            // we need to create new cluster pointer.
-            uint32_t free_cluster_no;
-            err = fat->ops->find_a_free_cluster(fat, pf->sector, &free_cluster_no);
-            if (err)
-                goto exit;
-            
-            // we must write the pointer from the previous cluster to this one
-            err = fat->ops->set_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, free_cluster_no);
-            if (err)
-                goto exit;
-            err = fat->ops->write_fat_sector(fat, pf->sector);
-            if (err)
-                goto exit;
-            
-            // but also mark the noew one as end-of-chain
-            err = fat->ops->set_fat_entry_value(fat, pf->sector, free_cluster_no, fat->end_of_chain_value);
-            if (err)
-                goto exit;
-            err = fat->ops->write_fat_sector(fat, pf->sector);
-            if (err)
-                goto exit;
-
-            // don't forget this
-            pf->cluster_n_index++;
-        }
     }
 
 exit:
@@ -235,28 +191,9 @@ static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
     uint32_t final_position = calculate_new_file_offset(file, offset, origin);
     uint32_t cluster_n_index = final_position / fat->bytes_per_cluster;
     
-    if (cluster_n_index == pf->cluster_n_index) {
-        // no need to reload the cluster, we just need to reset the pointer
-        pf->offset = final_position;
-        return SUCCESS;
-    }
+    err = fat->ops->move_to_n_index_data_cluster(fat, pf, cluster_n_index);
+    if (err) return err;
 
-    // otherwise we need to load another cluster
-    uint32_t cluster_no;
-    err = fat->ops->get_n_index_cluster_no(
-            fat, pf->sector, 
-            pf->first_cluster_no, 
-            cluster_n_index, 
-            &cluster_no);
-    if (err)
-        return err;
-
-    err = fat->ops->read_data_cluster(fat, cluster_no, pf->cluster);
-    if (err)
-        return err;
-    
-    // success, we are ready to read
-    pf->cluster_n_index = cluster_n_index;
     pf->offset = final_position;
     return (int)final_position;
 }
@@ -264,6 +201,13 @@ static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
 static int fat_close(file_t *file) {
     struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
     struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+
+    // possibly write any current cluster if dirty
+    if (pf->cluster->cluster_no > 0 && pf->cluster->dirty) {
+        int err = fat->ops->write_data_cluster(fat, pf->cluster);
+        if (err)
+            return err;
+    }
 
     // we must free what we allocated in open()
     kfree(pf->sector->buffer);

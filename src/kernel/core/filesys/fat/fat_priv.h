@@ -67,21 +67,29 @@ struct fat_info;
 struct sector;
 struct cluster;
 struct fat_dir_entry;
+struct fat_priv_file_info;
 enum FAT_TYPE { FAT32, FAT16, FAT12 };
 
 
 // function pointers for better intellisense and encapsulation
 struct fat_operations {
-    int (*read_fat_sector)(struct fat_info *info, uint32_t sector_no, struct sector *sector);
-    int (*write_fat_sector)(struct fat_info *info, struct sector *sector);
-    int (*get_fat_entry_value)(struct fat_info *info, struct sector *sector, uint32_t cluster_no, uint32_t *value);
-    int (*set_fat_entry_value)(struct fat_info *info, struct sector *sector, uint32_t cluster_no, uint32_t value);
-    bool (*is_end_of_chain_entry_value)(struct fat_info *info, uint32_t value);
-    int (*find_a_free_cluster)(struct fat_info *info, struct sector *sector, uint32_t *cluster_no);
-    int (*get_n_index_cluster_no)(struct fat_info *info, struct sector *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
-    int (*read_data_cluster)(struct fat_info *info, uint32_t cluster_no, struct cluster *cluster);
-    int (*write_data_cluster)(struct fat_info *info, struct cluster *cluster);
+    int (*read_fat_sector)(struct fat_info *fat, uint32_t sector_no, struct sector *sector);
+    int (*write_fat_sector)(struct fat_info *fat, struct sector *sector);
+    int (*get_fat_entry_value)(struct fat_info *fat, struct sector *sector, uint32_t cluster_no, uint32_t *value);
+    int (*set_fat_entry_value)(struct fat_info *fat, struct sector *sector, uint32_t cluster_no, uint32_t value);
+    bool (*is_end_of_chain_entry_value)(struct fat_info *fat, uint32_t value);
+    int (*find_a_free_cluster)(struct fat_info *fat, struct sector *sector, uint32_t *cluster_no);
+    int (*get_n_index_cluster_no)(struct fat_info *fat, struct sector *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+    int (*read_data_cluster)(struct fat_info *fat, uint32_t cluster_no, struct cluster *cluster);
+    int (*write_data_cluster)(struct fat_info *fat, struct cluster *cluster);
 
+    // higher level functions to help top level functions
+    int (*ensure_first_cluster_allocated)(struct fat_info *fat, struct fat_priv_file_info *pf);
+    int (*move_to_next_data_cluster)(struct fat_info *fat, struct fat_priv_file_info *pf, bool create_if_needed);
+    int (*move_to_n_index_data_cluster)(struct fat_info *fat, struct fat_priv_file_info *pf, uint32_t cluster_n_index);
+
+
+    // functions diff between FAT16 and FAT32
     int (*root_dir_open)(file_t *file);
     int (*root_dir_read)(file_t *file, struct fat_dir_entry *entry);
     int (*root_dir_close)(file_t *file);
@@ -197,6 +205,10 @@ static int find_a_free_cluster(struct fat_info *info, struct sector *sector, uin
 static int get_n_index_cluster_no(struct fat_info *info, struct sector *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
 static int read_data_cluster(struct fat_info *info, uint32_t cluster_no, struct cluster *cluster);
 static int write_data_cluster(struct fat_info *info, struct cluster *cluster);
+
+static int ensure_first_cluster_allocated(struct fat_info *fat, struct fat_priv_file_info *pf);
+static int move_to_next_data_cluster(struct fat_info *fat, struct fat_priv_file_info *pf, bool create_if_needed);
+static int move_to_n_index_data_cluster(struct fat_info *fat, struct fat_priv_file_info *pf, uint32_t cluster_n_index);
 
 
 // debug
