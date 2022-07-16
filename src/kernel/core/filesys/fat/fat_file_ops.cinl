@@ -17,8 +17,8 @@ lock_t fat_write_lock;
 
 
 static uint32_t calculate_new_file_offset(file_t *file, int offset, enum seek_origin origin) {
-    uint32_t old_position = ((struct fat_priv_file_info *)file->filesys_priv_data)->offset;
-    uint32_t size = ((struct fat_priv_file_info *)file->filesys_priv_data)->size;
+    uint32_t old_position = ((fat_priv_file_info *)file->filesys_priv_data)->offset;
+    uint32_t size = ((fat_priv_file_info *)file->filesys_priv_data)->size;
     uint32_t new_position = old_position;
     uint32_t positive_offset = (offset >= 0) ? (uint32_t)offset : (uint32_t)(offset * -1);
 
@@ -53,16 +53,16 @@ static uint32_t calculate_new_file_offset(file_t *file, int offset, enum seek_or
 }
 
 static int fat_open(char *path, file_t *file) {
-    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
 
-    struct fat_priv_file_info *pf = kmalloc(sizeof(struct fat_priv_file_info));
-    memset(pf, 0, sizeof(struct fat_priv_file_info));
-    pf->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
-    memset(pf->dir_entry, 0, sizeof(struct fat_dir_entry));
-    pf->sector = kmalloc(sizeof(struct sector));
-    memset(pf->sector, 0, sizeof(struct sector));
-    pf->cluster = kmalloc(sizeof(struct cluster));
-    memset(pf->cluster, 0, sizeof(struct cluster));
+    fat_priv_file_info *pf = kmalloc(sizeof(fat_priv_file_info));
+    memset(pf, 0, sizeof(fat_priv_file_info));
+    pf->dir_entry = kmalloc(sizeof(fat_dir_entry));
+    memset(pf->dir_entry, 0, sizeof(fat_dir_entry));
+    pf->sector = kmalloc(sizeof(sector_t));
+    memset(pf->sector, 0, sizeof(sector_t));
+    pf->cluster = kmalloc(sizeof(cluster_t));
+    memset(pf->cluster, 0, sizeof(cluster_t));
     pf->sector->buffer = kmalloc(fat->bytes_per_sector);
     memset(pf->sector->buffer, 0, fat->bytes_per_sector);
     pf->cluster->buffer = kmalloc(fat->bytes_per_cluster);
@@ -102,8 +102,8 @@ static int fat_open(char *path, file_t *file) {
 
 static int fat_read(file_t *file, char *buffer, int length) {
     klog_trace("fat_read(length=%d)", length);
-    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
     int bytes_actually_read = 0;
     int err;
 
@@ -140,8 +140,8 @@ static int fat_read(file_t *file, char *buffer, int length) {
 
 static int fat_write(file_t *file, char *buffer, int length) {
     klog_trace("fat_write(length=%d)", length);
-    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
     int bytes_actually_written = 0;
     int err = 0;
 
@@ -183,8 +183,8 @@ exit:
 }
 
 static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
-    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
     int err;
 
     klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
@@ -199,8 +199,8 @@ static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
 }
 
 static int fat_close(file_t *file) {
-    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
 
     // possibly write any current cluster if dirty
     if (pf->cluster->cluster_no > 0 && pf->cluster->dirty) {

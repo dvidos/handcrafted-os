@@ -62,41 +62,24 @@ typedef struct fat_boot_sector
 
 }__attribute__((packed)) fat_boot_sector_t;
 
+// for reading and writing fat sectors
+typedef struct {
+    uint8_t *buffer;
+    uint32_t sector_no;
+    bool dirty;
+} sector_t;
 
-struct fat_info;
-struct sector;
-struct cluster;
-struct fat_dir_entry;
-struct fat_priv_file_info;
+// for reading/writing data clusters
+typedef struct {
+    uint8_t *buffer;
+    uint32_t cluster_no;
+    bool dirty;
+} cluster_t;
+
+
 enum FAT_TYPE { FAT32, FAT16, FAT12 };
-
-
-// function pointers for better intellisense and encapsulation
-struct fat_operations {
-    int (*read_fat_sector)(struct fat_info *fat, uint32_t sector_no, struct sector *sector);
-    int (*write_fat_sector)(struct fat_info *fat, struct sector *sector);
-    int (*get_fat_entry_value)(struct fat_info *fat, struct sector *sector, uint32_t cluster_no, uint32_t *value);
-    int (*set_fat_entry_value)(struct fat_info *fat, struct sector *sector, uint32_t cluster_no, uint32_t value);
-    bool (*is_end_of_chain_entry_value)(struct fat_info *fat, uint32_t value);
-    int (*find_a_free_cluster)(struct fat_info *fat, struct sector *sector, uint32_t *cluster_no);
-    int (*get_n_index_cluster_no)(struct fat_info *fat, struct sector *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
-    int (*read_data_cluster)(struct fat_info *fat, uint32_t cluster_no, struct cluster *cluster);
-    int (*write_data_cluster)(struct fat_info *fat, struct cluster *cluster);
-
-    // higher level functions to help top level functions
-    int (*ensure_first_cluster_allocated)(struct fat_info *fat, struct fat_priv_file_info *pf);
-    int (*move_to_next_data_cluster)(struct fat_info *fat, struct fat_priv_file_info *pf, bool create_if_needed);
-    int (*move_to_n_index_data_cluster)(struct fat_info *fat, struct fat_priv_file_info *pf, uint32_t cluster_n_index);
-
-
-    // functions diff between FAT16 and FAT32
-    int (*root_dir_open)(file_t *file);
-    int (*root_dir_read)(file_t *file, struct fat_dir_entry *entry);
-    int (*root_dir_close)(file_t *file);
-};
-
 // stored in the private data of the partition or logical volume
-struct fat_info {
+typedef struct {
     struct partition *partition;
     fat_boot_sector_t *boot_sector;
     enum FAT_TYPE fat_type;
@@ -115,12 +98,12 @@ struct fat_info {
     uint32_t root_dir_sectors_size; // for FAT12/16 only
 
     struct fat_operations *ops;
-};
+} fat_info;
 
 
 
 // represents one file described inside a directory cluster
-struct fat_dir_entry {
+typedef struct {
     char short_name[12+1]; // 8 + dot + 3 + zero term
     char long_name_ucs2[512 + 2]; // UCS-2 format
 
@@ -152,7 +135,7 @@ struct fat_dir_entry {
     uint8_t modified_hour;
     uint8_t modified_min;
     uint8_t modified_sec;
-};
+} fat_dir_entry;
 
 #define ATTR_READONLY   0x01
 #define ATTR_HIDDEN     0x02
@@ -165,23 +148,9 @@ struct fat_dir_entry {
 #define DIR_NAME_DELETED      0xE5
 #define DIR_NAME_END_OF_LIST  0x00
 
-// for reading and writing fat sectors
-struct sector {
-    uint8_t *buffer;
-    uint32_t sector_no;
-    bool dirty;
-};
-
-// for reading/writing data clusters
-struct cluster {
-    uint8_t *buffer;
-    uint32_t cluster_no;
-    bool dirty;
-};
-
 // stored in the private data of a file_t pointer
-struct fat_priv_file_info {
-    struct fat_dir_entry *dir_entry;  // general loading place for dir entries
+typedef struct {
+    fat_dir_entry *dir_entry;  // general loading place for dir entries
     bool is_root_directory;           // check if the file is the root directory (as it is special in FAT16)
 
     uint32_t offset;                  // offset in bytes in file or directory contents
@@ -190,50 +159,75 @@ struct fat_priv_file_info {
     uint32_t first_cluster_no;        // first cluster of the file/dir (unless root dir in FAT16)
     uint32_t cluster_n_index;         // cluster incremental number, zero based (e.g. 3rd cluster in the chain)
 
-    struct sector *sector;            // for maintaining FAT entries
-    struct cluster *cluster;          // for the actual data
-};
+    sector_t *sector;            // for maintaining FAT entries
+    cluster_t *cluster;          // for the actual data
+} fat_priv_file_info;
 
 
 // stored in the private data of a file_t pointer
-struct fat_priv_dir_info {
+typedef struct {
     // we'll need some more things for fat16, e.g. load sectors etc.
     bool is_fat16_root;               // check if the file is the root directory (as it is special in FAT16)
 
     struct {
-        struct sector *sector;
+        sector_t *sector;
         uint32_t offset_in_sector;
     } fat16root;
 
     // for FAT32 and subdirs of FAT16,
     // we use file operations to manipulate the directory contents 
-    struct fat_priv_file_info *pf;    
+    fat_priv_file_info *pf;    
+} fat_priv_dir_info;
+
+
+// function pointers for better intellisense and encapsulation
+struct fat_operations {
+    int (*read_fat_sector)(fat_info *fat, uint32_t sector_no, sector_t *sector);
+    int (*write_fat_sector)(fat_info *fat, sector_t *sector);
+    int (*get_fat_entry_value)(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value);
+    int (*set_fat_entry_value)(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value);
+    bool (*is_end_of_chain_entry_value)(fat_info *fat, uint32_t value);
+    int (*find_a_free_cluster)(fat_info *fat, sector_t *sector, uint32_t *cluster_no);
+    int (*get_n_index_cluster_no)(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+    int (*read_data_cluster)(fat_info *fat, uint32_t cluster_no, cluster_t *cluster);
+    int (*write_data_cluster)(fat_info *fat, cluster_t *cluster);
+
+    // higher level functions to help top level functions
+    int (*ensure_first_cluster_allocated)(fat_info *fat, fat_priv_file_info *pf);
+    int (*move_to_next_data_cluster)(fat_info *fat, fat_priv_file_info *pf, bool create_if_needed);
+    int (*move_to_n_index_data_cluster)(fat_info *fat, fat_priv_file_info *pf, uint32_t cluster_n_index);
+
+    // functions diff between FAT16 and FAT32
+    int (*root_dir_open)(file_t *file);
+    int (*root_dir_read)(file_t *file, fat_dir_entry *entry);
+    int (*root_dir_close)(file_t *file);
 };
 
 
 
-// clusters low level work
-static int read_fat_sector(struct fat_info *info, uint32_t sector_no, struct sector *sector);
-static int write_fat_sector(struct fat_info *info, struct sector *sector);
-static int get_fat_entry_value(struct fat_info *info, struct sector *sector, uint32_t cluster_no, uint32_t *value);
-static int set_fat_entry_value(struct fat_info *info, struct sector *sector, uint32_t cluster_no, uint32_t value);
-static bool is_end_of_chain_entry_value(struct fat_info *info, uint32_t value);
-static int find_a_free_cluster(struct fat_info *info, struct sector *sector, uint32_t *cluster_no);
-static int get_n_index_cluster_no(struct fat_info *info, struct sector *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
-static int read_data_cluster(struct fat_info *info, uint32_t cluster_no, struct cluster *cluster);
-static int write_data_cluster(struct fat_info *info, struct cluster *cluster);
 
-static int ensure_first_cluster_allocated(struct fat_info *fat, struct fat_priv_file_info *pf);
-static int move_to_next_data_cluster(struct fat_info *fat, struct fat_priv_file_info *pf, bool create_if_needed);
-static int move_to_n_index_data_cluster(struct fat_info *fat, struct fat_priv_file_info *pf, uint32_t cluster_n_index);
+// clusters low level work
+static int read_fat_sector(fat_info *fat, uint32_t sector_no, sector_t *sector);
+static int write_fat_sector(fat_info *fat, sector_t *sector);
+static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value);
+static int set_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value);
+static bool is_end_of_chain_entry_value(fat_info *fat, uint32_t value);
+static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluster_no);
+static int get_n_index_cluster_no(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+static int read_data_cluster(fat_info *fat, uint32_t cluster_no, cluster_t *cluster);
+static int write_data_cluster(fat_info *fat, cluster_t *cluster);
+
+static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf);
+static int move_to_next_data_cluster(fat_info *fat, fat_priv_file_info *pf, bool create_if_needed);
+static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, uint32_t cluster_n_index);
 
 
 // debug
-static void debug_fat_info(struct fat_info *info);
-static void debug_fat_dir_entry(bool title_line, struct fat_dir_entry *entry);
+static void debug_fat_info(fat_info *fat);
+static void debug_fat_dir_entry(bool title_line, fat_dir_entry *entry);
 
 // dir entries
-static int extract_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry);
+static int extract_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, fat_dir_entry *entry);
 
 // fat vfs interaction
 static int fat_probe(struct partition *partition);
@@ -241,20 +235,20 @@ static struct file_ops *fat_get_file_operations();
 
 // fat dir operations
 static int dir_in_data_clusters_open(file_t *file, uint32_t cluster_no);
-static int dir_in_data_clusters_read(file_t *file, struct fat_dir_entry *entry);
+static int dir_in_data_clusters_read(file_t *file, fat_dir_entry *entry);
 static int dir_in_data_clusters_close(file_t *file);
 
 static int fat16_root_dir_open(file_t *file);
-static int fat16_root_dir_read(file_t *file, struct fat_dir_entry *entry);
+static int fat16_root_dir_read(file_t *file, fat_dir_entry *entry);
 static int fat16_root_dir_close(file_t *file);
 
 static int fat32_root_dir_open(file_t *file);
-static int fat32_root_dir_read(file_t *file, struct fat_dir_entry *entry);
+static int fat32_root_dir_read(file_t *file, fat_dir_entry *entry);
 static int fat32_root_dir_close(file_t *file);
 
-static int find_entry_in_root_dir(file_t *file, char *target_name, struct fat_dir_entry *entry);
-static int find_entry_in_sub_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, struct fat_dir_entry *entry);
-static int find_entry_for_path(file_t *file, char *path, struct fat_dir_entry *entry);
+static int find_entry_in_root_dir(file_t *file, char *target_name, fat_dir_entry *entry);
+static int find_entry_in_sub_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, fat_dir_entry *entry);
+static int find_entry_for_path(file_t *file, char *path, fat_dir_entry *entry);
 
 static int fat_opendir(char *path, file_t *file);
 static int fat_readdir(file_t *file, struct dir_entry *dir_entry);

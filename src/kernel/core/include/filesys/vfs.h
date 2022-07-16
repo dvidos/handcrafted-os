@@ -34,6 +34,8 @@ struct mount_info *vfs_get_mounts_list();
 int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path);
 int vfs_umount(char *path);
 
+
+
 struct file_timestamp {
     uint16_t year;
     uint8_t month;

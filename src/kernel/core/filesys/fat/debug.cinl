@@ -1,29 +1,30 @@
 #include "fat_priv.h"
 
-static void debug_fat_info(struct fat_info *info) {
+static void debug_fat_info(fat_info *fat) {
     klog_debug("FAT info");
-    klog_debug("  type                   FAT%d", info->fat_type == FAT32 ? 32 : (info->fat_type == FAT16 ? 16 : 12));
-    klog_debug("  bytes per sector       %d", info->bytes_per_sector);
-    klog_debug("  sectors per cluster    %d", info->sectors_per_cluster);
-    klog_debug("  cluster size in bytes  %d", info->sectors_per_cluster * info->bytes_per_sector);
-    klog_debug("  sectors per fat        %d", info->sectors_per_fat);
-    klog_debug("  fat size in bytes      %d", info->sectors_per_fat * info->bytes_per_sector);
-    klog_debug("  number of fats         %d", info->boot_sector->number_of_fats);
+    klog_debug("  type                   FAT%d", fat->fat_type == FAT32 ? 32 : (fat->fat_type == FAT16 ? 16 : 12));
+    klog_debug("  bytes per sector       %d", fat->bytes_per_sector);
+    klog_debug("  sectors per cluster    %d", fat->sectors_per_cluster);
+    klog_debug("  cluster size in bytes  %d", fat->sectors_per_cluster * fat->bytes_per_sector);
+    klog_debug("  sectors per fat        %d", fat->sectors_per_fat);
+    klog_debug("  fat size in bytes      %d", fat->sectors_per_fat * fat->bytes_per_sector);
+    klog_debug("  number of fats         %d", fat->boot_sector->number_of_fats);
     klog_debug("  ---");
-    klog_debug("  reserved sector count  %d", info->boot_sector->reserved_sector_count);
-    klog_debug("  sectors per fat-16     %d", info->boot_sector->sectors_per_fat_16);
-    klog_debug("  sectors per fat-32     %d", info->boot_sector->types.fat_32.sectors_per_fat_32);
-    klog_debug("  total sectors 16 bits  %d", info->boot_sector->total_sectors_16bits);
-    klog_debug("  total sectors 32 bits  %d", info->boot_sector->total_sectors_32bits);
+    klog_debug("  reserved sector count  %d", fat->boot_sector->reserved_sector_count);
+    klog_debug("  sectors per fat-16     %d", fat->boot_sector->sectors_per_fat_16);
+    klog_debug("  sectors per fat-32     %d", fat->boot_sector->types.fat_32.sectors_per_fat_32);
+    klog_debug("  total sectors 16 bits  %d", fat->boot_sector->total_sectors_16bits);
+    klog_debug("  total sectors 32 bits  %d", fat->boot_sector->total_sectors_32bits);
+    klog_debug("  end-of-chain value     0x%x", fat->end_of_chain_value);
     klog_debug("  ---");
-    klog_debug("  partition start lba         %d", info->partition->first_sector);
-    klog_debug("  fat starting lba            %d", info->fat_starting_lba);
-    klog_debug("  data clusters starting lba  %d", info->data_clusters_starting_lba);
-    klog_debug("  root dir starting lba       %d", info->root_dir_starting_lba);
-    klog_debug("  root dir sectors size       %d", info->root_dir_sectors_size);
+    klog_debug("  partition start lba         %d", fat->partition->first_sector);
+    klog_debug("  fat starting lba            %d", fat->fat_starting_lba);
+    klog_debug("  data clusters starting lba  %d", fat->data_clusters_starting_lba);
+    klog_debug("  root dir starting lba       %d", fat->root_dir_starting_lba);
+    klog_debug("  root dir sectors size       %d", fat->root_dir_sectors_size);
 }
 
-static void debug_fat_dir_entry(bool title_line, struct fat_dir_entry *entry) {
+static void debug_fat_dir_entry(bool title_line, fat_dir_entry *entry) {
     if (title_line) {
         //         |  ABCDEFGH.ABC 0x12 RHADSV 1234-12-12 12:12:12 1234-12-12 12:12:12 123456789 123456789 Xxxxxxxx
         klog_debug("  File name    Attr Flags  Cr.Date    Cr.Time  Mod.Date   Mod.Time      Size   Cluster Long file name");

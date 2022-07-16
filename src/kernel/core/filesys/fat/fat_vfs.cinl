@@ -45,8 +45,8 @@ static int fat_probe(struct partition *partition) {
     }
 
     // fat_info will allow all future operations
-    struct fat_info *fat = kmalloc(sizeof(struct fat_info));
-    memset(fat, 0, sizeof(struct fat_info));
+    fat_info *fat = kmalloc(sizeof(fat_info));
+    memset(fat, 0, sizeof(fat_info));
     fat->partition = partition;
     fat->boot_sector = boot_sector;
 

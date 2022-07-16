@@ -6,10 +6,10 @@
 
 
 // reads a directory entry and advances offset. returns false when no nore entries available.
-static int extract_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, struct fat_dir_entry *entry) {
+static int extract_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, fat_dir_entry *entry) {
     bool long_entries_found = false;
 
-    memset(entry, 0, sizeof(struct fat_dir_entry));
+    memset(entry, 0, sizeof(fat_dir_entry));
     while (true) {
         // if we went past the buffer, no valid entry must be found
         if (*offset >= buffer_len && long_entries_found && strlen(entry->short_name) == 0) {
