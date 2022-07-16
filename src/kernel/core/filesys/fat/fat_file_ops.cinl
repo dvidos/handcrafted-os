@@ -7,10 +7,14 @@
 #include <klog.h>
 #include <errors.h>
 #include "fat_priv.h"
+#include <lock.h>
 
 #define min(a, b)                ((a) <= (b) ? (a) : (b))
 #define max(a, b)                ((a) >= (b) ? (a) : (b))
 #define between(value, lo, hi)   (max(min((value), (hi)), (lo)))
+
+lock_t fat_write_lock;
+
 
 static uint32_t calculate_new_file_offset(file_t *file, int offset, enum seek_origin origin) {
     uint32_t old_position = ((struct fat_priv_file_info *)file->filesys_priv_data)->offset;
@@ -49,83 +53,97 @@ static uint32_t calculate_new_file_offset(file_t *file, int offset, enum seek_or
 }
 
 static int fat_open(char *path, file_t *file) {
-    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
 
-    struct fat_priv_file_info *file_info = kmalloc(sizeof(struct fat_priv_file_info));
-    memset(file_info, 0, sizeof(struct fat_priv_file_info));
-    file->filesys_priv_data = file_info;
-    file_info->cluster_buffer = kmalloc(fat_info->bytes_per_cluster);
-    file_info->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
+    struct fat_priv_file_info *pf = kmalloc(sizeof(struct fat_priv_file_info));
+    memset(pf, 0, sizeof(struct fat_priv_file_info));
+    pf->dir_entry = kmalloc(sizeof(struct fat_dir_entry));
+    memset(pf->dir_entry, 0, sizeof(struct fat_dir_entry));
+    pf->sector = kmalloc(sizeof(struct sector));
+    memset(pf->sector, 0, sizeof(struct sector));
+    pf->cluster = kmalloc(sizeof(struct cluster));
+    memset(pf->cluster, 0, sizeof(struct cluster));
+    pf->sector->buffer = kmalloc(fat->bytes_per_sector);
+    memset(pf->sector->buffer, 0, fat->bytes_per_sector);
+    pf->cluster->buffer = kmalloc(fat->bytes_per_cluster);
+    memset(pf->cluster->buffer, 0, fat->bytes_per_cluster);
+
+    file->filesys_priv_data = pf;
 
     klog_trace("fat_open(fat_type=FAT%d, path=\"%s\")", 
-        fat_info->fat_type == FAT32 ? 32 : (fat_info->fat_type == FAT16 ? 16 : 12), 
+        fat->fat_type == FAT32 ? 32 : (fat->fat_type == FAT16 ? 16 : 12), 
         path);
 
     // follow the path to the dir first
-    int err = find_entry_for_path(file, path, file_info->dir_entry);
+    int err = find_entry_for_path(file, path, pf->dir_entry);
     if (err)
         return err;
-    if (file_info->dir_entry->attributes.flags.directory ||
-        file_info->dir_entry->attributes.flags.volume_label)
+    if (pf->dir_entry->attributes.flags.directory ||
+        pf->dir_entry->attributes.flags.volume_label)
         return ERR_NOT_A_FILE;
     klog_debug("File directory entry");
     debug_fat_dir_entry(true, NULL);
-    debug_fat_dir_entry(false, file_info->dir_entry);
+    debug_fat_dir_entry(false, pf->dir_entry);
 
     // read the first cluster, to prepare for reading
-    err = fat_read_cluster(fat_info, file_info->dir_entry->first_cluster_no, file_info->cluster_buffer);
+    err = fat->ops->read_data_cluster(fat, pf->dir_entry->first_cluster_no, pf->cluster);
     if (err)
         return err;
     klog_debug("File cluster contents");
-    klog_hex16_debug(file_info->cluster_buffer, fat_info->bytes_per_cluster, 0);
+    klog_hex16_debug(pf->cluster->buffer, fat->bytes_per_cluster, 0);
     
-    file_info->cluster_n_index = 0;
-    file_info->first_cluster_no = file_info->dir_entry->first_cluster_no;
-    file_info->curr_cluster_no = file_info->dir_entry->first_cluster_no;
-    file_info->size = file_info->dir_entry->file_size;
-    file_info->offset = 0;
+    pf->cluster_n_index = 0;
+    pf->first_cluster_no = pf->dir_entry->first_cluster_no;
+    pf->size = pf->dir_entry->file_size;
+    pf->offset = 0;
     
     return SUCCESS;
 }
 
 static int fat_read(file_t *file, char *buffer, int length) {
     klog_trace("fat_read(length=%d)", length);
-    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
     int bytes_actually_read = 0;
     int err;
 
     // don't allow reading past EOF
-    if (file_info->offset + length > file_info->size)
-        length = file_info->size - file_info->offset;
+    if (pf->offset + length > pf->size)
+        length = pf->size - pf->offset;
     
     while (true) {
         // copy what we can from the current cluster
-        int offset_in_cluster = file_info->offset - (file_info->cluster_n_index * fat_info->bytes_per_cluster);
-        int available_in_cluster = fat_info->bytes_per_cluster - offset_in_cluster;
+        int offset_in_cluster = pf->offset - (pf->cluster_n_index * fat->bytes_per_cluster);
+        int available_in_cluster = fat->bytes_per_cluster - offset_in_cluster;
         int chunk_len = min(length, available_in_cluster);
-        memcpy(buffer + bytes_actually_read, file_info->cluster_buffer + offset_in_cluster, chunk_len);
+        memcpy(buffer + bytes_actually_read, pf->cluster->buffer + offset_in_cluster, chunk_len);
         bytes_actually_read += chunk_len;
         length -= chunk_len;
-        file_info->offset += chunk_len;
+        pf->offset += chunk_len;
         if (length == 0)
             break;
 
-        if (file_info->offset < file_info->size && length > 0) {
+        if (pf->offset < pf->size && length > 0) {
             // we need to load next cluster
             uint32_t next_cluster_no;
-            err = get_next_cluster_no(fat_info, file_info->curr_cluster_no, &next_cluster_no, file_info->cluster_buffer);
+            err = fat->ops->get_fat_entry_value(
+                    fat, pf->sector, 
+                    pf->cluster->cluster_no, 
+                    &next_cluster_no);
             if (err)
                 return err;
 
-            if (is_end_of_cluster_chain(fat_info, next_cluster_no)) {
+            if (fat->ops->is_end_of_chain_entry_value(fat, next_cluster_no)) {
                 klog_debug("fat_read(): corruption detected, file size reports more data, but end of cluster chain encountered");
                 return ERR_BAD_VALUE;
             }
 
-            file_info->cluster_n_index++;
-            file_info->curr_cluster_no = next_cluster_no;
-            err = fat_read_cluster(fat_info, file_info->curr_cluster_no, file_info->cluster_buffer);
+            pf->cluster_n_index++;
+            err = fat->ops->read_data_cluster(
+                fat, 
+                next_cluster_no, 
+                pf->cluster
+            );
             if (err)
                 return err;
         }
@@ -135,46 +153,125 @@ static int fat_read(file_t *file, char *buffer, int length) {
     return bytes_actually_read;
 }
 
+static int fat_write(file_t *file, char *buffer, int length) {
+    klog_trace("fat_write(length=%d)", length);
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
+    int bytes_actually_written = 0;
+    int err = 0;
+
+    acquire(&fat_write_lock);
+    while (true) {
+        // copy what we can into the current cluster
+        int offset_in_cluster = pf->offset - (pf->cluster_n_index * fat->bytes_per_cluster);
+        int remaining_in_cluster = fat->bytes_per_cluster - offset_in_cluster;
+        int chunk_len = min(length, remaining_in_cluster);
+
+        memcpy(pf->cluster->buffer + offset_in_cluster, buffer + bytes_actually_written, chunk_len);
+        bytes_actually_written += chunk_len;
+        length -= chunk_len;
+        pf->offset += chunk_len;
+        pf->size = max(pf->size, pf->offset);
+        if (length == 0)
+            goto exit;
+
+        // we need to load next cluster, save current first
+        err = fat->ops->write_data_cluster(fat, pf->cluster);
+        if (err)
+            goto exit;
+        
+        uint32_t next_cluster_no;
+        err = fat->ops->get_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, &next_cluster_no);
+        if (err)
+            goto exit;
+
+        if (!fat->ops->is_end_of_chain_entry_value(fat, next_cluster_no)) {
+            // read the next cluster so we can overwrite it
+            err = fat->ops->read_data_cluster(fat, next_cluster_no, pf->cluster);
+            if (err)
+                goto exit;
+            
+            pf->cluster_n_index++;
+            
+        } else {
+            // we need to create new cluster pointer.
+            uint32_t free_cluster_no;
+            err = fat->ops->find_a_free_cluster(fat, pf->sector, &free_cluster_no);
+            if (err)
+                goto exit;
+            
+            // we must write the pointer from the previous cluster to this one
+            err = fat->ops->set_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, free_cluster_no);
+            if (err)
+                goto exit;
+            err = fat->ops->write_fat_sector(fat, pf->sector);
+            if (err)
+                goto exit;
+            
+            // but also mark the noew one as end-of-chain
+            err = fat->ops->set_fat_entry_value(fat, pf->sector, free_cluster_no, fat->end_of_chain_value);
+            if (err)
+                goto exit;
+            err = fat->ops->write_fat_sector(fat, pf->sector);
+            if (err)
+                goto exit;
+
+            // don't forget this
+            pf->cluster_n_index++;
+        }
+    }
+
+exit:
+    release(&fat_write_lock);
+    return err ? err : bytes_actually_written;
+}
+
 static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
-    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
     int err;
 
     klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
     uint32_t final_position = calculate_new_file_offset(file, offset, origin);
-    uint32_t cluster_n_index = final_position / fat_info->bytes_per_cluster;
+    uint32_t cluster_n_index = final_position / fat->bytes_per_cluster;
     
-    if (cluster_n_index == file_info->cluster_n_index) {
+    if (cluster_n_index == pf->cluster_n_index) {
         // no need to reload the cluster, we just need to reset the pointer
-        file_info->offset = final_position;
+        pf->offset = final_position;
         return SUCCESS;
     }
 
     // otherwise we need to load another cluster
     uint32_t cluster_no;
-    err = get_n_index_cluster_no(file, cluster_n_index, &cluster_no);
+    err = fat->ops->get_n_index_cluster_no(
+            fat, pf->sector, 
+            pf->first_cluster_no, 
+            cluster_n_index, 
+            &cluster_no);
     if (err)
         return err;
 
-    err = fat_read_cluster(fat_info, cluster_no, file_info->cluster_buffer);
+    err = fat->ops->read_data_cluster(fat, cluster_no, pf->cluster);
     if (err)
         return err;
     
     // success, we are ready to read
-    file_info->curr_cluster_no = cluster_no;
-    file_info->cluster_n_index = cluster_n_index;
-    file_info->offset = final_position;
+    pf->cluster_n_index = cluster_n_index;
+    pf->offset = final_position;
     return (int)final_position;
 }
 
 static int fat_close(file_t *file) {
-    struct fat_info *fat_info = (struct fat_info *)file->partition->filesys_priv_data;
-    struct fat_priv_file_info *file_info = (struct fat_priv_file_info *)file->filesys_priv_data;
+    struct fat_info *fat = (struct fat_info *)file->partition->filesys_priv_data;
+    struct fat_priv_file_info *pf = (struct fat_priv_file_info *)file->filesys_priv_data;
 
     // we must free what we allocated in open()
-    kfree(file_info->cluster_buffer);
-    kfree(file_info->dir_entry);
-    kfree(file_info);
+    kfree(pf->sector->buffer);
+    kfree(pf->sector);
+    kfree(pf->cluster->buffer);
+    kfree(pf->cluster);
+    kfree(pf->dir_entry);
+    kfree(pf);
 
     return SUCCESS;
 }

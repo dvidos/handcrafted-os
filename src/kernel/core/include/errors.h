@@ -23,6 +23,7 @@
 #define ERR_NO_DRIVER_FOUND      -12
 #define ERR_NOT_A_DIRECTORY      -13
 #define ERR_NOT_A_FILE           -14
+#define ERR_NO_SPACE_LEFT        -15
 
 #define ERR_READING_FILE         -20
 #define ERR_WRITING_FILE         -21

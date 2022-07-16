@@ -44,10 +44,11 @@ static int fat_probe(struct partition *partition) {
         return ERR_NOT_SUPPORTED;
     }
 
-    struct fat_info *info = kmalloc(sizeof(struct fat_info));
-    memset(info, 0, sizeof(struct fat_info));
-    info->partition = partition;
-    info->boot_sector = boot_sector;
+    // fat_info will allow all future operations
+    struct fat_info *fat = kmalloc(sizeof(struct fat_info));
+    memset(fat, 0, sizeof(struct fat_info));
+    fat->partition = partition;
+    fat->boot_sector = boot_sector;
 
     if (boot_sector->types.fat_12_16.boot_signature == 0x28 || 
         boot_sector->types.fat_12_16.boot_signature == 0x29
@@ -58,33 +59,32 @@ static int fat_probe(struct partition *partition) {
         int data_clusters = data_sectors / boot_sector->sectors_per_cluster;
 
         // a fat16 cannot have less than 4085 clusters
-        info->fat_type = data_clusters < 4085 ? FAT12 : FAT16;
-        klog_debug("FAT%d detected", info->fat_type == FAT12 ? 12 : 16);
+        fat->fat_type = data_clusters < 4085 ? FAT12 : FAT16;
+        klog_debug("FAT%d detected", fat->fat_type == FAT12 ? 12 : 16);
 
     } else if (boot_sector->types.fat_32.boot_signature == 0x28 ||
         boot_sector->types.fat_32.boot_signature == 0x29
     ) {
         klog_debug("FAT32 detected");
-        info->fat_type = FAT32;
+        fat->fat_type = FAT32;
     } else {
         klog_debug("Neither FAT12/16, nor FAT32, unsupported");
-        kfree(info);
+        kfree(fat);
         kfree(boot_sector);
         return ERR_NOT_SUPPORTED;
     }
 
-    info->bytes_per_sector = boot_sector->bytes_per_sector;
-    info->sectors_per_cluster = boot_sector->sectors_per_cluster;
-    info->bytes_per_cluster = info->bytes_per_sector * info->sectors_per_cluster;
+    fat->bytes_per_sector = boot_sector->bytes_per_sector;
+    fat->sectors_per_cluster = boot_sector->sectors_per_cluster;
+    fat->bytes_per_cluster = fat->bytes_per_sector * fat->sectors_per_cluster;
     // round largest sector up to cluster boundary
-    info->largest_cluster_no = (partition->num_sectors + boot_sector->sectors_per_cluster - 1) / boot_sector->sectors_per_cluster;
+    fat->largest_cluster_no = (partition->num_sectors + boot_sector->sectors_per_cluster - 1) / boot_sector->sectors_per_cluster;
 
-
-    info->sectors_per_fat = info->fat_type == FAT32 ? 
+    fat->sectors_per_fat = fat->fat_type == FAT32 ? 
         boot_sector->types.fat_32.sectors_per_fat_32 : 
         boot_sector->sectors_per_fat_16;
 
-    info->fat_starting_lba = 
+    fat->fat_starting_lba = 
         partition->first_sector + 
         boot_sector->reserved_sector_count;
 
@@ -93,27 +93,51 @@ static int fat_probe(struct partition *partition) {
     uint32_t end_of_fats_lba = 
             partition->first_sector + 
             boot_sector->reserved_sector_count +
-            (info->sectors_per_fat * boot_sector->number_of_fats);
+            (fat->sectors_per_fat * boot_sector->number_of_fats);
     uint32_t fat1216_root_dir_sectors_size = 
             (boot_sector->root_entry_count * 32) / boot_sector->bytes_per_sector;
 
-    if (info->fat_type == FAT12 || info->fat_type == FAT16) {
-        info->data_clusters_starting_lba = end_of_fats_lba + fat1216_root_dir_sectors_size;
-        info->root_dir_starting_lba = end_of_fats_lba;
-        info->root_dir_sectors_size = fat1216_root_dir_sectors_size;
+    if (fat->fat_type == FAT12 || fat->fat_type == FAT16) {
+        fat->data_clusters_starting_lba = end_of_fats_lba + fat1216_root_dir_sectors_size;
+        fat->root_dir_starting_lba = end_of_fats_lba;
+        fat->root_dir_sectors_size = fat1216_root_dir_sectors_size;
+        fat->end_of_chain_value = fat->fat_type == FAT12 ? 0xFF8 : 0xFFF8;
     } else {
-        info->data_clusters_starting_lba = end_of_fats_lba;
-        info->root_dir_starting_lba =
-            info->data_clusters_starting_lba +
-            (boot_sector->types.fat_32.root_dir_cluster - 2) * info->sectors_per_cluster;
-        info->root_dir_sectors_size = info->sectors_per_cluster;
+        fat->data_clusters_starting_lba = end_of_fats_lba;
+        fat->root_dir_starting_lba =
+            fat->data_clusters_starting_lba +
+            (boot_sector->types.fat_32.root_dir_cluster - 2) * fat->sectors_per_cluster;
+        fat->root_dir_sectors_size = fat->sectors_per_cluster;
+        fat->end_of_chain_value = 0x0FFFFFF8;
     }
 
-    partition->filesys_priv_data = info;
-    debug_fat_info(info);
+    // setup operations for ease of use
+    fat->ops = kmalloc(sizeof(struct fat_operations));
+    fat->ops->read_fat_sector = read_fat_sector;
+    fat->ops->write_fat_sector = write_fat_sector;
+    fat->ops->get_fat_entry_value = get_fat_entry_value;
+    fat->ops->set_fat_entry_value = set_fat_entry_value;
+    fat->ops->is_end_of_chain_entry_value = is_end_of_chain_entry_value;
+    fat->ops->get_n_index_cluster_no = get_n_index_cluster_no;
+    fat->ops->find_a_free_cluster = find_a_free_cluster;
+    fat->ops->read_data_cluster = read_data_cluster;
+    fat->ops->write_data_cluster = write_data_cluster;
+
+    // the two fats have different ways of storing root directories
+    if (fat->fat_type == FAT12 || fat->fat_type == FAT16) {
+        fat->ops->root_dir_open = fat16_root_dir_open;
+        fat->ops->root_dir_read = fat16_root_dir_read;
+        fat->ops->root_dir_close = fat16_root_dir_close;
+    } else if (fat->fat_type == FAT32) {
+        fat->ops->root_dir_open = fat32_root_dir_open;
+        fat->ops->root_dir_read = fat32_root_dir_read;
+        fat->ops->root_dir_close = fat32_root_dir_close;
+    }
+    
+    debug_fat_info(fat);
 
     // we should register something with the VFS or logical volume manager?
-    partition->filesys_priv_data = info;
+    partition->filesys_priv_data = fat;
     return SUCCESS;
 }
 
@@ -124,6 +148,7 @@ struct file_ops fat_file_operations = {
 
     .open = fat_open,
     .read = fat_read,
+    .write = fat_write,
     .seek = fat_seek,
     .close = fat_close
 };
