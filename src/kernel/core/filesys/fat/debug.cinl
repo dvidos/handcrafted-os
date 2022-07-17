@@ -21,7 +21,7 @@ static void debug_fat_info(fat_info *fat) {
     klog_debug("  fat starting lba            %d", fat->fat_starting_lba);
     klog_debug("  data clusters starting lba  %d", fat->data_clusters_starting_lba);
     klog_debug("  root dir starting lba       %d", fat->root_dir_starting_lba);
-    klog_debug("  root dir sectors size       %d", fat->root_dir_sectors_size);
+    klog_debug("  root dir sectors size       %d", fat->root_dir_sectors_count);
 }
 
 static void debug_fat_dir_entry(bool title_line, fat_dir_entry *entry) {

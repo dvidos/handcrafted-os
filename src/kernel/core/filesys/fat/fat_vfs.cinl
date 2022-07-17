@@ -94,20 +94,20 @@ static int fat_probe(struct partition *partition) {
             partition->first_sector + 
             boot_sector->reserved_sector_count +
             (fat->sectors_per_fat * boot_sector->number_of_fats);
-    uint32_t fat1216_root_dir_sectors_size = 
+    uint32_t fat1216_root_dir_sectors_count = 
             (boot_sector->root_entry_count * 32) / boot_sector->bytes_per_sector;
 
     if (fat->fat_type == FAT12 || fat->fat_type == FAT16) {
-        fat->data_clusters_starting_lba = end_of_fats_lba + fat1216_root_dir_sectors_size;
+        fat->data_clusters_starting_lba = end_of_fats_lba + fat1216_root_dir_sectors_count;
         fat->root_dir_starting_lba = end_of_fats_lba;
-        fat->root_dir_sectors_size = fat1216_root_dir_sectors_size;
+        fat->root_dir_sectors_count = fat1216_root_dir_sectors_count;
         fat->end_of_chain_value = fat->fat_type == FAT12 ? 0xFF8 : 0xFFF8;
     } else {
         fat->data_clusters_starting_lba = end_of_fats_lba;
         fat->root_dir_starting_lba =
             fat->data_clusters_starting_lba +
             (boot_sector->types.fat_32.root_dir_cluster - 2) * fat->sectors_per_cluster;
-        fat->root_dir_sectors_size = fat->sectors_per_cluster;
+        fat->root_dir_sectors_count = fat->sectors_per_cluster; // no upper size limit actually
         fat->end_of_chain_value = 0x0FFFFFF8;
     }
 

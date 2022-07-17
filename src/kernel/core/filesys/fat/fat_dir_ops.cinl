@@ -120,10 +120,7 @@ static int fat16_root_dir_read(file_t *file, fat_dir_entry *entry)
 
         uint32_t lba = fat->root_dir_starting_lba + (pf->cluster->cluster_no * fat->sectors_per_cluster);
         err = fat->partition->dev->ops->read(fat->partition->dev,
-                                                  lba,
-                                                  0,
-                                                  fat->sectors_per_cluster,
-                                                  pf->cluster->buffer);
+                    lba, 0, fat->sectors_per_cluster, pf->cluster->buffer);
         if (err)
             return err;
 
@@ -424,54 +421,199 @@ static int fat_unlink(char *path, file_t *file) {
         yes, but not the root directory...
 */
 
+static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info *pd);
 
-// opening and closing directories
-int open_root_dir(fat_info *fat, fat_priv_dir_info *pd);
-int open_cluster_dir(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info *pd);
-int close_dir(fat_info *fat, fat_priv_dir_info *pd);
-
-// operations inside directories
-int read_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-int invalidate_dir_entry(fat_info *fat, fat_priv_dir_info *pd, uint32_t entry_offset);
-int update_dir_entry_in_place(fat_info *fat, fat_priv_dir_info *pd, uint32_t entry_offset, fat_dir_entry *entry);
-int append_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-
-// working with paths
-int find_named_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry);
-int find_path_entry(fat_info *fat, fat_priv_dir_info *pd, uint8_t *path, fat_dir_entry *entry);
 
 // ------------------------------------
-/*
+
 
 // opening and closing directories
-int open_root_dir(fat_info *fat, fat_priv_dir_info *pd) {
-    if (fat->fat_type == FAT32) {
-        return open_cluster_dir(fat, fat->boot_sector->types.fat_32.root_dir_cluster, pd);
-    }
+static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info *pd) {
+    if (fat->fat_type == FAT32)
+        return priv_dir_open_cluster(fat, fat->boot_sector->types.fat_32.root_dir_cluster, pd);
 
     pd = kmalloc(sizeof(fat_priv_dir_info));
     memset(pd, 0, sizeof(fat_priv_dir_info));
-
     pd->is_fat16_root = true;
+    pd->fat16_root_data.sector_buffer = kmalloc(fat->bytes_per_sector);
+
+    // need to read first sector
+    // a sample value is 32 sectors for the root directory.
+
+    int err = fat->partition->dev->ops->read(fat->partition->dev,
+        fat->root_dir_starting_lba, 0, 1, pd->fat16_root_data.sector_buffer);
+    if (err) return err;
+
+    pd->fat16_root_data.sector_no = 0;
+    pd->fat16_root_data.offset_in_sector = 0;
+    pd->fat16_root_data.sector_dirty = false;
+
+    klog_debug("open_root_dir(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
+    klog_hex16_debug(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
+
+    return SUCCESS;
+}
+
+static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info *pd) {
+    pd = kmalloc(sizeof(fat_priv_dir_info));
+    memset(pd, 0, sizeof(fat_priv_dir_info));
+    pd->is_fat16_root = false; // explicitly
+
+    // we treat dir contents as file contents
+    uint32_t dir_size = fat->bytes_per_cluster; // can be much larger...
+    return fat->ops->priv_file_open(fat, cluster_no, dir_size, pd->pf);
+}
+
+static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32) {
+    if (!pd->is_fat16_root)
+        return fat->ops->priv_file_read(fat, pd->pf, buffer32, 32);
+
+    // fat 16 root code here
+    if (pd->fat16_root_data.offset_in_sector >= fat->bytes_per_sector) {
+        // need to read the next sector
+        if (pd->fat16_root_data.sector_no == fat->root_dir_sectors_count - 1)
+            return ERR_NO_MORE_CONTENT;
+        
+        // before reading, write any dirty sector
+        if (pd->fat16_root_data.sector_dirty) {
+            int err = fat->partition->dev->ops->write(fat->partition->dev,
+                fat->root_dir_starting_lba + pd->fat16_root_data.sector_no, 
+                0, 1, pd->fat16_root_data.sector_buffer);
+            if (err) return err;
+        }
+
+        // now we can read the next sector
+        int err = fat->partition->dev->ops->read(fat->partition->dev,
+            fat->root_dir_starting_lba + pd->fat16_root_data.sector_no + 1, 
+            0, 1, pd->fat16_root_data.sector_buffer);
+        if (err) return err;
+        pd->fat16_root_data.sector_no += 1;
+        pd->fat16_root_data.offset_in_sector = 0;
+    }
+
+    // now we can read
+    memcpy(buffer32, pd->fat16_root_data.sector_buffer + pd->fat16_root_data.offset_in_sector, 32);
+    pd->fat16_root_data.offset_in_sector += 32;
+
+    return SUCCESS;
+}
+
+static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32) {
+    if (!pd->is_fat16_root)
+        return fat->ops->priv_file_write(fat, pd->pf, buffer32, 32);
+
+    // fat 16 root code here
+    if (pd->fat16_root_data.offset_in_sector >= fat->bytes_per_sector) {
+        // need to read the next sector
+        if (pd->fat16_root_data.sector_no == fat->root_dir_sectors_count - 1)
+            return ERR_NO_MORE_CONTENT;
+        
+        // before reading, write any dirty sector
+        if (pd->fat16_root_data.sector_dirty) {
+            int err = fat->partition->dev->ops->write(fat->partition->dev,
+                fat->root_dir_starting_lba + pd->fat16_root_data.sector_no, 
+                0, 1, pd->fat16_root_data.sector_buffer);
+            if (err) return err;
+        }
+
+        // read next sector
+        int err = fat->partition->dev->ops->read(fat->partition->dev,
+            fat->root_dir_starting_lba + pd->fat16_root_data.sector_no + 1, 
+            0, 1, pd->fat16_root_data.sector_buffer);
+        if (err) return err;
+        pd->fat16_root_data.sector_no += 1;
+        pd->fat16_root_data.offset_in_sector = 0;
+    }
+
+    // now we can write
+    memcpy(pd->fat16_root_data.sector_buffer + pd->fat16_root_data.offset_in_sector, buffer32, 32);
+    pd->fat16_root_data.offset_in_sector += 32;
+    pd->fat16_root_data.sector_dirty = true;
+
+    return SUCCESS;
+}
+
+static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no) {
+    if (!pd->is_fat16_root)
+        return fat->ops->priv_file_seek(fat, pd->pf, slot_no * 32, SEEK_START);
+
+    // fat 16 root code here
+    uint32_t target_sector_no = (slot_no * 32) / fat->bytes_per_sector;
+    if (target_sector_no != pd->fat16_root_data.sector_no) {
+        // we need to read the new sector.
+        if (target_sector_no >= fat->root_dir_sectors_count)
+            return ERR_NO_MORE_CONTENT;
+
+        // before reading, write any dirty sector
+        if (pd->fat16_root_data.sector_dirty) {
+            int err = fat->partition->dev->ops->write(fat->partition->dev,
+                fat->root_dir_starting_lba + pd->fat16_root_data.sector_no, 
+                0, 1, pd->fat16_root_data.sector_buffer);
+            if (err) return err;
+        }
+
+        // read target sector
+        int err = fat->partition->dev->ops->read(fat->partition->dev,
+            fat->root_dir_starting_lba + pd->fat16_root_data.sector_no + target_sector_no, 
+            0, 1, pd->fat16_root_data.sector_buffer);
+        if (err) return err;
+        pd->fat16_root_data.sector_no = target_sector_no;
+    }
+
+    pd->fat16_root_data.offset_in_sector = (slot_no * 32) % fat->bytes_per_sector;
+
+    return SUCCESS;
+}
+
+static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
+    int err;
+    if (pd->is_fat16_root) {
+        // before closing, write any dirty sector
+        if (pd->fat16_root_data.sector_dirty) {
+            int err = fat->partition->dev->ops->write(fat->partition->dev,
+                fat->root_dir_starting_lba + pd->fat16_root_data.sector_no, 
+                0, 1, pd->fat16_root_data.sector_buffer);
+            if (err) return err;
+        }
+
+        // free whatever we allocated
+        kfree(pd->fat16_root_data.sector_buffer);
+    } else {
+        err = fat->ops->priv_file_close(fat, pd->pf);
+        if (err) return err;
+    }
+    kfree(pd);
+    return SUCCESS;
+}
+
+int read_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    uint8_t buffer32[32];
+
+    while (true) {
+        int err = priv_dir_read_slot(fat, pd, buffer32);
+        // must detect end of content
+        // skip invalidated entries
+        // collect long names
+        // extract actual entries
+    }
 
     return ERR_NOT_IMPLEMENTED;
 }
-int open_cluster_dir(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info *pd) {
+
+int invalidate_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    // write the first byte of the actual entry
     return ERR_NOT_IMPLEMENTED;
 }
-int close_dir(fat_info *fat, fat_priv_dir_info *pd) {
+
+int update_dir_entry_in_place(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+
+    // update things like size, date etc.
+    // maybe update long file name if same size
     return ERR_NOT_IMPLEMENTED;
 }
-int read_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-    return ERR_NOT_IMPLEMENTED;
-}
-int invalidate_dir_entry(fat_info *fat, fat_priv_dir_info *pd, uint32_t entry_offset) {
-    return ERR_NOT_IMPLEMENTED;
-}
-int update_dir_entry_in_place(fat_info *fat, fat_priv_dir_info *pd, uint32_t entry_offset, fat_dir_entry *entry) {
-    return ERR_NOT_IMPLEMENTED;
-}
+
 int append_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    // write new entry, along with long file name
     return ERR_NOT_IMPLEMENTED;
 }
 
@@ -479,13 +621,14 @@ int append_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry)
 int find_named_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry) {
     return ERR_NOT_IMPLEMENTED;
 }
+
 int find_path_entry(fat_info *fat, fat_priv_dir_info *pd, uint8_t *path, fat_dir_entry *entry) {
     // if caller wants the containing directory, they should split the path.
     return ERR_NOT_IMPLEMENTED;
 }
 
 
-*/
+
 
 
 #endif

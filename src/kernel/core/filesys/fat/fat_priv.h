@@ -95,7 +95,7 @@ typedef struct {
     uint32_t fat_starting_lba;
     uint32_t root_dir_starting_lba;
     uint32_t data_clusters_starting_lba;
-    uint32_t root_dir_sectors_size; // for FAT12/16 only
+    uint32_t root_dir_sectors_count; // for FAT12/16 only
 
     struct fat_operations *ops;
 } fat_info;
@@ -104,6 +104,9 @@ typedef struct {
 
 // represents one file described inside a directory cluster
 typedef struct {
+    int first_slot_no; // first 32-bit entry in the directory content
+    int slots_count;   // how many slots, including the possible long name
+
     char short_name[12+1]; // 8 + dot + 3 + zero term
     char long_name_ucs2[512 + 2]; // UCS-2 format
 
@@ -170,9 +173,11 @@ typedef struct {
     bool is_fat16_root;
 
     struct {
-        sector_t *sector;
+        uint8_t *sector_buffer;
+        uint32_t sector_no;
         uint32_t offset_in_sector;
-    } fat16root;
+        bool     sector_dirty;
+    } fat16_root_data;
 
     // for FAT32 and subdirs of FAT16,
     // we use file operations to manipulate the directory contents 
