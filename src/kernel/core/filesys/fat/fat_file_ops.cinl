@@ -13,49 +13,15 @@
 #define max(a, b)                ((a) >= (b) ? (a) : (b))
 #define between(value, lo, hi)   (max(min((value), (hi)), (lo)))
 
+// needed to lock for writes
 lock_t fat_write_lock;
 
 
-static uint32_t calculate_new_file_offset(file_t *file, int offset, enum seek_origin origin) {
-    uint32_t old_position = ((fat_priv_file_info *)file->filesys_priv_data)->offset;
-    uint32_t size = ((fat_priv_file_info *)file->filesys_priv_data)->size;
-    uint32_t new_position = old_position;
-    uint32_t positive_offset = (offset >= 0) ? (uint32_t)offset : (uint32_t)(offset * -1);
+// private functions to work with file/dir contents
 
+static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info *pf) {
 
-    if (origin == SEEK_START) {
-        if (offset >= 0)
-            new_position = min(positive_offset, size);
-        else if (offset < 0)
-            new_position = 0;
-
-    } else if (origin == SEEK_END) { 
-        if (offset >= 0)
-            new_position = size;
-        else if (offset < 0)
-            new_position = size - min(positive_offset, size);
-
-    } else if (origin == SEEK_CURRENT) {
-        if (offset >= 0)
-            new_position = min(old_position + offset, size);
-        else if (offset < 0)
-            new_position = old_position - min(positive_offset, old_position);
-    }
-
-    klog_trace("calculate_new_file_offset(ofs=%d, ori=%d, pos=%d, siz=%d) --> %d",
-        offset,
-        origin,
-        old_position,
-        size,
-        new_position
-    );
-    return new_position;
-}
-
-static int fat_open(char *path, file_t *file) {
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-
-    fat_priv_file_info *pf = kmalloc(sizeof(fat_priv_file_info));
+    pf = kmalloc(sizeof(fat_priv_file_info));
     memset(pf, 0, sizeof(fat_priv_file_info));
     pf->dir_entry = kmalloc(sizeof(fat_dir_entry));
     memset(pf->dir_entry, 0, sizeof(fat_dir_entry));
@@ -68,42 +34,21 @@ static int fat_open(char *path, file_t *file) {
     pf->cluster->buffer = kmalloc(fat->bytes_per_cluster);
     memset(pf->cluster->buffer, 0, fat->bytes_per_cluster);
 
-    file->filesys_priv_data = pf;
-
-    klog_trace("fat_open(fat_type=FAT%d, path=\"%s\")", 
-        fat->fat_type == FAT32 ? 32 : (fat->fat_type == FAT16 ? 16 : 12), 
-        path);
-
-    // follow the path to the dir first
-    int err = find_entry_for_path(file, path, pf->dir_entry);
-    if (err)
-        return err;
-    if (pf->dir_entry->attributes.flags.directory ||
-        pf->dir_entry->attributes.flags.volume_label)
-        return ERR_NOT_A_FILE;
-    klog_debug("File directory entry");
-    debug_fat_dir_entry(true, NULL);
-    debug_fat_dir_entry(false, pf->dir_entry);
-
     // read the first cluster, to prepare for reading
-    err = fat->ops->read_data_cluster(fat, pf->dir_entry->first_cluster_no, pf->cluster);
-    if (err)
-        return err;
-    klog_debug("File cluster contents");
-    klog_hex16_debug(pf->cluster->buffer, fat->bytes_per_cluster, 0);
+    if (pf->size > 0 && cluster_no > 0) {
+        int err = fat->ops->read_data_cluster(fat, cluster_no, pf->cluster);
+        if (err) return err;
+    }
     
     pf->cluster_n_index = 0;
     pf->first_cluster_no = pf->dir_entry->first_cluster_no;
-    pf->size = pf->dir_entry->file_size;
+    pf->size = file_size; // this is difficult for diretories... i think 1 cluster min.
     pf->offset = 0;
-    
+
     return SUCCESS;
 }
 
-static int fat_read(file_t *file, char *buffer, int length) {
-    klog_trace("fat_read(length=%d)", length);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length) {
     int bytes_actually_read = 0;
     int err;
 
@@ -138,10 +83,7 @@ static int fat_read(file_t *file, char *buffer, int length) {
     return bytes_actually_read;
 }
 
-static int fat_write(file_t *file, char *buffer, int length) {
-    klog_trace("fat_write(length=%d)", length);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+static int priv_file_write(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length) {
     int bytes_actually_written = 0;
     int err = 0;
 
@@ -149,9 +91,6 @@ static int fat_write(file_t *file, char *buffer, int length) {
     if (length == 0)
         return SUCCESS;
     
-    // avoid return, to make sure we unlock this
-    acquire(&fat_write_lock);
-
     // ensure there is a cluster to write, even a first one, for new files
     fat->ops->ensure_first_cluster_allocated(fat, pf);
 
@@ -169,26 +108,49 @@ static int fat_write(file_t *file, char *buffer, int length) {
 
         length -= chunk_len;
         if (length == 0)
-            goto exit;
+            return SUCCESS;
 
         // move to next cluster, writing this if dirty
         err = fat->ops->move_to_next_data_cluster(fat, pf, true);
         if (err)
-            goto exit;
+            return err;
     }
 
-exit:
-    release(&fat_write_lock);
     return err ? err : bytes_actually_written;
 }
 
-static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+static uint32_t calculate_new_file_offset(uint32_t old_position, uint32_t size, int offset, enum seek_origin origin) {
+    uint32_t new_position = old_position;
+    uint32_t positive_offset = (offset >= 0) ? (uint32_t)offset : (uint32_t)(offset * -1);
+
+    if (origin == SEEK_START) {
+        if (offset >= 0)
+            new_position = min(positive_offset, size);
+        else if (offset < 0)
+            new_position = 0;
+
+    } else if (origin == SEEK_END) { 
+        if (offset >= 0)
+            new_position = size;
+        else if (offset < 0)
+            new_position = size - min(positive_offset, size);
+
+    } else if (origin == SEEK_CURRENT) {
+        if (offset >= 0)
+            new_position = min(old_position + offset, size);
+        else if (offset < 0)
+            new_position = old_position - min(positive_offset, old_position);
+    }
+
+    klog_trace("calculate_new_file_offset(ofs=%d, ori=%d, pos=%d, siz=%d) --> %d",
+        offset, origin, old_position, size, new_position );
+    return new_position;
+}
+
+static int priv_file_seek(fat_info *fat, fat_priv_file_info *pf, int offset, enum seek_origin origin) {
     int err;
 
-    klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
-    uint32_t final_position = calculate_new_file_offset(file, offset, origin);
+    uint32_t final_position = calculate_new_file_offset(pf->offset, pf->size, offset, origin);
     uint32_t cluster_n_index = final_position / fat->bytes_per_cluster;
     
     err = fat->ops->move_to_n_index_data_cluster(fat, pf, cluster_n_index);
@@ -198,9 +160,7 @@ static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
     return (int)final_position;
 }
 
-static int fat_close(file_t *file) {
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+static int priv_file_close(fat_info *fat, fat_priv_file_info *pf) {
 
     // possibly write any current cluster if dirty
     if (pf->cluster->cluster_no > 0 && pf->cluster->dirty) {
@@ -218,6 +178,64 @@ static int fat_close(file_t *file) {
     kfree(pf);
 
     return SUCCESS;
+}
+
+
+
+
+// public functions given to VFS below
+
+static int fat_open(char *path, file_t *file) {
+    klog_trace("fat_open(path=\"%s\")", path);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+
+    // follow the path to the dir first
+    fat_dir_entry dir_entry;
+    int err = find_entry_for_path(file, path, &dir_entry);
+    if (err)
+        return err;
+    if (dir_entry.attributes.flags.directory ||
+        dir_entry.attributes.flags.volume_label)
+        return ERR_NOT_A_FILE;
+    
+    fat_priv_file_info *pf = NULL;
+    err = fat->ops->priv_file_open(fat, dir_entry.first_cluster_no, dir_entry.file_size, pf);
+    if (err)
+        return err;
+    file->filesys_priv_data = pf;
+
+    return SUCCESS;
+}
+
+static int fat_read(file_t *file, char *buffer, int length) {
+    klog_trace("fat_read(length=%d)", length);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    return fat->ops->priv_file_read(fat, pf, buffer, length);
+}
+
+static int fat_write(file_t *file, char *buffer, int length) {
+    klog_trace("fat_write(length=%d)", length);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    acquire(&fat_write_lock);
+    int err = fat->ops->priv_file_write(fat, pf, buffer, length);
+    release(&fat_write_lock);
+    return err;
+}
+
+static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
+    klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    return fat->ops->priv_file_seek(fat, pf, offset, origin);
+}
+
+static int fat_close(file_t *file) {
+    klog_trace("fat_close()");
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    return fat->ops->priv_file_close(fat, pf);
 }
 
 

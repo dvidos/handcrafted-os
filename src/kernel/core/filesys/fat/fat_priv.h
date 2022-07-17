@@ -167,7 +167,7 @@ typedef struct {
 // stored in the private data of a file_t pointer
 typedef struct {
     // we'll need some more things for fat16, e.g. load sectors etc.
-    bool is_fat16_root;               // check if the file is the root directory (as it is special in FAT16)
+    bool is_fat16_root;
 
     struct {
         sector_t *sector;
@@ -197,7 +197,15 @@ struct fat_operations {
     int (*move_to_next_data_cluster)(fat_info *fat, fat_priv_file_info *pf, bool create_if_needed);
     int (*move_to_n_index_data_cluster)(fat_info *fat, fat_priv_file_info *pf, uint32_t cluster_n_index);
 
-    // functions diff between FAT16 and FAT32
+    // high level functions, allow both files and dir contents read/write
+    int (*priv_file_open)(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info *pf);
+    int (*priv_file_read)(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
+    int (*priv_file_write)(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
+    int (*priv_file_seek)(fat_info *fat, fat_priv_file_info *pf, int offset, enum seek_origin origin);
+    int (*priv_file_close)(fat_info *fat, fat_priv_file_info *pf);
+
+
+    // functions diff between FAT16 and FAT32 (to be deprecated)
     int (*root_dir_open)(file_t *file);
     int (*root_dir_read)(file_t *file, fat_dir_entry *entry);
     int (*root_dir_close)(file_t *file);
@@ -220,6 +228,12 @@ static int write_data_cluster(fat_info *fat, cluster_t *cluster);
 static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf);
 static int move_to_next_data_cluster(fat_info *fat, fat_priv_file_info *pf, bool create_if_needed);
 static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, uint32_t cluster_n_index);
+
+static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info *pf);
+static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
+static int priv_file_write(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
+static int priv_file_seek(fat_info *fat, fat_priv_file_info *pf, int offset, enum seek_origin origin);
+static int priv_file_close(fat_info *fat, fat_priv_file_info *pf);
 
 
 // debug
@@ -255,7 +269,7 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry);
 static int fat_closedir(file_t *file);
 
 // file operations
-static uint32_t calculate_new_file_offset(file_t *file, int offset, enum seek_origin origin);
+static uint32_t calculate_new_file_offset(uint32_t old_position, uint32_t size, int offset, enum seek_origin origin);
 static int fat_open(char *path, file_t *file);
 static int fat_read(file_t *file, char *buffer, int length);
 static int fat_write(file_t *file, char *buffer, int length);

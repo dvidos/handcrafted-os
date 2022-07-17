@@ -440,9 +440,52 @@ int append_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry)
 int find_named_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry);
 int find_path_entry(fat_info *fat, fat_priv_dir_info *pd, uint8_t *path, fat_dir_entry *entry);
 
+// ------------------------------------
+/*
+
+// opening and closing directories
+int open_root_dir(fat_info *fat, fat_priv_dir_info *pd) {
+    if (fat->fat_type == FAT32) {
+        return open_cluster_dir(fat, fat->boot_sector->types.fat_32.root_dir_cluster, pd);
+    }
+
+    pd = kmalloc(sizeof(fat_priv_dir_info));
+    memset(pd, 0, sizeof(fat_priv_dir_info));
+
+    pd->is_fat16_root = true;
+
+    return ERR_NOT_IMPLEMENTED;
+}
+int open_cluster_dir(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info *pd) {
+    return ERR_NOT_IMPLEMENTED;
+}
+int close_dir(fat_info *fat, fat_priv_dir_info *pd) {
+    return ERR_NOT_IMPLEMENTED;
+}
+int read_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    return ERR_NOT_IMPLEMENTED;
+}
+int invalidate_dir_entry(fat_info *fat, fat_priv_dir_info *pd, uint32_t entry_offset) {
+    return ERR_NOT_IMPLEMENTED;
+}
+int update_dir_entry_in_place(fat_info *fat, fat_priv_dir_info *pd, uint32_t entry_offset, fat_dir_entry *entry) {
+    return ERR_NOT_IMPLEMENTED;
+}
+int append_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
+// working with paths
+int find_named_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry) {
+    return ERR_NOT_IMPLEMENTED;
+}
+int find_path_entry(fat_info *fat, fat_priv_dir_info *pd, uint8_t *path, fat_dir_entry *entry) {
+    // if caller wants the containing directory, they should split the path.
+    return ERR_NOT_IMPLEMENTED;
+}
 
 
-
+*/
 
 
 #endif

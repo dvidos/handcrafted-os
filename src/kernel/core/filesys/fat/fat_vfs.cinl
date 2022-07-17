@@ -127,6 +127,12 @@ static int fat_probe(struct partition *partition) {
     fat->ops->move_to_next_data_cluster = move_to_next_data_cluster;
     fat->ops->move_to_n_index_data_cluster = move_to_n_index_data_cluster;
 
+    fat->ops->priv_file_open = priv_file_open;
+    fat->ops->priv_file_read = priv_file_read;
+    fat->ops->priv_file_write = priv_file_write;
+    fat->ops->priv_file_seek = priv_file_seek;
+    fat->ops->priv_file_close = priv_file_close;
+
     // the two fats have different ways of storing root directories
     if (fat->fat_type == FAT12 || fat->fat_type == FAT16) {
         fat->ops->root_dir_open = fat16_root_dir_open;
