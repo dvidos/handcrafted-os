@@ -1,9 +1,12 @@
 #ifndef _FAT_PRIV_H
 #define _FAT_PRIV_H
 
-
 #include <filesys/vfs.h>
 #include <filesys/partition.h>
+
+#define min(a, b)     ((a) <= (b) ? (a) : (b))
+#define max(a, b)     ((a) >= (b) ? (a) : (b))
+
 
 
 typedef struct fat_boot_sector_extension_12_16 // applies to FAT12 as well
@@ -78,6 +81,7 @@ typedef struct {
 
 
 enum FAT_TYPE { FAT32, FAT16, FAT12 };
+
 // stored in the private data of the partition or logical volume
 typedef struct {
     struct partition *partition;
@@ -101,12 +105,14 @@ typedef struct {
 } fat_info;
 
 
+#define BYTES_PER_DIR_SLOT    32
 
 // represents one file described inside a directory cluster
 typedef struct {
-    int first_slot_no; // first 32-bit entry in the directory content
-    int slots_count;   // how many slots, including the possible long name
+    int short_entry_slot_no; // 32-bit slot no, for the short-name & data entry
+    int long_name_slots_count;   // how many slots we have allocated for long name
 
+    // these should be part of the struct, needing no further malloc()
     char short_name[12+1]; // 8 + dot + 3 + zero term
     char long_name_ucs2[512 + 2]; // UCS-2 format
 
@@ -140,6 +146,7 @@ typedef struct {
     uint8_t modified_sec;
 } fat_dir_entry;
 
+
 #define ATTR_READONLY   0x01
 #define ATTR_HIDDEN     0x02
 #define ATTR_SYSTEM     0x04
@@ -148,14 +155,12 @@ typedef struct {
 #define ATTR_ARCHIVE    0x20
 #define ATTR_LONG_NAME  0x0F  // hack!
 
+
 #define DIR_NAME_DELETED      0xE5
 #define DIR_NAME_END_OF_LIST  0x00
 
 // stored in the private data of a file_t pointer
 typedef struct {
-    fat_dir_entry *dir_entry;  // general loading place for dir entries
-    bool is_root_directory;           // check if the file is the root directory (as it is special in FAT16)
-
     uint32_t offset;                  // offset in bytes in file or directory contents
     uint32_t size;                    // current file size, in bytes, to detect EOF
 
@@ -187,6 +192,8 @@ typedef struct {
 
 // function pointers for better intellisense and encapsulation
 struct fat_operations {
+
+    // working with the allocation table
     int (*read_fat_sector)(fat_info *fat, uint32_t sector_no, sector_t *sector);
     int (*write_fat_sector)(fat_info *fat, sector_t *sector);
     int (*get_fat_entry_value)(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value);
@@ -194,6 +201,8 @@ struct fat_operations {
     bool (*is_end_of_chain_entry_value)(fat_info *fat, uint32_t value);
     int (*find_a_free_cluster)(fat_info *fat, sector_t *sector, uint32_t *cluster_no);
     int (*get_n_index_cluster_no)(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+
+    // working with data clusters
     int (*read_data_cluster)(fat_info *fat, uint32_t cluster_no, cluster_t *cluster);
     int (*write_data_cluster)(fat_info *fat, cluster_t *cluster);
 
@@ -202,21 +211,32 @@ struct fat_operations {
     int (*move_to_next_data_cluster)(fat_info *fat, fat_priv_file_info *pf, bool create_if_needed);
     int (*move_to_n_index_data_cluster)(fat_info *fat, fat_priv_file_info *pf, uint32_t cluster_n_index);
 
-    // high level functions, allow both files and dir contents read/write
-    int (*priv_file_open)(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info *pf);
+    // high level file functions, allow both files and dir contents read/write
+    int (*priv_file_open)(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info **ppf);
     int (*priv_file_read)(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
     int (*priv_file_write)(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
     int (*priv_file_seek)(fat_info *fat, fat_priv_file_info *pf, int offset, enum seek_origin origin);
     int (*priv_file_close)(fat_info *fat, fat_priv_file_info *pf);
 
+    // mid level dir functions, abstract away FAT16/32 differences
+    int (*priv_dir_open_root)(fat_info *fat, fat_priv_dir_info **ppd);
+    int (*priv_dir_open_cluster)(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info **ppd);
+    int (*priv_dir_read_slot)(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
+    int (*priv_dir_write_slot)(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
+    int (*priv_dir_get_slot_no)(fat_info *fat, fat_priv_dir_info *pd);
+    int (*priv_dir_seek_slot)(fat_info *fat, fat_priv_dir_info *pd, int slot_no);
+    int (*priv_dir_close)(fat_info *fat, fat_priv_dir_info *pd);
 
-    // functions diff between FAT16 and FAT32 (to be deprecated)
-    int (*root_dir_open)(file_t *file);
-    int (*root_dir_read)(file_t *file, fat_dir_entry *entry);
-    int (*root_dir_close)(file_t *file);
+    // high level dir functions
+    int (*priv_dir_entry_read)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+    int (*priv_dir_entry_invalidate)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+    int (*priv_dir_entry_update)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+    int (*priv_dir_entry_append)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+
+    // facilitate resolving paths to priv dirs and files
+    int (*find_entry_in_dir)(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry);
+    int (*find_path_dir_entry)(fat_info *fat,  uint8_t *path, bool containing_dir, fat_dir_entry *entry);
 };
-
-
 
 
 // clusters low level work
@@ -234,40 +254,47 @@ static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf)
 static int move_to_next_data_cluster(fat_info *fat, fat_priv_file_info *pf, bool create_if_needed);
 static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, uint32_t cluster_n_index);
 
-static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info *pf);
+static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info **ppf);
 static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
 static int priv_file_write(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length);
 static int priv_file_seek(fat_info *fat, fat_priv_file_info *pf, int offset, enum seek_origin origin);
 static int priv_file_close(fat_info *fat, fat_priv_file_info *pf);
 
+// opening and closing directories
+static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd);
+static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info **ppd);
+static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
+static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
+static int priv_dir_get_slot_no(fat_info *fat, fat_priv_dir_info *pd);
+static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no);
+static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd);
+
+static int priv_dir_entry_read(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+static int priv_dir_entry_invalidate(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+static int priv_dir_entry_update(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+static int priv_dir_entry_append(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+
+static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry);
+static int find_path_dir_entry(fat_info *fat,  uint8_t *path, bool containing_dir, fat_dir_entry *entry);
 
 // debug
 static void debug_fat_info(fat_info *fat);
 static void debug_fat_dir_entry(bool title_line, fat_dir_entry *entry);
 
 // dir entries
-static int extract_dir_entry(uint8_t *buffer, uint32_t buffer_len, uint32_t *offset, fat_dir_entry *entry);
+static inline int is_dir_slot_long_name(uint8_t *buffer);
+static inline int is_dir_slot_eof(uint8_t *buffer);
+static inline int is_dir_slot_deleted(uint8_t *buffer);
+static void dir_slot_to_entry(uint8_t *buffer, fat_dir_entry *entry);
+static void dir_entry_to_slot(fat_dir_entry *entry, uint8_t *buffer);
+static void dir_entry_to_long_name(uint8_t *buffer, fat_dir_entry *entry);
+static void dir_long_name_to_slot(fat_dir_entry *entry, int seq_no, uint8_t *buffer);
+static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t *vfs_entry);
+
 
 // fat vfs interaction
 static int fat_probe(struct partition *partition);
 static struct file_ops *fat_get_file_operations();
-
-// fat dir operations
-static int dir_in_data_clusters_open(file_t *file, uint32_t cluster_no);
-static int dir_in_data_clusters_read(file_t *file, fat_dir_entry *entry);
-static int dir_in_data_clusters_close(file_t *file);
-
-static int fat16_root_dir_open(file_t *file);
-static int fat16_root_dir_read(file_t *file, fat_dir_entry *entry);
-static int fat16_root_dir_close(file_t *file);
-
-static int fat32_root_dir_open(file_t *file);
-static int fat32_root_dir_read(file_t *file, fat_dir_entry *entry);
-static int fat32_root_dir_close(file_t *file);
-
-static int find_entry_in_root_dir(file_t *file, char *target_name, fat_dir_entry *entry);
-static int find_entry_in_sub_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, fat_dir_entry *entry);
-static int find_entry_for_path(file_t *file, char *path, fat_dir_entry *entry);
 
 static int fat_opendir(char *path, file_t *file);
 static int fat_readdir(file_t *file, struct dir_entry *dir_entry);

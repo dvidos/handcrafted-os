@@ -1,5 +1,6 @@
 #include "fat_priv.h"
 #include <errors.h>
+#include <klog.h>
 
 
 static int read_fat_sector(fat_info *fat, uint32_t sector_no, sector_t *sector) {
@@ -178,6 +179,7 @@ static int read_data_cluster(fat_info *fat, uint32_t cluster_no, cluster_t *clus
         cluster->dirty = false;
     }
     klog_trace("read_data_cluster(cluster=%d) --> %d", cluster_no, err);
+    // klog_hex16_debug(cluster->buffer, fat->bytes_per_cluster, 0);
     return err;
 }
 
@@ -195,7 +197,6 @@ static int write_data_cluster(fat_info *fat, cluster_t *cluster) {
     klog_trace("write_data_cluster(cluster=%d) --> %d", cluster->cluster_no, err);
     return err;
 }
-
 
 // make sure a file is allocated for writing, used for new files
 static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf) {
@@ -226,7 +227,6 @@ static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf)
     pf->first_cluster_no = new_cluster_no;
     return SUCCESS;
 }
-
 
 // reads next data cluster, creating it if needed. pf->cluster assumed to contain current cluster
 static int move_to_next_data_cluster(fat_info *fat, fat_priv_file_info *pf, bool create_if_needed) {

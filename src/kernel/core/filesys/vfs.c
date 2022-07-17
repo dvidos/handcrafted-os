@@ -84,6 +84,7 @@ int vfs_umount(char *path) {
 
 
 static int resolve_file_system_and_prepare_file_structure(char *path, file_t *file) {
+    klog_trace("resolve_file_system_and_prepare_file_structure(\"%s\")", path);
     // in theory, we would parse the path to find the mount point and mounted path
     // but for now, let's assume only one mounted system
     struct mount_info *mount = mounts_list;
@@ -100,6 +101,13 @@ static int resolve_file_system_and_prepare_file_structure(char *path, file_t *fi
     file->partition = mount->part;
     file->driver = mount->driver;
     file->ops = mount->driver->get_file_operations();
+    klog_debug("Path \"%s\" resolved to device #%d (\"%s\"), partition #%d, file driver \"%s\"",
+        path,
+        file->storage_dev->dev_no,
+        file->storage_dev->name,
+        file->partition->part_no,
+        file->driver->name
+    );
 
     // normally, we should give the relative path, after the mount
     file->path = path;

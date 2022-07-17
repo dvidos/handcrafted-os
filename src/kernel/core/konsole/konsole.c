@@ -8,6 +8,7 @@
 #include <memory/physmem.h>
 #include <konsole/readline.h>
 #include <konsole/commands.h>
+#include <klog.h>
 
 
 extern struct command commands[];
@@ -46,6 +47,8 @@ void execute_line(char *line) {
     char *argv[16];
     int argc;
     int (*func_ptr)();
+
+    klog_debug("konsole executing line \"%s\"", line);
 
     // since strtok destroys the string, copy to temporary place
     strncpy(tokens, line, sizeof(tokens));

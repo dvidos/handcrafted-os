@@ -9,372 +9,65 @@
 #include <errors.h>
 #include "fat_priv.h"
 
-
-static int dir_in_data_clusters_open(file_t *file, uint32_t cluster_no) {
-    klog_trace("dir_in_data_clusters_open(cluster=%d)", cluster_no);
+static int fat_opendir(char *path, file_t *file) {
+    klog_trace("fat_opendir(\"%s\")", path);
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-
-    int err = fat->ops->read_data_cluster(fat, cluster_no, pf->cluster);
-    if (err)
-        return err;
-
-    klog_debug("dir_in_data_clusters_open()");
-    klog_hex16_debug(pf->cluster->buffer, fat->bytes_per_cluster, 0);
-
-    pf->offset = 0;
-    pf->size = 0;
-    return SUCCESS;
-}
-
-static int dir_in_data_clusters_read(file_t *file, fat_dir_entry *entry)
-{
-    klog_trace("dir_in_data_clusters_read()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    bool is_root = strlen(path) == 1 && path[0] == '/';
     int err;
 
-    if (pf->offset >= fat->bytes_per_cluster)
-    {
-        klog_debug("offset %d > than cluster size %d, finding next cluster", pf->offset, fat->bytes_per_cluster);
-
-        // we need to find the next cluster. if end of chain, we
-        uint32_t next_cluster_no = 0;
-        int err = fat->ops->get_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, &next_cluster_no);
-        if (err)
-            return err;
-        
-        if (fat->ops->is_end_of_chain_entry_value(fat, next_cluster_no))
-            return ERR_NO_MORE_CONTENT;
-
-        err = fat->ops->read_data_cluster(fat, next_cluster_no, pf->cluster);
-        if (err)
-            return err;
-
-        klog_debug("dir_in_data_clusters_read()");
-        klog_hex16_debug(pf->cluster->buffer, fat->bytes_per_cluster, 0);
-
-        // reset offset in the buffer, to read the new entries
-        pf->offset = 0;
-    }
-
-    // otherwise read something, load as needed
-    err = extract_dir_entry(pf->cluster->buffer, fat->bytes_per_cluster,
-            &pf->offset, entry);
-    return err;
-}
-
-static int dir_in_data_clusters_close(file_t *file) {
-    klog_trace("dir_in_data_clusters_close()");
-    // we did not allocate anything, so...
-    return SUCCESS;
-}
-
-
-
-// FAT16 the root dir is stored before the data clusters
-static int fat16_root_dir_open(file_t *file)
-{
-    klog_trace("fat16_root_dir_open()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-
-    int err = fat->partition->dev->ops->read(fat->partition->dev,
-        fat->root_dir_starting_lba, 0, 
-        fat->sectors_per_cluster,
-        pf->cluster->buffer);
-    if (err)
-        return err;
-
-    klog_debug("fat16_root_dir_open(), read %d sectors at LBA %d", fat->sectors_per_cluster, fat->root_dir_starting_lba);
-    klog_hex16_debug(pf->cluster->buffer, fat->bytes_per_cluster, 0);
-
-    pf->first_cluster_no = 0;
-    pf->cluster->cluster_no = 0;
-    pf->cluster->dirty = false;
-    pf->offset = 0;
-    pf->size = 0;
-    return SUCCESS;
-}
-
-static int fat16_root_dir_read(file_t *file, fat_dir_entry *entry)
-{
-    klog_trace("fat16_root_dir_read()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    int err;
-
-    if (pf->offset >= fat->bytes_per_cluster)
-    {
-        klog_debug("offset %d > than cluster buffer size %d, loading next cluster of root dir", pf->offset, fat->bytes_per_cluster);
-
-        // FAT12/16 has limited amount of root dir entries, make sure we don't overflow
-        int root_dir_bytes = fat->boot_sector->root_entry_count * 32;
-        int bytes_read = (pf->cluster->cluster_no + 1) * fat->bytes_per_cluster;
-        if (bytes_read >= root_dir_bytes)
-            return ERR_NO_MORE_CONTENT;
-
-        // we need to read the next sectors of the root dir, in the cluster buffer
-        // despite the root dir not being part of the data clusters area
-        pf->cluster->cluster_no++;
-
-        uint32_t lba = fat->root_dir_starting_lba + (pf->cluster->cluster_no * fat->sectors_per_cluster);
-        err = fat->partition->dev->ops->read(fat->partition->dev,
-                    lba, 0, fat->sectors_per_cluster, pf->cluster->buffer);
-        if (err)
-            return err;
-
-        klog_debug("fat16_root_dir_read(), read %d sectors at LBA %d", fat->sectors_per_cluster, lba);
-        klog_hex16_debug(pf->cluster->buffer, fat->bytes_per_cluster, 0);
-
-        // reset offset in the buffer, to read the new entries
-        pf->offset = 0;
-    }
-
-    // otherwise read something, load as needed
-    err = extract_dir_entry(pf->cluster->buffer, fat->bytes_per_cluster,
-            &pf->offset, entry);
-    return err;
-}
-
-static int fat16_root_dir_close(file_t *file) {
-    klog_trace("fat16_root_dir_close()");
-    // we did not allocate anything, so...
-    return SUCCESS;
-}
-
-// FAT32 the root dir is stored insie the data clusters (as all files and dirs)
-static int fat32_root_dir_open(file_t *file)
-{
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-
-    return dir_in_data_clusters_open(file, fat->boot_sector->types.fat_32.root_dir_cluster);
-}
-
-static int fat32_root_dir_read(file_t *file, fat_dir_entry *entry) {
-    return dir_in_data_clusters_read(file, entry);
-}
-
-static int fat32_root_dir_close(file_t *file) {
-    return dir_in_data_clusters_close(file);
-}
-
-
-// loops to find the target_name in the root directory
-static int find_entry_in_root_dir(file_t *file, char *target_name, fat_dir_entry *entry) {
-    klog_trace("find_entry_in_root_dir(target=\"%s\")", target_name);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    int err;
-    bool found = false;
-
-    err = fat->ops->root_dir_open(file);
-    if (err)
-        return err;
-
-    while (true) {
-        err = fat->ops->root_dir_read(file, entry);
-        if (err == ERR_NO_MORE_CONTENT)
-            break;
-        if (err)
-            return err;
-        if (strcmp(entry->short_name, target_name) == 0) {
-            found = true;
-            break;
-        }
-    }
-
-    err = fat->ops->root_dir_close(file);
-    if (err)
-        return err;
-
-    return found ? SUCCESS : ERR_NOT_FOUND;
-}
-
-// loops to find the target_name in a non-root directory
-static int find_entry_in_sub_dir(file_t *file, uint32_t dir_cluster_no, char *target_name, fat_dir_entry *entry) {
-    klog_trace("find_entry_in_sub_dir(cluster=%d, target=\"%s\")", dir_cluster_no, target_name);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    int err;
-    bool found = false;
-
-    err = dir_in_data_clusters_open(file, dir_cluster_no);
-    if (err)
-        return err;
-    while (true) {
-        err = dir_in_data_clusters_read(file, entry);
-        if (err == ERR_NO_MORE_CONTENT)
-            break;
-        if (err)
-            return err;
-        if (strcmp(entry->short_name, target_name) == 0) {
-            found = true;
-            break;
-        }
-    }
-    err = dir_in_data_clusters_close(file);
-    if (err)
-        return err;
-
-    return found ? SUCCESS : ERR_NOT_FOUND;
-}
-
-// walks a non-empty path, to find the final dir_entry
-static int find_entry_for_path(file_t *file, char *path, fat_dir_entry *entry)
-{
-    klog_trace("find_entry_for_path(path=%s)", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    int err;
-    bool found = false;
-
-    char *target_name = kmalloc(512);
-    int offset = 0;
-    err = get_next_path_part(path, &offset, target_name);
-    klog_debug("get_next_path_part() -> %d, part=\"%s\"", err, target_name);
-    if (err) { 
-        kfree(target_name);
-        return ERR_BAD_ARGUMENT; // this should not happen, we expect at least one name in the path
-    }
-
-    // this is the first time, so look at root folder
-    err = find_entry_in_root_dir(file, target_name, entry);
-    klog_debug("find_entry_in_root_dir() -> %d", err);
-    if (err) {
-        kfree(target_name);
-        return err;
-    }
-    
-    // now continue to the next path part
-    uint32_t cluster_no = entry->first_cluster_no;
-    while (true) {
-        err = get_next_path_part(path, &offset, target_name);
-        klog_debug("get_next_path_part() -> \"%s\"", target_name);
-        if (err == ERR_NO_MORE_CONTENT) {
-            // that means the last entry was the last one, so we suceeded
-            found = true;
-            break;
-        }
-        // otherwise, look for this entry as well
-        err = find_entry_in_sub_dir(file, cluster_no, target_name, entry);
-        klog_debug("find_entry_in_sub_dir() -> %d", err);
-        if (err) {
-            kfree(target_name);
-            return err;
-        }
-    }
-
-    kfree(target_name);
-    return SUCCESS;
-}
-
-static int fat_opendir(char *path, file_t *file)
-{
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = kmalloc(sizeof(fat_priv_file_info));
-    memset(pf, 0, sizeof(fat_priv_file_info));
-
-    pf->sector = kmalloc(sizeof(sector_t));
-    memset(pf->sector, 0, sizeof(sector_t));
-    pf->sector->buffer = kmalloc(fat->bytes_per_sector);
-    memset(pf->sector->buffer, 0, fat->bytes_per_sector);
-    pf->cluster = kmalloc(sizeof(cluster_t));
-    memset(pf->cluster, 0, sizeof(cluster_t));
-    pf->cluster->buffer = kmalloc(fat->bytes_per_cluster);
-    memset(pf->cluster->buffer, 0, fat->bytes_per_cluster);
-    pf->dir_entry = kmalloc(sizeof(fat_dir_entry));
-    memset(pf->dir_entry, 0, sizeof(fat_dir_entry));
-
-    file->filesys_priv_data = pf;
-
-    klog_trace("fat_opendir(fat_type=FAT%d, path=\"%s\")", 
-        fat->fat_type == FAT32 ? 32 : (fat->fat_type == FAT16 ? 16 : 12), 
-        path);
-
-    pf->is_root_directory = (strlen(path) == 1 && *path == '/');
-    if (pf->is_root_directory)
-    {
-        if (fat->fat_type == FAT12 || fat->fat_type == FAT16) {
-            return fat16_root_dir_open(file);
-        } else {
-            return dir_in_data_clusters_open(file, fat->boot_sector->types.fat_32.root_dir_cluster);
-        }
-    }
-    else
-    {
-        // follow the path to the dir first
-        int err = find_entry_for_path(file, path, pf->dir_entry);
-        if (err)
-            return err;
-        if (!pf->dir_entry->attributes.flags.directory)
+    fat_priv_dir_info *pd = NULL;
+    if (is_root) {
+        err = fat->ops->priv_dir_open_root(fat, &pd);
+        if (err) return err;
+        file->filesys_priv_data = pd;
+    } else {
+        fat_dir_entry entry;
+        err = fat->ops->find_path_dir_entry(fat, path, false, &entry);
+        if (err) return err;
+        if (!entry.attributes.flags.directory)
             return ERR_NOT_A_DIRECTORY;
-        return dir_in_data_clusters_open(file, pf->dir_entry->first_cluster_no);
+
+        err = fat->ops->priv_dir_open_cluster(fat, entry.first_cluster_no, &pd);
+        file->filesys_priv_data = pd;
     }
+
+    return SUCCESS;
 }
 
-static int fat_readdir(file_t *file, struct dir_entry *dir_entry)
-{
+static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
     klog_trace("fat_readdir()");
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
-    int err;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
+    
+    fat_dir_entry *fat_dir_entry = kmalloc(sizeof(fat_dir_entry));
 
-    if (pf->is_root_directory && (fat->fat_type == FAT12 || fat->fat_type == FAT16))
-        err = fat16_root_dir_read(file, fat_entry);
-    else
-        err = dir_in_data_clusters_read(file, fat_entry);
+    int err = fat->ops->priv_dir_entry_read(fat, pd, fat_dir_entry);
+    if (err == SUCCESS) {
+        klog_debug("fat_readdir(): gotten entry for \"%s\"", fat_dir_entry->short_name);
 
-    if (err == NO_ERROR) {
-        strcpy(dir_entry->short_name, fat_entry->short_name);
-        dir_entry->file_size = fat_entry->file_size;
-        dir_entry->flags.label = fat_entry->attributes.flags.volume_label;
-        dir_entry->flags.dir = fat_entry->attributes.flags.directory;
-        dir_entry->flags.read_only = fat_entry->attributes.flags.read_only;
-        dir_entry->created.year = fat_entry->created_year;
-        dir_entry->created.month = fat_entry->created_month;
-        dir_entry->created.day = fat_entry->created_day;
-        dir_entry->created.hours = fat_entry->created_hour;
-        dir_entry->created.minutes = fat_entry->created_min;
-        dir_entry->created.seconds = fat_entry->created_sec;
-        dir_entry->modified.year = fat_entry->modified_year;
-        dir_entry->modified.month = fat_entry->modified_month;
-        dir_entry->modified.day = fat_entry->modified_day;
-        dir_entry->modified.hours = fat_entry->modified_hour;
-        dir_entry->modified.minutes = fat_entry->modified_min;
-        dir_entry->modified.seconds = fat_entry->modified_sec;
+        strcpy(dir_entry->short_name, fat_dir_entry->short_name);
+        fat_dir_entry_to_vfs_dir_entry(fat_dir_entry, dir_entry);
+    } else {
+        klog_debug("fat_readdir(): priv_dir_entry_read() returned %d", err);
     }
 
-    kfree(fat_entry);
+    kfree(fat_dir_entry);
     return err;
 }
 
 static int fat_closedir(file_t *file) {
+    klog_trace("fat_closedir()");
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    int err;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
 
-    if (pf->is_root_directory && (fat->fat_type == FAT12 || fat->fat_type == FAT16))
-        err = fat16_root_dir_close(file);
-    else
-        err = dir_in_data_clusters_close(file);
-
-    // we must free what we allocated in open()
-    kfree(pf->cluster->buffer);
-    kfree(pf->cluster);
-    kfree(pf->sector->buffer);
-    kfree(pf->sector);
-    kfree(pf->dir_entry);
-    kfree(pf);
+    int err = fat->ops->priv_dir_close(fat, pd);
     return err;
 }
 
-
-static int fat_mkdir(file_t *file, char *path) {
+static int fat_mkdir(char *path, file_t *file) {
+    klog_trace("fat_mkdir(\"%s\")", path);
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    fat_priv_file_info *pf;
     int err = ERR_NOT_IMPLEMENTED; 
 
     // find directory entry for the path (parent path)
@@ -384,8 +77,9 @@ static int fat_mkdir(file_t *file, char *path) {
 }
 
 static int fat_touch(char *path, file_t *file) {
+    klog_trace("fat_touch(\"%s\")", path);
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    fat_priv_file_info *pf;
     int err = ERR_NOT_IMPLEMENTED;
     
     // find directory entry for the path (parent path)
@@ -395,8 +89,9 @@ static int fat_touch(char *path, file_t *file) {
 }
 
 static int fat_unlink(char *path, file_t *file) {
+    klog_trace("fat_unlink(\"%s\")", path);
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    fat_priv_file_info *pf;
     int err = ERR_NOT_IMPLEMENTED;
     
     // find dirctory entry
@@ -406,39 +101,26 @@ static int fat_unlink(char *path, file_t *file) {
 }
 
 
-/*
-    most probably we need something similar to the approach in clusters.cincl.
-    Essentially, ability to navigate the clusters of a directory as needed
-        also transparently navigate sectors of root directory in FAT16 as well.
-    Then, abiltiy to treat the entries in a directory as parts of a file:
-    - read an entry (and advance some pointer)
-    - remove (invalidate) an entry
-    - add an entry at end of table (e.g. to change long file name)
-    - update an entry in place (e.g. file size, first cluster no for a new file, update date)
-    Let's keep the UCS-2 encoding, maybe we can add english later on.
-    Maybe beyond just "priv_fat_file_data", we need "priv_fat_dir_data" type
-    Maybe we can treat directories as files with var-length dentries as contents?
-        yes, but not the root directory...
-*/
 
-static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info *pd);
+// --- lower level, accessible through fat->ops
 
-
-// ------------------------------------
 
 
 // opening and closing directories
-static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info *pd) {
+static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd) {
+    klog_trace("priv_dir_open_root()");
     if (fat->fat_type == FAT32)
-        return priv_dir_open_cluster(fat, fat->boot_sector->types.fat_32.root_dir_cluster, pd);
+        return priv_dir_open_cluster(fat, fat->boot_sector->types.fat_32.root_dir_cluster, ppd);
 
-    pd = kmalloc(sizeof(fat_priv_dir_info));
+    fat_priv_dir_info *pd = kmalloc(sizeof(fat_priv_dir_info));
+    *ppd = pd;
     memset(pd, 0, sizeof(fat_priv_dir_info));
     pd->is_fat16_root = true;
     pd->fat16_root_data.sector_buffer = kmalloc(fat->bytes_per_sector);
 
     // need to read first sector
     // a sample value is 32 sectors for the root directory.
+    // therefore the root dir total size is 16KB.
 
     int err = fat->partition->dev->ops->read(fat->partition->dev,
         fat->root_dir_starting_lba, 0, 1, pd->fat16_root_data.sector_buffer);
@@ -454,19 +136,25 @@ static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info *pd) {
     return SUCCESS;
 }
 
-static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info *pd) {
-    pd = kmalloc(sizeof(fat_priv_dir_info));
+static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info **ppd) {
+    klog_trace("priv_dir_open_cluster(cluster=%d)", cluster_no);
+    fat_priv_dir_info *pd = kmalloc(sizeof(fat_priv_dir_info));
+    *ppd = pd;
     memset(pd, 0, sizeof(fat_priv_dir_info));
     pd->is_fat16_root = false; // explicitly
 
     // we treat dir contents as file contents
     uint32_t dir_size = fat->bytes_per_cluster; // can be much larger...
-    return fat->ops->priv_file_open(fat, cluster_no, dir_size, pd->pf);
+    return fat->ops->priv_file_open(fat, cluster_no, dir_size, &(pd->pf));
 }
 
 static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32) {
-    if (!pd->is_fat16_root)
-        return fat->ops->priv_file_read(fat, pd->pf, buffer32, 32);
+    klog_trace("priv_dir_read_slot()");
+    int err;
+    if (!pd->is_fat16_root) {
+        err = fat->ops->priv_file_read(fat, pd->pf, buffer32, BYTES_PER_DIR_SLOT);
+        return (err < 0) ? err : SUCCESS; // we don't care how many bytes we read
+    }
 
     // fat 16 root code here
     if (pd->fat16_root_data.offset_in_sector >= fat->bytes_per_sector) {
@@ -476,69 +164,83 @@ static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buf
         
         // before reading, write any dirty sector
         if (pd->fat16_root_data.sector_dirty) {
-            int err = fat->partition->dev->ops->write(fat->partition->dev,
+            err = fat->partition->dev->ops->write(fat->partition->dev,
                 fat->root_dir_starting_lba + pd->fat16_root_data.sector_no, 
                 0, 1, pd->fat16_root_data.sector_buffer);
-            if (err) return err;
+            if (err < 0) return err;
         }
 
         // now we can read the next sector
-        int err = fat->partition->dev->ops->read(fat->partition->dev,
+        err = fat->partition->dev->ops->read(fat->partition->dev,
             fat->root_dir_starting_lba + pd->fat16_root_data.sector_no + 1, 
             0, 1, pd->fat16_root_data.sector_buffer);
-        if (err) return err;
+        if (err < 0) return err;
         pd->fat16_root_data.sector_no += 1;
         pd->fat16_root_data.offset_in_sector = 0;
     }
 
     // now we can read
-    memcpy(buffer32, pd->fat16_root_data.sector_buffer + pd->fat16_root_data.offset_in_sector, 32);
-    pd->fat16_root_data.offset_in_sector += 32;
+    memcpy(buffer32, pd->fat16_root_data.sector_buffer + pd->fat16_root_data.offset_in_sector, BYTES_PER_DIR_SLOT);
+    pd->fat16_root_data.offset_in_sector += BYTES_PER_DIR_SLOT;
 
     return SUCCESS;
 }
 
 static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32) {
-    if (!pd->is_fat16_root)
-        return fat->ops->priv_file_write(fat, pd->pf, buffer32, 32);
+    klog_trace("priv_dir_write_slot()");
+    int err;
+    if (!pd->is_fat16_root) {
+        err = fat->ops->priv_file_write(fat, pd->pf, buffer32, BYTES_PER_DIR_SLOT);
+        return (err < 0) ? err : SUCCESS; // we don't care how many bytes we read
+    }
 
     // fat 16 root code here
     if (pd->fat16_root_data.offset_in_sector >= fat->bytes_per_sector) {
         // need to read the next sector
         if (pd->fat16_root_data.sector_no == fat->root_dir_sectors_count - 1)
-            return ERR_NO_MORE_CONTENT;
+            return ERR_NO_SPACE_LEFT;
         
         // before reading, write any dirty sector
         if (pd->fat16_root_data.sector_dirty) {
-            int err = fat->partition->dev->ops->write(fat->partition->dev,
+            err = fat->partition->dev->ops->write(fat->partition->dev,
                 fat->root_dir_starting_lba + pd->fat16_root_data.sector_no, 
                 0, 1, pd->fat16_root_data.sector_buffer);
-            if (err) return err;
+            if (err < 0) return err;
         }
 
         // read next sector
         int err = fat->partition->dev->ops->read(fat->partition->dev,
             fat->root_dir_starting_lba + pd->fat16_root_data.sector_no + 1, 
             0, 1, pd->fat16_root_data.sector_buffer);
-        if (err) return err;
+        if (err < 0) return err;
         pd->fat16_root_data.sector_no += 1;
         pd->fat16_root_data.offset_in_sector = 0;
     }
 
     // now we can write
-    memcpy(pd->fat16_root_data.sector_buffer + pd->fat16_root_data.offset_in_sector, buffer32, 32);
-    pd->fat16_root_data.offset_in_sector += 32;
+    memcpy(pd->fat16_root_data.sector_buffer + pd->fat16_root_data.offset_in_sector, buffer32, BYTES_PER_DIR_SLOT);
+    pd->fat16_root_data.offset_in_sector += BYTES_PER_DIR_SLOT;
     pd->fat16_root_data.sector_dirty = true;
 
     return SUCCESS;
 }
 
-static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no) {
+static int priv_dir_get_slot_no(fat_info *fat, fat_priv_dir_info *pd) {
+    klog_trace("priv_dir_get_slot_no()");
     if (!pd->is_fat16_root)
-        return fat->ops->priv_file_seek(fat, pd->pf, slot_no * 32, SEEK_START);
+        return fat->ops->priv_file_seek(fat, pd->pf, 0, SEEK_CURRENT);
+
+    return (pd->fat16_root_data.sector_no * fat->bytes_per_sector 
+        + pd->fat16_root_data.offset_in_sector) / BYTES_PER_DIR_SLOT;
+}
+
+static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no) {
+    klog_trace("priv_dir_seek_slot(slot_no=%d)", slot_no);
+    if (!pd->is_fat16_root)
+        return fat->ops->priv_file_seek(fat, pd->pf, slot_no * BYTES_PER_DIR_SLOT, SEEK_START);
 
     // fat 16 root code here
-    uint32_t target_sector_no = (slot_no * 32) / fat->bytes_per_sector;
+    uint32_t target_sector_no = (slot_no * BYTES_PER_DIR_SLOT) / fat->bytes_per_sector;
     if (target_sector_no != pd->fat16_root_data.sector_no) {
         // we need to read the new sector.
         if (target_sector_no >= fat->root_dir_sectors_count)
@@ -560,12 +262,13 @@ static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no)
         pd->fat16_root_data.sector_no = target_sector_no;
     }
 
-    pd->fat16_root_data.offset_in_sector = (slot_no * 32) % fat->bytes_per_sector;
+    pd->fat16_root_data.offset_in_sector = (slot_no * BYTES_PER_DIR_SLOT) % fat->bytes_per_sector;
 
     return SUCCESS;
 }
 
 static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
+    klog_trace("priv_dir_close()");
     int err;
     if (pd->is_fat16_root) {
         // before closing, write any dirty sector
@@ -586,49 +289,140 @@ static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
     return SUCCESS;
 }
 
-int read_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-    uint8_t buffer32[32];
+static int priv_dir_entry_read(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    klog_trace("priv_dir_entry_read()");
+    uint8_t buffer32[BYTES_PER_DIR_SLOT];
 
     while (true) {
         int err = priv_dir_read_slot(fat, pd, buffer32);
-        // must detect end of content
-        // skip invalidated entries
-        // collect long names
-        // extract actual entries
+        if (err < 0) return err;
+
+        klog_debug("priv_dir_read_slot() --> slot contents follow");
+        klog_hex16_debug(buffer32, BYTES_PER_DIR_SLOT, 0);
+
+        if (is_dir_slot_eof(buffer32))
+            return ERR_NO_MORE_CONTENT;
+
+        if (is_dir_slot_deleted(buffer32))
+            continue;
+
+        if (is_dir_slot_long_name(buffer32))
+            continue; // not supported for now
+
+        entry->short_entry_slot_no = priv_dir_get_slot_no(fat, pd);
+        dir_slot_to_entry(buffer32, entry);
+        break;
     }
 
-    return ERR_NOT_IMPLEMENTED;
+    return SUCCESS;
 }
 
-int invalidate_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+static int priv_dir_entry_invalidate(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    klog_trace("priv_dir_entry_invalidate()");
     // write the first byte of the actual entry
     return ERR_NOT_IMPLEMENTED;
 }
 
-int update_dir_entry_in_place(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-
+static int priv_dir_entry_update(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    klog_trace("priv_dir_entry_update()");
     // update things like size, date etc.
     // maybe update long file name if same size
     return ERR_NOT_IMPLEMENTED;
 }
 
-int append_dir_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+static int priv_dir_entry_append(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    klog_trace("priv_dir_entry_append()");
     // write new entry, along with long file name
     return ERR_NOT_IMPLEMENTED;
 }
 
-// working with paths
-int find_named_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry) {
-    return ERR_NOT_IMPLEMENTED;
+// find entry in a directory
+static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry) {
+    klog_trace("find_entry_in_dir(name=\"%s\")", name);
+
+    int err = priv_dir_seek_slot(fat, pd, 0);
+    if (err) return err;
+
+    while (true) {
+        err = priv_dir_entry_read(fat, pd, entry);
+        if (err) return err;
+
+        klog_debug("find_entry_in_dir(): gotten entry for \"%s\"", entry->short_name);
+        if (strcmp(entry->short_name, name) == 0)
+            break;
+    }
+    return SUCCESS;
 }
 
-int find_path_entry(fat_info *fat, fat_priv_dir_info *pd, uint8_t *path, fat_dir_entry *entry) {
-    // if caller wants the containing directory, they should split the path.
-    return ERR_NOT_IMPLEMENTED;
+// find the dir_entry for the containing dir of the path. we can then open it to perform operations.
+static int find_path_dir_entry(fat_info *fat,  uint8_t *path, bool containing_dir, fat_dir_entry *entry) {
+    klog_trace("find_path_dir_entry(path=\"%s\", containing=%s)", path, containing_dir ? "yes" : "no");
+    fat_priv_dir_info *pd = NULL;
+    int offset = 0;
+    int err = NO_ERROR;
+    char *name = kmalloc(strlen(path) + 1);
+
+    int parts_count = count_path_parts(path);
+    int parts_needed = containing_dir ? parts_count - 1 : parts_count;
+    if (parts_needed == 0) {
+        klog_error("find_path_dir_entry(): containing dir for path \"%s\" could be root", path);
+        err = ERR_BAD_ARGUMENT;
+        goto exit;
+    }
+    int parts_so_far = 0;
+
+    // start from root (or maybe current working directory?)
+    err = priv_dir_open_root(fat, &pd);
+    if (err) goto exit;
+
+    while (true) {
+        // extract a name from the path
+        err = get_next_path_part(path, &offset, name);
+        if (err) goto exit;
+        parts_so_far++;
+        
+        // need chunk of user name
+        err = find_entry_in_dir(fat, pd, name, entry);
+        if (err == ERR_NO_MORE_CONTENT) {
+            err = ERR_NOT_FOUND;
+            goto exit;
+        } else if (err) {
+            goto exit;
+        }
+
+        // since we found entry of this level, close it
+        err = priv_dir_close(fat, pd);
+        if (err) goto exit;
+        pd = NULL;
+
+        if (parts_so_far == parts_needed) {
+            // we are done!
+            err = SUCCESS;
+            break;
+        }
+        
+        // what we are about to open should be a directory
+        if (!entry->attributes.flags.directory) {
+            err = ERR_NOT_A_DIRECTORY;
+            goto exit;
+        }
+
+        // close this and open the next level of directory
+        err = priv_dir_open_cluster(fat, entry->first_cluster_no, &pd);
+        if (err) goto exit;
+    }
+
+    // close any dangling open dir
+    if (pd != NULL) {
+        err = priv_dir_close(fat, pd);
+        if (err) goto exit;
+    }
+
+exit:
+    if (name)
+        kfree(name);
+    return err;
 }
-
-
-
 
 
 #endif
