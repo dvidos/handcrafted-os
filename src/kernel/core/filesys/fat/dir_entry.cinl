@@ -1,26 +1,32 @@
-#include "fat_priv.h"
 #include <bits.h>
 #include <klib/string.h>
 #include <klog.h>
 #include <errors.h>
 #include <filesys/vfs.h>
+#include <drivers/clock.h>
+#include "fat_priv.h"
 
 
-static inline int is_dir_slot_long_name(uint8_t *buffer) {
-    return buffer[0x0B] == ATTR_LONG_NAME;
+static inline bool is_dir_slot_long_name(uint8_t *buffer32) {
+    return buffer32[0x0B] == ATTR_LONG_NAME;
 }
 
-static inline int is_dir_slot_eof(uint8_t *buffer) {
-    return buffer[0x0B] != ATTR_LONG_NAME && buffer[0] == DIR_NAME_END_OF_LIST;
+static inline bool is_dir_slot_eof(uint8_t *buffer32) {
+    return buffer32[0x0B] != ATTR_LONG_NAME && buffer32[0] == DIR_NAME_END_OF_LIST;
 }
 
-static inline int is_dir_slot_deleted(uint8_t *buffer) {
-    return buffer[0x0B] != ATTR_LONG_NAME && buffer[0] == DIR_NAME_DELETED;
+static inline bool is_dir_slot_deleted(uint8_t *buffer32) {
+    return buffer32[0x0B] != ATTR_LONG_NAME && buffer32[0] == DIR_NAME_DELETED;
+}
+
+static inline void dir_slot_mark_deleted(uint8_t *buffer32) {
+    buffer32[0] = DIR_NAME_DELETED;
 }
 
 static void dir_slot_to_entry(uint8_t *buffer, fat_dir_entry *entry) {
 
     entry->attributes.value = buffer[0x0B];
+
     uint16_t cluster_hi = *(uint16_t*)&buffer[0x14];
     uint16_t cluster_low = *(uint16_t*)&buffer[0x1a];
     entry->first_cluster_no = ((uint32_t)cluster_hi) << 16 | (uint32_t)cluster_low;
@@ -59,6 +65,56 @@ static void dir_slot_to_entry(uint8_t *buffer, fat_dir_entry *entry) {
 }
 
 static void dir_entry_to_slot(fat_dir_entry *entry, uint8_t *buffer) {
+    memset(buffer, 0, 32);
+
+    buffer[0x0b] = entry->attributes.value;
+
+    *(uint16_t *)&buffer[0x14] = HIGH_WORD(entry->first_cluster_no);
+    *(uint16_t *)&buffer[0x1a] = LOW_WORD(entry->first_cluster_no);
+    *(uint32_t *)&buffer[0x1c] = entry->file_size;
+
+    *(uint16_t *)&buffer[0x0E] = (uint16_t)(
+        SET_BIT_RANGE(entry->created_hour,    15, 11) |
+        SET_BIT_RANGE(entry->created_min,     10,  5) |
+        SET_BIT_RANGE(entry->created_sec / 2,  4,  0)  // 2 seconds precision
+    );
+
+    *(uint16_t *)&buffer[0x10] = (uint16_t)(
+        SET_BIT_RANGE(entry->created_year - 1980, 15, 9) |
+        SET_BIT_RANGE(entry->created_month,        8, 5) |
+        SET_BIT_RANGE(entry->created_day,          4, 0)
+    );
+
+    *(uint16_t *)&buffer[0x16] = (uint16_t)(
+        SET_BIT_RANGE(entry->modified_hour,    15, 11) |
+        SET_BIT_RANGE(entry->modified_min,     10,  5) |
+        SET_BIT_RANGE(entry->modified_sec / 2,  4,  0)  // 2 seconds precision
+    );
+
+    *(uint16_t *)&buffer[0x18] = (uint16_t)(
+        SET_BIT_RANGE(entry->modified_year - 1980, 15, 9) |
+        SET_BIT_RANGE(entry->modified_month,        8, 5) |
+        SET_BIT_RANGE(entry->modified_day,          4, 0)
+    );
+
+    // name, we need better logic, to split name/extension
+    memset(buffer, ' ', 11);
+    int pos = 0;
+    int max_chars = 8;
+    int chars_so_far = 0;
+    int len = strlen(entry->short_name);
+    for (int i = 0; i < len; i++) {
+        if (entry->short_name[i] == '.') {
+            pos = 8;
+            max_chars = 3;
+            chars_so_far = 0;
+            continue;
+        }
+        if (chars_so_far < max_chars) {
+            buffer[pos++] = toupper(entry->short_name[i]);
+            chars_so_far++;
+        }
+    }
 }
 
 static void dir_entry_to_long_name(uint8_t *buffer, fat_dir_entry *entry) {
@@ -76,6 +132,8 @@ static void dir_long_name_to_slot(fat_dir_entry *entry, int seq_no, uint8_t *buf
 }
 
 static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t *vfs_entry) {
+
+    strcpy(vfs_entry->short_name, fat_entry->short_name);
     vfs_entry->file_size = fat_entry->file_size;
     vfs_entry->flags.label = fat_entry->attributes.flags.volume_label;
     vfs_entry->flags.dir = fat_entry->attributes.flags.directory;
@@ -93,3 +151,23 @@ static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t
     vfs_entry->modified.minutes = fat_entry->modified_min;
     vfs_entry->modified.seconds = fat_entry->modified_sec;
 }
+
+static void dir_entry_set_created_time(fat_dir_entry *entry, struct clock_time *time) {
+    entry->created_year = time->years;
+    entry->created_month = time->months;
+    entry->created_day = time->days;
+    entry->created_hour = time->hours;
+    entry->created_min = time->minutes;
+    entry->created_sec = time->seconds;
+}
+
+static void dir_entry_set_modified_time(fat_dir_entry *entry, struct clock_time *time) {
+    entry->modified_year = time->years;
+    entry->modified_month = time->months;
+    entry->modified_day = time->days;
+    entry->modified_hour = time->hours;
+    entry->modified_min = time->minutes;
+    entry->modified_sec = time->seconds;
+}
+
+

@@ -1,5 +1,6 @@
 # things to do
 
+* Make one command that allows us to read/modify/write sectors off of hard disk
 * Make FAT read/write and start a shell and a vi editor
 * Maybe I want to get fast to a place where I can boot the OS and 
 and have an environment where I can improve it, e.g. test and compile apps

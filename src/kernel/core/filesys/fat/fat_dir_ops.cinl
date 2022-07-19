@@ -1,6 +1,7 @@
 #ifndef _FAT_DIR_OPS_CINL
 #define _FAT_DIR_OPS_CINL
 
+#include <drivers/clock.h>
 #include <filesys/vfs.h>
 #include <memory/kheap.h>
 #include <klib/string.h>
@@ -9,104 +10,10 @@
 #include <errors.h>
 #include "fat_priv.h"
 
-static int fat_opendir(char *path, file_t *file) {
-    klog_trace("fat_opendir(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    bool is_root = strlen(path) == 1 && path[0] == '/';
-    int err;
-
-    fat_priv_dir_info *pd = NULL;
-    if (is_root) {
-        err = fat->ops->priv_dir_open_root(fat, &pd);
-        if (err) return err;
-        file->filesys_priv_data = pd;
-    } else {
-        fat_dir_entry entry;
-        err = fat->ops->find_path_dir_entry(fat, path, false, &entry);
-        if (err) return err;
-        if (!entry.attributes.flags.directory)
-            return ERR_NOT_A_DIRECTORY;
-
-        err = fat->ops->priv_dir_open_cluster(fat, entry.first_cluster_no, &pd);
-        file->filesys_priv_data = pd;
-    }
-
-    return SUCCESS;
-}
-
-static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
-    klog_trace("fat_readdir()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
-    
-    fat_dir_entry *fat_dir_entry = kmalloc(sizeof(fat_dir_entry));
-
-    int err = fat->ops->priv_dir_entry_read(fat, pd, fat_dir_entry);
-    if (err == SUCCESS) {
-        klog_debug("fat_readdir(): gotten entry for \"%s\"", fat_dir_entry->short_name);
-
-        strcpy(dir_entry->short_name, fat_dir_entry->short_name);
-        fat_dir_entry_to_vfs_dir_entry(fat_dir_entry, dir_entry);
-    } else {
-        klog_debug("fat_readdir(): priv_dir_entry_read() returned %d", err);
-    }
-
-    kfree(fat_dir_entry);
-    return err;
-}
-
-static int fat_closedir(file_t *file) {
-    klog_trace("fat_closedir()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
-
-    int err = fat->ops->priv_dir_close(fat, pd);
-    return err;
-}
-
-static int fat_mkdir(char *path, file_t *file) {
-    klog_trace("fat_mkdir(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf;
-    int err = ERR_NOT_IMPLEMENTED; 
-
-    // find directory entry for the path (parent path)
-    // create entry
-
-    return err;
-}
-
-static int fat_touch(char *path, file_t *file) {
-    klog_trace("fat_touch(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf;
-    int err = ERR_NOT_IMPLEMENTED;
-    
-    // find directory entry for the path (parent path)
-    // create entry
-
-    return err;
-}
-
-static int fat_unlink(char *path, file_t *file) {
-    klog_trace("fat_unlink(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf;
-    int err = ERR_NOT_IMPLEMENTED;
-    
-    // find dirctory entry
-    // invalidate it.
-
-    return err;
-}
 
 
 
-// --- lower level, accessible through fat->ops
-
-
-
-// opening and closing directories
+// abstract away FAT 16 / 32 differences in root dir
 static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd) {
     klog_trace("priv_dir_open_root()");
     if (fat->fat_type == FAT32)
@@ -146,6 +53,40 @@ static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_di
     // we treat dir contents as file contents
     uint32_t dir_size = fat->bytes_per_cluster; // can be much larger...
     return fat->ops->priv_file_open(fat, cluster_no, dir_size, &(pd->pf));
+}
+
+static int priv_dir_find_and_open(fat_info *fat,  uint8_t *path, bool containing_dir, fat_priv_dir_info **ppd) {
+    int err;
+
+    bool is_root = strlen(path) == 1 && path[0] == '/';
+    if (is_root && containing_dir) {
+        klog_error("priv_dir_find_and_open(): Cannot find containing of root dir! (path=\"%s\")", path);
+        return ERR_BAD_ARGUMENT;
+    }
+
+    int path_parts = count_path_parts(path);
+    if (is_root || (path_parts == 1 && containing_dir)) {
+        err = fat->ops->priv_dir_open_root(fat, ppd);
+        if (err) return err;
+    } else {
+        fat_dir_entry *entry = kmalloc(sizeof(fat_dir_entry));
+        err = fat->ops->find_path_dir_entry(fat, path, containing_dir, entry);
+        if (err) {
+            kfree(entry);
+            return err;
+        }
+        if (!entry->attributes.flags.directory) {
+            kfree(entry);
+            return ERR_NOT_A_DIRECTORY;
+        }
+
+        uint32_t cluster_no = entry->first_cluster_no;
+        kfree(entry);
+        err = fat->ops->priv_dir_open_cluster(fat, cluster_no, ppd);
+        if (err) return err;
+    }
+
+    return SUCCESS;
 }
 
 static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32) {
@@ -226,12 +167,16 @@ static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *bu
 }
 
 static int priv_dir_get_slot_no(fat_info *fat, fat_priv_dir_info *pd) {
-    klog_trace("priv_dir_get_slot_no()");
+    int slot_no;
     if (!pd->is_fat16_root)
-        return fat->ops->priv_file_seek(fat, pd->pf, 0, SEEK_CURRENT);
+        slot_no = fat->ops->priv_file_seek(fat, pd->pf, 0, SEEK_CURRENT);
 
-    return (pd->fat16_root_data.sector_no * fat->bytes_per_sector 
-        + pd->fat16_root_data.offset_in_sector) / BYTES_PER_DIR_SLOT;
+    else
+        slot_no = (pd->fat16_root_data.sector_no * fat->bytes_per_sector 
+                    + pd->fat16_root_data.offset_in_sector) / BYTES_PER_DIR_SLOT;
+
+    klog_trace("priv_dir_get_slot_no() -> %d", slot_no);
+    return slot_no;
 }
 
 static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no) {
@@ -289,15 +234,16 @@ static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
     return SUCCESS;
 }
 
-static int priv_dir_entry_read(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-    klog_trace("priv_dir_entry_read()");
+static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
+    klog_trace("priv_dir_read_one_entry()");
     uint8_t buffer32[BYTES_PER_DIR_SLOT];
 
     while (true) {
+        int slot_before_reading = priv_dir_get_slot_no(fat, pd);
         int err = priv_dir_read_slot(fat, pd, buffer32);
         if (err < 0) return err;
 
-        klog_debug("priv_dir_read_slot() --> slot contents follow");
+        klog_debug("read slot contents follow");
         klog_hex16_debug(buffer32, BYTES_PER_DIR_SLOT, 0);
 
         if (is_dir_slot_eof(buffer32))
@@ -309,7 +255,8 @@ static int priv_dir_entry_read(fat_info *fat, fat_priv_dir_info *pd, fat_dir_ent
         if (is_dir_slot_long_name(buffer32))
             continue; // not supported for now
 
-        entry->short_entry_slot_no = priv_dir_get_slot_no(fat, pd);
+        // this helps for fast updates (size, date etc)
+        entry->short_entry_slot_no = slot_before_reading;
         dir_slot_to_entry(buffer32, entry);
         break;
     }
@@ -317,24 +264,97 @@ static int priv_dir_entry_read(fat_info *fat, fat_priv_dir_info *pd, fat_dir_ent
     return SUCCESS;
 }
 
+static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *name, bool directory) {
+    klog_trace("priv_dir_create_entry(name=\"%s\", dir=%s)", name, directory ? "true" : "false");
+    uint8_t buffer32[BYTES_PER_DIR_SLOT];
+    uint32_t slot_no;
+    int err;
+    fat_dir_entry *entry = NULL;
+
+    // prepare the new entry
+    entry = kmalloc(sizeof(fat_dir_entry));
+    memset(entry, 0, sizeof(fat_dir_entry));
+    strncpy(entry->short_name, name, 12 + 1);
+    entry->attributes.flags.directory = directory;
+    struct clock_time time;
+    get_real_time_clock(&time);
+    dir_entry_set_created_time(entry, &time);
+    dir_entry_set_modified_time(entry, &time);
+    
+    // creating an empty file does not allocate a new cluster.
+    // not so sure about directories though...
+    entry->first_cluster_no = 0;
+    entry->file_size = 0;
+
+    // read through all the entries to find an empty slot
+    // later, to save long names, we'll need to find lots of consecutive free slots.
+    fat->ops->priv_dir_seek_slot(fat, pd, 0);
+    while (true) {
+        slot_no = priv_dir_get_slot_no(fat, pd);
+        int err = priv_dir_read_slot(fat, pd, buffer32);
+        if (err != NO_ERROR && err != ERR_NO_MORE_CONTENT) goto exit;
+
+        klog_debug("priv_dir_read_slot() --> slot contents follow");
+        klog_hex16_debug(buffer32, BYTES_PER_DIR_SLOT, 0);
+
+        // we need to find eof, though we do not know how we'll allocate more space
+        bool passed_entries = is_dir_slot_eof(buffer32) || err == ERR_NO_MORE_CONTENT;
+        if (!passed_entries)
+            continue;
+
+        // now we can save our new entry!
+        err = priv_dir_seek_slot(fat, pd, slot_no);
+        if (err) goto exit;
+        entry->short_entry_slot_no = slot_no;
+
+        // we can save long name here too
+        dir_entry_to_slot(entry, buffer32);
+        err = priv_dir_write_slot(fat, pd, buffer32);
+        if (err) goto exit;
+        break;
+    }
+
+    err = SUCCESS;
+exit:
+    if (entry != NULL)
+        kfree(entry);
+    return err;
+}
+
 static int priv_dir_entry_invalidate(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-    klog_trace("priv_dir_entry_invalidate()");
-    // write the first byte of the actual entry
-    return ERR_NOT_IMPLEMENTED;
+    klog_trace("priv_dir_entry_invalidate(name=\"%s\")", entry->short_name);
+    uint8_t buffer32[BYTES_PER_DIR_SLOT];
+    int err;
+
+    klog_debug("current slot is %d", priv_dir_get_slot_no(fat, pd));
+    klog_debug("going to slot %d", entry->short_entry_slot_no);
+
+    err = fat->ops->priv_dir_seek_slot(fat, pd, entry->short_entry_slot_no);
+    if (err) return err;
+
+    klog_debug("after seek, slot is %d", priv_dir_get_slot_no(fat, pd));
+    
+    err = priv_dir_read_slot(fat, pd, buffer32);
+    if (err) return err;
+
+    klog_debug("Read buffer for slot, contents follow");
+    klog_hex16_debug(buffer32, 32, 0);
+
+    // fingers crossed this is the correct entry...
+    dir_slot_mark_deleted(buffer32);
+
+    klog_debug("Marking entry named \"%s\" as deleted, new buffer follows", entry->short_name);
+    klog_hex16_debug(buffer32, 32, 0);
+
+    err = fat->ops->priv_dir_seek_slot(fat, pd, entry->short_entry_slot_no);
+    if (err) return err;
+
+    err = priv_dir_write_slot(fat, pd, buffer32);
+    if (err) return err;
+
+    return SUCCESS;
 }
 
-static int priv_dir_entry_update(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-    klog_trace("priv_dir_entry_update()");
-    // update things like size, date etc.
-    // maybe update long file name if same size
-    return ERR_NOT_IMPLEMENTED;
-}
-
-static int priv_dir_entry_append(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-    klog_trace("priv_dir_entry_append()");
-    // write new entry, along with long file name
-    return ERR_NOT_IMPLEMENTED;
-}
 
 // find entry in a directory
 static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry) {
@@ -344,7 +364,7 @@ static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name
     if (err) return err;
 
     while (true) {
-        err = priv_dir_entry_read(fat, pd, entry);
+        err = priv_dir_read_one_entry(fat, pd, entry);
         if (err) return err;
 
         klog_debug("find_entry_in_dir(): gotten entry for \"%s\"", entry->short_name);

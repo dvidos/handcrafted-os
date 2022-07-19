@@ -4,6 +4,9 @@
 #include "fat_dir_ops.cinl"
 #include "fat_file_ops.cinl"
 
+// needed to lock for writes, this should be per logical volume....
+lock_t fat_write_lock;
+
 static int fat_probe(struct partition *partition) {
     klog_trace("FAT probing partition #%d (legacy type 0x%02x)", partition->part_no, partition->legacy_type);
 
@@ -120,8 +123,9 @@ static int fat_probe(struct partition *partition) {
     fat->ops->get_fat_entry_value = get_fat_entry_value;
     fat->ops->set_fat_entry_value = set_fat_entry_value;
     fat->ops->is_end_of_chain_entry_value = is_end_of_chain_entry_value;
-    fat->ops->get_n_index_cluster_no = get_n_index_cluster_no;
     fat->ops->find_a_free_cluster = find_a_free_cluster;
+    fat->ops->get_n_index_cluster_no = get_n_index_cluster_no;
+    
     fat->ops->read_data_cluster = read_data_cluster;
     fat->ops->write_data_cluster = write_data_cluster;
 
@@ -137,16 +141,16 @@ static int fat_probe(struct partition *partition) {
 
     fat->ops->priv_dir_open_root = priv_dir_open_root;
     fat->ops->priv_dir_open_cluster = priv_dir_open_cluster;
+    fat->ops->priv_dir_find_and_open = priv_dir_find_and_open;
     fat->ops->priv_dir_read_slot = priv_dir_read_slot;
     fat->ops->priv_dir_write_slot = priv_dir_write_slot;
     fat->ops->priv_dir_get_slot_no = priv_dir_get_slot_no;
     fat->ops->priv_dir_seek_slot = priv_dir_seek_slot;
     fat->ops->priv_dir_close = priv_dir_close;
 
-    fat->ops->priv_dir_entry_read = priv_dir_entry_read;
+    fat->ops->priv_dir_read_one_entry = priv_dir_read_one_entry;
+    fat->ops->priv_dir_create_entry = priv_dir_create_entry;
     fat->ops->priv_dir_entry_invalidate = priv_dir_entry_invalidate;
-    fat->ops->priv_dir_entry_update = priv_dir_entry_update;
-    fat->ops->priv_dir_entry_append = priv_dir_entry_append;
 
     fat->ops->find_path_dir_entry = find_path_dir_entry;
     fat->ops->find_entry_in_dir = find_entry_in_dir;
@@ -158,6 +162,205 @@ static int fat_probe(struct partition *partition) {
     return SUCCESS;
 }
 
+
+
+
+static int fat_open(char *path, file_t *file) {
+    klog_trace("fat_open(path=\"%s\")", path);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    int err;
+
+    fat_dir_entry entry;
+    err = fat->ops->find_path_dir_entry(fat, path, false, &entry);
+    if (err) return err;
+    if (entry.attributes.flags.directory || entry.attributes.flags.volume_label)
+        return ERR_NOT_A_FILE;
+    
+    fat_priv_file_info *pf = NULL;
+    err = fat->ops->priv_file_open(fat, entry.first_cluster_no, entry.file_size, &pf);
+    if (err)
+        return err;
+    file->filesys_priv_data = pf;
+
+    return SUCCESS;
+}
+
+static int fat_read(file_t *file, char *buffer, int length) {
+    klog_trace("fat_read(length=%d)", length);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    return fat->ops->priv_file_read(fat, pf, buffer, length);
+}
+
+static int fat_write(file_t *file, char *buffer, int length) {
+    klog_trace("fat_write(length=%d)", length);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    acquire(&fat_write_lock);
+    int err = fat->ops->priv_file_write(fat, pf, buffer, length);
+    release(&fat_write_lock);
+    return err;
+}
+
+static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
+    klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    return fat->ops->priv_file_seek(fat, pf, offset, origin);
+}
+
+static int fat_close(file_t *file) {
+    klog_trace("fat_close()");
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    return fat->ops->priv_file_close(fat, pf);
+}
+
+static int fat_opendir(char *path, file_t *file) {
+    klog_trace("fat_opendir(\"%s\")", path);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+
+    fat_priv_dir_info *pd = NULL;
+    int err = fat->ops->priv_dir_find_and_open(fat, path, false, &pd);
+    if (err) return err;
+    file->filesys_priv_data = pd;
+
+    return SUCCESS;
+}
+
+static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
+    klog_trace("fat_readdir()");
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
+    
+    fat_dir_entry *fat_dir_entry = kmalloc(sizeof(fat_dir_entry));
+
+    int err = fat->ops->priv_dir_read_one_entry(fat, pd, fat_dir_entry);
+    if (err == SUCCESS) {
+        klog_debug("fat_readdir(): gotten entry for \"%s\"", fat_dir_entry->short_name);
+        fat_dir_entry_to_vfs_dir_entry(fat_dir_entry, dir_entry);
+    } else {
+        klog_debug("fat_readdir(): priv_dir_read_one_entry() returned %d", err);
+    }
+
+    kfree(fat_dir_entry);
+    return err;
+}
+
+static int fat_closedir(file_t *file) {
+    klog_trace("fat_closedir()");
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
+
+    int err = fat->ops->priv_dir_close(fat, pd);
+    return err;
+}
+
+static int fat_mkdir(char *path, file_t *file) {
+    klog_trace("fat_mkdir(\"%s\")", path);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    char *name = NULL;
+    int err;
+
+    // don't use return, to make sure we release this.
+    acquire(&fat_write_lock);
+    
+    // find and open containing dir 
+    fat_priv_dir_info *pd = NULL;
+    err = fat->ops->priv_dir_find_and_open(fat, path, true, &pd);
+    if (err) goto exit;
+
+    // get name only and create entry
+    int path_parts = count_path_parts(path);
+    name = kmalloc(strlen(path) + 1);
+    get_n_index_path_part(path, path_parts - 1, name);
+    err = fat->ops->priv_dir_create_entry(fat, pd, name, true);
+    if (err) goto exit;
+
+    err = fat->ops->priv_dir_close(fat, pd);
+    if (err) goto exit;
+
+    err = SUCCESS;
+exit:
+    if (name != NULL)
+        kfree(name);
+    release(&fat_write_lock);
+    return err;
+}
+
+static int fat_touch(char *path, file_t *file) {
+    klog_trace("fat_touch(\"%s\")", path);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    char *name = NULL;
+    int err;
+
+    // don't use return, to make sure we release this.
+    acquire(&fat_write_lock);
+    
+    // find and open containing dir 
+    fat_priv_dir_info *pd = NULL;
+    err = fat->ops->priv_dir_find_and_open(fat, path, true, &pd);
+    if (err) goto exit;
+
+    // get name and invalidate
+    int path_parts = count_path_parts(path);
+    name = kmalloc(strlen(path) + 1);
+    get_n_index_path_part(path, path_parts - 1, name);
+    err = fat->ops->priv_dir_create_entry(fat, pd, name, false);
+    if (err) goto exit;
+
+    err = fat->ops->priv_dir_close(fat, pd);
+    if (err) goto exit;
+
+    err = SUCCESS;
+exit:
+    if (name != NULL)
+        kfree(name);
+    release(&fat_write_lock);
+    return err;
+}
+
+static int fat_unlink(char *path, file_t *file) {
+    klog_trace("fat_touch(\"%s\")", path);
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    int err;
+    char *name = NULL;
+    fat_dir_entry *entry = NULL;
+
+    // don't use return, to make sure we release this.
+    acquire(&fat_write_lock);
+    
+    // find and open containing dir 
+    fat_priv_dir_info *pd = NULL;
+    err = fat->ops->priv_dir_find_and_open(fat, path, true, &pd);
+    if (err) goto exit;
+
+    // get filename to find entry
+    int path_parts = count_path_parts(path);
+    name = kmalloc(strlen(path) + 1);
+    entry = kmalloc(sizeof(fat_dir_entry));
+    get_n_index_path_part(path, path_parts - 1, name);
+    err = fat->ops->find_entry_in_dir(fat, pd, name, entry);
+    if (err) goto exit;
+
+    err = fat->ops->priv_dir_entry_invalidate(fat, pd, entry);
+    if (err) goto exit;
+
+    err = fat->ops->priv_dir_close(fat, pd);
+    if (err) goto exit;
+
+    err = SUCCESS;
+exit:
+    if (name != NULL)
+        kfree(name);
+    if (entry != NULL)
+        kfree(entry);
+    release(&fat_write_lock);
+    return err;
+}
+
+
+
 struct file_ops fat_file_operations = {
     .opendir = fat_opendir,
     .readdir = fat_readdir,
@@ -167,7 +370,11 @@ struct file_ops fat_file_operations = {
     .read = fat_read,
     .write = fat_write,
     .seek = fat_seek,
-    .close = fat_close
+    .close = fat_close,
+
+    .touch = fat_touch,
+    .mkdir = fat_mkdir,
+    .unlink = fat_unlink
 };
 
 static struct file_ops *fat_get_file_operations() {

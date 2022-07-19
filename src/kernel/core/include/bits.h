@@ -36,6 +36,10 @@
 // for example BIT_RANGE(address, 12, 5), bit numbers are inclusive and zero-based
 #define BIT_RANGE(value, hi_bit_no, lo_bit_no)     (((value)>>(lo_bit_no)) & MASK64_OF((hi_bit_no)-(lo_bit_no)+1))
 
+// for example SET_BIT_RANGE(buffer, day, 12, 10). Bit nums are inclusive, zero based
+#define SET_BIT_RANGE(value, hi_bit_no, lo_bit_no)   \
+    (((value) & MASK64_OF((hi_bit_no)-(lo_bit_no)+1)) << (lo_bit_no))
+
 // useful in memory paging
 #define ROUND_UP_4K(number)      (((number) + 0xFFF) & ~0xFFF)
 #define ROUND_DOWN_4K(number)    (((number)        ) & ~0xFFF)

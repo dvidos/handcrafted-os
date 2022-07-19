@@ -3,11 +3,17 @@
 
 #include <filesys/vfs.h>
 #include <filesys/partition.h>
+#include <drivers/clock.h>
+#include <lock.h>
+
 
 #define min(a, b)     ((a) <= (b) ? (a) : (b))
 #define max(a, b)     ((a) >= (b) ? (a) : (b))
 
 
+
+// used to lock when writing. should be per logical volume
+extern lock_t fat_write_lock;
 
 typedef struct fat_boot_sector_extension_12_16 // applies to FAT12 as well
 {
@@ -221,6 +227,7 @@ struct fat_operations {
     // mid level dir functions, abstract away FAT16/32 differences
     int (*priv_dir_open_root)(fat_info *fat, fat_priv_dir_info **ppd);
     int (*priv_dir_open_cluster)(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info **ppd);
+    int (*priv_dir_find_and_open)(fat_info *fat,  uint8_t *path, bool containing_dir, fat_priv_dir_info **ppd);
     int (*priv_dir_read_slot)(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
     int (*priv_dir_write_slot)(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
     int (*priv_dir_get_slot_no)(fat_info *fat, fat_priv_dir_info *pd);
@@ -228,10 +235,9 @@ struct fat_operations {
     int (*priv_dir_close)(fat_info *fat, fat_priv_dir_info *pd);
 
     // high level dir functions
-    int (*priv_dir_entry_read)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+    int (*priv_dir_read_one_entry)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+    int (*priv_dir_create_entry)(fat_info *fat, fat_priv_dir_info *pd, char *name, bool directory);
     int (*priv_dir_entry_invalidate)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-    int (*priv_dir_entry_update)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-    int (*priv_dir_entry_append)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
 
     // facilitate resolving paths to priv dirs and files
     int (*find_entry_in_dir)(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry);
@@ -263,16 +269,16 @@ static int priv_file_close(fat_info *fat, fat_priv_file_info *pf);
 // opening and closing directories
 static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd);
 static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info **ppd);
+static int priv_dir_find_and_open(fat_info *fat,  uint8_t *path, bool containing_dir, fat_priv_dir_info **ppd);
 static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
 static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32);
 static int priv_dir_get_slot_no(fat_info *fat, fat_priv_dir_info *pd);
 static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no);
 static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd);
 
-static int priv_dir_entry_read(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
+static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *name, bool directory);
 static int priv_dir_entry_invalidate(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-static int priv_dir_entry_update(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-static int priv_dir_entry_append(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
 
 static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry);
 static int find_path_dir_entry(fat_info *fat,  uint8_t *path, bool containing_dir, fat_dir_entry *entry);
@@ -282,14 +288,17 @@ static void debug_fat_info(fat_info *fat);
 static void debug_fat_dir_entry(bool title_line, fat_dir_entry *entry);
 
 // dir entries
-static inline int is_dir_slot_long_name(uint8_t *buffer);
-static inline int is_dir_slot_eof(uint8_t *buffer);
-static inline int is_dir_slot_deleted(uint8_t *buffer);
+static inline bool is_dir_slot_long_name(uint8_t *buffer32);
+static inline bool is_dir_slot_eof(uint8_t *buffer32);
+static inline bool is_dir_slot_deleted(uint8_t *buffer32);
+static inline void dir_slot_mark_deleted(uint8_t *buffer32);
 static void dir_slot_to_entry(uint8_t *buffer, fat_dir_entry *entry);
 static void dir_entry_to_slot(fat_dir_entry *entry, uint8_t *buffer);
 static void dir_entry_to_long_name(uint8_t *buffer, fat_dir_entry *entry);
 static void dir_long_name_to_slot(fat_dir_entry *entry, int seq_no, uint8_t *buffer);
 static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t *vfs_entry);
+static void dir_entry_set_created_time(fat_dir_entry *entry, struct clock_time *time);
+static void dir_entry_set_modified_time(fat_dir_entry *entry, struct clock_time *time);
 
 
 // fat vfs interaction

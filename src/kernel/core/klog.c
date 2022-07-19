@@ -150,7 +150,7 @@ static void memory_log_append(log_level_t level, char *str) {
         return;
 
     // first write preamble
-    char buff[16];
+    char buff[32];
     uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
     sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
 
@@ -223,7 +223,7 @@ static inline char printable(char c) {
 void klog_hex16_debug(uint8_t *buffer, size_t length, uint32_t start_address) {
     while (length > 0) {
         // using xxd's format, seems nice
-        klog_debug("%08x: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
+        klog_debug("%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
             start_address,
             buffer[0], buffer[1], buffer[2], buffer[3], 
             buffer[4], buffer[5], buffer[6], buffer[7],

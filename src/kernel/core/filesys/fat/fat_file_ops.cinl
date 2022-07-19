@@ -9,65 +9,6 @@
 #include "fat_priv.h"
 #include <lock.h>
 
-// needed to lock for writes
-lock_t fat_write_lock;
-
-
-static int fat_open(char *path, file_t *file) {
-    klog_trace("fat_open(path=\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    int err;
-
-    fat_dir_entry entry;
-    err = fat->ops->find_path_dir_entry(fat, path, false, &entry);
-    if (err) return err;
-    if (entry.attributes.flags.directory || entry.attributes.flags.volume_label)
-        return ERR_NOT_A_FILE;
-    
-    fat_priv_file_info *pf = NULL;
-    err = fat->ops->priv_file_open(fat, entry.first_cluster_no, entry.file_size, &pf);
-    if (err)
-        return err;
-    file->filesys_priv_data = pf;
-
-    return SUCCESS;
-}
-
-static int fat_read(file_t *file, char *buffer, int length) {
-    klog_trace("fat_read(length=%d)", length);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    return fat->ops->priv_file_read(fat, pf, buffer, length);
-}
-
-static int fat_write(file_t *file, char *buffer, int length) {
-    klog_trace("fat_write(length=%d)", length);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    acquire(&fat_write_lock);
-    int err = fat->ops->priv_file_write(fat, pf, buffer, length);
-    release(&fat_write_lock);
-    return err;
-}
-
-static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
-    klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    return fat->ops->priv_file_seek(fat, pf, offset, origin);
-}
-
-static int fat_close(file_t *file) {
-    klog_trace("fat_close()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
-    return fat->ops->priv_file_close(fat, pf);
-}
-
-
-
-// --- lower level, accessible through fat->ops
-
 
 
 static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info **ppf) {
