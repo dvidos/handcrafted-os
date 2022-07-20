@@ -3,6 +3,7 @@
 #include <klib/strbuff.h>
 #include <klib/path.h>
 #include <klog.h>
+#include <memory/kheap.h>
 #include <errors.h>
 
 
@@ -18,9 +19,12 @@ void test_strings();
 void test_printf();
 void test_strbuff();
 void test_paths();
+void test_kernel_heap();
 
 
 void run_tests() {
+    uint32_t free_mem_initially = kernel_heap_free_size();
+
     printk("\nstrings");
     test_strings();
 
@@ -32,6 +36,14 @@ void run_tests() {
 
     printk("\npaths");
     test_paths();
+
+    printk("\nkernel heap");
+    test_kernel_heap();
+
+    uint32_t free_mem_finally = kernel_heap_free_size();
+    if (free_mem_finally != free_mem_initially) {
+        printk("\nTests leaked %d bytes of memory...", free_mem_initially - free_mem_finally);
+    }
 }
 
 
@@ -269,9 +281,10 @@ void test_printf() {
 }
 
 void test_strbuff() {
+    strbuff_t *sb;
 
     // test a fixed allocation buffer
-    strbuff_t *sb = create_sb(32, SB_FIXED);
+    sb = create_sb(32, SB_FIXED);
     assert(sb_length(sb) == 0);
 
     // in order to use it with printf() and other methods
@@ -298,6 +311,8 @@ void test_strbuff() {
     sb_strcpy(sb, "Hello there");
     sb_delete(sb, 35, 100);
     assert(sb_strcmp(sb, "Hello there") == 0);
+
+    sb_free(sb);
 
     // insert simple case
     sb = create_sb(12, SB_FIXED);
@@ -332,9 +347,9 @@ void test_strbuff() {
     sb_insert(sb, 5, "abc");
     assert(sb_strcmp(sb, "12345abc6789") == 0)
 
+    sb_free(sb);
 
     // check SB_SCROLL behavior
-    sb_free(sb);
     sb = create_sb(12, SB_SCROLL);
     sb_append(sb, "Monday,");
     assert(sb_strcmp(sb, "Monday,") == 0)
@@ -349,6 +364,7 @@ void test_strbuff() {
     sb_append(sb, "Very big buffer trying to test overflow behavior");
     assert(sb_strcmp(sb, "low behavior") == 0)
 
+    sb_free(sb);
 
     // check SB_EXPAND mode
     sb = create_sb(12, SB_EXPAND);
@@ -437,4 +453,32 @@ void test_paths() {
     err = get_n_index_path_part(path, 0, buffer);
     assert(err == SUCCESS);
     assert(strcmp(buffer, "usr") == 0);
+}
+
+
+void test_kernel_heap() {
+    uint32_t block_size = kernel_heap_block_size();
+    uint32_t free_mem = kernel_heap_free_size();
+
+    kernel_heap_verify();
+
+    assert(kernel_heap_free_size() == free_mem);
+    
+    void *p1 = kmalloc(20);
+    assert(kernel_heap_free_size() == free_mem - (20 + block_size) * 1);
+
+    void *p2 = kmalloc(20);
+    assert(kernel_heap_free_size() == free_mem - (20 + block_size) * 2);
+
+    void *p3 = kmalloc(20);
+    assert(kernel_heap_free_size() == free_mem - (20 + block_size) * 3);
+
+    kfree(p1);
+    kfree(p3);
+    kfree(p2);
+
+    // this ensures merging of freed blocks
+    assert(kernel_heap_free_size() == free_mem);
+
+    kernel_heap_verify();
 }
