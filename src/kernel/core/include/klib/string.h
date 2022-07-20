@@ -7,7 +7,7 @@
 int strlen(const char* str);
 int strcmp(char *a, char *b);
 int strcpy(char *target, char *source);
-void strncpy(char *target, char *source, size_t size);
+void strncpy(char *target, char *source, size_t target_size);
 
 char *strchr(char *str, char c);
 char *strstr(char *heystack, char *needle);

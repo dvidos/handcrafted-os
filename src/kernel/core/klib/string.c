@@ -29,8 +29,8 @@ void strcpy(char *target, char *source) {
     *target = *source; // final null char
 }
 
-void strncpy(char *target, char *source, size_t size) {
-    while (*source != '\0' && size-- > 1) {
+void strncpy(char *target, char *source, size_t target_size) {
+    while (*source != '\0' && target_size-- > 1) {
         *target++ = *source++;
     }
 
