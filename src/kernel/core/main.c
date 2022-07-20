@@ -61,6 +61,8 @@ void kernel_data_size() {}
 void kernel_rodata_size() {}
 void kernel_bss_size() {}
 multiboot_info_t saved_multiboot_info;
+#define KERNEL_HEAP_SIZE_KB  2048
+
 
 
 // arguments from the multiboot loader, normally left by GRUB
@@ -79,13 +81,18 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_INFO);
     
     klog_info("C kernel started");
-    klog_info("  - kernel start address: %d KB  (0x%x)", (size_t)&kernel_start_address / 1024, (size_t)&kernel_start_address);
-    klog_info("  - kernel end address:   %d KB  (0x%x)", (size_t)&kernel_end_address / 1024, (size_t)&kernel_end_address);
-    klog_info("  - text size:            %4d KB", ((size_t)&kernel_text_size) / 1024);
-    klog_info("  - ro data size:         %4d KB", ((size_t)&kernel_rodata_size) / 1024);
-    klog_info("  - rw data size:         %4d KB", ((size_t)&kernel_data_size) / 1024);
-    klog_info("  - bss & stack size:     %4d KB", ((size_t)&kernel_bss_size) / 1024);
-    klog_info("  - total kernel size:    %4d KB", ((size_t)&kernel_end_address - (size_t)&kernel_start_address) / 1024);
+    // klog_info("  - kernel start address: %4d KB  (0x%x)", (size_t)&kernel_start_address / 1024, (size_t)&kernel_start_address);
+    // klog_info("  - kernel end address:   %4d KB  (0x%x)", (size_t)&kernel_end_address / 1024, (size_t)&kernel_end_address);
+    // klog_info("  - total kernel size:    %4d KB", ((size_t)&kernel_end_address - (size_t)&kernel_start_address) / 1024);
+    klog_info("  Segments                     Size  From        To");
+    klog_info("  code (.text)              %4d KB  0x%08x  0x%08x", ((size_t)&kernel_text_size) / 1024, (size_t)&kernel_start_address, (size_t)&kernel_text_end_address);
+    klog_info("  ro data (.rodata)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_rodata_size) / 1024, (size_t)&kernel_text_end_address, (size_t)&kernel_rodata_end_address);
+    klog_info("  init data (.data)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_data_size) / 1024, (size_t)&kernel_rodata_end_address, (size_t)&kernel_data_end_address);
+    klog_info("  zero data & stack (.bss)  %4d KB  0x%08x  0x%08x", ((size_t)&kernel_bss_size) / 1024, (size_t)&kernel_data_end_address, (size_t)&kernel_bss_end_address);
+    klog_info("  heap                      %4d KB  0x%08x  0x%08x", KERNEL_HEAP_SIZE_KB, 
+        ((((uint32_t)&kernel_end_address)+4095) & 0xFFFFF000), 
+        ((((uint32_t)&kernel_end_address)+4095) & 0xFFFFF000) + KERNEL_HEAP_SIZE_KB * 1024);
+
 
     if (boot_magic == 0x2BADB002) {
         klog_info("Bootloader info detected, copying it, size of %d bytes", sizeof(multiboot_info_t));
@@ -123,7 +130,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
     
     klog_info("Initializing Kernel Heap...");
-    init_kernel_heap(2048 * 1024, (void *)&kernel_end_address);
+    init_kernel_heap(KERNEL_HEAP_SIZE_KB * 1024, (void *)&kernel_end_address);
 
     klog_info("Initializing virtual memory mapping...");
     init_virtual_memory_paging(0, (void *)(2 * 1024 * 1024));
@@ -188,7 +195,7 @@ void console_task_main() {
 }
 
 void create_some_processes() {
-    char *stack = kmalloc(4096);
+    char *stack = allocate_physical_page((void *)0x200000); // 2MB+
     tty_t *tty = tty_manager_get_device(0);
     process_t *console_proc = create_process(console_task_main, "Console", (stack + 4096), PRIORITY_KERNEL, tty);
     start_process(console_proc);
