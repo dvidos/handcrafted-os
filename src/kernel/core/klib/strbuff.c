@@ -75,13 +75,13 @@ void sb_insert(strbuff_t *sb, int pos, char *str) {
 
         // make sure it fits
         if (len > sb->capacity - 1) {
-            int diff = len - sb->capacity - 1;
+            int diff = len - (sb->capacity - 1);
             len -= diff;
             str += diff;
             pos = 0;
         }
 
-        // blindling lose the first bytes to make room at the end
+        // if there is space, blindly lose the first bytes to make room at the end
         if (sb->capacity - 1 - sb->length < len) {
             int needed = len - (sb->capacity - 1 - sb->length);
             memmove(sb->buffer, sb->buffer + needed, sb->capacity - needed + 1);
