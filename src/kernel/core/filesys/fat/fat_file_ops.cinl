@@ -59,6 +59,16 @@ static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer
         int offset_in_cluster = pf->offset - (pf->cluster_n_index * fat->bytes_per_cluster);
         int available_in_cluster = fat->bytes_per_cluster - offset_in_cluster;
         int chunk_len = min(length, available_in_cluster);
+        klog_debug("offset in cluster %d, available in cluster %d, chunk len %d", 
+            offset_in_cluster,
+            available_in_cluster,
+            chunk_len
+        );
+        klog_debug("Copying %d bytes from %p to %p", 
+            chunk_len,
+            pf->cluster->buffer + offset_in_cluster,
+            buffer + bytes_actually_read
+        );
         memcpy(buffer + bytes_actually_read, pf->cluster->buffer + offset_in_cluster, chunk_len);
         bytes_actually_read += chunk_len;
         length -= chunk_len;
@@ -74,6 +84,7 @@ static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer
     }
 
     // instead of success, we return the bytes we actually read
+    klog_debug("priv_file_read() done, returning %d", bytes_actually_read);
     return bytes_actually_read;
 }
 

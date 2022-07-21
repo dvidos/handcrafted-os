@@ -1,7 +1,8 @@
 # things to do
 
-* Make one command that allows us to read/modify/write sectors off of hard disk
 * Make FAT read/write and start a shell and a vi editor
+* Later, find way to detect very small timings, to fine tune malloc() for example.
+* Make one console command that allows us to read/modify/write sectors off of hard disk
 * Maybe I want to get fast to a place where I can boot the OS and 
 and have an environment where I can improve it, e.g. test and compile apps
 or something.

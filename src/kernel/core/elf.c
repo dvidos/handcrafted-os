@@ -377,6 +377,8 @@ static int debug_elf_file(file_t *file) {
 int load_elf_file(file_t *file) {
     klog_trace("load_elf_file(\"%s\")", file->path);
 
+    debug_elf_file(file);
+
     // in theory we load all the loadable segments,
     // allocated pages, aligned into specific granullarity (e.g. 4, 16)
     // that have been memory mapped to the virtual address the elf requires
@@ -399,6 +401,8 @@ int load_elf_file(file_t *file) {
     if (header->type != ELF_TYPE_EXECUTABLE)
         return ERR_NOT_SUPPORTED;
 
+        
+
     // so now we can load all section headers and all program headers
     int sec_hdr_bytes = header->shnum * header->shentsize;
     int prg_hdr_bytes = header->phnum * header->phentsize;
@@ -419,6 +423,13 @@ int load_elf_file(file_t *file) {
     if (err < 0)
         return err;
     
+    // log this, to troubleshoot, in case we reboot.
+    debug_elf_program_header(true, NULL);
+    for (int i = 0; i < header->phnum; i++) {
+        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
+        debug_elf_program_header(false, program);
+    }
+
     // find lowest address
     uint32_t lowest_virtual_address = UINT32_MAX;
     for (int i = 0; i < header->phnum; i++) {
@@ -438,6 +449,15 @@ int load_elf_file(file_t *file) {
         highest_virtual_address = max(highest_virtual_address, high_address);
     }
 
+
+    klog_info("ELF file \"%s\" requests to be loaded at virtual addresses 0x%x to 0x%x", 
+        file->path,
+        lowest_virtual_address,
+        highest_virtual_address
+    );
+    klog_warn("Not supporting virtual memory yet!");
+
+
     // we can add the stack to the size (e.g. 256 KB)
     // Windows allocate 1MB, Linux x86_64 allocates 8MB !!!
     // remember, stack grows downards
@@ -446,16 +466,10 @@ int load_elf_file(file_t *file) {
     memset((char *)highest_virtual_address, 0x00, stack_size);
     highest_virtual_address += stack_size;
 
-
     // we need to load the segments in the specific virtual address, 
     // therefore we need virtual memory, or risk loading somewhere!
     // let's be risky for now!!!! :-) 
     // otherwise, allocate some pages...    
-    debug_elf_program_header(true, NULL);
-    for (int i = 0; i < header->phnum; i++) {
-        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
-        debug_elf_program_header(false, program);
-    }
     for (int i = 0; i < header->phnum; i++) {
         elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
         if (program->p_type != PT_LOAD)

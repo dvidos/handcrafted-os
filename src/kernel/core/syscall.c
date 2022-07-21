@@ -1,7 +1,11 @@
+#include <bits.h>
 #include <errors.h>
 #include <klog.h>
+#include <drivers/clock.h>
+#include <drivers/timer.h>
 #include <multitask/process.h>
 #include <devices/tty.h>
+#include <filesys/vfs.h>
 #include "../../libc/include/syscall.h"
 
 
@@ -119,6 +123,7 @@ int isr_syscall(struct syscall_stack stack) {
             break;
         case SYS_OPEN:   // arg1 = file path, returns handle or error<0
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
+            // find entry in process' file table
             return_value = -1;
             break;
         case SYS_READ:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
@@ -166,8 +171,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = -1;
             break;
         case SYS_GET_PID:   // returns pid
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = running_process() == NULL ? ERR_NOT_SUPPORTED : (int)(running_process()->pid);
             break;
         case SYS_GET_PPID:   // returns ppid
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
@@ -198,8 +202,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = -1;
             break;
         case SYS_GET_UPTIME:   // returns msecs since boot (32 bits = 49 days)
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = LOW_DWORD(timer_get_uptime_msecs());
             break;
         case SYS_GET_CLOCK:   // arg1 = dtime pointer
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);

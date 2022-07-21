@@ -133,7 +133,7 @@ static void dir_long_name_to_slot(fat_dir_entry *entry, int seq_no, uint8_t *buf
 
 static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t *vfs_entry) {
 
-    strcpy(vfs_entry->short_name, fat_entry->short_name);
+    strncpy(vfs_entry->short_name, fat_entry->short_name, sizeof(vfs_entry->short_name));
     vfs_entry->file_size = fat_entry->file_size;
     vfs_entry->flags.label = fat_entry->attributes.flags.volume_label;
     vfs_entry->flags.dir = fat_entry->attributes.flags.directory;

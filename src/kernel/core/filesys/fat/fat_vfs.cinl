@@ -233,17 +233,17 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
     fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
     
-    fat_dir_entry *fat_dir_entry = kmalloc(sizeof(fat_dir_entry));
+    fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
 
-    int err = fat->ops->priv_dir_read_one_entry(fat, pd, fat_dir_entry);
+    int err = fat->ops->priv_dir_read_one_entry(fat, pd, fat_entry);
     if (err == SUCCESS) {
-        klog_debug("fat_readdir(): gotten entry for \"%s\"", fat_dir_entry->short_name);
-        fat_dir_entry_to_vfs_dir_entry(fat_dir_entry, dir_entry);
+        klog_debug("fat_readdir(): gotten entry for \"%s\"", fat_entry->short_name);
+        fat_dir_entry_to_vfs_dir_entry(fat_entry, dir_entry);
     } else {
         klog_debug("fat_readdir(): priv_dir_read_one_entry() returned %d", err);
     }
 
-    kfree(fat_dir_entry);
+    kfree(fat_entry);
     return err;
 }
 

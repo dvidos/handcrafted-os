@@ -76,10 +76,18 @@ void execute_line(char *line) {
         return;
     }
 
+    uint32_t initial_free = kernel_heap_free_size();
     // we shall pass the arguments, even if they go unused
     typedef int (*full_featured_func_ptr)(int argc, char **argv);
     full_featured_func_ptr ptr = (full_featured_func_ptr)cmd->func_ptr;
     int exit_code = ptr(argc, argv);
+
+    uint32_t final_free = kernel_heap_free_size();
+    if (final_free != initial_free) {
+        klog_warn("Kernel heap lost %d bytes of free memory", initial_free - final_free);
+    }
+
+    kernel_heap_verify();
 }
 
 void show_help() {

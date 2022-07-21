@@ -27,7 +27,7 @@ void init_multitasking() {
     char *idle_stack = kmalloc(1024);
     process_t *idle = create_process(NULL, "Idle", idle_stack + 1024, PROCESS_PRIORITY_LEVELS - 1, NULL);
     running_proc = idle;
-    running_proc->state = RUNNING;
+    running_proc->state = RUNNING; // set to running in order to swap it
 
     // idle task is by definition the lowest priority
     append(&ready_lists[idle->priority], idle);

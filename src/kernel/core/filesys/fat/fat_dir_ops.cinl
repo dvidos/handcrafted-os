@@ -57,36 +57,41 @@ static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_di
 
 static int priv_dir_find_and_open(fat_info *fat,  uint8_t *path, bool containing_dir, fat_priv_dir_info **ppd) {
     int err;
+    fat_dir_entry *entry = NULL;
 
     bool is_root = strlen(path) == 1 && path[0] == '/';
     if (is_root && containing_dir) {
         klog_error("priv_dir_find_and_open(): Cannot find containing of root dir! (path=\"%s\")", path);
-        return ERR_BAD_ARGUMENT;
+        err = ERR_BAD_ARGUMENT;
+        goto exit;
     }
 
     int path_parts = count_path_parts(path);
     if (is_root || (path_parts == 1 && containing_dir)) {
         err = fat->ops->priv_dir_open_root(fat, ppd);
-        if (err) return err;
+        if (err) goto exit;
     } else {
-        fat_dir_entry *entry = kmalloc(sizeof(fat_dir_entry));
+        entry = kmalloc(sizeof(fat_dir_entry));
+        kcheck(entry, "entry, in priv_dir_find_and_open(), 1");
         err = fat->ops->find_path_dir_entry(fat, path, containing_dir, entry);
-        if (err) {
-            kfree(entry);
-            return err;
-        }
+        kcheck(entry, "entry, in priv_dir_find_and_open(), 2");
+        if (err) goto exit;
+        
         if (!entry->attributes.flags.directory) {
-            kfree(entry);
-            return ERR_NOT_A_DIRECTORY;
+            err = ERR_NOT_A_DIRECTORY;
+            goto exit;
         }
 
         uint32_t cluster_no = entry->first_cluster_no;
-        kfree(entry);
         err = fat->ops->priv_dir_open_cluster(fat, cluster_no, ppd);
-        if (err) return err;
+        if (err) goto exit;
     }
 
-    return SUCCESS;
+    err = SUCCESS;
+exit:
+    if (entry != NULL)
+        kfree(entry);
+    return err;
 }
 
 static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32) {
@@ -213,7 +218,7 @@ static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no)
 }
 
 static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
-    klog_trace("priv_dir_close()");
+    klog_trace("priv_dir_close(fat=%p, pd=%p)", fat, pd);
     int err;
     if (pd->is_fat16_root) {
         // before closing, write any dirty sector
@@ -235,10 +240,11 @@ static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
 }
 
 static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
-    klog_trace("priv_dir_read_one_entry()");
+    klog_trace("priv_dir_read_one_entry(fat=%p, pd=%p, entry=%p)", fat, pd, entry);
     uint8_t buffer32[BYTES_PER_DIR_SLOT];
 
     while (true) {
+kernel_heap_verify();
         int slot_before_reading = priv_dir_get_slot_no(fat, pd);
         int err = priv_dir_read_slot(fat, pd, buffer32);
         if (err < 0) return err;
@@ -257,7 +263,9 @@ static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir
 
         // this helps for fast updates (size, date etc)
         entry->short_entry_slot_no = slot_before_reading;
+kernel_heap_verify();
         dir_slot_to_entry(buffer32, entry);
+kernel_heap_verify();
         break;
     }
 
