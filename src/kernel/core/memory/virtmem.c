@@ -190,8 +190,10 @@ void *resolve_virtual_to_physical_address(void *virtual_addr, void *page_dir_add
 }
 
 // map the virtual address to resolve to the physical one for the particular page directory.
-void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, void *page_dir_addr) {
-    klog_trace("Mapping phys addr 0x%x to virt addr 0x%x, page dir 0x%x", physical_addr, virtual_addr, page_dir_addr);
+void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, void *page_dir_addr, bool skip_logging) {
+    if (!skip_logging) {
+        klog_trace("Mapping phys addr 0x%x to virt addr 0x%x, page dir 0x%x", physical_addr, virtual_addr, page_dir_addr);
+    }
 
     uint32_t page_dir_index = virt_addr_to_page_directory_index(virtual_addr);
     uint32_t page_dir_entry = get_table_entry(page_dir_addr, page_dir_index);
@@ -273,8 +275,9 @@ void unmap_virtual_address(void *virtual_addr, void *page_dir_addr) {
 
 // map a range to itself
 void identity_map_range(void *start_addr, void *end_addr, void *page_dir_addr) {
+    klog_trace("Identity mapping range 0x%p - 0x%p, page_dir=0x%p", start_addr, end_addr, page_dir_addr);
     for (void *addr = start_addr; addr <= end_addr; addr += 4096) {
-        map_virtual_address_to_physical(addr, addr, page_dir_addr);
+        map_virtual_address_to_physical(addr, addr, page_dir_addr, true);
     }
 }
 
@@ -377,5 +380,5 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
 
     // solution for now is to identity map this, just for fun
     memory_address = ROUND_DOWN_4K(memory_address);
-    map_virtual_address_to_physical((void *)memory_address, (void *)memory_address, page_dir_address);
+    map_virtual_address_to_physical((void *)memory_address, (void *)memory_address, page_dir_address, false);
 }

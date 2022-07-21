@@ -6,7 +6,7 @@
 void *resolve_virtual_to_physical_address(void *virtual_addr, void *page_dir_addr);
 
 // map a virtual address to a physical one
-void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, void *page_dir_addr);
+void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, void *page_dir_addr, bool skip_logging);
 
 // unmap a virtual address (remove paging entries)
 void unmap_virtual_address(void *virtual_addr, void *page_dir_addr);
