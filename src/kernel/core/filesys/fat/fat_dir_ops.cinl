@@ -72,9 +72,7 @@ static int priv_dir_find_and_open(fat_info *fat,  uint8_t *path, bool containing
         if (err) goto exit;
     } else {
         entry = kmalloc(sizeof(fat_dir_entry));
-        kcheck(entry, "entry, in priv_dir_find_and_open(), 1");
         err = fat->ops->find_path_dir_entry(fat, path, containing_dir, entry);
-        kcheck(entry, "entry, in priv_dir_find_and_open(), 2");
         if (err) goto exit;
         
         if (!entry->attributes.flags.directory) {
@@ -244,7 +242,6 @@ static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir
     uint8_t buffer32[BYTES_PER_DIR_SLOT];
 
     while (true) {
-kernel_heap_verify();
         int slot_before_reading = priv_dir_get_slot_no(fat, pd);
         int err = priv_dir_read_slot(fat, pd, buffer32);
         if (err < 0) return err;
@@ -263,9 +260,7 @@ kernel_heap_verify();
 
         // this helps for fast updates (size, date etc)
         entry->short_entry_slot_no = slot_before_reading;
-kernel_heap_verify();
         dir_slot_to_entry(buffer32, entry);
-kernel_heap_verify();
         break;
     }
 

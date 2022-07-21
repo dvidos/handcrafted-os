@@ -77,37 +77,49 @@ void *__kmalloc(size_t size, char *explanation, char *file, uint16_t line) {
     
     // find the first free block that is equal or larger than size
     memory_block_t *curr = kernel_heap.list_head;
-    while (curr != NULL && (curr->used || curr->size < size))
+    while (curr != NULL) {
+        // look for a free block that is either the exact size, or big enough to split.
+        if ((curr->used == false) &&
+            (curr->size == size || curr->size > size + sizeof(memory_block_t)))
+            break;
         curr = curr->next;
+    }
     if (curr == NULL) {
         klog_warn("kmalloc(%u) -> Could not find a free block, returning null", size);
         panic("malloc failed. what now?");
         return NULL;
     }
 
-    // keep the memory we need, create a new memory block
-    // sequence of operations (pointers etc) is important
-    memory_block_t *new_free = (memory_block_t *)((char *)curr + sizeof(memory_block_t) + size);
-    memory_block_t *next = curr->next;
-    new_free->size = curr->size - sizeof(memory_block_t) - size;
-    new_free->used = 0;
-    new_free->magic1 = KMEM_MAGIC;
-    new_free->magic2 = KMEM_MAGIC;
-    #ifdef DEBUG_HEAP_OPS
-        new_free->size_explanation = NULL;
-        new_free->file = NULL;
-        new_free->ff_indicator = 0;
-        new_free->line = 0;
-    #endif
-    new_free->prev = curr;
-    new_free->next = next;
-    kernel_heap.available_memory -= sizeof(memory_block_t);
+    if (curr->size == size) {
+        // no need to split, just reuse this as is.
+        // happens often, as the same structure types may be requested in a loop
+    } else if (curr->size > size + sizeof(memory_block_t)) {
+        // big enough to split into two
+        // keep the memory we need, create a new memory block
+        // sequence of operations (pointers etc) is important
+        memory_block_t *new_free = (memory_block_t *)((char *)curr + sizeof(memory_block_t) + size);
+        memory_block_t *next = curr->next;
+        new_free->size = curr->size - sizeof(memory_block_t) - size;
+        new_free->used = 0;
+        new_free->magic1 = KMEM_MAGIC;
+        new_free->magic2 = KMEM_MAGIC;
+        #ifdef DEBUG_HEAP_OPS
+            new_free->size_explanation = NULL;
+            new_free->file = NULL;
+            new_free->ff_indicator = 0;
+            new_free->line = 0;
+        #endif
+        new_free->prev = curr;
+        new_free->next = next;
+        kernel_heap.available_memory -= sizeof(memory_block_t);
 
-    curr->size = size;
-    curr->next = new_free;
-    if (next != NULL)
-        next->prev = new_free;
-    
+        curr->size = size;
+        curr->next = new_free;
+        if (next != NULL)
+            next->prev = new_free;
+    }
+
+    // in any case do the following:
     #ifdef DEBUG_HEAP_OPS
         curr->size_explanation = explanation;
         curr->file = file;
@@ -115,9 +127,9 @@ void *__kmalloc(size_t size, char *explanation, char *file, uint16_t line) {
         curr->line = line;
     #endif
     curr->used = 1;
-    kernel_heap.available_memory -= curr->size;
+    kernel_heap.available_memory -= curr->size; // we should take memory_block size into account 
     char *ptr = (char *)curr + sizeof(memory_block_t);
-    memset(ptr, 0, curr->size); // contrary to unix, we clear our memory
+    memset(ptr, 0, curr->size); // contrary to traditional unix, we clear our memory
 
     klog_trace("kmalloc(%u = %s) -> 0x%p, at %s:%d", size, explanation, ptr, file, line);
     return ptr;
@@ -325,7 +337,7 @@ static bool __check_block(memory_block_t *block) {
 }
 
 // walk the heap blocks and assert sanity values
-void __kernel_heap_verify() {
+void __kernel_heap_verify(char *file, int line) {
     bool healthy = true;
     memory_block_t *block = kernel_heap.list_head;
     while (block != NULL) {
@@ -336,8 +348,9 @@ void __kernel_heap_verify() {
     }
 
     if (healthy) {
-        klog_debug("kernel heap shows healthy");
+        klog_debug("kernel heap healthy at %s:%d", file, line);
     } else {
+        klog_critical("kernel heap issues, detected at %s:%d", file, line);
         kernel_heap_dump();
         panic("Bad heap state");
     }
