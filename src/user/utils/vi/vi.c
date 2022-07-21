@@ -44,7 +44,7 @@ typedef struct multi_line_buffer_viewport {
     mlb_t *mlb;
     int visible_rows;
     int visible_cols;
-    int first_visible_row;
+    int first_visible_row; // of text, zero based
     int first_visible_col;
 } mlbv_t;
 struct multi_line_buffer_viewport_ops {
@@ -319,7 +319,7 @@ void destroy_multi_line_buffer_viewport(mlbv_t *vp);
 //             break;
 //     }
 //     /*
-//         hjkl navigation
+//         h,j,k,l navigation
 //         0 start of line
 //         $ end of line
 //         w go to start of next word

@@ -183,7 +183,7 @@ static void serial_log_append(log_level_t level, char *str, bool decorated) {
         return;
 
     if (decorated) {
-        char buff[16];
+        char buff[32];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
         sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
         serial_write(buff);
@@ -205,7 +205,7 @@ static void tty_log_append(log_level_t level, char *str, bool decorated) {
         return;
 
     if (decorated) {
-        char buff[16];
+        char buff[32];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
         sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
         tty_write_specific_tty(tty_appender, buff);

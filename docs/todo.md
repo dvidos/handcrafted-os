@@ -1,5 +1,6 @@
 # things to do
 
+* Implement file handles per process, as well as the wait() and fork() functionality
 * Make FAT read/write and start a shell and a vi editor
 * Later, find way to detect very small timings, to fine tune malloc() for example.
 * Make one console command that allows us to read/modify/write sectors off of hard disk
