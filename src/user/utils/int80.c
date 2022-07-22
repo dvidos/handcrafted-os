@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
 
     puts("Hello from int80.c user program!");
 
-    return 0;
+    return 123;
 }
 
 

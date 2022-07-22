@@ -425,7 +425,7 @@ static int do_exec(int argc, char **argv) {
     }
     char *path = argv[0];
     int err = exec(path);
-    printf("exec(\"%s\") -> %d", argv[0], err);
+    printf("exec(\"%s\") -> %d\n", argv[0], err);
     return err;
 }
 

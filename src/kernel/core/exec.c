@@ -69,7 +69,7 @@ static int load_executable_file(char *path) {
     klog_debug("load_elf_file() -> %d", err);
     vfs_close(file);
     
-    return SUCCESS;
+    return err;
 }
 
 int execve(char *path, char *argv[], char *envp[]) {

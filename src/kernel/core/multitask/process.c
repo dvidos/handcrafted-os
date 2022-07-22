@@ -10,6 +10,7 @@
 #include <memory/kheap.h>
 #include <klog.h>
 #include <multitask/scheduler.h>
+#include <errors.h>
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
@@ -69,7 +70,7 @@ pid_t last_pid = 0;
 
 
 char *process_state_names[] = { "READY", "RUNNING", "BLOCKED", "TERMINATED" };
-char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE", "WAIT USER INPUT" };
+char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE", "WAIT USER INPUT", "WAIT CHILD EXIT" };
 
 
 // starts a process, by putting it on the waiting list.
@@ -151,6 +152,54 @@ void unblock_process_that(int block_reason, void *block_channel) {
 }
 
 
+// wait for any child to exit
+int wait(int *exit_code) {
+
+    // first find if we do have any children!
+    bool has_children = false;
+    for (int priority = 0; priority < PROCESS_PRIORITY_LEVELS; priority++) {
+        process_t *p = ready_lists[priority].head;
+        while (p != NULL) {
+            if (p->parent_pid == running_proc->pid) {
+                has_children = true;
+                break;
+            }
+            p = p->next;
+        }
+        if (has_children)
+            break;
+    }
+    if (!has_children) {
+        process_t *p = blocked_list.head;
+        while (p != NULL) {
+            if (p->parent_pid == running_proc->pid) {
+                has_children = true;
+                break;
+            }
+            p = p->next;
+        }
+    }
+    if (!has_children)
+        return ERR_NOT_SUPPORTED;
+
+    klog_trace("process %s waiting for children", running_proc->name);
+    lock_scheduler();
+
+    // then block us, let the exit() call wake us up.
+    running_proc->state = BLOCKED;
+    running_proc->block_reason = WAIT_CHILD_EXIT;
+    running_proc->block_channel = NULL;
+
+    append(&blocked_list, running_proc);
+    schedule(); // allow someone else to run
+    unlock_scheduler();
+    // in theory we'll be here when exit() will unlock us...
+    // maybe the "running_proc" var already has our pointer, so we could hook some exit data there...
+    klog_debug("upon unblocking from exit(), running_proc points to \"%s\"", running_proc->name);
+    *exit_code = running_proc->wait_child_exit_code;
+    return running_proc->wait_child_pid;
+}
+
 // voluntarily give up the CPU to another task
 void yield() {
     klog_trace("process %s is yielding", running_proc->name);
@@ -188,12 +237,32 @@ void exit(uint8_t exit_code) {
     running_proc->exit_code = exit_code;
     append(&terminated_list, running_proc);
     klog_trace("process %s exited, exit code %d", running_proc->name, exit_code);
+
+    // possibly wake up parent process
+    process_t *p = blocked_list.head;
+    while (p != NULL) {
+        if (p->block_reason == WAIT_CHILD_EXIT && p->pid == running_proc->parent_pid) {
+            klog_trace("parent process %s getting unblocked", p->name);
+            unlist(&blocked_list, p);
+            p->state = READY;
+            p->block_reason = 0;
+            p->block_channel = NULL;
+            p->wait_child_pid = running_proc->pid;
+            p->wait_child_exit_code = exit_code;
+            prepend(&ready_lists[p->priority], p);
+        }
+    }
+
     schedule();
     unlock_scheduler();
 }
 
 pid_t getpid() {
     return running_proc->pid;
+}
+
+pid_t getppid() {
+    return running_proc->parent_pid;
 }
 
 static void task_entry_point_wrapper() {
@@ -203,15 +272,17 @@ static void task_entry_point_wrapper() {
     // call the entry point method
     // only the running task would execute this method
     // for exec() this points to the _start() method of crt0
+    // for kernel, this is a function pointer in the kernel space
 
     running_proc->entry_point();
 
     // terminate and later free the process
+    klog_warn("process(): It seems main returned");
     exit(0);
 }
 
 // a way to create process
-process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty) {
+process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty, pid_t ppid) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
         klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
@@ -229,6 +300,7 @@ process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uin
 
     // p->stack_buffer = stack_ptr;
     // p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t));
+    p->parent_pid = ppid;
     p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
     p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
     p->entry_point = entry_point;

@@ -73,7 +73,11 @@ static int sys_set_screen_color(int color) {
     return 0;
 }
 
-
+static int sys_exit(uint8_t exit_code) {
+    // current process exiting, preserve exit code, wake up waiting parents
+    exit(exit_code);
+    return 0;
+}
 
 
 
@@ -194,8 +198,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = -1;
             break;
         case SYS_EXIT:   // arg1 = exit code
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_exit((uint8_t)stack.passed.arg1);
             break;
         case SYS_SBRK:   // arg1 = signed desired diff, returns pointer to new area
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);

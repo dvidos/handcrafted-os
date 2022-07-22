@@ -290,8 +290,10 @@ static int debug_file_contents(file_t *file, char *title, uint32_t offset, uint3
     char *p = kmalloc(length);
     memset(p, 0, length);
     err = vfs_read(file, p, length);
-    if (err < 0)
+    if (err < 0) {
+        kfree(p);
         return err;
+    }
     klog_debug(title);
     klog_hex16_debug(p, length, 0);
     kfree(p);
@@ -299,8 +301,10 @@ static int debug_file_contents(file_t *file, char *title, uint32_t offset, uint3
 }
 
 static int debug_elf_file(file_t *file) {
+    int err;
+
     elf32_header_t *header = kmalloc(sizeof(elf32_header_t));
-    int err = vfs_seek(file, 0, SEEK_START);
+    err = vfs_seek(file, 0, SEEK_START);
     if (err < 0)
         return err;
     err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
@@ -316,12 +320,16 @@ static int debug_elf_file(file_t *file) {
     char *section_headers = kmalloc(header->shnum * header->shentsize);
     char *program_headers = kmalloc(header->phnum * header->phentsize);
 
+
     err = vfs_seek(file, header->shoff, SEEK_START);
     if (err < 0)
         return err;
     err = vfs_read(file, section_headers, sec_hdr_bytes);
     if (err < 0)
         return err;
+    
+    klog_debug("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
+    klog_hex16_debug((void *)section_headers, header->shnum * header->shentsize, 0);
 
     err = vfs_seek(file, header->phoff, SEEK_START);
     if (err < 0)
@@ -329,6 +337,9 @@ static int debug_elf_file(file_t *file) {
     err = vfs_read(file, program_headers, prg_hdr_bytes);
     if (err < 0)
         return err;
+    
+    klog_debug("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
+    klog_hex16_debug((void *)program_headers, header->phnum * header->phentsize, 0);
     
     char *names_data = NULL;
     if (header->shstrndx != 0) {
@@ -522,11 +533,17 @@ int load_elf_file(file_t *file) {
         file->path,
         (void *)highest_virtual_address,
         PRIORITY_USER_PROGRAM,
-        tty
+        tty,
+        0
     );
 
     klog_debug("Starting process PID %d for ELF \"%s\"", process->pid, file->path);
     start_process(process);
+    klog_debug("Waiting for child to finish");
+    int exit_code = 0;
+    int child = wait(&exit_code);
+    klog_debug("Back from wait, returned value was %d, exit code is %d", child, exit_code);
+
 
     kfree(section_headers);
     kfree(program_headers);

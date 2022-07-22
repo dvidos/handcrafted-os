@@ -1,4 +1,6 @@
 #include <ctypes.h>
+#include <syscall.h>
+#include <kern_calls.h>
 
 /**
  * As at the moment I have no idea how I will exec() any user land process,
@@ -21,14 +23,14 @@
 
 
 void _start() {
-    // prepare some stuff,
+    // prepare some stuff (heap? files? environment?)
     // then call main()
-    extern int main(int argc, char *argv[]);
-    int exit_code = main(0, NULL);
+    extern int main(int argc, char *argv[], char *envp[]);
+    int exit_code = main(0, NULL, NULL);
 
     // then call the atexit() functions,
     // we could call terminate() to remove our process from the running / ready list
     (void)exit_code;
-    // exit(exit_code);
+    exit(exit_code);
 }
 

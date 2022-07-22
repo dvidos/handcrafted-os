@@ -23,7 +23,7 @@ typedef void (* func_ptr)();
 
 // create & initialize a process, don't start it yet, optinal association with a tty
 // process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty);
-process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty);
+process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty, pid_t ppid);
 
 // this appends the process on the ready queues
 void start_process(process_t *process);
@@ -32,6 +32,7 @@ void start_process(process_t *process);
 process_t *running_process();
 
 // actions that a running task can use
+int wait(int *exit_code); // returns error or exited PID
 void yield();  // voluntarily give up the CPU to another task
 void sleep(int milliseconds);  // sleep self for some milliseconds
 void block_me(int reason, void *channel); // blocks task, someone else must unblock it
@@ -74,12 +75,13 @@ typedef struct switched_stack_snapshot switched_stack_snapshot_t;
 enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 
 // reasons a process can be blocked
-enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT };
+enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT };
 
 
 // the fundamental process information for multi tasking
 struct process {
-    uint32_t pid;
+    pid_t pid;
+    pid_t parent_pid;
     char *name;
     struct process *next; // each process can only belong to one list
     // void *stack_buffer;
@@ -97,6 +99,8 @@ struct process {
     uint64_t wake_up_time;
     uint8_t exit_code;
     tty_t *tty; // if the process has an associated tty
+    pid_t   wait_child_pid;        // for wait() returned data to parent
+    uint8_t wait_child_exit_code;  // for wait() returned data to parent
 };
 
 
