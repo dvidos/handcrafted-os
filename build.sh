@@ -29,7 +29,9 @@ cd src/user
 make
 cd ../..
 
-cp sysroot/bin/* /mnt/userImg
+echo cp sysroot/bin/* /mnt/userImg/bin
+cp sysroot/bin/* /mnt/userImg/bin
+
 
 # to make the images use something like the below
 # ---------------------------------------------------
