@@ -75,6 +75,7 @@ typedef struct fat_boot_sector
 typedef struct {
     uint8_t *buffer;
     uint32_t sector_no;
+    bool loaded;
     bool dirty;
 } sector_t;
 
@@ -82,6 +83,7 @@ typedef struct {
 typedef struct {
     uint8_t *buffer;
     uint32_t cluster_no;
+    bool loaded;
     bool dirty;
 } cluster_t;
 
@@ -188,6 +190,7 @@ typedef struct {
         uint32_t sector_no;
         uint32_t offset_in_sector;
         bool     sector_dirty;
+        bool     loaded;
     } fat16_root_data;
 
     // for FAT32 and subdirs of FAT16,

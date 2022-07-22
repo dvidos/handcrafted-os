@@ -11,6 +11,7 @@ static int read_fat_sector(fat_info *fat, uint32_t sector_no, sector_t *sector) 
     if (err == 0) {
         sector->sector_no = sector_no;
         sector->dirty = false;
+        sector->loaded = true;
     }
     klog_trace("read_fat_sector(sector=%d) -> %d", sector_no, err);
     return err;
@@ -29,7 +30,6 @@ static int write_fat_sector(fat_info *fat, sector_t *sector) {
 }
 
 static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value) {
-    klog_trace("get_fat_entry_value(cluster=%d)", cluster_no);
     uint32_t offset_in_fat;
     if (fat->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
@@ -46,10 +46,16 @@ static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster
     uint32_t fat_sector_no    = offset_in_fat / fat->bytes_per_sector;
     uint32_t offset_in_sector = offset_in_fat % fat->bytes_per_sector;
 
-    if (sector->sector_no != fat_sector_no) {
+    bool already_loaded = sector->loaded && sector->sector_no == fat_sector_no;
+    if (!already_loaded) {
         int err = read_fat_sector(fat, fat_sector_no, sector);
         if (err)
             return err;
+        sector->sector_no = fat_sector_no;
+        sector->loaded = true;
+
+        klog_debug("allocation table sector No %d, contents follow, our offset is %d (0x%x)", fat_sector_no, offset_in_sector, offset_in_sector);
+        klog_hex16_debug(sector->buffer, fat->bytes_per_sector, 0);
     }
 
     // now that we have the sector, extract the next cluster_no
@@ -93,14 +99,17 @@ static int set_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster
         return ERR_NOT_SUPPORTED;
     }
 
-    // find the sector of FAT to load and load it.
+    // find the sector of FAT to load and update it.
     uint32_t fat_sector_no    = offset_in_fat / fat->bytes_per_sector;
     uint32_t offset_in_sector = offset_in_fat % fat->bytes_per_sector;
 
-    if (sector->sector_no != fat_sector_no) {
+    bool already_loaded = sector->loaded && sector->sector_no == fat_sector_no;
+    if (!already_loaded) {
         int err = read_fat_sector(fat, fat_sector_no, sector);
         if (err)
             return err;
+        sector->sector_no = fat_sector_no;
+        sector->loaded = true;
     }
 
     // now that we have the sector, set the value
@@ -291,7 +300,7 @@ static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, u
     
     // discover the cluster to load
     uint32_t target_cluster_no;
-    err = get_n_index_cluster_no(fat, pf->sector, pf->first_cluster_no, pf->cluster_n_index, &target_cluster_no);
+    err = get_n_index_cluster_no(fat, pf->sector, pf->first_cluster_no, cluster_n_index, &target_cluster_no);
     if (err) return err;
 
     // make sure we write our cluster first

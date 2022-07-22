@@ -36,6 +36,7 @@ static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd) {
     pd->fat16_root_data.sector_no = 0;
     pd->fat16_root_data.offset_in_sector = 0;
     pd->fat16_root_data.sector_dirty = false;
+    pd->fat16_root_data.loaded = false;
 
     klog_debug("open_root_dir(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
     klog_hex16_debug(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
@@ -121,6 +122,7 @@ static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buf
         if (err < 0) return err;
         pd->fat16_root_data.sector_no += 1;
         pd->fat16_root_data.offset_in_sector = 0;
+        pd->fat16_root_data.loaded = true;
     }
 
     // now we can read
@@ -159,6 +161,7 @@ static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *bu
         if (err < 0) return err;
         pd->fat16_root_data.sector_no += 1;
         pd->fat16_root_data.offset_in_sector = 0;
+        pd->fat16_root_data.loaded = true;
     }
 
     // now we can write
@@ -171,12 +174,13 @@ static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *bu
 
 static int priv_dir_get_slot_no(fat_info *fat, fat_priv_dir_info *pd) {
     int slot_no;
-    if (!pd->is_fat16_root)
-        slot_no = fat->ops->priv_file_seek(fat, pd->pf, 0, SEEK_CURRENT);
+    if (!pd->is_fat16_root) {
+        slot_no = fat->ops->priv_file_seek(fat, pd->pf, 0, SEEK_CURRENT) / BYTES_PER_DIR_SLOT;
 
-    else
+    } else {
         slot_no = (pd->fat16_root_data.sector_no * fat->bytes_per_sector 
                     + pd->fat16_root_data.offset_in_sector) / BYTES_PER_DIR_SLOT;
+    }
 
     klog_trace("priv_dir_get_slot_no() -> %d", slot_no);
     return slot_no;
@@ -189,7 +193,8 @@ static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no)
 
     // fat 16 root code here
     uint32_t target_sector_no = (slot_no * BYTES_PER_DIR_SLOT) / fat->bytes_per_sector;
-    if (target_sector_no != pd->fat16_root_data.sector_no) {
+    bool already_loaded = pd->fat16_root_data.loaded && pd->fat16_root_data.sector_no == target_sector_no;
+    if (!already_loaded) {
         // we need to read the new sector.
         if (target_sector_no >= fat->root_dir_sectors_count)
             return ERR_NO_MORE_CONTENT;
@@ -208,6 +213,7 @@ static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no)
             0, 1, pd->fat16_root_data.sector_buffer);
         if (err) return err;
         pd->fat16_root_data.sector_no = target_sector_no;
+        pd->fat16_root_data.loaded = true;
     }
 
     pd->fat16_root_data.offset_in_sector = (slot_no * BYTES_PER_DIR_SLOT) % fat->bytes_per_sector;
