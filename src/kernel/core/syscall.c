@@ -7,6 +7,7 @@
 #include <devices/tty.h>
 #include <filesys/vfs.h>
 #include "../../libc/include/syscall.h"
+#include "../../libc/include/keyboard.h"
 
 
 
@@ -79,7 +80,10 @@ static int sys_exit(uint8_t exit_code) {
     return 0;
 }
 
-
+static int sys_getkey(key_event_t *event) {
+    tty_read_key(event);
+    return 0;
+}
 
 int isr_syscall(struct syscall_stack stack) {
     // it seems we are in the stack of the user process
@@ -118,8 +122,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_set_screen_color(stack.passed.arg1);
             break;
         case SYS_GET_KEY_EVENT:   // returns... a lot of info (we have 4 bytes)
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_getkey((key_event_t *)stack.passed.arg1);
             break;
         case SYS_GET_MOUSE_EVENT:   // returns... a lot of info (we have 4 bytes)
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);

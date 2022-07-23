@@ -1,6 +1,9 @@
 #ifndef _STDIO_H
 #define _STDIO_H
 
+#include <keyboard.h>
+
+
 #define EOF (-1)
 
 // prints to current tty
@@ -49,5 +52,6 @@ int set_screen_color(int color);
 #define COLOR_WHITE          15
 
 
+void getkey(key_event_t *event);
 
 #endif

@@ -29,8 +29,11 @@ cd src/user
 make
 cd ../..
 
-echo cp sysroot/bin/* /mnt/userImg/bin
-cp sysroot/bin/* /mnt/userImg/bin
+
+echo Preparing disk image...
+rm -rf /mnt/userImg/*
+cp -rv sysroot/* /mnt/userImg
+
 
 
 # to make the images use something like the below

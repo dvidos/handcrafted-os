@@ -82,7 +82,7 @@ enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT }
 struct process {
     pid_t pid;
     pid_t parent_pid;
-    char *name;
+    char name[32+1];
     struct process *next; // each process can only belong to one list
     // void *stack_buffer;
     func_ptr entry_point;

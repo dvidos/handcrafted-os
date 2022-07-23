@@ -251,7 +251,9 @@ void exit(uint8_t exit_code) {
             p->wait_child_pid = running_proc->pid;
             p->wait_child_exit_code = exit_code;
             prepend(&ready_lists[p->priority], p);
+            break;
         }
+        p = p->next;
     }
 
     schedule();
@@ -306,7 +308,7 @@ process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uin
     p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
     p->entry_point = entry_point;
     p->priority = priority;
-    p->name = name;
+    strncpy(p->name, name, 33);
     p->cpu_ticks_total = 0;
     p->cpu_ticks_last = 0;
     p->state = READY;
