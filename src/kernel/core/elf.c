@@ -533,9 +533,9 @@ int load_elf_file(file_t *file) {
     // this has to move away from here though.
     // in a while we can define open files as well (stdin, out, err)
     // and we have to transfer both args and environment
-    tty_t *tty = /*running_process()->tty;
+    tty_t *tty = running_process()->tty;
     if (tty == NULL)
-        tty =*/ tty_manager_get_device(1);
+        tty = tty_manager_get_device(1);
     process_t *process = create_process(
         (func_ptr)header->entry,
         file->path,
