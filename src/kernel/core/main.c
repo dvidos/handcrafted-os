@@ -5,7 +5,6 @@
 #include <pic.h>
 #include <cpu.h>
 #include <drivers/screen.h>
-#include <drivers/keyboard.h>
 #include <drivers/timer.h>
 #include <drivers/clock.h>
 #include <drivers/serial.h>

@@ -1,6 +1,5 @@
 #include <klib/string.h>
 #include <drivers/screen.h>
-#include <drivers/keyboard.h>
 #include <cpu.h>
 #include <errors.h>
 #include <bits.h>

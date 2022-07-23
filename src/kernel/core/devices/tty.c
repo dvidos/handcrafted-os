@@ -1,7 +1,7 @@
 #include <multitask/process.h>
 #include <memory/kheap.h>
 #include <drivers/screen.h>
-#include <drivers/keyboard.h>
+#include <keyboard.h>  // <-- libc
 #include <klog.h>
 #include <cpu.h>
 #include <klib/string.h>
@@ -146,21 +146,13 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
 
     // but if the device never reads keyboard input, 
     // those keys should not go to other ttys...
-    if (event->ctrl_down == 0
-        && event->alt_down == 1
-        && event->shift_down == 0
-        && event->printable >= '1'
-        && event->printable <= '9'
-    ) {
-        int tty_no = (event->printable - '1');
+    uint16_t k = event->keycode;
+    if (k >= KEY_ALT_1 && k <= KEY_ALT_9) {
+        int tty_no = (k - KEY_ALT_1);
         if (tty_no < tty_mgr_data.num_of_ttys)
             switch_to_tty(tty_no);
-    } else if (!event->ctrl_down
-        && !event->alt_down
-        && event->shift_down
-        && (event->special_key == KEY_PAGE_UP || event->special_key == KEY_PAGE_DOWN)
-    ) { 
-        bool up = (event->special_key == KEY_PAGE_UP);
+    } else if (k == KEY_SHIFT_PAGE_UP || k == KEY_SHIFT_PAGE_DOWN) {
+        bool up = (k == KEY_SHIFT_PAGE_UP);
         scroll_tty_screenful(tty_mgr_data.active_tty, up);
     } else {
         // put in buffer
