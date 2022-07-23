@@ -2,6 +2,7 @@
 #include <klog.h>
 #include <filesys/vfs.h>
 #include <memory/physmem.h>
+#include <memory/virtmem.h>
 #include <memory/kheap.h>
 #include <klib/string.h>
 #include <multitask/process.h>
@@ -412,8 +413,6 @@ int load_elf_file(file_t *file) {
     if (header->type != ELF_TYPE_EXECUTABLE)
         return ERR_NOT_SUPPORTED;
 
-        
-
     // so now we can load all section headers and all program headers
     int sec_hdr_bytes = header->shnum * header->shentsize;
     int prg_hdr_bytes = header->phnum * header->phentsize;
@@ -456,8 +455,8 @@ int load_elf_file(file_t *file) {
         elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
         if (program->p_type != PT_LOAD)
             continue;
-        uint32_t high_address = program->p_vaddr + program->p_memsz;
-        highest_virtual_address = max(highest_virtual_address, high_address);
+        uint32_t program_end_address = program->p_vaddr + program->p_memsz;
+        highest_virtual_address = max(highest_virtual_address, program_end_address);
     }
 
 
@@ -468,7 +467,6 @@ int load_elf_file(file_t *file) {
     );
     klog_warn("Not supporting virtual memory yet!");
 
-
     // we can add the stack to the size (e.g. 256 KB)
     // Windows allocate 1MB, Linux x86_64 allocates 8MB !!!
     // remember, stack grows downards
@@ -476,6 +474,16 @@ int load_elf_file(file_t *file) {
     uint32_t stack_size = 256 * 1024;
     memset((char *)highest_virtual_address, 0x00, stack_size);
     highest_virtual_address += stack_size;
+
+    void *pd = create_page_directory();
+    allocate_virtual_memory_range((void *)lowest_virtual_address, (void *)highest_virtual_address, pd);
+    // now what?
+    // so, every page directory shall contain a mapping of the kernel anyway.
+    // that means that, even swapping CR3, we don't have a problem.
+    // essentially, we want the start function of the new process to be a loading function
+    // that will load the executable and then start it. that means that 
+    // exec() can return soon, without waiting for a return code
+    
 
     // we need to load the segments in the specific virtual address, 
     // therefore we need virtual memory, or risk loading somewhere!

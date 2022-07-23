@@ -67,6 +67,7 @@
 
 
 pid_t last_pid = 0;
+lock_t pid_lock = 0;
 
 
 char *process_state_names[] = { "READY", "RUNNING", "BLOCKED", "TERMINATED" };
@@ -294,9 +295,9 @@ process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uin
     // char *stack_ptr = kmalloc(stack_size);
     // memset(stack_ptr, 0, stack_size);
     
-    pushcli();
+    acquire(&pid_lock);
     p->pid = ++last_pid;
-    popcli();
+    release(&pid_lock);
 
     // p->stack_buffer = stack_ptr;
     // p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t));

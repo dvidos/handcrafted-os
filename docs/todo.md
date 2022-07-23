@@ -1,14 +1,15 @@
 # things to do
 
+* Improve exec() by requiring virtual mapped memory for the executable.
 * Implement file handles per process, as well as the wait() and fork() functionality
-* Make FAT read/write and start a shell and a vi editor
+* Create a memory disk storage device, use it to unit test the FAT16 & FAT32 drivers
+* Start a shell and a vi editor
 * Later, find way to detect very small timings, to fine tune malloc() for example.
 * Make one console command that allows us to read/modify/write sectors off of hard disk
 * Maybe I want to get fast to a place where I can boot the OS and 
 and have an environment where I can improve it, e.g. test and compile apps
 or something.
 * Finish the things we have in the middle could help
-  * FAT system, write(), touch(), mkdir(), unlink() etc
   * SysCall, make everything supported, write libc functions
 * Actually eating own dogfood can be the ultimate goal. Actually use if for day to day operations...
 * Sounds like implementing TCP/IP will lead to exciting capabilities.
@@ -96,6 +97,8 @@ prior allocation.
 
 ## things done
 
+* Make FAT read/write
+* FAT system, write(), touch(), mkdir(), unlink() etc
 * Implement virtual memory paging (with cr0 support)
 * Write something about how to get to the arch specific build tools (some page in OSDev, i think [this one](https://wiki.osdev.org/GCC_Cross-Compiler))
 * loading and executing programs (ELF format), implement syscall (int 0x80) -- success July 2, 2022

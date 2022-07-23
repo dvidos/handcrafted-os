@@ -3,6 +3,7 @@
 #include <drivers/screen.h>
 #include <klog.h>
 #include <klib/string.h>
+#include <cpu.h>
 
 /*
    Paging is mapping a virtual address to a physical one.
@@ -302,7 +303,7 @@ inline void invalidate_paging_cached_address(void *virtual_addr) {
     asm volatile("invlpg (%0)" : : "r" ((uint32_t)virtual_addr) : "memory");
 }
 
-void enable_memory_paging_cpu_bit() {
+static void enable_memory_paging_cpu_bit() {
     klog_trace("Enabling memory paging in CPU");
 
     __asm__ __volatile__(
@@ -315,7 +316,7 @@ void enable_memory_paging_cpu_bit() {
     );
 }
 
-void disable_memory_paging_cpu_bit() {
+static void disable_memory_paging_cpu_bit() {
     klog_trace("Disabling memory paging in CPU");
 
     __asm__ __volatile__(
@@ -382,3 +383,66 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
     memory_address = ROUND_DOWN_4K(memory_address);
     map_virtual_address_to_physical((void *)memory_address, (void *)memory_address, page_dir_address, false);
 }
+
+
+
+
+// allocates and creates a new page directory
+void *create_page_directory() {
+    void *address = allocate_physical_page((void *)0x100000);
+    memset(address, 0, physical_page_size());
+
+    // the kernel (code, data, heap etc) must be mapped in the same address in all address spaces.
+    // that way, we can switch CR3 and jump into an elf loading function without issues.
+
+    return address;
+}
+
+// allocates pages and maps them to the virtual addresses requested
+// end address is non-inclusive
+void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, void *page_dir_addr) {
+    void *target_virtual_addr = virt_addr_start;
+    while (target_virtual_addr < virt_addr_end) {
+        void *phys_page_addr = allocate_physical_page((void *)0x100000);
+        map_virtual_address_to_physical(target_virtual_addr, phys_page_addr, page_dir_addr, false);
+        target_virtual_addr += physical_page_size();
+    }
+}
+
+// frees any pointed pages, page tables, and the page directory itself
+void destroy_page_directory(void *page_dir_address) {
+    klog_trace("destroy_page_directory(0x%x)", page_dir_address);
+    pushcli();
+
+    // free linked tables and pages 
+    uint32_t entry;
+    for (int pd_index = 0; pd_index < 1024; pd_index++) {
+        entry = get_table_entry(page_dir_address, pd_index);
+        if (!is_entry_present(entry))
+            continue;
+        
+        void *page_table_address = get_entry_address(entry);
+        if (page_table_address == NULL)
+            continue;
+
+        // free any linked physical pages first
+        for (int pt_index = 0; pt_index < 1024; pt_index++) {
+            entry = get_table_entry(page_table_address, pt_index);
+            if (!is_entry_present(entry))
+                continue;
+
+            void *phys_page_address = get_entry_address(entry);
+            if (phys_page_address == 0)
+                continue;
+
+            free_physical_page(phys_page_address);
+        }
+
+        free_physical_page(page_table_address);
+    }
+
+    // we can now free the page directory itself
+    free_physical_page(page_dir_address);
+    popcli();
+}
+

@@ -1,6 +1,7 @@
 #ifndef _VIRTMEM_H
 #define _VIRTMEM_H
 
+#include <ctypes.h>
 
 // resolve a virtual address, by reading the page dir and tables
 void *resolve_virtual_to_physical_address(void *virtual_addr, void *page_dir_addr);
@@ -22,5 +23,18 @@ void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_add
 
 // to be called upon page fault interrupt
 void virtual_memory_page_fault_handler(uint32_t error_code);
+
+
+
+
+// allocates and creates a new page directory
+void *create_page_directory();
+
+// allocates pages and maps them to the virtual addresses requested (end_addr exclusive)
+void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, void *page_dir_addr);
+
+// frees any pointed pages, page tables, and the page directory itself
+void destroy_page_directory(void *page_dir_address);
+
 
 #endif
