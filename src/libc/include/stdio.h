@@ -1,6 +1,7 @@
 #ifndef _STDIO_H
 #define _STDIO_H
 
+// key codes and the key_event_t type
 #include <keyboard.h>
 
 
@@ -53,5 +54,6 @@ int set_screen_color(int color);
 
 
 void getkey(key_event_t *event);
+
 
 #endif

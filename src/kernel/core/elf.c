@@ -361,12 +361,12 @@ static int debug_elf_file(file_t *file) {
         debug_elf_section_header(false, i, section, names_data);
     }
 
-    // for (int i = 0; i < header->shnum; i++) {
-    //     elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
-    //     char title[64];
-    //     sprintfn(title, sizeof(title), "Section #%d data", i);
-    //     debug_file_contents(file, title, section->sh_offset, section->sh_size);
-    // }
+    for (int i = 0; i < header->shnum; i++) {
+        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
+        char title[64];
+        sprintfn(title, sizeof(title), "Section #%d data", i);
+        debug_file_contents(file, title, section->sh_offset, section->sh_size);
+    }
 
     klog_debug("Programs");
     debug_elf_program_header(true, NULL);

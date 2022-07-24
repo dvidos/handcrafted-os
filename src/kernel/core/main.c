@@ -20,14 +20,11 @@
 #include <multitask/multitask.h>
 #include <multitask/semaphore.h>
 #include <multitask/process.h>
-#include <konsole/konsole.h>
 #include <devices/tty.h>
-#include <konsole/readline.h>
 #include <filesys/partition.h>
 #include <filesys/vfs.h>
 #include <filesys/fat.h>
 #include <filesys/ext2.h>
-
 
 
 // Check if the compiler thinks you are targeting the wrong operating system.
@@ -189,8 +186,11 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 void console_task_main() {
     tty_t *tty = tty_manager_get_device(0);
     tty_set_title("Kernel Console");
-    tty_write("Welcome to konsole, enter \"?\" or \"help\" for help");
-    konsole(tty);
+    tty_write("For a console we need a user land program.");
+    while (1) {
+        sleep(5000);
+        tty_write("Beep");
+    }
 }
 
 void create_some_processes() {

@@ -3,9 +3,9 @@
 
 typedef __builtin_va_list va_list;
 
-#define va_start(v,l)   __builtin_va_start(v,l)
-#define va_arg(v,l)     __builtin_va_arg(v,l)
-#define va_end(v)       __builtin_va_end(v)
+#define va_start(list_var, anchor_var)   __builtin_va_start(list_var, anchor_var)
+#define va_arg(list_var, arg_type)     __builtin_va_arg(list_var, arg_type)
+#define va_end(list_var)       __builtin_va_end(list_var)
 
 
 #endif

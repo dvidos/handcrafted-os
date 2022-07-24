@@ -27,12 +27,16 @@ void init_klog();
 void klog_appender_level(log_appender_t appender, log_level_t level);
 void klog_set_tty(tty_t *tty);
 
+void klog_append(log_level_t level, const char *format, ...);
+void klog_user_syslog(int level, char *buffer);
+
 void klog_trace(const char *format, ...);
 void klog_debug(const char *format, ...);
 void klog_info(const char *format, ...);
 void klog_warn(const char *format, ...);
 void klog_error(const char *format, ...);
 void klog_critical(const char *format, ...);
+
 
 void klog_hex16_debug(uint8_t *buffer, size_t length, uint32_t start_address);
 

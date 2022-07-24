@@ -16,6 +16,7 @@ SOURCE_FILES = \
 	$(wildcard stdlib/*.c) \
 	$(wildcard proc/*.c) \
 	$(wildcard string/*.c) \
+	$(wildcard readline/*.c) \
 	$(wildcard sys/*.c)
 
 LIBC_OBJ_FILES = $(SOURCE_FILES:.c=.o)

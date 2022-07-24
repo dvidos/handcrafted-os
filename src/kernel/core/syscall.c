@@ -85,6 +85,15 @@ static int sys_getkey(key_event_t *event) {
     return 0;
 }
 
+static void sys_log_entry(int level, uint8_t *buffer) {
+    klog_user_syslog(level, buffer);
+}
+
+static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
+    klog_hex16_debug(address, length, starting_num);
+}
+
+
 int isr_syscall(struct syscall_stack stack) {
     // it seems we are in the stack of the user process
     int return_value = 0;
@@ -97,6 +106,14 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = stack.passed.arg1 + stack.passed.arg2 + stack.passed.arg3 +
                 stack.passed.arg4 + stack.passed.arg5;
             break;
+
+        case SYS_LOG_ENTRY:
+            sys_log_entry(stack.passed.arg1, (uint8_t *)stack.passed.arg2);
+            break;
+        case SYS_LOG_HEX_DUMP:
+            sys_log_hex(stack.passed.arg1, (uint8_t *)stack.passed.arg2, (uint32_t)stack.passed.arg3, (uint32_t)stack.passed.arg4);
+            break;
+
         case SYS_PUTS:   // arg1 = string
             return_value = sys_puts((char *)stack.passed.arg1);
             break;

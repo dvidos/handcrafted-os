@@ -26,6 +26,8 @@ UTILS_BIN_FILES = $(patsubst utils/%.c,bin/%,$(UTILS_SRC_FILES))
 UTILS_NAMES_ONLY = $(patsubst utils/%.c,%,$(UTILS_SRC_FILES))
 INSTALLED_BINS = $(patsubst utils/%.c,$(SYSROOT_DIR)/%,$(UTILS_SRC_FILES))
 
+# for projects of more than one file, we use subdirectories
+PROJECT_FOLDERS = $()
 
 a: all install
 

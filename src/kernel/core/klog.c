@@ -5,6 +5,7 @@
 #include <drivers/screen.h>
 #include <drivers/timer.h>
 #include <klog.h>
+#include <multitask/process.h>
 
 
 static char *level_captions[] = {
@@ -33,7 +34,7 @@ static struct {
 
 
 
-static void klog_append(log_level_t level, const char *format, va_list args);
+static void klog_append_va(log_level_t level, const char *format, va_list args);
 static void memlog_write(char *str);
 static void memory_log_append(log_level_t level, char *str);
 static void screen_log_append(log_level_t level, char *str, bool decorated);
@@ -73,49 +74,63 @@ void klog_set_tty(tty_t *tty) {
     tty_set_title_specific_tty(tty_appender, "Kernel Log Viewer");
 }
 
+void klog_user_syslog(int level, char *buffer) {
+    klog_append(level, "%s[%d] %s", running_process()->name, running_process()->pid, buffer);
+}
+
 void klog_trace(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    klog_append(LOGLEV_TRACE, format, args);
+    klog_append_va(LOGLEV_TRACE, format, args);
     va_end(args);
 }
 
 void klog_debug(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    klog_append(LOGLEV_DEBUG, format, args);
+    klog_append_va(LOGLEV_DEBUG, format, args);
     va_end(args);
 }
 
 void klog_info(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    klog_append(LOGLEV_INFO, format, args);
+    klog_append_va(LOGLEV_INFO, format, args);
     va_end(args);
 }
 
 void klog_warn(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    klog_append(LOGLEV_WARN, format, args);
+    klog_append_va(LOGLEV_WARN, format, args);
     va_end(args);
 }
 
 void klog_error(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    klog_append(LOGLEV_ERROR, format, args);
+    klog_append_va(LOGLEV_ERROR, format, args);
     va_end(args);
 }
 
 void klog_critical(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    klog_append(LOGLEV_CRITICAL, format, args);
+    klog_append_va(LOGLEV_CRITICAL, format, args);
     va_end(args);
 }
 
-static void klog_append(log_level_t level, const char *format, va_list args) {
+void klog_append(log_level_t level, const char *format, ...) {
+    if (strlen(format) == 0)
+        return;
+
+    va_list args;
+    va_start(args, format);
+    klog_append_va(level, format, args);
+    va_end(args);
+}
+
+static void klog_append_va(log_level_t level, const char *format, va_list args) {
     if (strlen(format) == 0)
         return;
 

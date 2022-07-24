@@ -11,6 +11,10 @@
 #define SYS_ECHO_TEST         1  // test, returns arg 1
 #define SYS_ADD_TEST          2  // test, returns sum of args 1 - 5
 
+// we don't have kernel log in user land...
+#define SYS_LOG_ENTRY         3  // log something in syslog. 
+#define SYS_LOG_HEX_DUMP      4  // log binary contents in syslog
+
 // pseudo-tty manipulation
 #define SYS_PUTS               11  // arg1 = string
 #define SYS_PUTCHAR            12  // arg1 = char
@@ -50,6 +54,7 @@
 // clock info
 #define SYS_GET_UPTIME       50  // returns msecs since boot (32 bits = 49 days)
 #define SYS_GET_CLOCK        51  // arg1 = dtime pointer
+
 
 
 // IPC send, receive, shared memory
