@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <syscall.h>
 
-
-#ifdef __is__libc  // only for user space
+#ifdef __is_libc  // only for user space, not good for kernel
 
 
 
@@ -81,7 +80,7 @@ void sbrk(int size_diff) {
 
 
 // allocate a chunk of memory from heap
-void *__kmalloc(size_t size, char *explanation, char *file, uint16_t line) {
+void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
     // size = size < 256 ? 256 : size;
     
     // find the first free block that is equal or larger than size

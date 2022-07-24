@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <slist.h>
 
+#ifdef __is_libc
+
+
 struct slist_entry {
     struct slist_entry *prev;
     struct slist_entry *next;
@@ -245,3 +248,4 @@ int slist_count_containing(slist_t *list, char *needle) {
     return count_using(list, needle, contains_matcher);
 }
 
+#endif // __is_libc

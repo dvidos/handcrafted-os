@@ -20,27 +20,28 @@ CFLAGS = \
 	$(OUR_LIBC)
 
 
+
 UTILS_SRC_FILES = $(wildcard utils/*.c)
 UTILS_DEP_FILES = $(patsubst utils/%.c,bin/%.d,$(UTILS_SRC_FILES))
 UTILS_BIN_FILES = $(patsubst utils/%.c,bin/%,$(UTILS_SRC_FILES))
-UTILS_NAMES_ONLY = $(patsubst utils/%.c,%,$(UTILS_SRC_FILES))
+UTILS_BIN_FILES += bin/sh
+
 INSTALLED_BINS = $(patsubst utils/%.c,$(SYSROOT_DIR)/%,$(UTILS_SRC_FILES))
 
-# for projects of more than one file, we use subdirectories
-PROJECT_FOLDERS = $()
 
-a: all install
+all: $(UTILS_BIN_FILES) install
 
 print:
 	echo src = $(UTILS_SRC_FILES)
 	echo dep = $(UTILS_DEP_FILES)
 	echo bin = $(UTILS_BIN_FILES)
-	echo names = $(UTILS_NAMES_ONLY)
 
-
-all: $(UTILS_BIN_FILES) install
 
 -include $(UTILS_DEP_FILES)
+
+bin/sh: $(wildcard utils/sh/*.c)
+	mkdir -p ./bin
+	$(CC) -MD $< -o $@ $(CFLAGS)
 
 bin/%: utils/%.c
 	mkdir -p ./bin

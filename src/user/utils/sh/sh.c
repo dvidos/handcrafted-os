@@ -1,6 +1,6 @@
 #include <stdio.h>
+#include <string.h>
 #include <readline.h>
-
 
 // what does a shell support?
 // - environment manipulation (set, unset)
@@ -9,6 +9,7 @@
 // - manipulate devices?
 // - communicate with kernel, show progress etc.
 // - should be able to work with pty, in graphics mode.
+
 
 readline_t *rl = NULL;
 
@@ -21,7 +22,10 @@ void exec(char *line) {
 }
 
 int main(int argc, char *argv[], char *envp[]) {
-
+    (void)argc;
+    (void)argv;
+    (void)envp;
+    
     init();
     while (true) {
         char *line = readline(rl);
@@ -30,4 +34,6 @@ int main(int argc, char *argv[], char *envp[]) {
         
         exec(line);
     }
+
+    return 0;
 }
