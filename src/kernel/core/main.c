@@ -25,7 +25,7 @@
 #include <filesys/vfs.h>
 #include <filesys/fat.h>
 #include <filesys/ext2.h>
-
+#include <exec.h>
 
 // Check if the compiler thinks you are targeting the wrong operating system.
 #if defined(__linux__)
@@ -185,11 +185,20 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
 void console_task_main() {
     tty_t *tty = tty_manager_get_device(0);
-    tty_set_title("Kernel Console");
-    tty_write("For a console we need a user land program.");
-    while (1) {
-        sleep(5000);
-        tty_write("Beep");
+    tty_set_title("User Shell");
+
+    while (true) {
+        tty_write("Launching user-space shell program\n");
+        int err = exec("/bin/sh");
+        if (err < 0) {
+            printf("exec(\"/bin/sh\") returned %d\n", err);
+        } else {
+            // wait for the child?
+            pid_t child_proc = (pid_t)err;
+            int exit_code = 0;
+            err = wait(&exit_code);
+            printf("wait() returned %d, child process exit code is %d\n", err, exit_code);
+        }
     }
 }
 

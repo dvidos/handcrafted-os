@@ -83,24 +83,57 @@ struct process {
     pid_t pid;
     pid_t parent_pid;
     char name[32+1];
+
     struct process *next; // each process can only belong to one list
-    // void *stack_buffer;
-    func_ptr entry_point;
+    func_ptr entry_point; // where to jump when first starting this process
     uint8_t  priority;
+
     union { // two views of the same piece of information
-        uint32_t esp;
-        switched_stack_snapshot_t *stack_snapshot;
+        uint32_t esp;                               // value of the stack pointer
+        switched_stack_snapshot_t *stack_snapshot;  // pointer to pushed data on the stack
     };
+
+    // for housekeeping, not good if runtimes < 1 msecs...
     uint64_t cpu_ticks_total;
     uint64_t cpu_ticks_last;
+
+    // should mirror where the process is: running_proc variable, ready_list, block_list, terminated_list.
     enum process_state state;
+
+    // see relevant enums, populated when a process is blocked
     int block_reason;
     void *block_channel;
+
+    // the msetcs uptime in the future, that we are to be woken up
     uint64_t wake_up_time;
+
+    // exit code, to be used for parent process
     uint8_t exit_code;
-    tty_t *tty; // if the process has an associated tty
-    pid_t   wait_child_pid;        // for wait() returned data to parent
-    uint8_t wait_child_exit_code;  // for wait() returned data to parent
+
+    // possibly, the process has an associated tty
+    tty_t *tty;
+
+    // if we call the wait() function, these two help populate the data
+    pid_t   wait_child_pid;
+    uint8_t wait_child_exit_code;
+
+    // for user processes, libc will call sbrk()
+    void *heap;           // heap will grow upwards
+    uint32_t heap_size;   // to allow sbrk() to work
+
+    // if populated, we can check a magic value at the bottom
+    void *stack_bottom;   // to allow check for stack overflow
+    uint32_t stack_size;  // to allow us to set ESP correctly
+
+    // if null, use the kernel's page directory, otherwise this.
+    void *page_directory;
+
+    // if non-null, our user process is supposed to load this executable
+    char *executable_to_load;
+
+    // for the start up data
+    char **argv;
+    char **envp;
 };
 
 

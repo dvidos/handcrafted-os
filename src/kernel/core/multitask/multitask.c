@@ -5,6 +5,7 @@
 #include <drivers/clock.h>
 #include <klog.h>
 #include <memory/kheap.h>
+#include <memory/virtmem.h>
 #include <klib/string.h>
 
 
@@ -55,6 +56,10 @@ void start_multitasking() {
             // TODO: better cleanup, see what exec() creates
             // if (proc->stack_buffer != NULL)
             //     kfree(proc->stack_buffer);
+            if (proc->page_directory != NULL)
+                destroy_page_directory(proc->page_directory);
+            if (proc->executable_to_load != NULL)
+                kfree(proc->executable_to_load);
             kfree(proc);
         }
         

@@ -1,5 +1,8 @@
 # things to do
 
+* regarding lists like environment variables or arguments etc, play with the idea
+of allocating small arrays of pointers, but nest them, the way ext2 is doing, to achieve
+10, 100, 1K of entries etc. Allow infinite upper limit, but with small allocation for a dozen items.
 * Improve exec() by requiring virtual mapped memory for the executable.
 * Implement file handles per process, as well as the wait() and fork() functionality
 * Create a memory disk storage device, use it to unit test the FAT16 & FAT32 drivers

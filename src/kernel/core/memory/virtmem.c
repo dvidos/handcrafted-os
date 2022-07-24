@@ -5,6 +5,7 @@
 #include <klib/string.h>
 #include <cpu.h>
 
+
 /*
    Paging is mapping a virtual address to a physical one.
    On hardware, this is done by having a cache between the CPU
@@ -85,6 +86,8 @@
    Oh, and after spending half an hour at crafting beautiful structs with unions,
    it turns out the bit allocation is implementation specific and never guaranteed!
 */
+
+void *create_page_directory(bool map_kernel_space);
 
 
 
@@ -286,16 +289,30 @@ void identity_map_range(void *start_addr, void *end_addr, void *page_dir_addr) {
 // Enabling paging is actually very simple. All that is needed is 
 // to load CR3 with the address of the page directory 
 // and to set the paging (PG) and protection (PE) bits of CR0.
-void set_page_directory_address_in_cpu(void *address) {
-    klog_trace("Setting CR3 to 0x%p", address);
+void set_page_directory_register(void *address) {
+    klog_trace("Setting CR3 to 0x%x", address);
 
     __asm__ __volatile__(
         "mov %0, %%eax\n\t"
         "mov %%eax, %%cr3\n\t"
-        :                         // no output values
-        : "g"((uint32_t)address)  // input No 0
-        : "eax"                   // garbled registers
+        :             // no output values
+        : "g"(address)  // input No 0
+        : "eax"       // garbled registers
     );
+}
+
+// get current directory register
+void *get_page_directory_register() {
+    uint32_t value;
+
+    __asm__ __volatile__(
+        "movl %%cr3, %0\n\t"
+        : "=g"(value)  // output No 0
+        :              // no input values
+        :              // garbled registers
+    );
+
+    return (void *)value;
 }
 
 inline void invalidate_paging_cached_address(void *virtual_addr) {
@@ -329,17 +346,21 @@ static void disable_memory_paging_cpu_bit() {
     );
 }
 
-
-void *kernel_page_direcory;
+static struct {
+    void *page_directory; 
+    void *start_address;
+    void *end_address;
+} kernel_info;
 
 void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_address) {
     if (physical_page_size() != 4096)
         panic("Virtual memory supports 4KB pages only");
     
+    kernel_info.start_address = kernel_start_address;
+    kernel_info.end_address = kernel_end_address;
+
     // create a page directory for kernel.
-    kernel_page_direcory = allocate_physical_page((void *)0);
-    memset(kernel_page_direcory, 0, 4096);
-    identity_map_range(kernel_start_address, kernel_end_address, kernel_page_direcory);
+    kernel_info.page_directory = create_page_directory(true);
 
     // klog_debug("Kernel page directory contents:");
     // klog_hex16_debug(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
@@ -353,8 +374,12 @@ void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_add
     // klog_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
 
     // now enable paging (fingers crossed!)
-    set_page_directory_address_in_cpu(kernel_page_direcory);
+    set_page_directory_register(kernel_info.page_directory);
     enable_memory_paging_cpu_bit();
+}
+
+void *get_kernel_page_directory() {
+    return kernel_info.page_directory;
 }
 
 // handles page faults. 
@@ -388,24 +413,29 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
 
 
 // allocates and creates a new page directory
-void *create_page_directory() {
-    void *address = allocate_physical_page((void *)0x100000);
-    memset(address, 0, physical_page_size());
+void *create_page_directory(bool map_kernel_space) {
+    void *page_dir = allocate_physical_page((void *)0);
+    memset(page_dir, 0, physical_page_size());
 
-    // the kernel (code, data, heap etc) must be mapped in the same address in all address spaces.
-    // that way, we can switch CR3 and jump into an elf loading function without issues.
+    if (map_kernel_space) {
+        // the kernel (code, data, heap etc) must be mapped in the same address in all address spaces.
+        // that way, we can switch CR3 and jump into an elf loading function without issues.
+        // or execute kerel code, or keep variables and pointers sane when switching tasks
+        identity_map_range(kernel_info.start_address, kernel_info.end_address, page_dir);
+    }
 
-    return address;
+    klog_trace("create_page_directory() -> 0x%p", page_dir);
+    return page_dir;
 }
 
 // allocates pages and maps them to the virtual addresses requested
 // end address is non-inclusive
 void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, void *page_dir_addr) {
-    void *target_virtual_addr = virt_addr_start;
-    while (target_virtual_addr < virt_addr_end) {
+    klog_trace("allocate_virtual_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
+
+    for (void *virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         void *phys_page_addr = allocate_physical_page((void *)0x100000);
-        map_virtual_address_to_physical(target_virtual_addr, phys_page_addr, page_dir_addr, false);
-        target_virtual_addr += physical_page_size();
+        map_virtual_address_to_physical(virt_addr, phys_page_addr, page_dir_addr, false);
     }
 }
 

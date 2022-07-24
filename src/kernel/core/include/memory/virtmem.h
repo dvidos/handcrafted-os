@@ -21,14 +21,21 @@ void identity_map_range(void *start_addr, void *end_addr, void *page_dir_addr);
 // initialize virtual memory paging.
 void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_address);
 
+// return the page direcrory address for the kernel
+void *get_kernel_page_directory();
+
 // to be called upon page fault interrupt
 void virtual_memory_page_fault_handler(uint32_t error_code);
 
 
+// read and write the CR3 register
+void set_page_directory_register(void *address);
+void *get_page_directory_register();
+
 
 
 // allocates and creates a new page directory
-void *create_page_directory();
+void *create_page_directory(bool map_kernel_space);
 
 // allocates pages and maps them to the virtual addresses requested (end_addr exclusive)
 void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, void *page_dir_addr);

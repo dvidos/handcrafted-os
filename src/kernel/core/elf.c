@@ -141,11 +141,23 @@ typedef struct {
 #define STT_SECTION  3
 #define STT_FILE     4
 
+// -------------------------------------------------------------------------------------------------
 
+// returns SUCCESS or ERR_NOT_SUPPORTED accordingly
+int verify_elf_executable(file_t *file) {
+    klog_trace("verify_elf_executable(\"%s\")", file->path);
+    char identification[16];
 
+    int err = vfs_seek(file, 0, SEEK_START);
+    if (err < 0)
+        return err;
 
-// examines the first 16 bytes of an ELF file
-static int check_elf_identification(char *identification) {
+    err = vfs_read(file, identification, 16);
+    if (err < 0)
+        return err;
+
+    if (err < 16)
+        return ERR_NOT_SUPPORTED;
 
     if (identification[0] != 0x7F)
         return ERR_NOT_SUPPORTED;
@@ -170,11 +182,228 @@ static int check_elf_identification(char *identification) {
     if (identification[6] != 1)
         return ERR_NOT_SUPPORTED;
  
+    // yes, this is an ELF we can work with!
     return SUCCESS;
 }
 
+// calcualtes information for setting up a new process
+int get_elf_load_information(file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point) {
+    klog_trace("get_elf_load_information(\"%s\")", file->path);
 
-static void debug_elf_header(elf32_header_t *header) {
+    elf32_header_t *elf_header = NULL;
+    char *prg_headers = NULL;
+    int err;
+
+    elf_header = kmalloc(sizeof(elf32_header_t));
+
+    err = vfs_seek(file, 0, SEEK_START);
+    if (err < 0) goto exit;
+
+    err = vfs_read(file, (char *)elf_header, sizeof(elf32_header_t));
+    if (err != sizeof(elf32_header_t)) {
+        err = ERR_READING_FILE;
+        goto exit;
+    }
+
+    // we don't support dynamically linked executables for now.
+    if (elf_header->type != ELF_TYPE_EXECUTABLE) {
+        err = ERR_NOT_SUPPORTED;
+        goto exit;
+    }
+    *entry_point = (void *)elf_header->entry;
+
+    // load program headers to calculate virtual address needs
+    int prg_hdr_bytes = elf_header->phnum * elf_header->phentsize;
+    prg_headers = kmalloc(prg_hdr_bytes);
+
+    err = vfs_seek(file, elf_header->phoff, SEEK_START);
+    if (err < 0) goto exit;
+    err = vfs_read(file, prg_headers, prg_hdr_bytes);
+    if (err < 0) goto exit;
+    
+    // find loading boundaries
+    uint32_t lowest_virtual_address = UINT32_MAX;
+    uint32_t highest_virtual_address = 0;
+
+    for (int i = 0; i < elf_header->phnum; i++) {
+        elf32_program_header_t *program = (elf32_program_header_t *)(prg_headers + (i * elf_header->phentsize));
+        if (program->p_type != PT_LOAD)
+            continue;
+        
+        lowest_virtual_address = min(lowest_virtual_address, program->p_vaddr);
+        uint32_t program_end_address = program->p_vaddr + program->p_memsz;
+        highest_virtual_address = max(highest_virtual_address, program_end_address);
+    }
+
+    *virt_addr_start = (void *)lowest_virtual_address;
+    *virt_addr_end = (void *)highest_virtual_address;
+    err = SUCCESS;
+
+exit:
+    if (elf_header != NULL)
+        kfree(elf_header);
+    if (prg_headers != NULL)
+        kfree(prg_headers);
+    return err;
+}
+
+// loads segments from the file into memory
+int load_elf_into_memory(file_t *file) {
+    klog_trace("load_elf_into_memory(\"%s\")", file->path);
+    
+    elf32_header_t *elf_header = NULL;
+    char *prg_headers = NULL;
+    int err;
+
+    elf_header = kmalloc(sizeof(elf32_header_t));
+
+    err = vfs_seek(file, 0, SEEK_START);
+    if (err < 0) goto exit;
+
+    err = vfs_read(file, (char *)elf_header, sizeof(elf32_header_t));
+    if (err != sizeof(elf32_header_t)) {
+        err = ERR_READING_FILE;
+        goto exit;
+    }
+
+    // we don't support dynamically linked executables for now.
+    if (elf_header->type != ELF_TYPE_EXECUTABLE) {
+        err = ERR_NOT_SUPPORTED;
+        goto exit;
+    }
+
+    // load program headers to calculate virtual address needs
+    int prg_hdr_bytes = elf_header->phnum * elf_header->phentsize;
+    prg_headers = kmalloc(prg_hdr_bytes);
+
+    err = vfs_seek(file, elf_header->phoff, SEEK_START);
+    if (err < 0) goto exit;
+
+    err = vfs_read(file, prg_headers, prg_hdr_bytes);
+    if (err < 0) goto exit;
+    
+    for (int i = 0; i < elf_header->phnum; i++) {
+        elf32_program_header_t *program = (elf32_program_header_t *)(prg_headers + (i * elf_header->phentsize));
+        if (program->p_type != PT_LOAD)
+            continue;
+        
+        klog_trace("loading elf segment from file offset 0x%x (%d bytes) into memory addr 0x%x (%d bytes)", 
+            program->p_offset, program->p_filesz, program->p_vaddr, program->p_memsz);
+        
+        uint8_t *segment_ptr = (uint8_t *)program->p_vaddr;
+        memset(segment_ptr, 0, program->p_memsz);
+
+        err = vfs_seek(file, program->p_offset, SEEK_START);
+        if (err < 0) goto exit;
+
+        err = vfs_read(file, segment_ptr, program->p_filesz);
+        if (err < 0) goto exit;
+    }
+
+    err = SUCCESS;
+
+exit:
+    if (elf_header != NULL)
+        kfree(elf_header);
+    if (prg_headers != NULL)
+        kfree(prg_headers);
+    return err;
+}
+
+
+static void dump_elf_header(elf32_header_t *header);
+static void dump_elf_section_header(bool title_line, int num, elf32_section_header_t *section, char *names_data);
+static void dump_elf_program_header(bool title_line, elf32_program_header_t *program);
+static void dump_elf_raw_data(file_t *file, char *title, uint32_t offset, uint32_t length);
+
+// logs debug information about the elf, and how we understand it.
+int dump_elf_information(file_t *file) {
+    int err;
+    elf32_header_t *header = NULL;
+    char *section_headers = NULL;
+    char *program_headers = NULL;
+    char *names_data = NULL;
+    
+    header = kmalloc(sizeof(elf32_header_t));
+    err = vfs_seek(file, 0, SEEK_START);
+    if (err < 0) goto exit;
+    err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
+    if (err < 0) goto exit;
+
+    klog_info("ELF header for file \"%s\"", file->path);
+    dump_elf_header(header);
+
+    // so now we can load all section headers and all program headers
+    int sec_hdr_bytes = header->shnum * header->shentsize;
+    int prg_hdr_bytes = header->phnum * header->phentsize;
+    section_headers = kmalloc(header->shnum * header->shentsize);
+    program_headers = kmalloc(header->phnum * header->phentsize);
+
+    err = vfs_seek(file, header->shoff, SEEK_START);
+    if (err < 0) goto exit;
+    err = vfs_read(file, section_headers, sec_hdr_bytes);
+    if (err < 0) goto exit;
+    
+    klog_info("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
+    klog_hex16_debug((void *)section_headers, header->shnum * header->shentsize, 0);
+
+    err = vfs_seek(file, header->phoff, SEEK_START);
+    if (err < 0) goto exit;
+    err = vfs_read(file, program_headers, prg_hdr_bytes);
+    if (err < 0) goto exit;
+    
+    klog_info("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
+    klog_hex16_debug((void *)program_headers, header->phnum * header->phentsize, 0);
+    
+    if (header->shstrndx != 0) {
+        elf32_section_header_t *names_header = (elf32_section_header_t *)(section_headers + (header->shstrndx * header->shentsize));
+        names_data = kmalloc(names_header->sh_size);
+
+        err = vfs_seek(file, names_header->sh_offset, SEEK_START);
+        if (err < 0) goto exit;
+        err = vfs_read(file, names_data, names_header->sh_size);
+        if (err < 0) goto exit;
+
+        klog_info("Names from names section");
+        klog_hex16_debug(names_data, names_header->sh_size, 0);
+    }
+
+    klog_info("Sections");
+    dump_elf_section_header(true, 0, NULL, NULL);
+    for (int i = 0; i < header->shnum; i++) {
+        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
+        dump_elf_section_header(false, i, section, names_data);
+    }
+
+    for (int i = 0; i < header->shnum; i++) {
+        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
+        char title[64];
+        sprintfn(title, sizeof(title), "Section #%d data", i);
+        dump_elf_raw_data(file, title, section->sh_offset, section->sh_size);
+    }
+
+    klog_info("Programs");
+    dump_elf_program_header(true, NULL);
+    for (int i = 0; i < header->phnum; i++) {
+        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
+        dump_elf_program_header(false, program);
+    }
+
+    err = SUCCESS;
+exit:
+    if (names_data != NULL)
+        kfree(names_data);
+    if (section_headers != NULL)
+        kfree(section_headers);
+    if (program_headers != NULL)
+        kfree(program_headers);
+    if (header != NULL)
+        kfree(header);
+    return err;
+}
+
+
+static void dump_elf_header(elf32_header_t *header) {
     char *elf_types[] = {
         "NONE",
         "RELOCATABLE",
@@ -182,7 +411,7 @@ static void debug_elf_header(elf32_header_t *header) {
         "DYNAMIC",
         "CORE"
     };
-    klog_debug("ELF identification: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+    klog_info("ELF identification: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
         header->identification[0],
         header->identification[1],
         header->identification[2],
@@ -201,22 +430,22 @@ static void debug_elf_header(elf32_header_t *header) {
         header->identification[15]
     );
 
-    klog_debug("  elf type:                   %d (%s)", header->type, elf_types[header->type]);
-    klog_debug("  machine:                    %d (3 = 386)", header->machine);
-    klog_debug("  version:                    %d", header->version);
-    klog_debug("  entry point address:        0x%x", header->entry);
-    klog_debug("  start of program headers:   0x%x", header->phoff);
-    klog_debug("  start of section headers:   0x%x", header->shoff);
-    klog_debug("  flags:                      0x%x", header->flags);
-    klog_debug("  elf header size:            0x%x", header->ehsize);
-    klog_debug("  program header entry size:  0x%x", header->phentsize);
-    klog_debug("  program headers count:      %d", header->phnum);
-    klog_debug("  section header entry size:  0x%x", header->shentsize);
-    klog_debug("  section headers count:      %d", header->shnum);
-    klog_debug("  section name string index:  %d", header->shstrndx);
+    klog_info("  elf type:                   %d (%s)", header->type, elf_types[header->type]);
+    klog_info("  machine:                    %d (3 = 386)", header->machine);
+    klog_info("  version:                    %d", header->version);
+    klog_info("  entry point address:        0x%x", header->entry);
+    klog_info("  start of program headers:   0x%x", header->phoff);
+    klog_info("  start of section headers:   0x%x", header->shoff);
+    klog_info("  flags:                      0x%x", header->flags);
+    klog_info("  elf header size:            0x%x", header->ehsize);
+    klog_info("  program header entry size:  0x%x", header->phentsize);
+    klog_info("  program headers count:      %d", header->phnum);
+    klog_info("  section header entry size:  0x%x", header->shentsize);
+    klog_info("  section headers count:      %d", header->shnum);
+    klog_info("  section name string index:  %d", header->shstrndx);
 }
 
-static void debug_elf_section_header(bool title_line, int num, elf32_section_header_t *section, char *names_data) {
+static void dump_elf_section_header(bool title_line, int num, elf32_section_header_t *section, char *names_data) {
     char *stypes[] = {
         "NULL",
         "PROGBITS",
@@ -233,10 +462,10 @@ static void debug_elf_section_header(bool title_line, int num, elf32_section_hea
     };
 
     if (title_line) {
-        klog_debug("  No Name             Type         Addr     Offset   Size     ES Flg Lk Inf Al");
+        klog_info("  No Name             Type         Addr     Offset   Size     ES Flg Lk Inf Al");
         //            XX 1234567890123456 123456789012 12345678 12345678 12345678
     } else {
-        klog_debug("  %2d %-16s %-12s %08x %08x %08x %02x %c%c%c %2d %3d %2d",
+        klog_info("  %2d %-16s %-12s %08x %08x %08x %02x %c%c%c %2d %3d %2d",
             num,
             names_data == NULL ? "?" : names_data + section->sh_name, // we have to resolve this.
             stypes[section->sh_type],
@@ -254,7 +483,7 @@ static void debug_elf_section_header(bool title_line, int num, elf32_section_hea
     }
 }
 
-static void debug_elf_program_header(bool title_line, elf32_program_header_t *program) {
+static void dump_elf_program_header(bool title_line, elf32_program_header_t *program) {
     char *ptypes[] = {
         "NULL",
         "LOAD",
@@ -266,10 +495,10 @@ static void debug_elf_program_header(bool title_line, elf32_program_header_t *pr
     };
 
     if (title_line) {
-        klog_debug("  Type     Offset     Virt Addr  Phys Addr  FileSiz    MemSiz     Flg Align");
+        klog_info("  Type     Offset     Virt Addr  Phys Addr  FileSiz    MemSiz     Flg Align");
         //            12345678 0x12345678 0x12345678 0x12345678 0x12345678 0x12345678 123 0x0000
     } else {
-        klog_debug("  %-8s 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x %c%c%c 0x%04x",
+        klog_info("  %-8s 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x %c%c%c 0x%04x",
             program->p_type <= 6 ? ptypes[program->p_type] : "?",
             program->p_offset,
             program->p_vaddr,
@@ -284,279 +513,20 @@ static void debug_elf_program_header(bool title_line, elf32_program_header_t *pr
     }
 }
 
-static int debug_file_contents(file_t *file, char *title, uint32_t offset, uint32_t length) {
+static void dump_elf_raw_data(file_t *file, char *title, uint32_t offset, uint32_t length) {
     int err = vfs_seek(file, (int)offset, SEEK_START);
     if (err < 0)
-        return err;
+        return;
+    
     char *p = kmalloc(length);
     memset(p, 0, length);
     err = vfs_read(file, p, length);
     if (err < 0) {
         kfree(p);
-        return err;
+        return;
     }
-    klog_debug(title);
+    klog_info(title);
     klog_hex16_debug(p, length, 0);
     kfree(p);
-    return SUCCESS;
-}
-
-static int debug_elf_file(file_t *file) {
-    int err;
-
-    elf32_header_t *header = kmalloc(sizeof(elf32_header_t));
-    err = vfs_seek(file, 0, SEEK_START);
-    if (err < 0)
-        return err;
-    err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
-    if (err != sizeof(elf32_header_t))
-        return ERR_READING_FILE;
-
-    klog_debug("ELF header for file \"%s\"", file->path);
-    debug_elf_header(header);
-
-    // so now we can load all section headers and all program headers
-    int sec_hdr_bytes = header->shnum * header->shentsize;
-    int prg_hdr_bytes = header->phnum * header->phentsize;
-    char *section_headers = kmalloc(header->shnum * header->shentsize);
-    char *program_headers = kmalloc(header->phnum * header->phentsize);
-
-
-    err = vfs_seek(file, header->shoff, SEEK_START);
-    if (err < 0)
-        return err;
-    err = vfs_read(file, section_headers, sec_hdr_bytes);
-    if (err < 0)
-        return err;
-    
-    klog_debug("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
-    klog_hex16_debug((void *)section_headers, header->shnum * header->shentsize, 0);
-
-    err = vfs_seek(file, header->phoff, SEEK_START);
-    if (err < 0)
-        return err;
-    err = vfs_read(file, program_headers, prg_hdr_bytes);
-    if (err < 0)
-        return err;
-    
-    klog_debug("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
-    klog_hex16_debug((void *)program_headers, header->phnum * header->phentsize, 0);
-    
-    char *names_data = NULL;
-    if (header->shstrndx != 0) {
-        elf32_section_header_t *names_header = (elf32_section_header_t *)(section_headers + (header->shstrndx * header->shentsize));
-        names_data = kmalloc(names_header->sh_size);
-        err = vfs_seek(file, names_header->sh_offset, SEEK_START);
-        if (err < 0) return err;
-        err = vfs_read(file, names_data, names_header->sh_size);
-        if (err < 0) return err;
-        klog_debug("Names from names section");
-        klog_hex16_debug(names_data, names_header->sh_size, 0);
-    }
-
-    klog_debug("Sections");
-    debug_elf_section_header(true, 0, NULL, NULL);
-    for (int i = 0; i < header->shnum; i++) {
-        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
-        debug_elf_section_header(false, i, section, names_data);
-    }
-
-    for (int i = 0; i < header->shnum; i++) {
-        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
-        char title[64];
-        sprintfn(title, sizeof(title), "Section #%d data", i);
-        debug_file_contents(file, title, section->sh_offset, section->sh_size);
-    }
-
-    klog_debug("Programs");
-    debug_elf_program_header(true, NULL);
-    for (int i = 0; i < header->phnum; i++) {
-        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
-        debug_elf_program_header(false, program);
-    }
-
-    if (names_data)
-        kfree(names_data);
-    kfree(section_headers);
-    kfree(program_headers);
-    kfree(header);
-
-    return SUCCESS;
-
-}
-
-
-int load_elf_file(file_t *file) {
-    klog_trace("load_elf_file(\"%s\")", file->path);
-
-    debug_elf_file(file);
-
-    // in theory we load all the loadable segments,
-    // allocated pages, aligned into specific granullarity (e.g. 4, 16)
-    // that have been memory mapped to the virtual address the elf requires
-    // some segments are RO, some as RW, some are execute
-    // there is an entry point address in the header, 
-    // that corresponds to the address of the "__start()" method,
-    // which is in crt0 and which calls main().
-    // the ".symtab" segment contains the names and addresses of methods, 
-    // and variables, _very_ useful for debugging or tracing malloc() calls.
-
-    elf32_header_t *header = kmalloc(sizeof(elf32_header_t));
-    int err = vfs_seek(file, 0, SEEK_START);
-    if (err < 0)
-        return err;
-    err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
-    if (err != sizeof(elf32_header_t))
-        return ERR_READING_FILE;
-
-    // we don't support dynamically linked executables for now.
-    if (header->type != ELF_TYPE_EXECUTABLE)
-        return ERR_NOT_SUPPORTED;
-
-    // so now we can load all section headers and all program headers
-    int sec_hdr_bytes = header->shnum * header->shentsize;
-    int prg_hdr_bytes = header->phnum * header->phentsize;
-    char *section_headers = kmalloc(sec_hdr_bytes);
-    char *program_headers = kmalloc(prg_hdr_bytes);
-
-    err = vfs_seek(file, header->shoff, SEEK_START);
-    if (err < 0)
-        return err;
-    err = vfs_read(file, section_headers, sec_hdr_bytes);
-    if (err < 0)
-        return err;
-
-    err = vfs_seek(file, header->phoff, SEEK_START);
-    if (err < 0)
-        return err;
-    err = vfs_read(file, program_headers, prg_hdr_bytes);
-    if (err < 0)
-        return err;
-    
-    // log this, to troubleshoot, in case we reboot.
-    debug_elf_program_header(true, NULL);
-    for (int i = 0; i < header->phnum; i++) {
-        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
-        debug_elf_program_header(false, program);
-    }
-
-    // find lowest address
-    uint32_t lowest_virtual_address = UINT32_MAX;
-    for (int i = 0; i < header->phnum; i++) {
-        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
-        if (program->p_type != PT_LOAD)
-            continue;
-        lowest_virtual_address = min(lowest_virtual_address, program->p_vaddr);
-    }
-
-    // find highest address, to understand what to allocate
-    uint32_t highest_virtual_address = 0;
-    for (int i = 0; i < header->phnum; i++) {
-        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
-        if (program->p_type != PT_LOAD)
-            continue;
-        uint32_t program_end_address = program->p_vaddr + program->p_memsz;
-        highest_virtual_address = max(highest_virtual_address, program_end_address);
-    }
-
-
-    klog_info("ELF file \"%s\" requests to be loaded at virtual addresses 0x%x to 0x%x", 
-        file->path,
-        lowest_virtual_address,
-        highest_virtual_address
-    );
-    klog_warn("Not supporting virtual memory yet!");
-
-    // we can add the stack to the size (e.g. 256 KB)
-    // Windows allocate 1MB, Linux x86_64 allocates 8MB !!!
-    // remember, stack grows downards
-    uint32_t stack_end_vaddress = highest_virtual_address;
-    uint32_t stack_size = 256 * 1024;
-    memset((char *)highest_virtual_address, 0x00, stack_size);
-    highest_virtual_address += stack_size;
-
-    void *pd = create_page_directory();
-    allocate_virtual_memory_range((void *)lowest_virtual_address, (void *)highest_virtual_address, pd);
-    // now what?
-    // so, every page directory shall contain a mapping of the kernel anyway.
-    // that means that, even swapping CR3, we don't have a problem.
-    // essentially, we want the start function of the new process to be a loading function
-    // that will load the executable and then start it. that means that 
-    // exec() can return soon, without waiting for a return code
-    
-
-    // we need to load the segments in the specific virtual address, 
-    // therefore we need virtual memory, or risk loading somewhere!
-    // let's be risky for now!!!! :-) 
-    // otherwise, allocate some pages...    
-    for (int i = 0; i < header->phnum; i++) {
-        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
-        if (program->p_type != PT_LOAD)
-            continue;
-
-        // allocate and map virtual memory, or use specificed address directly
-        // initialize for memory size, but load for file size
-        // TODO: allocate memory, implement paging etc.
-        klog_trace("loading elf segment from file offset 0x%x (%d bytes) into memory addr 0x%x (%d bytes)", 
-            program->p_offset, program->p_filesz,
-            program->p_vaddr, program->p_memsz);
-        uint8_t *segment_ptr = (uint8_t *)program->p_vaddr;
-        memset(segment_ptr, 0, program->p_memsz);
-        err = vfs_seek(file, program->p_offset, SEEK_START);
-        if (err < 0) return err;
-        err = vfs_read(file, segment_ptr, program->p_filesz);
-        if (err < 0) return err;
-    }
-
-    // then we need to provide a view things for the crt0
-    // and jump to the entry point provided by the header.
-    // e.g. environment (an array of pointers to "KEY=VALUE" strings, last pointer is NULL)
-    // maybe https://pubs.opengroup.org/onlinepubs/9699919799/functions/environ.html
-
-
-    // create & initialize a process, don't start it yet, optinal association with a tty
-    // process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty);
-    // maybe we need to give the process a lot of info, such as the cr0 page
-    // the stack location, the jump point, etc.
-
-    uint32_t program_size = highest_virtual_address - lowest_virtual_address;
-    klog_debug("ELF \"%s\" loaded address 0x%x..0x%x, total size %d KB", 
-        file->path,
-        lowest_virtual_address,
-        highest_virtual_address,
-        program_size / 1024
-    );
-    klog_debug("Entry point at 0x%x", header->entry);
-    klog_debug("Stack top   at 0x%x", highest_virtual_address);
-    // klog_hex16_debug((uint8_t *)lowest_virtual_address, program_size - stack_size, lowest_virtual_address);
-
-    // this has to move away from here though.
-    // in a while we can define open files as well (stdin, out, err)
-    // and we have to transfer both args and environment
-    tty_t *tty = running_process()->tty;
-    if (tty == NULL)
-        tty = tty_manager_get_device(1);
-    process_t *process = create_process(
-        (func_ptr)header->entry,
-        file->path,
-        (void *)highest_virtual_address,
-        PRIORITY_USER_PROGRAM,
-        tty,
-        getpid()
-    );
-
-    klog_debug("Starting process PID %d for ELF \"%s\"", process->pid, file->path);
-    start_process(process);
-    klog_debug("Waiting for child to finish");
-    int exit_code = 0;
-    int child = wait(&exit_code);
-    klog_debug("Back from wait, returned value was %d, exit code is %d", child, exit_code);
-
-
-    kfree(section_headers);
-    kfree(program_headers);
-    kfree(header);
-
-    return SUCCESS;
 }
 

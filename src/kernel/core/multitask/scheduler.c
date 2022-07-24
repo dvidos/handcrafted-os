@@ -4,6 +4,7 @@
 #include <cpu.h>
 #include <drivers/timer.h>
 #include <klog.h>
+#include <memory/virtmem.h>
 
 
 
@@ -88,6 +89,11 @@ void schedule() {
     running_proc = next;
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
+
+    void *new_page_directory = running_proc->page_directory == NULL ? 
+                get_kernel_page_directory() : running_proc->page_directory;
+    if (new_page_directory != get_page_directory_register())
+        set_page_directory_register(new_page_directory);
 
     klog_trace("scheduler(): switching \"%s\" --> \"%s\"", previous->name, next->name);
     
