@@ -54,6 +54,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     void *virt_addr_end = NULL;
     void *entry_point = NULL;
     err = get_elf_load_information(&file, &virt_addr_start, &virt_addr_end, &entry_point);
+    klog_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, entry_point);
     if (err) goto exit;
 
     err = vfs_close(&file);
@@ -77,6 +78,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     // create something to load the segments (kernel mapped included)
     void *page_directory = create_page_directory(true);
     allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
+
 
     klog_debug("execve() parent proc CR3 is %x, new proc CR3 will be %x", get_page_directory_register(), page_directory);
 
@@ -109,7 +111,10 @@ int execve(char *path, char *argv[], char *envp[]) {
     // with enough data to be able to start.
     proc->heap = heap;
     proc->heap_size = heap_size;
-    
+
+    // awfully important! :-) 
+    proc->page_directory = page_directory;
+
     proc->executable_to_load = kmalloc(strlen(path) + 1);
     strcpy(proc->executable_to_load, path);
     proc->argv = argv;
