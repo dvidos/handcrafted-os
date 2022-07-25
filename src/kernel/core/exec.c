@@ -78,8 +78,6 @@ int execve(char *path, char *argv[], char *envp[]) {
     // create something to load the segments (kernel mapped included)
     void *page_directory = create_page_directory(true);
     allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
-
-
     klog_debug("execve() parent proc CR3 is %x, new proc CR3 will be %x", get_page_directory_register(), page_directory);
 
     // whenever we set CR3, we can load the file into memory.
@@ -107,14 +105,10 @@ int execve(char *path, char *argv[], char *envp[]) {
         ppid
     );
 
-    // we need to populate the process
-    // with enough data to be able to start.
+    // we need to populate the process with enough data to be able to start.
     proc->heap = heap;
     proc->heap_size = heap_size;
-
-    // awfully important! :-) 
-    proc->page_directory = page_directory;
-
+    proc->page_directory = page_directory;  // awfully important! :-) 
     proc->executable_to_load = kmalloc(strlen(path) + 1);
     strcpy(proc->executable_to_load, path);
     proc->argv = argv;
@@ -155,19 +149,26 @@ static void load_and_exec_elf_enrty_point() {
         exit(101);
     }
 
+    void *a, *b, *executable_entry_point;
+    err = get_elf_load_information(&file, &a, &b, &executable_entry_point);
+    if (err) {
+        klog_error("Failed getting executable information \"%s\"", proc->executable_to_load);
+        exit(102);
+    }
+
     err = load_elf_into_memory(&file);
     if (err) {
         klog_error("Failed loading executable \"%s\"", proc->executable_to_load);
-        exit(102);
+        exit(103);
     }
 
     err = vfs_close(&file);
     if (err) {
         klog_error("Failed closing executable \"%s\"", proc->executable_to_load);
-        exit(103);
+        exit(104);
     }
 
     // jump / call the elf entry point (which is the _start() of crt0)
-    (proc->entry_point)();
+    ((func_ptr)executable_entry_point)();
 }
 

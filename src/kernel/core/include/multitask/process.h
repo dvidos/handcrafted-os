@@ -77,6 +77,9 @@ enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 // reasons a process can be blocked
 enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT };
 
+// flags of the process (bit numbers)
+#define PROCESS_STACK_FRAME_INITIALIZED     0
+
 
 // the fundamental process information for multi tasking
 struct process {
@@ -85,8 +88,10 @@ struct process {
     char name[32+1];
 
     struct process *next; // each process can only belong to one list
-    func_ptr entry_point; // where to jump when first starting this process
+    func_ptr entry_point; // where to jump after initializing this process
     uint8_t  priority;
+
+    uint8_t flags;
 
     union { // two views of the same piece of information
         uint32_t esp;                               // value of the stack pointer

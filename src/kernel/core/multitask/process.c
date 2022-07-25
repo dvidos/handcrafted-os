@@ -290,7 +290,6 @@ process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uin
         klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
     }
-    
     // int stack_size = 4096;
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
@@ -305,7 +304,9 @@ process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uin
     // p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t));
     p->parent_pid = ppid;
     p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
-    p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
+    // don't set the return address in the stack yet,
+    // it may not be mapped from virtual to physical memory yet\
+    // (we don't have CR3 until we switch for the first time)
     p->entry_point = entry_point;
     p->priority = priority;
     strncpy(p->name, name, 33);

@@ -435,7 +435,7 @@ void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, v
 
     for (void *virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         void *phys_page_addr = allocate_physical_page((void *)0x100000);
-        map_virtual_address_to_physical(virt_addr, phys_page_addr, page_dir_addr, false);
+        map_virtual_address_to_physical(virt_addr, phys_page_addr, page_dir_addr, true);
     }
 }
 

@@ -5,6 +5,7 @@
 #include <drivers/timer.h>
 #include <klog.h>
 #include <memory/virtmem.h>
+#include <bits.h>
 
 
 
@@ -90,10 +91,19 @@ void schedule() {
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
+    // set a new page directory, if the new process uses one
     void *new_page_directory = running_proc->page_directory == NULL ? 
                 get_kernel_page_directory() : running_proc->page_directory;
     if (new_page_directory != get_page_directory_register())
         set_page_directory_register(new_page_directory);
+
+    // now that we have the mappings of the process space, and if this is
+    // the first time we will switch in this task, we need to set the entry_point 
+    // in the stack, which is now visible, due to the page directory
+    if (!IS_BIT(running_proc->flags, PROCESS_STACK_FRAME_INITIALIZED)) {
+        running_proc->stack_snapshot->return_address = (uint32_t)running_proc->entry_point;
+        running_proc->flags = SET_BIT(running_proc->flags, PROCESS_STACK_FRAME_INITIALIZED);
+    }
 
     klog_trace("scheduler(): switching \"%s\" --> \"%s\"", previous->name, next->name);
     
