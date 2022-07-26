@@ -5,7 +5,6 @@
 #ifdef __is_libc  // only for user space, not good for kernel
 
 
-
 #define MEM_MAGIC       0xAAA // something that fits in 12 bits
 
 
@@ -30,6 +29,7 @@ struct memory_block {
 } __attribute__((packed));
 typedef struct memory_block memory_block_t;
 
+
 struct memory_heap {
     void *start_address;
     void *end_address;
@@ -39,17 +39,25 @@ struct memory_heap {
 };
 typedef struct memory_heap memory_heap_t;
 
+
 // in theory, in the data section of each executable
 // we are supposed to 
-memory_heap_t heap;
+memory_heap_t heap = { 0, 0, 0, 0, 0 };
 
 
 static bool __check_block(memory_block_t *block);
 
 
-void init_heap(void *start_address, size_t heap_size) {
-    heap.start_address = start_address;
-    heap.end_address = start_address + heap_size;
+// called before main(), no need to be called by user
+void __init_heap() {
+
+    // in theory heap is initialized to zero, so the old break value will be the heap start
+    void *heap_start = sbrk(4096);
+    void *heap_end = sbrk(0);
+    size_t heap_size = heap_end - heap_start;
+
+    heap.start_address = heap_start;
+    heap.end_address = heap_start + heap_size;
     heap.available_memory = heap_size - 2 * sizeof(memory_block_t);
     // putting a block at the end of the area, to detect possible overflow
     memory_block_t *head = (memory_block_t *)(heap.start_address);
@@ -71,11 +79,14 @@ void init_heap(void *start_address, size_t heap_size) {
 
     heap.list_head = head;
     heap.list_tail = tail;
+
+    syslog_info("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
 }
 
 // request to expand or shrink the heap by an amount
-void sbrk(int size_diff) {
-    syscall(SYS_SBRK, size_diff, 0, 0, 0, 0);
+// returns pointer to the break before the change.
+void *sbrk(int size_diff) {
+    return (void *)syscall(SYS_SBRK, size_diff, 0, 0, 0, 0);
 }
 
 
@@ -93,7 +104,7 @@ void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
         curr = curr->next;
     }
     if (curr == NULL) {
-        syslog_warn("malloc(%u) -> Exiting, as could not find a free block, should sbrk() and extend last block", size);
+        syslog_warn("malloc(%u) --> Exiting, as could not find a free block, should sbrk() and extend last block", size);
         exit(99);
         return NULL;
     }

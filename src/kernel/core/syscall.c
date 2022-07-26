@@ -6,6 +6,8 @@
 #include <multitask/process.h>
 #include <devices/tty.h>
 #include <filesys/vfs.h>
+#include <memory/virtmem.h>
+
 #include "../../libc/include/syscall.h"
 #include "../../libc/include/keyboard.h"
 
@@ -93,6 +95,19 @@ static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t s
     klog_hex16_debug(address, length, starting_num);
 }
 
+static void *sys_sbrk(int diff_size) {
+    process_t *p = running_process();
+    if (p == NULL)
+        return NULL;
+    void *initial_break = p->heap + p->heap_size;
+    if (diff_size > 0) {
+        diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page
+        void *heap_end = p->heap + p->heap_size;
+        allocate_virtual_memory_range(heap_end, heap_end + diff_size, p->page_directory);
+        p->heap_size += diff_size;
+    }
+    return initial_break;
+}
 
 int isr_syscall(struct syscall_stack stack) {
     // it seems we are in the stack of the user process
@@ -221,8 +236,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_exit((uint8_t)stack.passed.arg1);
             break;
         case SYS_SBRK:   // arg1 = signed desired diff, returns pointer to new area
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = (int)sys_sbrk(stack.passed.arg1);
             break;
         case SYS_GET_UPTIME:   // returns msecs since boot (32 bits = 49 days)
             return_value = LOW_DWORD(timer_get_uptime_msecs());

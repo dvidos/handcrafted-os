@@ -205,7 +205,15 @@ void console_task_main() {
 void create_some_processes() {
     char *stack = allocate_physical_page((void *)0x200000); // 2MB+
     tty_t *tty = tty_manager_get_device(0);
-    process_t *console_proc = create_process(console_task_main, "Shell Launcher", (stack + 4096), PRIORITY_KERNEL, tty, 0);
+    process_t *console_proc = create_process(
+        console_task_main, 
+        "Shell Launcher", 
+        0,
+        PRIORITY_KERNEL,
+        (stack + 4096), 
+        get_kernel_page_directory(),
+        tty
+    );
     start_process(console_proc);
 
     // we can trigger a multipage monitor app with memory, processes etc.

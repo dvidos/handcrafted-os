@@ -33,7 +33,7 @@ cd ../..
 echo Preparing disk image...
 rm -rf /mnt/userImg/*
 cp -rv sysroot/* /mnt/userImg
-
+sync
 
 
 # to make the images use something like the below

@@ -23,7 +23,7 @@ typedef void (* func_ptr)();
 
 // create & initialize a process, don't start it yet, optinal association with a tty
 // process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty);
-process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty, pid_t ppid);
+process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t priority, void *stack_top, void *page_directory, tty_t *tty);
 
 // this appends the process on the ready queues
 void start_process(process_t *process);

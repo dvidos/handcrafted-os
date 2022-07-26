@@ -285,7 +285,7 @@ static void task_entry_point_wrapper() {
 }
 
 // a way to create process
-process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uint8_t priority, tty_t *tty, pid_t ppid) {
+process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t priority, void *stack_top, void *page_directory, tty_t *tty) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
         klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
@@ -305,7 +305,7 @@ process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uin
     p->parent_pid = ppid;
     p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
     // don't set the return address in the stack yet,
-    // it may not be mapped from virtual to physical memory yet\
+    // it may not be mapped from virtual to physical memory yet
     // (we don't have CR3 until we switch for the first time)
     p->entry_point = entry_point;
     p->priority = priority;
@@ -314,6 +314,7 @@ process_t *create_process(func_ptr entry_point, char *name, void *stack_top, uin
     p->cpu_ticks_last = 0;
     p->state = READY;
     p->tty = tty;
+    p->page_directory = page_directory;
 
     klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;

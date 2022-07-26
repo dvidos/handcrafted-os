@@ -72,8 +72,8 @@ int execve(char *path, char *argv[], char *envp[]) {
     void *stack_bottom = (void *)(((uint32_t)virt_addr_start - stack_size - 4096) & 0xFFFFFFF0);
 
     // heap will be located above the executable loaded address, growing up
-    int heap_size = 512 * 1024;
-    void *heap = virt_addr_end + 4096;
+    int heap_size = 0;
+    void *heap = (void *)(((uint32_t)virt_addr_end + 0xFFF) & 0xFFFFF000);
 
     // create something to load the segments (kernel mapped included)
     void *page_directory = create_page_directory(true);
@@ -99,10 +99,11 @@ int execve(char *path, char *argv[], char *envp[]) {
     process_t *proc = create_process(
         load_and_exec_elf_enrty_point,
         path,
-        stack_bottom + stack_size,
+        ppid,
         priority,
-        tty,
-        ppid
+        stack_bottom + stack_size,
+        page_directory,
+        tty
     );
 
     // we need to populate the process with enough data to be able to start.

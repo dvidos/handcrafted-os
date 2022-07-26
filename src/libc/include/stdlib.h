@@ -44,9 +44,9 @@ void exit(uint8_t exit_code);
     #define heap_verify()         ((void)0)
 #endif
 
-void init_heap(void *start_address, size_t heap_size);
 void *__malloc(size_t size, char *expl, char *file, uint16_t line);
 void free(void *ptr);
+void *sbrk(int size_diff);
 uint32_t heap_total_size();
 uint32_t heap_free_size();
 void heap_dump();

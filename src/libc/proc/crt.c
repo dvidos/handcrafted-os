@@ -24,14 +24,18 @@
 
 
 void _start() {
+
     // prepare some stuff (heap? files? environment?)
+    
+    extern void __init_heap();
+    __init_heap();
+
     // then call main()
     extern int main(int argc, char *argv[], char *envp[]);
     int exit_code = main(0, NULL, NULL);
 
     // then call the atexit() functions,
     // we could call terminate() to remove our process from the running / ready list
-    (void)exit_code;
     exit(exit_code);
 }
 

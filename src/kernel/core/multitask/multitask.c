@@ -26,7 +26,15 @@ void init_multitasking() {
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
     char *idle_stack = kmalloc(1024);
-    process_t *idle = create_process(NULL, "Idle", idle_stack + 1024, PROCESS_PRIORITY_LEVELS - 1, NULL, 0);
+    process_t *idle = create_process(
+        NULL, 
+        "Idle", 
+        0,
+        PROCESS_PRIORITY_LEVELS - 1,  // lowest priority by definition
+        idle_stack + 1024, 
+        get_kernel_page_directory(),
+        NULL
+    );
     running_proc = idle;
     running_proc->state = RUNNING; // set to running in order to swap it
 
