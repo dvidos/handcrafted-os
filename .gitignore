@@ -6,7 +6,7 @@
 *.gch
 kernel/*.o
 .vscode/*
-qemu.log
+qemu*.log
 *.iso
 
 src/libc/*.a
@@ -18,6 +18,5 @@ sysroot/usr/include
 sysroot/usr/lib
 
 tempdir
-
 
 a.out

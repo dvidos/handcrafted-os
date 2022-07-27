@@ -11,10 +11,19 @@
 #    -cdrom handcrafted-os.iso \
 #    -hda linux_disk.img
 
+# for more switches also see https://wiki.osdev.org/QEMU
+# -no-reboot -no-shutdown   for use in case of tripple fault
+# -D <file>                 use log file for debugging info
+# -d <something>            what debug information to include
+# -m <size>                 memory size to emulate
+
+
 qemu-system-i386 \
+    -D ./qemu.log \
+    -no-reboot -no-shutdown -d cpu_reset,int \
     -m 2G \
     \
-    -chardev stdio,id=char0,logfile=qemu.log,signal=off \
+    -chardev stdio,id=char0,logfile=qemu-serial.log,signal=off \
     -serial chardev:char0 \
     \
     -drive id=disk1,file=imgs/linux_disk.img,if=none \
@@ -26,3 +35,5 @@ qemu-system-i386 \
     -drive file=handcrafted-os.iso,if=ide,index=2,media=cdrom    \
     \
     -boot order=d
+
+
