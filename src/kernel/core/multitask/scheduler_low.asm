@@ -71,12 +71,14 @@
 ;   1. push a bunch of things in the stack,
 ;   2. save current SP to a location pointed by an argument of the C kernel,
 ;   3. give SP the value that C kernel passed to us,
-;   4. pop the bunch of things in the opposite order.
+;   4. update CR3 to the new task - if supported
+;   5. pop the bunch of things in the opposite order.
 [global low_level_context_switch]
 low_level_context_switch:
     ; this method expects two arguments:
     ;   1. a pointer to a location where to save the last ESP of this process
     ;   2. a pointer to a value to set ESP to, possibly returning to a different caller
+    ;   3. a non-zero value to set CR3, if paging is desired
 
     
     ; we want to avoid pushing EBP, because we think it ruins our switching
@@ -84,6 +86,7 @@ low_level_context_switch:
     ; so we try this:
     mov eax, [esp+4]  ; hopefully the first argument, since we pushed no EBP
     mov edx, [esp+8]  ; hopefully the second argument
+    mov ecx, [esp+12] ; the page directory address to set
 
     ; push ebp     ; [ebp+4] return address, +8 first arg, +12 second arg
     ; mov ebp, esp
@@ -108,6 +111,11 @@ no_old_esp:
     je no_new_esp
     mov esp, [edx]     ; set the new stack pointer
 no_new_esp:
+
+    cmp ecx, 0         ; see if a valid page directory is passed
+    je no_page_directory
+    mov cr3, ecx       ; ecx has the value, not a pointer
+no_page_directory:
 
     ; restore whatever we had saved before
     pop edi

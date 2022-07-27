@@ -36,7 +36,7 @@ uint64_t next_wake_up_time = 0;
  * If we prepare such a structure, we can create a new task to switch to.
  * The way things are pushed and the stack_snapshot struct must be kept in sync
  */
-extern void low_level_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr);
+extern void low_level_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr, uint32_t page_directory_address);
 
 
 void lock_scheduler() {
@@ -58,7 +58,7 @@ void unlock_scheduler() {
 }
 
 // caller is responsible for locking interrupts before calling us
-void schedule() {
+void schedule() { 
     // allow locking of switching, to allow multiple tasks to be unlbocked
     if (switching_postpone_depth > 0) {
         task_switching_pending = true;
@@ -91,22 +91,7 @@ void schedule() {
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
-    // set a new page directory, if the new process uses one
-    // this changes the virtual memory mapping, careful if accessing global variables
-    void *new_page_directory = running_proc->page_directory;
-    if (new_page_directory != get_page_directory_register())
-        set_page_directory_register(new_page_directory);
-
-    // now that we have the mappings of the process space, and if this is
-    // the first time we will switch in this task, we need to set the entry_point 
-    // in the stack, which is now visible, due to the page directory
-    if (running_proc->page_directory != get_kernel_page_directory && !IS_BIT(running_proc->flags, PROCESS_STACK_FRAME_INITIALIZED)) {
-        klog_debug("Setting initial entry point for process %s[%d]", running_proc->name, running_proc->pid);
-        running_proc->stack_snapshot->return_address = (uint32_t)running_proc->entry_point;
-        running_proc->flags = SET_BIT(running_proc->flags, PROCESS_STACK_FRAME_INITIALIZED);
-    }
-
-    klog_trace("scheduler(): switching \"%s\" --> \"%s\"", previous->name, next->name);
+    klog_trace("scheduler(): switching \"%s\" --> \"%s\", page dir 0x%p", previous->name, next->name, next->page_directory);
     
     /**
      * -------------------------------------------------------------------
@@ -120,7 +105,8 @@ void schedule() {
      */
     low_level_context_switch(
         &previous->esp,
-        (uint32_t *)&running_proc->esp
+        (uint32_t *)&running_proc->esp,
+        (uint32_t)running_proc->page_directory
     );
 
     running_proc->cpu_ticks_last = timer_get_uptime_msecs();
