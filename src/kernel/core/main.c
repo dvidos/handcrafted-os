@@ -183,41 +183,59 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     panic("start_multitasking() returned to main");
 }
 
-void console_task_main() {
-    tty_t *tty = tty_manager_get_device(0);
+void shell_launcher() {
     tty_set_title("User Shell");
+    klog_info("This is shell launcher");
 
     while (true) {
         tty_write("Launching user-space shell program\n");
-        int err = exec("/bin/sh");
-        if (err < 0) {
-            printf("exec(\"/bin/sh\") returned %d\n", err);
-        } else {
-            // wait for the child?
-            pid_t child_proc = (pid_t)err;
-            int exit_code = 0;
-            err = wait(&exit_code);
-            printf("wait() returned %d, child process exit code is %d\n", err, exit_code);
-        }
+        // int err = exec("/bin/sh");
+        // if (err < 0) {
+        //     printf("exec(\"/bin/sh\") returned %d\n", err);
+        // } else {
+        //     // wait for the child?
+        //     pid_t child_proc = (pid_t)err;
+        //     int exit_code = 0;
+        //     err = wait(&exit_code);
+        //     printf("wait() returned %d, child process exit code is %d\n", err, exit_code);
+        // }
+        sleep(1000);
+    }
+}
+
+void process_b_main() {
+    int i = 1;
+    while (true) {
+        printf("i = %d\n", i++);
+        sleep(400);
     }
 }
 
 void create_some_processes() {
     char *stack = allocate_physical_page((void *)0x200000); // 2MB+
-    tty_t *tty = tty_manager_get_device(0);
-    process_t *console_proc = create_process(
-        console_task_main, 
+    process_t *proc_a = create_process(
+        shell_launcher, 
         "Shell Launcher", 
         0,
         PRIORITY_KERNEL,
         (stack + 4096), 
         get_kernel_page_directory(),
-        tty
+        tty_manager_get_device(0)
     );
-    start_process(console_proc);
 
     // we can trigger a multipage monitor app with memory, processes etc.
-
-    // start_process(create_process(process_b_main, "Task B", 2, tty_manager_get_device(1)));
+    char *stack2 = allocate_physical_page((void *)0x200000); // 2MB+
+    process_t *proc_b = create_process(
+        process_b_main, 
+        "Task B", 
+        0,
+        PRIORITY_KERNEL,
+        stack2 + 4096,
+        get_kernel_page_directory(),
+        tty_manager_get_device(1)
+    );
     // start_process(create_process(process_c_main, "System Monitor", 2, tty_manager_get_device(2)));
+
+    start_process(proc_a);
+    start_process(proc_b);
 }

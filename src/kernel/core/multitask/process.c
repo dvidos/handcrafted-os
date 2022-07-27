@@ -281,7 +281,7 @@ static void task_entry_point_wrapper() {
 
     // terminate and later free the process
     klog_warn("process(): It seems main returned");
-    exit(0);
+    exit(255);
 }
 
 // a way to create process
@@ -300,13 +300,14 @@ process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t 
     p->pid = ++last_pid;
     release(&pid_lock);
 
-    // p->stack_buffer = stack_ptr;
-    // p->esp = (uint32_t)(stack_ptr + stack_size - sizeof(switched_stack_snapshot_t));
     p->parent_pid = ppid;
     p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
+    p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
+
     // don't set the return address in the stack yet,
     // it may not be mapped from virtual to physical memory yet
     // (we don't have CR3 until we switch for the first time)
+    
     p->entry_point = entry_point;
     p->priority = priority;
     strncpy(p->name, name, 33);
