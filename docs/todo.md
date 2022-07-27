@@ -1,5 +1,9 @@
 # things to do
 
+* To overcome the problem of starting a task for an executable, think about the exec() starting a more primitive service, with only kernel space, then it will expand it and load the executable, prepare the long stack, and jump on the crt0 entry.
+* Also, create a function, after `process_create()` to be named `process_cleanup()`. 
+and call that function from the idle task, so that the cleanup code is near the allocation code.
+
 * regarding lists like environment variables or arguments etc, play with the idea
 of allocating small arrays of pointers, but nest them, the way ext2 is doing, to achieve
 10, 100, 1K of entries etc. Allow infinite upper limit, but with small allocation for a dozen items.

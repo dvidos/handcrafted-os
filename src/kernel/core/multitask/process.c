@@ -8,6 +8,7 @@
 #include <multitask/process.h>
 #include <multitask/proclist.h>
 #include <memory/kheap.h>
+#include <memory/virtmem.h>
 #include <klog.h>
 #include <multitask/scheduler.h>
 #include <errors.h>
@@ -284,12 +285,12 @@ static void scheduler_unlocking_entry_point() {
     exit(255);
 }
 
-// a way to create process
-process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t priority, void *stack_top, void *page_directory, tty_t *tty) {
+process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pid_t ppid, tty_t *tty) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
         klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
     }
+
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
     
@@ -298,26 +299,71 @@ process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t 
     release(&pid_lock);
 
     p->parent_pid = ppid;
-    p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
-
-    // when starting a new executable, we have allocated new virtual memory, 
-    // which includes the stack, where the line below tries to write to.
-    // the related page-directory is not switched in yet, we only see
-    // kernel's namespace.
-    // we must find a way to write the return address in that unmapped-yet memory page.
-    p->stack_snapshot->return_address = (uint32_t)scheduler_unlocking_entry_point;
-
-    p->entry_point = entry_point; // where scheduler_unlocking_entry_point() will jump to
     p->priority = priority;
-    strncpy(p->name, name, 33);
-    p->cpu_ticks_total = 0;
-    p->cpu_ticks_last = 0;
-    p->state = READY;
     p->tty = tty;
-    p->page_directory = page_directory;
+    p->name = kmalloc(strlen(name) + 1);
+    strcpy(p->name, name);
+    p->state = READY;
+
+    // every process gets this small stack, to be able to switch in
+    // since this is inside kernel's mapped memory, no paging faults should occur
+    int stack_size = 4096;
+    p->allocated_kernel_stack = kmalloc(stack_size);
+    memset(p->allocated_kernel_stack, 0, stack_size);
+    *(uint32_t *)p->allocated_kernel_stack = STACK_BOTTOM_MAGIC_VALUE;
+
+    // we now have a small stack to set the "return" address for the first switching.
+    p->esp = (uint32_t)(p->allocated_kernel_stack + stack_size - sizeof(switched_stack_snapshot_t));
+    p->stack_snapshot->return_address = (uint32_t)scheduler_unlocking_entry_point;
+    p->page_directory = get_kernel_page_directory();
+
+    // what our scheduler_unlocking_entry_point() should call
+    p->entry_point = entry_point;
 
     klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;
+}
+
+
+
+// process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t priority, void *stack_top, void *page_directory, tty_t *tty) {
+//     p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
+
+//     // when starting a new executable, we have allocated new virtual memory, 
+//     // which includes the stack, where the line below tries to write to.
+//     // the related page-directory is not switched in yet, we only see
+//     // kernel's namespace.
+//     // we must find a way to write the return address in that unmapped-yet memory page.
+
+//     // we can temporarily find the actual physical address and map the address 
+//     // temporarily somewhere in our address space.
+//     // this func does not know if the process' stack is currently map or not.
+//     p->stack_snapshot->return_address = (uint32_t)scheduler_unlocking_entry_point;
+
+//     p->entry_point = entry_point; // where scheduler_unlocking_entry_point() will jump to
+//     p->page_directory = page_directory;
+
+//     klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
+//     return p;
+// }
+
+// after a process has terminated, clean up resources
+void cleanup_process(process_t *proc) {
+    // be careful with the exec() process, it may have allocated more resources
+    if (proc->name != NULL)
+        kfree(proc->name);
+
+    if (proc->allocated_kernel_stack != NULL)
+        kfree(proc->allocated_kernel_stack);
+
+    if (proc->page_directory != NULL && proc->page_directory != get_kernel_page_directory())
+        destroy_page_directory(proc->page_directory);
+
+    if (proc->user_proc.executable_path != NULL)
+        kfree(proc->user_proc.executable_path);
+    
+    // can't think of anything else to free
+    kfree(proc);
 }
 
 static void dump_process(process_t *proc) {

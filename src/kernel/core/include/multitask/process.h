@@ -22,8 +22,10 @@ typedef void (* func_ptr)();
 
 
 // create & initialize a process, don't start it yet, optinal association with a tty
-// process_t *create_process(func_ptr entry_point, char *name, uint8_t priority, tty_t *tty);
-process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t priority, void *stack_top, void *page_directory, tty_t *tty);
+process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pid_t ppid, tty_t *tty);
+
+// after a process has terminated, clean up resources
+void cleanup_process(process_t *proc);
 
 // this appends the process on the ready queues
 void start_process(process_t *process);
@@ -77,23 +79,25 @@ enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 // reasons a process can be blocked
 enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT };
 
-// flags of the process (bit numbers)
-#define PROCESS_STACK_FRAME_INITIALIZED     0
+// flags of the process
+#define PROC_FLAG_IS_USER_PROCESS     0x01
+
 
 
 // the fundamental process information for multi tasking
 struct process {
+    struct process *next; // each process can only belong to one list
+
     pid_t pid;
     pid_t parent_pid;
-    char name[32+1];
-
-    struct process *next; // each process can only belong to one list
-    func_ptr entry_point; // where to jump after initializing this process
+    char *name;
+    uint8_t flags;
     uint8_t  priority;
 
-    uint8_t flags;
-
-    union { // two views of the same piece of information
+    func_ptr entry_point; // where to jump after initializing this process
+    
+    // used in switching, two views of the same piece of information
+    union { 
         uint32_t esp;                               // value of the stack pointer
         switched_stack_snapshot_t *stack_snapshot;  // pointer to pushed data on the stack
     };
@@ -112,33 +116,38 @@ struct process {
     // the msetcs uptime in the future, that we are to be woken up
     uint64_t wake_up_time;
 
-    // exit code, to be used for parent process
-    uint8_t exit_code;
-
     // possibly, the process has an associated tty
     tty_t *tty;
 
-    // if we call the wait() function, these two help populate the data
+    // exit code, to be used for parent process
     pid_t   wait_child_pid;
     uint8_t wait_child_exit_code;
 
-    // for user processes, libc will call sbrk()
-    void *heap;           // heap will grow upwards
-    uint32_t heap_size;   // to allow sbrk() to work
+    // if parent calls the wait() function, these two help populate the data
+    uint8_t exit_code;
 
-    // if populated, we can check a magic value at the bottom
-    void *stack_bottom;   // to allow check for stack overflow
-    uint32_t stack_size;  // to allow us to set ESP correctly
+    // allocated from kernel heap
+    void *allocated_kernel_stack;
 
-    // if null, use the kernel's page directory, otherwise this.
+    // each user process can have a specific page_directory
+    // use get_kernel_page_directory() for kernel
     void *page_directory;
 
-    // if non-null, our user process is supposed to load this executable
-    char *executable_to_load;
+    // data for loading and running user processes
+    struct {
+        char *executable_path;
 
-    // for the start up data
-    char **argv;
-    char **envp;
+        char **argv;
+        char **envp;
+
+        // for user processes, libc will call sbrk()
+        void *heap;           // heap will grow upwards
+        uint32_t heap_size;   // to allow sbrk() to work
+
+        // used to set and detect stack overflow
+        void *stack_bottom;
+
+    } user_proc;
 };
 
 

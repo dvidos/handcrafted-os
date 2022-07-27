@@ -402,7 +402,6 @@ exit:
     return err;
 }
 
-
 static void dump_elf_header(elf32_header_t *header) {
     char *elf_types[] = {
         "NONE",

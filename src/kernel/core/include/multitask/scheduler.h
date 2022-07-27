@@ -10,6 +10,8 @@
 // how many msecs to allow each process. Something between 5 and 100
 #define DEFAULT_TASK_TIMESLICE_MSECS   30
 
+// used to detect stack overflows
+#define STACK_BOTTOM_MAGIC_VALUE    0x12345678
 
 
 // the current running process

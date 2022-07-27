@@ -99,12 +99,12 @@ static void *sys_sbrk(int diff_size) {
     process_t *p = running_process();
     if (p == NULL)
         return NULL;
-    void *initial_break = p->heap + p->heap_size;
+    void *initial_break = p->user_proc.heap + p->user_proc.heap_size;
     if (diff_size > 0) {
         diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page
-        void *heap_end = p->heap + p->heap_size;
+        void *heap_end = p->user_proc.heap + p->user_proc.heap_size;
         allocate_virtual_memory_range(heap_end, heap_end + diff_size, p->page_directory);
-        p->heap_size += diff_size;
+        p->user_proc.heap_size += diff_size;
     }
     return initial_break;
 }
