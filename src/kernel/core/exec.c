@@ -52,9 +52,9 @@ int execve(char *path, char *argv[], char *envp[]) {
     // gather loading information from the elf file
     void *virt_addr_start = NULL;
     void *virt_addr_end = NULL;
-    void *entry_point = NULL;
-    err = get_elf_load_information(&file, &virt_addr_start, &virt_addr_end, &entry_point);
-    klog_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, entry_point);
+    void *elf_entry_point = NULL;
+    err = get_elf_load_information(&file, &virt_addr_start, &virt_addr_end, &elf_entry_point);
+    klog_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, elf_entry_point);
     if (err) goto exit;
 
     err = vfs_close(&file);
@@ -78,7 +78,10 @@ int execve(char *path, char *argv[], char *envp[]) {
     // create something to load the segments (kernel mapped included)
     void *page_directory = create_page_directory(true);
     allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
-    klog_debug("execve() parent proc CR3 is %x, new proc CR3 will be %x", get_page_directory_register(), page_directory);
+    klog_debug("Allocated new page directory 0x%x for execve(). Current CR3 is %x", page_directory, get_page_directory_register());
+
+    dump_page_directory(page_directory);
+    dump_page_directory(get_kernel_page_directory());
 
     // whenever we set CR3, we can load the file into memory.
     // so, we'll set our entry point to a method that, when the task is switched in
@@ -170,6 +173,10 @@ static void load_and_exec_elf_enrty_point() {
     }
 
     // jump / call the elf entry point (which is the _start() of crt0)
+    // ideally, this will never return, as crt0 will call exit()
     ((func_ptr)executable_entry_point)();
+
+    klog_warn("elf_loader(): crt0._start() returned");
+    exit(105);
 }
 

@@ -268,14 +268,14 @@ pid_t getppid() {
     return running_proc->parent_pid;
 }
 
-static void task_entry_point_wrapper() {
+static void scheduler_unlocking_entry_point() {
     // unlock the scheduler in our first execution
     unlock_scheduler(); 
 
-    // call the entry point method
-    // only the running task would execute this method
-    // for exec() this points to the _start() method of crt0
-    // for kernel, this is a function pointer in the kernel space
+    // we can now call the entry point.
+    // for kernel tasks, this is a method in kernel space.
+    // for exec(), this is a kernel method to load and run the executable
+    // the called method should not return, but call exit() to exit.
 
     running_proc->entry_point();
 
@@ -290,11 +290,8 @@ process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t 
         klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
     }
-    // int stack_size = 4096;
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
-    // char *stack_ptr = kmalloc(stack_size);
-    // memset(stack_ptr, 0, stack_size);
     
     acquire(&pid_lock);
     p->pid = ++last_pid;
@@ -302,13 +299,15 @@ process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t 
 
     p->parent_pid = ppid;
     p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
-    p->stack_snapshot->return_address = (uint32_t)task_entry_point_wrapper;
 
-    // don't set the return address in the stack yet,
-    // it may not be mapped from virtual to physical memory yet
-    // (we don't have CR3 until we switch for the first time)
-    
-    p->entry_point = entry_point;
+    // when starting a new executable, we have allocated new virtual memory, 
+    // which includes the stack, where the line below tries to write to.
+    // the related page-directory is not switched in yet, we only see
+    // kernel's namespace.
+    // we must find a way to write the return address in that unmapped-yet memory page.
+    p->stack_snapshot->return_address = (uint32_t)scheduler_unlocking_entry_point;
+
+    p->entry_point = entry_point; // where scheduler_unlocking_entry_point() will jump to
     p->priority = priority;
     strncpy(p->name, name, 33);
     p->cpu_ticks_total = 0;

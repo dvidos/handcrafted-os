@@ -189,16 +189,16 @@ void shell_launcher() {
 
     while (true) {
         tty_write("Launching user-space shell program\n");
-        // int err = exec("/bin/sh");
-        // if (err < 0) {
-        //     printf("exec(\"/bin/sh\") returned %d\n", err);
-        // } else {
-        //     // wait for the child?
-        //     pid_t child_proc = (pid_t)err;
-        //     int exit_code = 0;
-        //     err = wait(&exit_code);
-        //     printf("wait() returned %d, child process exit code is %d\n", err, exit_code);
-        // }
+        int err = exec("/bin/sh");
+        if (err < 0) {
+            printf("exec(\"/bin/sh\") returned %d\n", err);
+        } else {
+            // wait for the child?
+            pid_t child_proc = (pid_t)err;
+            int exit_code = 0;
+            err = wait(&exit_code);
+            printf("wait() returned %d, child process exit code is %d\n", err, exit_code);
+        }
         sleep(1000);
     }
 }
