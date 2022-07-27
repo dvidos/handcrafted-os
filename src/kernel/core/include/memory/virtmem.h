@@ -43,5 +43,9 @@ void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, v
 // frees any pointed pages, page tables, and the page directory itself
 void destroy_page_directory(void *page_dir_address);
 
+// logs the virtual to physical mapping that a page directory causes
+void dump_page_directory(void *page_dir_address);
+
+
 
 #endif

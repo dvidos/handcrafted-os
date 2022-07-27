@@ -465,6 +465,10 @@ void destroy_page_directory(void *page_dir_address) {
             if (phys_page_address == 0)
                 continue;
 
+            // we only free our extra pages, not the kernel ones.
+            if (phys_page_address >= kernel_info.start_address && phys_page_address <= kernel_info.end_address)
+                continue;
+
             free_physical_page(phys_page_address);
         }
 
@@ -476,3 +480,105 @@ void destroy_page_directory(void *page_dir_address) {
     popcli();
 }
 
+static void _dump_page_directory_print(uint32_t virt_mem_group_start, uint32_t virt_mem_group_end, uint32_t phys_mem_group_start, uint32_t phys_mem_group_end) {
+
+    if (virt_mem_group_start == virt_mem_group_end) {
+        // single mapping
+        klog_debug("Virt 0x%05xxxx            --> Phys 0x%05x          %s", 
+            virt_mem_group_start, 
+            phys_mem_group_start,
+            virt_mem_group_start == phys_mem_group_start ? "(identity)" : ""
+        );
+    } else {
+        // group mapping
+        klog_debug("Virt 0x%05xxxx-0x%05xxxx --> Phys 0x%05x-0x%05x  %s", 
+            virt_mem_group_start >> 12, 
+            virt_mem_group_end   >> 12, 
+            phys_mem_group_start >> 12,
+            phys_mem_group_end   >> 12,
+            virt_mem_group_start == phys_mem_group_start && virt_mem_group_end == phys_mem_group_end ? "(identity)" : ""
+        );
+    }
+}
+
+static void _dump_page_directory_aggregate(int call, uint32_t virt_addr, uint32_t phys_addr) {
+    // we'll try to group the entries
+    static uint32_t virt_mem_group_start;
+    static uint32_t virt_mem_group_end;
+    static uint32_t phys_mem_group_start;
+    static uint32_t phys_mem_group_end;
+    static bool in_group;
+
+    if (call == 1) { // we are initializing
+        virt_mem_group_start = 0;
+        virt_mem_group_end = 0;
+        phys_mem_group_start = 0;
+        phys_mem_group_end = 0;
+        in_group = false;
+
+    } else if (call == 2) { // found a valid mapping
+        if (in_group) {
+            // see if we are just extending it, or there is a gap
+            if (virt_addr == virt_mem_group_end + 4096 && phys_addr == phys_mem_group_end + 4096
+            ) {
+                // same group, extend
+                virt_mem_group_end += 4096;
+                phys_mem_group_end += 4096;
+            } else {
+                // different group, print, restart
+                _dump_page_directory_print(virt_mem_group_start, virt_mem_group_end, phys_mem_group_start, phys_mem_group_end);
+                virt_mem_group_start = virt_addr;
+                virt_mem_group_end = virt_addr;
+                phys_mem_group_start = phys_addr;
+                phys_mem_group_end = phys_addr;
+            }
+        } else {
+            // we were not in a group, we can start one
+            virt_mem_group_start = virt_addr;
+            virt_mem_group_end = virt_addr;
+            phys_mem_group_start = phys_addr;
+            phys_mem_group_end = phys_addr;
+            in_group = true;
+        }
+    } else if (call == 3) { // finished with all pages
+        if (in_group) {
+            // show the last group
+            _dump_page_directory_print(virt_mem_group_start, virt_mem_group_end, phys_mem_group_start, phys_mem_group_end);
+        }
+    }
+}
+
+void dump_page_directory(void *page_dir_address) {
+    // essentially, map the mapping that a page directory has.
+    // try to group common areas together.
+    klog_debug("Page directory at 0x%x mapping", page_dir_address);
+
+    uint32_t entry;
+
+    // free linked tables and pages 
+    _dump_page_directory_aggregate(1, 0, 0);
+    for (int pd_index = 0; pd_index < 1024; pd_index++) {
+        entry = get_table_entry(page_dir_address, pd_index);
+        if (!is_entry_present(entry))
+            continue;
+        
+        void *page_table_address = get_entry_address(entry);
+        if (page_table_address == NULL)
+            continue;
+
+        // free any linked physical pages first
+        for (int pt_index = 0; pt_index < 1024; pt_index++) {
+            entry = get_table_entry(page_table_address, pt_index);
+            if (!is_entry_present(entry))
+                continue;
+
+            uint32_t physical_address = (uint32_t)get_entry_address(entry);
+            if (physical_address == 0)
+                continue;
+            
+            uint32_t virtual_address = SET_BIT_RANGE(pd_index, 31, 22) | SET_BIT_RANGE(pt_index, 21, 12);
+            _dump_page_directory_aggregate(2, virtual_address, physical_address);
+        }
+    }
+    _dump_page_directory_aggregate(3, 0, 0);
+}
