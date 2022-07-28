@@ -7,9 +7,9 @@ int strcmp(const char* a, const char *b) {
         a++;
         b++;
     }
-    if (*a == '\0')
+    if (*a == '\0' && *b != '\0')
         return 1;
-    if (*b == '\0')
+    if (*b == '\0' && *a != '\0')
         return -1;
     return 0;
 }

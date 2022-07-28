@@ -148,10 +148,8 @@ static void exec_loader_entry_point() {
     dump_page_directory(get_kernel_page_directory());
 
     // we are not waiting for a switch, we have to set CR3 now, to load the file.
-klog_trace("a");
     proc->page_directory = page_directory;
     set_page_directory_register(page_directory);
-klog_trace("b");
 
     // we should be safe to do it?
     err = load_elf_into_memory(&file);
@@ -159,7 +157,6 @@ klog_trace("b");
         klog_error("Failed loading executable \"%s\"", proc->user_proc.executable_path);
         exit(103);
     }
-klog_trace("c");
 
     err = vfs_close(&file);
     if (err) {
@@ -171,9 +168,13 @@ klog_trace("c");
     proc->user_proc.heap = heap;
     proc->user_proc.heap_size = heap_size;
     
-klog_trace("d");
     // we now need to change the stack and to jump to the elf crt0._start() method.
     // ideally, this will never return, as crt0 will call exit()
+    klog_debug("Switching CR3 from 0x%x to 0x%x and jumping to virt addr 0x%x",
+        get_page_directory_register(),
+        page_directory,
+        elf_entry_point
+    );
     __asm__ __volatile__ (
         "mov %0, %%eax\n\t"
         "mov %%eax, %%esp\n\t"
@@ -182,9 +183,8 @@ klog_trace("d");
         : "g"(page_directory), "g"(elf_entry_point)
         : "eax" // mingled registers
     );
-klog_trace("d");
 
-    klog_warn("elf_loader(): crt0._start() returned");
+    klog_warn("elf_loader(): somehow, crt0._start() returned, this was not expected!");
     exit(105);
 }
 

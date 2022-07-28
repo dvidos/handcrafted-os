@@ -12,7 +12,7 @@
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
-volatile bool process_switching_enabled = false;
+static volatile bool process_switching_enabled = false;
 
 
 
@@ -39,6 +39,10 @@ void init_multitasking() {
     append(&ready_lists[idle->priority], idle);
 }
 
+// reports whether multitasking has started
+bool multitasking_enabled() {
+    return process_switching_enabled;
+}
 
 // this will never return
 void start_multitasking() {
@@ -47,6 +51,9 @@ void start_multitasking() {
     // flag to our interrupt handler that we can start scheduling
     // after a while, the timer will switch us out and will switch something else in.
     process_switching_enabled = true;
+
+    // this to enable the scheduled to switch tasks in a while
+    next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
     // we shall become the idle task.
     // this task must not sleep or block

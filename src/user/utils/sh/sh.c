@@ -14,6 +14,7 @@
 readline_t *rl = NULL;
 
 void init() {
+    printf("Welcome to shell. Type 'exit' to... exit\n");
     rl = init_readline("dv @ shell $ ");
 }
 
@@ -35,5 +36,6 @@ int main(int argc, char *argv[], char *envp[]) {
         exec(line);
     }
 
+    printf("Shell exiting!\n");
     return 0;
 }

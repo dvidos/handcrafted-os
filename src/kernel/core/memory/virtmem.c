@@ -484,18 +484,19 @@ static void _dump_page_directory_print(uint32_t virt_mem_group_start, uint32_t v
 
     if (virt_mem_group_start == virt_mem_group_end) {
         // single mapping
-        klog_debug("Virt 0x%05xxxx             --> Phys 0x%05x           %s", 
+        klog_debug("Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
             virt_mem_group_start >> 12, 
             phys_mem_group_start >> 12,
             virt_mem_group_start == phys_mem_group_start ? "(identity)" : ""
         );
     } else {
         // group mapping
-        klog_debug("Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05x..0x%05x  %s", 
+        klog_debug("Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
             virt_mem_group_start >> 12, 
             virt_mem_group_end   >> 12, 
             phys_mem_group_start >> 12,
             phys_mem_group_end   >> 12,
+            (virt_mem_group_end - virt_mem_group_start) / 1024,
             virt_mem_group_start == phys_mem_group_start && virt_mem_group_end == phys_mem_group_end ? "(identity)" : ""
         );
     }

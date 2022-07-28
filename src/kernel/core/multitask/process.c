@@ -7,10 +7,11 @@
 #include <drivers/clock.h>
 #include <multitask/process.h>
 #include <multitask/proclist.h>
+#include <multitask/scheduler.h>
+#include <multitask/multitask.h>
 #include <memory/kheap.h>
 #include <memory/virtmem.h>
 #include <klog.h>
-#include <multitask/scheduler.h>
 #include <errors.h>
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
@@ -77,6 +78,13 @@ char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE", "WAIT USER I
 
 // starts a process, by putting it on the waiting list.
 void start_process(process_t *process) {
+
+    // if we have not started multitasking yet... not much
+    if (!multitasking_enabled()) {
+        append(&ready_lists[process->priority], process);
+        return;
+    }
+
     lock_scheduler();
     append(&ready_lists[process->priority], process);
 
