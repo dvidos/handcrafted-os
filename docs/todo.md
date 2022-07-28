@@ -1,13 +1,8 @@
 # things to do
 
-* To overcome the problem of starting a task for an executable, think about the exec() starting a more primitive service, with only kernel space, then it will expand it and load the executable, prepare the long stack, and jump on the crt0 entry.
-* Also, create a function, after `process_create()` to be named `process_cleanup()`. 
-and call that function from the idle task, so that the cleanup code is near the allocation code.
-
 * regarding lists like environment variables or arguments etc, play with the idea
 of allocating small arrays of pointers, but nest them, the way ext2 is doing, to achieve
 10, 100, 1K of entries etc. Allow infinite upper limit, but with small allocation for a dozen items.
-* Improve exec() by requiring virtual mapped memory for the executable.
 * Implement file handles per process, as well as the wait() and fork() functionality
 * Create a memory disk storage device, use it to unit test the FAT16 & FAT32 drivers
 * Start a shell and a vi editor
@@ -16,23 +11,15 @@ of allocating small arrays of pointers, but nest them, the way ext2 is doing, to
 * Maybe I want to get fast to a place where I can boot the OS and 
 and have an environment where I can improve it, e.g. test and compile apps
 or something.
-* Finish the things we have in the middle could help
-  * SysCall, make everything supported, write libc functions
 * Actually eating own dogfood can be the ultimate goal. Actually use if for day to day operations...
 * Sounds like implementing TCP/IP will lead to exciting capabilities.
 We may need a wifi or ethernet driver for that...
-* Solve the oxymoron of the physical pages memory allocator, in the presence of virtual mapping???
-  * i.e. the bitmaps we use for housekeeping must be mapped to kernel
-* Make more clear how the kernel loading works
-  * get more variables / symbol addresses from linker script
-  * make sure kernel heap starts right after kernel, so we can map it and extend it
 * Improve malloc() in the K&R style,
   * by keeping a list in the free blocks only
   * by wrapping the to-be-returned block with only one magic byte at each side
   * by being able to ask for more memory from the system (even non-continuous)
   * by merging freed blocks with possible adjacent free blocks
   * see <https://stackoverflow.com/questions/13159564/explain-this-implementation-of-malloc-from-the-kr-book>
-* Implement writing in FAT filesystem
 * Possibly implement a full ext2 file system
 * Finalize the small vi editor
 * Make physical memory manager to be two step allocation system:
@@ -42,8 +29,6 @@ We may need a wifi or ethernet driver for that...
   * If we have an array of 32 long ints, we can track their address or page num,
   * Then we need only one 32 bit number to mark which tracking pages contain free pages!
   * Make sure any pages we use for tracking the physical memory are always mapped 1:1 in the virtual memory mapper.
-* Fix bug FAT code to read more than 32 dir entries
-* Fix bug of 0 bytes malloc() from tty manager (i think the logger tty)
 * Improve the keyboard driver (see [here](http://www.brokenthorn.com/Resources/OSDev19.html))
 * Give console pci ability to probe and report on specific bus/device/func
 * Make a good buffer class, with memory storage, with string operations
@@ -104,6 +89,15 @@ prior allocation.
 
 ## things done
 
+* Make more clear how the kernel loading works
+  * get more variables / symbol addresses from linker script
+  * make sure kernel heap starts right after kernel, so we can map it and extend it
+* Implement writing in FAT filesystem
+* SysCall, make everything supported, write libc functions
+* Improve exec() by requiring virtual mapped memory for the executable.
+* To overcome the problem of starting a task for an executable, think about the exec() starting a more primitive service, with only kernel space, then it will expand it and load the executable, prepare the long stack, and jump on the crt0 entry.
+* Also, create a function, after `process_create()` to be named `process_cleanup()`. 
+and call that function from the idle task, so that the cleanup code is near the allocation code.
 * Make FAT read/write
 * FAT system, write(), touch(), mkdir(), unlink() etc
 * Implement virtual memory paging (with cr0 support)
