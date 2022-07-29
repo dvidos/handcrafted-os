@@ -28,8 +28,10 @@ void *get_kernel_page_directory();
 void virtual_memory_page_fault_handler(uint32_t error_code);
 
 
-// read and write the CR3 register
+// write the CR3 register
 void set_page_directory_register(void *address);
+
+// read the CR3 register
 void *get_page_directory_register();
 
 

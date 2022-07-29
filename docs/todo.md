@@ -2,7 +2,7 @@
 
 * Next steps: 
     - files ops from user land
-    - working directory (both file_t* and name in process_t),
+    - working directory in a process (both file_t* and name in process_t),
     - executing files from shell
     - start the vi editor
     - improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
