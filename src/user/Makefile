@@ -41,7 +41,7 @@ print:
 
 bin/sh: $(wildcard utils/sh/*.c)
 	mkdir -p ./bin
-	$(CC) -MD $< -o $@ $(CFLAGS)
+	$(CC) -MD $^ -o $@ $(CFLAGS)
 
 bin/%: utils/%.c
 	mkdir -p ./bin

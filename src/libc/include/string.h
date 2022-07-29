@@ -12,6 +12,7 @@ void* memset(void*, int, size_t);
 
 size_t strlen(const char*);
 void strcpy(char *target, char *source);
+void strcat(char *target, char *src);
 int strcmp(const char *a, const char *b);
 char *strchr(char *str, char c);
 char *strstr(char *haystack, char *needle);
