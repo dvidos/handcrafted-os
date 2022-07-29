@@ -1,12 +1,19 @@
 # things to do
 
+* Next steps: 
+    - files ops from user land
+    - working directory (both file_t* and name in process_t),
+    - executing files from shell
+    - start the vi editor
+    - improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
+
+* Good generic and simple list implementation [here](https://github.com/stevej/osdev/blob/master/kernel/include/list.h). Maybe we want to use it. Oh, he also has a nice [tree implementation](https://github.com/stevej/osdev/blob/master/kernel/include/tree.h)
 * regarding lists like environment variables or arguments etc, play with the idea
 of allocating small arrays of pointers, but nest them, the way ext2 is doing, to achieve
 10, 100, 1K of entries etc. Allow infinite upper limit, but with small allocation for a dozen items.
 * Implement file handles per process, as well as the wait() and fork() functionality
 * Create a memory disk storage device, use it to unit test the FAT16 & FAT32 drivers
 * Start a shell and a vi editor
-* Later, find way to detect very small timings, to fine tune malloc() for example.
 * Make one console command that allows us to read/modify/write sectors off of hard disk
 * Maybe I want to get fast to a place where I can boot the OS and 
 and have an environment where I can improve it, e.g. test and compile apps
@@ -51,20 +58,14 @@ we should write. USB might be a good first.
 * start a tree-enabled device manager. ttys will need to be devices,
 pci devices will need to be devices etc.
 * move utility functions to libc/libk, make kernel use it.
-* ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
 * the idea of an expandable array of things, similar to the approach of a StringBuilder,
 something sile the one described [here](https://tiswww.case.edu/php/chet/readline/history.html#SEC6).
 Essentially, allow add, get, index, remove operations without fear of running out, or without
 prior allocation.
-* Basic libc functionality [more](https://wiki.osdev.org/Creating_a_C_Library)
-* put konsole in a task, maybe allow it to own a tty device
 * implement IPC using `send(target, message)`, `receive(target, &message)`, `sendrec()` and `notify()`. See "synchronous message passing" [here](http://www.brokenthorn.com/Resources/OSDev25.html)
-* load and execute executables
-* messages between tasks (IPC)
-* file system driver (read / write some filesystem)
-* libc for usermode
+* messages between tasks (IPC) - maybe shared memory ([this one?](https://github.com/stevej/osdev/blob/master/kernel/include/shm.h))
+* Mauch later, find way to detect very small timings, to fine tune malloc() for example.
 * porting a compiler for our os (maybe [this](https://wiki.osdev.org/Porting_GCC_to_your_OS) helps)
-* user mode file system operations (open, read, write, close etc)
 * primitive tools (tiny shell, ls, cat, echo, tiny vi etc)
 * greek language keyboard mapping and utf8 support, even in console
 * the four main tasks that user mode code can use (also described in Minix Book)
@@ -85,10 +86,18 @@ prior allocation.
 * Instead of GLib ToaruOS uses the [newLib](https://sourceware.org/newlib/) which is more lightweight
 * The ToaruOS guy also said that porting `gcc` over was easy, as all it needs is to read and write files.
 * The ToaruOS also seems to have a nice integrated gui architecture with a windows approach similar to what we used for our TTYs.
+* When we have what we think we want, remove as much as possible, up to the point we can remove nothing more.
 
 
 ## things done
 
+* load and execute executables in their own processes, using exec()
+* Basic libc functionality [more](https://wiki.osdev.org/Creating_a_C_Library)
+* put konsole in a task, maybe allow it to own a tty device
+* ata disk driver (detect, implement R/W operations) (info [one](http://www.osdever.net/tutorials/view/lba-hdd-access-via-pio), [two](https://wiki.osdev.org/ATA_PIO_Mode))
+* file system driver (read / write some filesystem)
+* libc for usermode
+* user mode file system operations (open, read, write, close etc)
 * Make more clear how the kernel loading works
   * get more variables / symbol addresses from linker script
   * make sure kernel heap starts right after kernel, so we can map it and extend it

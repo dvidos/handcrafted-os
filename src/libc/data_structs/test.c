@@ -1,6 +1,6 @@
 #include <string.h>
 #include "item_ops.h"
-#include "list.h"
+#include "collection.h"
 
 
 void test_str_operations() {
@@ -19,7 +19,7 @@ void test_str_operations() {
 
 }
 
-void test_list() {
+void test_collection() {
     // test each if branch of each method.
 
     // empty
@@ -46,7 +46,7 @@ void test_list() {
     // for_each
 
     struct item_operations *str_ops = create_string_item_operations();
-    list_t *p = create_list(str_ops);
+    collection_t *p = create_collection(str_ops);
     p->append(p, "Item 1");
     p->append(p, "Item 2");
     p->append(p, "Item 3");
