@@ -1,58 +1,5 @@
 
-/**
- * If we are building an editor, ideally,
- * we should be building a multi-line buffer object.
- * It would offer methods to insert, delete, navigate.
- * And then, the only thing missing is keyboard/screen integration.
- * For example:
- */
-struct multi_line_buffer_ops;
-typedef struct multi_line_buffer {
-    char *buffer;
-    int buffer_size;
-    int row_number;
-    int col_number;
-    int offset;
-    int text_length;
-    struct multi_line_buffer_ops *ops;
-} mlb_t;
-struct multi_line_buffer_ops {
-    int (*navigate_char)(mlb_t *mlb, bool forward);
-    int (*navigate_word)(mlb_t *mlb, bool forward);
-    int (*navigate_line_boundaries)(mlb_t *mlb, bool forward);
-    int (*navigate_buffer_boundaries)(mlb_t *mlb, bool forward);
-    int (*navigate_line_vertically)(mlb_t *mlb, bool forward);
-    int (*navigate_page_vertically)(mlb_t *mlb, bool forward);
-    int (*navigate_to_line_no)(mlb_t *mlb, int line_no);
 
-    int (*delete_char)(mlb_t *mlb, bool forward);
-    int (*delete_word)(mlb_t *mlb, bool forward);
-    int (*delete_while_line)(mlb_t *mlb);
-    int (*delete_to_line_boundaries)(mlb_t *mlb, bool forward);
-
-    int (*insert_char)(mlb_t *mlb, int chr);
-    int (*insert_str)(mlb_t *mlb, char *text);
-};
-mlb_t *create_multi_line_buffer(int buffer_size);
-void destroy_multi_line_buffer(mlb_t *mlb);
-
-/**
- * Then, we'll have a viewport, a portion of the screen that we paint
- * This viewport will have the visible row and col offsets
- */
-typedef struct multi_line_buffer_viewport {
-    mlb_t *mlb;
-    int visible_rows;
-    int visible_cols;
-    int first_visible_row; // of text, zero based
-    int first_visible_col;
-} mlbv_t;
-struct multi_line_buffer_viewport_ops {
-    int (*repaint)(mlbv_t *vp);
-    int (*ensure_cursor_visible)(mlbv_t *vp);
-}
-mlbv_t *create_multi_line_buffer_viewport(mlbt_t *buffer);
-void destroy_multi_line_buffer_viewport(mlbv_t *vp);
 
 
 // #define KEY_BACKSPACE    0x7f
