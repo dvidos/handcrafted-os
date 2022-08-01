@@ -5,141 +5,118 @@ typedef struct buffer_priv_data {
 } buffer_priv_data_t;
 
 
-// we need a way to keep offset and row/col in sync.
 
 
-static inline bool is_line_separator(char *buffer, int pos) {
-    // change this to accomodate selectable line ends (e.g. CR & LF)
-    return buffer[pos] == '\n';
-}
 
+// fast inline information
 static inline int line_separator_length() {
-    return 1;
+	return 1;
 }
 
+// fast inline decision maker
+static inline bool is_line_separator(char *ptr) {
+	return *ptr == '\n';
+}
 
-
-
-
-
-
-
+// fast inline decision maker
 static inline bool is_word_char(char c) {
-    return (
-        (c >= 'a' && c <= 'z') ||
-        (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9') ||
-        (c == '_')
-    );
+	return (
+		(c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') ||
+		(c == '_')
+	);
 }
 
-static inline bool is_whitespace(char c) {
-    return !is_word_char(c);
+// find the line number in given offset
+static int offset_to_line(char *buffer, int offset) {
+	int line = 0;
+	
+	// a running pointer should be the faster way
+	char *p = buffer;
+	while (offset > 0) {
+		if (is_line_separator(p))
+			line++;
+		p++;
+		offset--;
+	}
+	
+	return line;
+}
+
+// find the start of the line as offset
+static int line_to_offset(char *buffer, int line) {
+	int offset = 0;
+	
+	// a running pointer should be the faster way
+	char *p = buffer;
+	while (line > 0) {
+		if (is_line_separator(p))
+			line--;
+		p++;
+		offset++;
+	}
+	
+	return offset;
+}
+
+static int count_line_length(char *buffer, int line_start_offset) {
+	int length = 0;
+	
+	// a running pointer should be the faster way
+	char *p = buffer + line_start_offset;
+	while (!is_line_separator(p)) {
+		p++;
+		length++;
+	}
+	
+	return length;
+}
+
+static int count_buffer_lines(char *buffer, int text_length) {
+	int lines = 0;
+	
+	char *p = buffer;
+	char *end = buffer + text_length;
+	while (p <= end) {
+		if (is_line_separator(p))
+			lines++;
+		p++;
+	}
+	
+	return lines;
+}
+
+static int find_start_of_word(bool right, int *offset) {
+	if (right) {
+		// skip possible current word
+		// skip any non-word
+	} else {
+		// skip possible non-word to the left
+		// find start of word left
+	}
+}
+
+static int find_line_start(int *offset) {
+}
+
+static int find_line_end(int *offset) {
 }
 
 
-static void find_word_start(buffer_t *buff, int *offset, bool forward) {
-    if (forward) {
-        while (*offset < buff->text_length && is_word_char(buff->buffer[*offset]))
-            (*offset)++;
-        while (*offset < buff->text_length && is_whitespace(buff->buffer[*offset]))
-            (*offset)++;
-        // we should be at the start of a word
-    } else {
-        while (*offset > 0 && is_whitespace(buff->buffer[(*offset) - 1]))
-            (*offset)--;
-        while (*offset > 0 && is_word_char(buff->buffer[(*offset) - 1]))
-            (*offset)--;
-        // we are just before whitespace starts, i.e. start of a word
-    }
-}
 
-static void find_line_boundary(buffer_t *buff, int *offset, bool forward) {
-    if (forward) {
-        while (*offset < buff->text_length && !is_line_separator(buff->buffer, *offset))
-            (*offset)++;
-        // we should be at the line separator
-    } else {
-        while (*offset > 0 && !is_line_separator(buff->buffer, (*offset) - line_separator_length()))
-            (*offset)--;
-        // we should be at the start of the line
-    }
-}
 
-static int curr_line_length(buffer_t *buff) {
-    // go back till we find start or line separator
-    int p = buff->int offset;
-    while (p > 0 && !is_line_separator(buff->buffer, p - line_separator_length())) {
-        p--;
-    }
-    // now we are at the start of our line, let's count the characters
-    int length = 0;
-    while (p < buff->text_length && is_line_separator(buff->buffer, p)) {
-        length++;
-        p++;
-    }
-    return length;
-}
 
-static inline void increase_offset(buffer_t *buff) {
-    if (buff->offset >= buff->text_length)
-        return;
-    
-    // when moving to the right of a line separator, change rows and lines offsets
-    if (is_line_separator(buff->buffer, buff->offset)) {
-        buff->row_number++;
-        buff->col_number = 0;
-        buff->offset += line_separator_length();
-    } else {
-        buff->offset += 1;
-        buff->col_number += 1;
-    }
-}
+// ---------------------------------------------------------------------------
 
-static inline void decrease_offset(buffer_t *buff) {
-    if (buff->offset <= 0)
-        return;
-    
-    // when moving to the left of a line separator, change rows and lines offsets
-    if (buff->offset >= line_separator_length() && is_line_separator(buff->buffer, buff->offset - line_separator_length())) {
-        buff->row_number--;
-        buff->col_number = curr_line_length();
-        buff->offset -= line_separator_length()
-    } else {
-        buff->offset -= 1;
-        buff->col_number -= 1;
-    }
-}
 
-static int skip_whitespace(buffer_t *buff, bool forward) {
-    if (forward) {
-        // go to the first non-whitespace character
-        while (buff->offset < buff->text_length && is_whitespace(buff->buffer[buff->offset]))
-            increase_offset(buff);
-    } else {
-        // go to the first whitespace character
-        while (buff->offset > 0 && is_whitespace(buff->buffer[buff->offset - 1]))
-            decrease_offset(buff);
-    }
-}
 
-static int skip_word(buffer_t *buff, bool forward) {
-    if (forward) {
-        // go to the first whitespace character
-        while (buff->offset < buff->text_length && is_word_char(buff->buffer[buff->offset]))
-            increase_offset(buff);
-    } else {
-        // go to the first whitespace character
-        while (buff->offset > 0 && is_word_char(buff->buffer[buff->offset - 1]))
-            decrease_offset(buff);
-    }
-}
 
 static int buffer_navigate_char(buffer_t *buff, bool forward) {
     if (forward)
-        increase_offset(buff);
+        ;
     else
-        decrease_offset();
+        ;
 }
 
 static int buffer_navigate_word(buffer_t *buff, bool forward) {
