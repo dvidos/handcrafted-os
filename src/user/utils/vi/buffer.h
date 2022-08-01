@@ -27,7 +27,7 @@ struct buffer_ops {
 
     int (*delete_char)(buffer_t *buff, bool forward);
     int (*delete_word)(buffer_t *buff, bool forward);
-    int (*delete_while_line)(buffer_t *b);
+    int (*delete_whole_line)(buffer_t *b);
     int (*delete_to_line_boundaries)(buffer_t *buff, bool forward);
 
     int (*insert_char)(buffer_t *buff, int chr);
