@@ -9,8 +9,10 @@ typedef struct viewport {
     viewport_priv_data_t *priv_data;
 
     buffer_t *buffer;
-    int visible_rows;
-    int visible_cols;
+    int screen_x;
+    int screen_y;
+    int screen_cols;
+    int screen_rows;
     int first_visible_row; // of text, zero based
     int first_visible_col;
 } viewport_t;

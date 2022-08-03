@@ -6,20 +6,30 @@ typedef struct buffer_priv_data {
 
 
 
+int line_separator_length();
+bool is_line_separator(char *ptr);
+bool is_word_char(char c);
+int offset_to_line(char *buffer, int text_length, int offset);
+int line_to_offset(char *buffer, int text_length, int line);
+int count_line_length(char *buffer, int text_length, int line_start_offset);
+int count_buffer_lines(char *buffer, int text_length);
+int find_start_of_word(char *buffer, int text_length, bool right, int offset);
+int find_start_of_line(char *buffer, int text_length, bool right, int offset);
+
 
 
 // fast inline information
-static inline int line_separator_length() {
+inline int line_separator_length() {
 	return 1;
 }
 
 // fast inline decision maker
-static inline bool is_line_separator(char *ptr) {
+inline bool is_line_separator(char *ptr) {
 	return *ptr == '\n';
 }
 
 // fast inline decision maker
-static inline bool is_word_char(char c) {
+inline bool is_word_char(char c) {
 	return (
 		(c >= 'a' && c <= 'z') ||
 		(c >= 'A' && c <= 'Z') ||
@@ -29,12 +39,14 @@ static inline bool is_word_char(char c) {
 }
 
 // find the line number in given offset
-static int offset_to_line(char *buffer, int offset) {
+int offset_to_line(char *buffer, int text_length, int offset) {
 	int line = 0;
 	
 	// a running pointer should be the faster way
 	char *p = buffer;
-	while (offset > 0) {
+    char *past_end = buffer + text_length;
+
+	while (p < past_end && offset > 0) {
 		if (is_line_separator(p))
 			line++;
 		p++;
@@ -45,12 +57,14 @@ static int offset_to_line(char *buffer, int offset) {
 }
 
 // find the start of the line as offset
-static int line_to_offset(char *buffer, int line) {
+int line_to_offset(char *buffer, int text_length, int line) {
 	int offset = 0;
 	
 	// a running pointer should be the faster way
 	char *p = buffer;
-	while (line > 0) {
+    char *past_end = buffer + text_length;
+
+	while (p < past_end && line > 0) {
 		if (is_line_separator(p))
 			line--;
 		p++;
@@ -60,12 +74,15 @@ static int line_to_offset(char *buffer, int line) {
 	return offset;
 }
 
-static int count_line_length(char *buffer, int line_start_offset) {
+// does not include line separators
+int count_line_length(char *buffer, int text_length, int line_start_offset) {
 	int length = 0;
 	
 	// a running pointer should be the faster way
 	char *p = buffer + line_start_offset;
-	while (!is_line_separator(p)) {
+    char *past_end = buffer + text_length;
+
+	while (p < past_end && !is_line_separator(p)) {
 		p++;
 		length++;
 	}
@@ -73,12 +90,12 @@ static int count_line_length(char *buffer, int line_start_offset) {
 	return length;
 }
 
-static int count_buffer_lines(char *buffer, int text_length) {
-	int lines = 0;
-	
+int count_buffer_lines(char *buffer, int text_length) {
+	int lines = 1; // even without a single line separator
 	char *p = buffer;
 	char *end = buffer + text_length;
-	while (p <= end) {
+
+	while (p < past_end) {
 		if (is_line_separator(p))
 			lines++;
 		p++;
@@ -87,29 +104,50 @@ static int count_buffer_lines(char *buffer, int text_length) {
 	return lines;
 }
 
-static int find_start_of_word(bool right, int *offset) {
-	if (right) {
-		// skip possible current word
-		// skip any non-word
-	} else {
-		// skip possible non-word to the left
-		// find start of word left
-	}
+int find_start_of_word(char *buffer, int text_length, bool right, int offset) {
+    char *p = buffer + offset;
+    char *past_end = buffer + text_length;
+
+    if (right) {
+        // skip word
+        while (p < past_end && is_word_char(*p))
+            p++;
+        // skip whitespace
+        while (p < past_end && !is_word_char(*p))
+            p++;
+    } else {
+        // skip whitespace
+        while (p > buffer && !is_word_char(*(p - 1)))
+            p--;
+        // skip word
+        while (p > buffer && is_word_char(*(p - 1)))
+            p--;
+    }
+
+    return (p - buffer);
 }
 
-static int find_line_start(int *offset) {
+int find_start_of_line(char *buffer, int text_length, bool right, int offset) {
+    char *p = buffer + offset;
+    char *past_end = buffer + text_length;
+
+    if (right) {
+        while (p < past_end && !is_line_separator(p))
+            p++;
+        if (p < past_end && is_line_separator(p))
+            p += line_separator_length();
+    } else {
+        if (p > buffer && is_line_separator(p - line_separator_length()))
+            p -= line_separator_length();
+        while (p > buffer && !is_line_separator(p - line_separator_length()))
+            p--;
+    }
+
+    return (p - buffer);
 }
-
-static int find_line_end(int *offset) {
-}
-
-
-
 
 
 // ---------------------------------------------------------------------------
-
-
 
 
 static int buffer_navigate_char(buffer_t *buff, bool forward) {
@@ -222,10 +260,10 @@ buffer_t *create_buffer(int buffer_size) {
 }
 
 void destroy_buffer(buffer_t *buff) {
-    if (buff->ops)
-        free(buff->ops);
     if (buff->priv_data)
         free(buff->priv_data);
+    if (buff->ops)
+        free(buff->ops);
     free(buff);
 }
 
