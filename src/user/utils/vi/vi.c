@@ -1,337 +1,298 @@
+#include <stdio.h>
+#include <keyboard.h>
+#include "buffer.h"
+#include "viewport.h"
 
 
+#define MODE_COMMAND         0
+#define MODE_INSERT          1
+#define MODE_REPLACE_ONE     2
+#define MODE_REPLACE_CONT    3
+#define MODE_VISUAL_CHARS    4
+#define MODE_VISUAL_LINES    5
 
 
-// #define KEY_BACKSPACE    0x7f
-// #define KEY_ENTER        0x0a
-// #define KEY_ESCAPE       0x1b
+#define COMMAND_STARTING_CHARS   ":/?!"
 
-// #define LINUX_COMPATIBILITY 1
-// #ifdef LINUX_COMPATIBILITY
-
-//     //     #include <termios.h>
-//     #include <unistd.h>
-//     #include <stdio.h>
-//     #include <string.h>
-
-//     #define TERM_KEY_UP_ARROW     "\x1b[A"
-//     #define TERM_KEY_DOWN_ARROW   "\x1b[B"
-//     #define TERM_KEY_RIGHT_ARROW  "\x1b[C"
-//     #define TERM_KEY_LEFT_ARROW   "\x1b[D"
-//     #define TERM_KEY_HOME         "\x1b[H"
-//     #define TERM_KEY_END          "\x1b[F"
-//     #define TERM_KEY_PAGE_UP      "\x1b[5~"
-//     #define TERM_KEY_PAGE_DOWN    "\x1b[6~"
-//     #define TERM_KEY_DELETE       "\x1b[3~"
-//     #define TERM_KEY_INSERT       "\x1b[2~"
-//     #define TERM_KEY_BACKSPACE    0x7f
-//     #define TERM_KEY_ENTER        0x0a
-//     #define TERM_KEY_ESCAPE       0x1b
-
-//     static struct termios old_termios; // used for updating linux terminal
-
-//     void linux_entry() {
-//         static struct termios newt;
-
-//         /*tcgetattr gets the parameters of the current terminal
-//         STDIN_FILENO will tell tcgetattr that it should write the settings
-//         of stdin to oldt*/
-//         tcgetattr( STDIN_FILENO, &old_termios);
-//         /*now the settings will be copied*/
-//         newt = old_termios;
-
-//         /*ICANON normally takes care that one line at a time will be processed
-//         that means it will return if it sees a "\n" or an EOF or an EOL*/
-//         newt.c_lflag &= ~(ICANON | ECHO); 
-
-//         /*Those new settings will be set to STDIN
-//         TCSANOW tells tcsetattr to change attributes immediately. */
-//         tcsetattr( STDIN_FILENO, TCSANOW, &newt);
-//     }
-//     void linux_exit() {
-//         /*restore the old settings*/
-//         tcsetattr( STDIN_FILENO, TCSANOW, &old_termios);
-//     }
-//     #define ON_ENTRY()  linux_entry()
-//     #define ON_EXIT()   linux_exit()
-
-//     // gotoxy() x,y are one based, we are zero based
-//     #define gotoxy(x,y)  printf("\033[%d;%dH", (y) + 1, (x) + 1)
-
-//     // it was too much trouble detecting the escape sequences
-//     // i will do it in my os in my way (not a character tty)
-//     int getkey() { 
-//         return getchar();
-//     }
-//     #define screen_rows()    25
-//     #define screen_cols()    80
-
-// #else
-
-//     // definitions for handcrafted-os
-//     #define ON_ENTRY()  (0)
-//     #define ON_EXIT()   (0)
-//     #define gotoxy(x,y)    ((x)|(y))
-//     #define getkey()    (0)
-
-// #endif
-
-// // ------------------------------------------------------------------
-
-// #define MODE_COMMAND         0
-// #define MODE_INSERT          1
+int mode = 0;
+int finished = 0;
+int count = 1;
+char command_line[80 + 1] = {0,}; 
+char operator = 0;
 
 
-// int mode = 0;
-// int finished = 0;
-// int row = 0;
-// int col = 0;
-// int first_visible_row = 0;
-// int first_visible_col = 0;
-// int offset = 0;
-// int total_rows = 0;
-// int multiplier = 1;
-// char command[80 + 1] = {0,}; 
-// char buffer[64 * 1024]; // 64K seems to be a good start for editing small files
+// draw the footer line
+void draw_footer() {
+    gotoxy(0, screen_rows() - 1);
+    if (mode == MODE_COMMAND) {
+        printf("%79s", " ");
+    } else if (mode == MODE_INSERT) {
+        printf("--- INSERT ---      %d,%d     %d%%", row, col, 
+            total_rows == 0 ? 0 : first_visible_row / total_rows);
+    }
+}
+
+// draw the whole screen anew
+void draw_screen() {
+    for (int row = 0; row < screen_rows() - 1; row++) {
+        gotoxy(0, row);
+        if (row < total_rows)
+            printf("%-80s", "");
+        else
+            printf("%-80s", "~");
+    }
+    // now go where we are supposed to be
+    gotoxy(col - first_visible_col, row - first_visible_row);
+}
 
 
-// void insert_char_at_position(char key) {
-//     // in theory we'll keep both row/col and offset in sync.
-//     buffer[offset] = key;
-//     offset++;
-//     col++;
-//     if (col >= first_visible_col + screen_cols()) {
-//         first_visible_col++;
-//         draw_screen();
-//     } else {
-//         draw_current_line();
-//     }
-// }
-// void collect_command_multiplier(int key) {
-//     if (key >= '0' && key <= '9')
-//         multiplier = (multiplier * 10) + (key - '0');
-// }
-// void navigate_up() {
-//     while (multiplier-- > 0) {
+void change_mode(int new_mode) {
+    mode = new_mode;
+    operator = 0;
+    count = 0;
+    draw_footer();
+}
 
-//     }
-// }
-// void navigate_down() {
-// }
-// void navigate_character_left() {
-// }
-// void navigate_character_right() {
-// }
-// void navigate_word_left() {
-// }
-// void navigate_word_right() {
-// }
-// void navigate_start_of_line() {
-// }
-// void navigate_end_of_line() {
-// }
-// void navigate_start_of_document() {
-// }
-// void navigate_end_of_document() {
-// }
-// void navigate_to_line() {
-// }
-// void delete_character_right() {
-// }
-// void delete_character_left() {
-// }
-// void delete_word_right() {
-// }
-// void delete_word_left() {
-// }
-// void delete_line() {
-// }
-// void insert_character(int key) {
-// }
-// void search(char *needle, bool forwards) {
-// }
-// void find_next(bool forwards) {
-// }
+// run the command line (ex mode)
+void execute_command_line() {
+    printf("Executing command [%s]\n", command);
+    // should probably do it char by char, but for now...
+    if (strcmp(command, ":q") == 0) {
+        finished = true;
+    }
+    /*
+        After ':' command:
+        w - write file
+        w! - force write
+        q - quit, warn if outstanding changes
+        q! - force quit, discard changes
+        e<filename> - edit file
+        e! - re-edit, discarding changes
+        e+<filename> - edit file, starting at EOF
+        w<name> - write specific name, warn if file exists
+        w!<name> - overwrite file 
+        sh - run shell
+        !<cmd> - run command in shell
+        n - edit next file in arglist
+    */
+}
 
-// // ------------------------------------
-// // screen update section
-// // ------------------------------------
+// edit the command line, first char can be ':' or '/'
+bool edit_command_line(char first_char) {
+    int cmd_len = 0;
+    key_event_t event;
+    bool accepted = false;
 
-// // draw only the currently edited line (for speed)
-// void draw_current_line() {
-//     ; // gotoxy(), draw the line, gotoxy()
-// }
+    command[0] = first_char;
+    command[1] = '\0';
+    while (true) {
+        cmd_len = strlen(command);
+        gotoxy(0, screen_rows() - 1);
+        printf("%-79s", command);
+        gotoxy(cmd_len, screen_rows() - 1);
 
-// // draw the footer line
-// void draw_footer() {
-//     gotoxy(0, screen_rows() - 1);
-//     if (mode == MODE_COMMAND) {
-//         printf("%79s", " ");
-//     } else if (mode == MODE_INSERT) {
-//         printf("--- INSERT ---      %d,%d     %d%%", row, col, 
-//             total_rows == 0 ? 0 : first_visible_row / total_rows);
-//     }
-// }
+        getkey(&event);
+        if (event.keycode == KEY_ENTER) {
+            accepted = true;
+            break;
+        } else if (event.keycode == KEY_ESCAPE) {
+            break;
+        } else if (event.keycode == KEY_BACKSPACE) {
+            if (cmd_len > 0)
+                command[--cmd_len] = '\0';
+            if (cmd_len == 0)
+                break;
+        } else if (event.ascii != 0) {
+            if (cmd_len < 80) {
+                command[cmd_len++] = key;
+                command[cmd_len] = '\0';
+            }
+        }
+    }
 
-// // draw the whole screen anew
-// void draw_screen() {
-//     for (int row = 0; row < screen_rows() - 1; row++) {
-//         gotoxy(0, row);
-//         if (row < total_rows)
-//             printf("%-80s", "");
-//         else
-//             printf("%-80s", "~");
-//     }
-//     // now go where we are supposed to be
-//     gotoxy(col - first_visible_col, row - first_visible_row);
-// }
+    draw_footer();
+    return accepted;
+}
 
-// // run the command line (ex mode)
-// void execute_command_line() {
-//     printf("Executing command [%s]\n", command);
-//     // should probably do it char by char, but for now...
-//     if (strcmp(command, ":q") == 0) {
-//         finished = true;
-//     }
-//     /*
-//         r  read file (filename as argument)
-//         w  write file (optional filename as argument)
-//         w - write
-//         q - quit
-//         s  replace
+// return true if handled, false if not a common key
+bool handle_all_modes_key(key_event_t *event) {
+    bool handled = false;
+
+    switch (event->keycode) {
+        case KEY_UP:
+        case KEY_DOWN:
+        case KEY_LEFT:
+        case KEY_RIGHT:
+        case KEY_HOME:
+        case KEY_END:
+        case KEY_PAGE_UP:
+        case KEY_PAGE_DOWN:
+        case KEY_CTRL_HOME:
+        case KEY_CTRL_END:
+        case KEY_CTRL_LEFT:
+        case KEY_CTRL_RIGHT:
+        case KEY_DELETE:
+        case KEY_BACKSPACE:
+            handled = true;
+    }
+
+    return false;
+}
+
+
+void handle_command_mode_key(key_event_t *event) {
+
+    if ((event->ascii >= '1' && event->ascii <= '9') ||
+        (count > 0 && event->ascii == '0')
+    ) {
+        count = (count * 10) + ('9' - event->ascii);
+        return;
+    }
+
+    // vi "syntax" is "<count><op><nav>", where count is a number, operator, then a navigation key
+    // usual operators are:
+    // d - delete (delete text)
+    // c - change (delete then enter insert mode)
+    // y - yank   (yank text)
+    // < and > - for shift left and right, count represents how many lines
+    // 
+    // for example: 
+    //    3yl is copy 3 characters to right, 3yy yank 3 lines, c$ change to end of line, 
+    //    dh (delete to the left), dd (delete line)
+
+
+    // e.g. directional commands (apply count and operators)
+    switch (event->ascii) {
+        case 'h': // go left
+        case 'j': // go down
+        case 'k': // go up
+        case 'l': // go right
+        case '0': // navigate start of line
+        case '$': // navigate end of line
+        case 'w':
+            if (operator == 'd') {
+                // delete word
+            } else if (operator == 0) {
+                // go to next word
+            }
+            break;
+        case 'b': // go to previous word
+    }
+
+    switch (event->ascii) {
+        case 'i': // insert at cursor
+            change_mode(MODE_INSERT);
+            break;
+        case 'I': // insert at start of line
+        case 'a': // insert after cursor
+        case 'A': // insert at end of line
+        case 'o': // open new line below, insert
+        case 'O': // insert new line here, insert
+            break;
+        case 'r': // replace one char, then back to command mode
+            change_mode(MODE_REPLACE_ONE);
+            break;
+        case 'R': // permanent replace mode (clear with Esc)
+            change_mode(MODE_REPLACE_CONT);
+            break;
+        case 'u': // undo
+        case '.': // repeat last command / edit cycle
+        case 'C': // clear to end of line, enter insert mode
+        case 'c': // cc clear whole line, enter insert mode
+            if (operator == 0) {
+                operator = 'c';
+            } else if (operator == 'c') {
+                // clear whole line, enter insert mode
+            }
+            break;
+        case 'x': // delete character (i.e. 'dl')
+        case 'D': // delete remainder of line (i.e. 'd$')
+        case 'd': // dd delete entire line
+            if (operator == 0) {
+                operator = 'd';
+            } else if (operator == 'd') {
+                // delete entire line
+            }
+            break;
+        case 'y': // yy yank the current line
+            if (operator == 0) {
+                operator = 'y';
+            } else if (operator == 'y') {
+                // yank the current line
+            }
+            break;
+        case 'Y': // yank current line
+        case 'p': // paste after cursor
+        case 'P': // paste before cursor
+        case 'v': // start marking characters
+        case 'V': // mark line and start marking line
+        case 'n': // find next
+        case 'N': // find prev
+        case 'G':
+            if (count == 0) {
+                // go to line number <n>G
+            } else if (operator == 0) {
+                operator = 'G';
+            } else if (operator == 'G') {
+                // go to top of file
+            }
+            break;
+        case 'Z':
+            if (operator == 0) {
+                operator = 'Z';
+            } else if (operator == 'Z') {
+                // save and exit
+            }
+    }
+    switch (event->keycode) {
+        case KEY_CTRL_G: // go to end of file
+    }
+
+    /*
+        /  search forwards
+        ?  search backwards
+    */
+}
+
+
+void handle_insert_mode_character(char c) {
+    bool overwrite = mode == MODE_REPLACE_ONE || mode == MODE_REPLACE_CONT;
+    // insert or overwrite, depending on mode
+}
+
+
+void main() {
+    key_event_t event;
+
+    // supposedly load any file from args
+
+    clear_screen();
+    draw_screen();
+    change_mode(MODE_COMMAND);
+    while (!finished) {
+        getkey(&event);
+
+        if (handle_all_modes_key(&event))
+            continue;
         
-//     */
-// }
+        if (mode == MODE_COMMAND || mode == MODE_VISUAL_CHARS || mode == MODE_VISUAL_LINES) {
+            if (event->ascii != 0 && strchr(COMMAND_STARTING_CHARS, event->ascii) != NULL) {
+                if (edit_command_line(event->ascii))
+                    execute_command_line(command_line);
+            } else {
+                handle_command_mode_key(&event);
+            }
 
-// // edit the command line, first char can be ':' or '/'
-// bool edit_command_line(int first_char) {
-//     int cmd_len = 0;
-//     bool cmd_done = 0;
+        } else if (mode == MODE_INSERT || mode == MODE_REPLACE_ONE || mode == MODE_REPLACE_CONT) {
+            if (event.keycode == KEY_ESCAPE) {
+                change_mode(MODE_COMMAND);
+            } else if (event->ascii != 0) {
+                handle_insert_mode_character(event->ascii);
+                if (mode == MODE_REPLACE_ONE)
+                    change_mode(MODE_COMMAND);
+            }
+        }
+    }
 
-//     command[0] = first_char;
-//     command[1] = '\0';
-//     while (!cmd_done) {
-//         // draw command line
-//         cmd_len = strlen(command);
-//         gotoxy(0, screen_rows() - 1);
-//         printf("%-79s", command);
-//         gotoxy(cmd_len, screen_rows() - 1);
-
-//         int key = getchar();
-//         switch (key) {
-//             case KEY_ENTER:
-//                 return true;
-//             case KEY_BACKSPACE:
-//                 if (cmd_len > 0)
-//                     command[--cmd_len] = '\0';
-//                 if (cmd_len == 0)
-//                     return false;
-//                 break;
-//             case KEY_ESCAPE:
-//                 return false;
-//             default:
-//                 if (key >= ' ' && key <= 127 && cmd_len < 80) {
-//                     command[cmd_len++] = key;
-//                     command[cmd_len] = '\0';
-//                 }
-//         }
-//     }
-// }
-
-// bool handle_all_modes_key(int key) {
-//     // for example, arrow keys will work in both modes
-//     // return true if key was a any_mode key
-//     switch (key) {
-//         // arrow keys
-//         // delete
-//         // page up/down
-//         // home end
-//     }
-//     return false;
-// }
-
-// void handle_command_key(int key) {
-//     // e.g. navigation, deletion, virtual, yank, numbers, etc
-//     switch (key) {
-//         case 'i':
-//             mode = MODE_INSERT;
-//             draw_footer();
-//             break;
-//         case ':':
-//         case '/':
-//             bool confirmed = edit_command_line(key);
-//             draw_footer();
-//             if (confirmed)
-//                 execute_command_line();
-//             break;
-//     }
-//     /*
-//         h,j,k,l navigation
-//         0 start of line
-//         $ end of line
-//         w go to start of next word
-//         b go to start of prev word
-//         u undo
-//         i insert before cursor
-//         I insert at start of line
-//         a append after cursor
-//         A append at end of line
-//         o open and insert in new line below the cursor
-//         O open and insert in new line above the cursor
-//         r replace single character
-//         R replace multiple characters (it's a mode, esc to exit)
-//         C clear to end of line, then enter insert mode
-//         cc clear all line, then enter insert mode
-//         x  delete character
-//         dw delete word to right
-//         D  delete remainder of line
-//         dd delete entire line
-//         yy yank the current line
-//         p  paste the yanked line after current line
-//         P  paste the yanked line before current line
-//         /  search forwards
-//         ?  search backwards
-//         n  find next
-//         N  find previous
-//         nG go to line number n
-//         GG go to start of the file
-//         ^G go to last line of file
-//     */
-// }
-
-// void handle_insert_key(int key) {
-//     // insert the character, redraw line or page, depending
-//     switch (key) {
-//         case KEY_ESCAPE:
-//             mode = MODE_COMMAND;
-//             draw_footer();
-//             break;
-//         // the rest we'll insert I think
-//     }
-// }
-
-
-
-
-// void main() {
-//     ON_ENTRY();
-
-//     draw_screen();
-//     while (!finished) {
-//         int key = getchar();
-//         if (handle_all_modes_key(key)) {
-//             continue;
-//         } else if (mode == MODE_COMMAND) {
-//             handle_command_key(key);
-//         } else if (mode == MODE_INSERT) {
-//             handle_insert_key(key);
-//         }
-//     }
-
-//     ON_EXIT();
-// }
-
-
-// // ------------------------------------------------------------
-
-
+    clear_screen();
+}
