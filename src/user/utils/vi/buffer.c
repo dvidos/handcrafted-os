@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "ctypes.h"
 
 typedef struct buffer_priv_data {
     // nothing for now    
@@ -95,7 +96,7 @@ int count_buffer_lines(char *buffer, int text_length) {
 	char *p = buffer;
 	char *end = buffer + text_length;
 
-	while (p < past_end) {
+	while (p < end) {
 		if (is_line_separator(p))
 			lines++;
 		p++;
@@ -174,7 +175,7 @@ static int buffer_navigate_line_boundaries(buffer_t *buff, bool forward) {
     if (forward) {
         find_line_boundary(buff, &offset, forward);
     } else {
-        find_line_boundary(buff, &offset, forward)
+        find_line_boundary(buff, &offset, forward);
     }
 }
 

@@ -25,6 +25,7 @@ UTILS_SRC_FILES = $(wildcard utils/*.c)
 UTILS_DEP_FILES = $(patsubst utils/%.c,bin/%.d,$(UTILS_SRC_FILES))
 UTILS_BIN_FILES = $(patsubst utils/%.c,bin/%,$(UTILS_SRC_FILES))
 UTILS_BIN_FILES += bin/sh
+# UTILS_BIN_FILES += bin/vi
 
 INSTALLED_BINS = $(patsubst utils/%.c,$(SYSROOT_DIR)/%,$(UTILS_SRC_FILES))
 
@@ -40,6 +41,10 @@ print:
 -include $(UTILS_DEP_FILES)
 
 bin/sh: $(wildcard utils/sh/*.c)
+	mkdir -p ./bin
+	$(CC) -MD $^ -o $@ $(CFLAGS)
+
+bin/vi: $(wildcard utils/vi/*.c)
 	mkdir -p ./bin
 	$(CC) -MD $^ -o $@ $(CFLAGS)
 

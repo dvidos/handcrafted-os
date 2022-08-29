@@ -83,12 +83,12 @@ bool edit_command_line(char first_char) {
     key_event_t event;
     bool accepted = false;
 
-    command[0] = first_char;
-    command[1] = '\0';
+    command_line[0] = first_char;
+    command_line[1] = '\0';
     while (true) {
-        cmd_len = strlen(command);
+        cmd_len = strlen(command_line);
         gotoxy(0, screen_rows() - 1);
-        printf("%-79s", command);
+        printf("%-79s", command_line);
         gotoxy(cmd_len, screen_rows() - 1);
 
         getkey(&event);
@@ -99,13 +99,13 @@ bool edit_command_line(char first_char) {
             break;
         } else if (event.keycode == KEY_BACKSPACE) {
             if (cmd_len > 0)
-                command[--cmd_len] = '\0';
+                command_line[--cmd_len] = '\0';
             if (cmd_len == 0)
                 break;
         } else if (event.ascii != 0) {
             if (cmd_len < 80) {
-                command[cmd_len++] = key;
-                command[cmd_len] = '\0';
+                command_line[cmd_len++] = key;
+                command_line[cmd_len] = '\0';
             }
         }
     }
@@ -116,27 +116,43 @@ bool edit_command_line(char first_char) {
 
 // return true if handled, false if not a common key
 bool handle_all_modes_key(key_event_t *event) {
-    bool handled = false;
+    bool handled = true;
 
     switch (event->keycode) {
         case KEY_UP:
+            break;
         case KEY_DOWN:
+            break;
         case KEY_LEFT:
+            break;
         case KEY_RIGHT:
+            break;
         case KEY_HOME:
+            break;
         case KEY_END:
+            break;
         case KEY_PAGE_UP:
+            break;
         case KEY_PAGE_DOWN:
+            break;
         case KEY_CTRL_HOME:
+            break;
         case KEY_CTRL_END:
+            break;
         case KEY_CTRL_LEFT:
+            break;
         case KEY_CTRL_RIGHT:
+            break;
         case KEY_DELETE:
+            break;
         case KEY_BACKSPACE:
-            handled = true;
+            break;
+        default:
+            handled = false;
+            break;
     }
 
-    return false;
+    return handled;
 }
 
 
@@ -164,11 +180,17 @@ void handle_command_mode_key(key_event_t *event) {
     // e.g. directional commands (apply count and operators)
     switch (event->ascii) {
         case 'h': // go left
+            break;
         case 'j': // go down
+            break;
         case 'k': // go up
+            break;
         case 'l': // go right
+            break;
         case '0': // navigate start of line
+            break;
         case '$': // navigate end of line
+            break;
         case 'w':
             if (operator == 'd') {
                 // delete word
@@ -177,16 +199,22 @@ void handle_command_mode_key(key_event_t *event) {
             }
             break;
         case 'b': // go to previous word
+            break;
     }
+
 
     switch (event->ascii) {
         case 'i': // insert at cursor
             change_mode(MODE_INSERT);
             break;
         case 'I': // insert at start of line
+            break;
         case 'a': // insert after cursor
+            break;
         case 'A': // insert at end of line
+            break;
         case 'o': // open new line below, insert
+            break;
         case 'O': // insert new line here, insert
             break;
         case 'r': // replace one char, then back to command mode
@@ -196,8 +224,11 @@ void handle_command_mode_key(key_event_t *event) {
             change_mode(MODE_REPLACE_CONT);
             break;
         case 'u': // undo
+            break;
         case '.': // repeat last command / edit cycle
+            break;
         case 'C': // clear to end of line, enter insert mode
+            break;
         case 'c': // cc clear whole line, enter insert mode
             if (operator == 0) {
                 operator = 'c';
@@ -206,7 +237,9 @@ void handle_command_mode_key(key_event_t *event) {
             }
             break;
         case 'x': // delete character (i.e. 'dl')
+            break;
         case 'D': // delete remainder of line (i.e. 'd$')
+            break;
         case 'd': // dd delete entire line
             if (operator == 0) {
                 operator = 'd';
@@ -222,12 +255,19 @@ void handle_command_mode_key(key_event_t *event) {
             }
             break;
         case 'Y': // yank current line
+            break;
         case 'p': // paste after cursor
+            break;
         case 'P': // paste before cursor
+            break;
         case 'v': // start marking characters
+            break;
         case 'V': // mark line and start marking line
+            break;
         case 'n': // find next
+            break;
         case 'N': // find prev
+            break;
         case 'G':
             if (count == 0) {
                 // go to line number <n>G
@@ -244,6 +284,7 @@ void handle_command_mode_key(key_event_t *event) {
                 // save and exit
             }
     }
+
     switch (event->keycode) {
         case KEY_CTRL_G: // go to end of file
     }
@@ -276,8 +317,8 @@ void main() {
             continue;
         
         if (mode == MODE_COMMAND || mode == MODE_VISUAL_CHARS || mode == MODE_VISUAL_LINES) {
-            if (event->ascii != 0 && strchr(COMMAND_STARTING_CHARS, event->ascii) != NULL) {
-                if (edit_command_line(event->ascii))
+            if (event.ascii != 0 && strchr(COMMAND_STARTING_CHARS, event.ascii) != NULL) {
+                if (edit_command_line(event.ascii))
                     execute_command_line(command_line);
             } else {
                 handle_command_mode_key(&event);
@@ -286,8 +327,8 @@ void main() {
         } else if (mode == MODE_INSERT || mode == MODE_REPLACE_ONE || mode == MODE_REPLACE_CONT) {
             if (event.keycode == KEY_ESCAPE) {
                 change_mode(MODE_COMMAND);
-            } else if (event->ascii != 0) {
-                handle_insert_mode_character(event->ascii);
+            } else if (event.ascii != 0) {
+                handle_insert_mode_character(event.ascii);
                 if (mode == MODE_REPLACE_ONE)
                     change_mode(MODE_COMMAND);
             }

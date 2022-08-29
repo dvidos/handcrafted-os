@@ -52,7 +52,7 @@ sync
 # sudo chown dimitris:dimitris /dev/loop100
 # losetup /dev/loop100 ./imgs/disk10mb-fat16.img 
 # mount /mnt/userImg
-# cp sysroot/bin/* /mnt/userImg/
+# cp -rv sysroot/* /mnt/userImg/
 
 
 
