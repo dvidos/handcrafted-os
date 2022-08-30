@@ -2,6 +2,7 @@
 #include <string.h>
 #include <readline.h>
 #include <stdlib.h>
+#include "env.h"
 
 // what does a shell support?
 // - environment manipulation (set, unset)
@@ -42,13 +43,49 @@ void cmd_echo(int argc, char *argv[]) {
     printf("\n");
 }
 
+void cmd_set(int argc, char *argv[]) {
+    if (argc <= 1) {
+        // show all
+        char **p = envp;
+        while (*p != NULL) {
+            printf("%s\n", *p);
+            p++;
+        }
+
+    } else {
+        for (int i = 1; i < argc; i++) {
+            // need to split the "=" part
+            char *equal = strchr(argv[i], '=');
+            char *name;
+            char *value;
+            if (equal == NULL) {
+                name = "_";
+                value = argv[i];
+            } else {
+                *equal = '\0';
+                name = argv[i];
+                value = equal + 1;
+            }
+            setenv(name, value);
+        }
+    }
+}
+
+void cmd_unset(int argc, char *argv[]) {
+    for (int i = 1; i < argc; i++) {
+        unsetenv(argv[i]);
+    }
+}
+
 struct built_in_info {
     char *name;
     void (*func)(int argc, char *argv[]);
 };
 
 struct built_in_info built_ins[] = {
-    { "echo", cmd_echo},
+    {"echo", cmd_echo},
+    {"set", cmd_set},
+    {"unset", cmd_unset},
     {NULL, NULL}
 };
 
@@ -56,6 +93,7 @@ readline_t *rl = NULL;
 
 void init() {
     printf("Welcome to shell. Type 'help' for help, 'exit' to... exit\n");
+    initenv();
     rl = init_readline("dv @ shell $ ");
 }
 
@@ -81,7 +119,7 @@ void parse_run_arguments(char *line, struct run_arguments **args) {
         p->argv[p->argc] = token;
         p->argc++;
         if (p->argc == 16) {
-            printf("warn: 16 args limit reached");
+            printf("warn: 16 args limit reached\n");
             break;
         }
         token = strtok(NULL, " ");
