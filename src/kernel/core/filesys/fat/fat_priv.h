@@ -309,6 +309,7 @@ static int fat_probe(struct partition *partition);
 static struct file_ops *fat_get_file_operations();
 
 static int fat_opendir(char *path, file_t *file);
+static int fat_rewinddir(file_t *file);
 static int fat_readdir(file_t *file, struct dir_entry *dir_entry);
 static int fat_closedir(file_t *file);
 

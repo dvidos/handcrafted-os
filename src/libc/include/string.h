@@ -18,6 +18,7 @@ char *strchr(char *str, char c);
 char *strstr(char *haystack, char *needle);
 char *strtok(char *str, char *delimiters);
 
+// reverses a string in place
 void reverse(char *buffer, int len);
 
 int tolower(int c);

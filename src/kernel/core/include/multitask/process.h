@@ -26,7 +26,7 @@ typedef void (* func_ptr)();
 // create & initialize a process, don't start it yet, optinal association with a tty
 process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pid_t ppid, tty_t *tty);
 
-// after a process has terminated, clean up resources
+// after a process has terminated, clean up resources, free memory
 void cleanup_process(process_t *proc);
 
 // this appends the process on the ready queues
@@ -36,12 +36,13 @@ void start_process(process_t *process);
 process_t *running_process();
 
 // actions that a running task can use
-int wait(int *exit_code); // returns error or exited PID
-void yield();  // voluntarily give up the CPU to another task
-void sleep(int milliseconds);  // sleep self for some milliseconds
-void block_me(int reason, void *channel); // blocks task, someone else must unblock it
+int proc_wait_child(int *exit_code); // returns error or exited PID
+void proc_yield();  // voluntarily give up the CPU to another task
+void proc_sleep(int milliseconds);  // sleep self for some milliseconds
+void proc_block(int reason, void *channel); // blocks task, someone else must unblock it
 void proc_exit(uint8_t exit_code);  // terminate self, give exit code
-pid_t getpid(); // get pid of current process
+pid_t proc_getpid(); // get pid of current process
+pid_t proc_getppid(); // get parent pid of running process
 
 // maintaining current working directory
 int proc_getcwd(process_t *proc, char *buffer, int size);
@@ -138,7 +139,7 @@ struct process {
     pid_t   wait_child_pid;
     uint8_t wait_child_exit_code;
 
-    // if parent calls the wait() function, these two help populate the data
+    // if parent calls the proc_wait_child() function, these two help populate the data
     uint8_t exit_code;
 
     // allocated from kernel heap

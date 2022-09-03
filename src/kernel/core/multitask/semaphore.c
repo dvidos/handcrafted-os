@@ -23,7 +23,7 @@ void acquire_semaphore(semaphore_t *semaphore) {
         klog_trace("process %s getting blocked on semaphore", running_process()->name);
         // we cannot acquire, we'll just block until it's free
         semaphore->waiting_processes++;
-        block_me(SEMAPHORE, semaphore);
+        proc_block(SEMAPHORE, semaphore);
     }
 
     unlock_scheduler();

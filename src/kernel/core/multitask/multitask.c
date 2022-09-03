@@ -15,7 +15,6 @@
 static volatile bool process_switching_enabled = false;
 
 
-
 void init_multitasking() {
     // we should not neglect the original task that has been running since boot
     // this is what we will switch "from" into whatever other task we want to spawn.
@@ -108,7 +107,6 @@ static void wake_sleeping_tasks() {
     
     unlock_scheduler();
 }
-
 
 
 // should be called from timer IRQ handler

@@ -76,12 +76,6 @@ static int sys_set_screen_color(int color) {
     return 0;
 }
 
-static int sys_exit(uint8_t exit_code) {
-    // current process exiting, preserve exit code, wake up waiting parents
-    proc_exit(exit_code);
-    return 0;
-}
-
 static int sys_getkey(key_event_t *event) {
     tty_read_key(event);
     return 0;
@@ -108,7 +102,19 @@ static void *sys_sbrk(int diff_size) {
     }
     return initial_break;
 }
-
+static int sys_exit(uint8_t exit_code) {
+    // current process exiting, preserve exit code, wake up waiting parents
+    proc_exit(exit_code);
+    return 0;
+}
+static int sys_sleep(uint32_t milliseconds) {
+    proc_sleep(milliseconds);
+    return 0;
+}
+static int sys_yield() {
+    proc_yield();
+    return 0;
+}
 static int sys_get_cwd(char *buffer, int length) {
     return proc_getcwd(running_process(), buffer, length);
 }
@@ -262,13 +268,11 @@ int isr_syscall(struct syscall_stack stack) {
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
             return_value = -1;
             break;
-        case SYS_WAIT:   // arg1 = pid
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+        case SYS_YIELD:
+            return_value = sys_yield();
             break;
         case SYS_SLEEP:   // arg1 = millisecs
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_sleep((uint32_t)stack.passed.arg1);
             break;
         case SYS_EXIT:   // arg1 = exit code
             return_value = sys_exit((uint8_t)stack.passed.arg1);

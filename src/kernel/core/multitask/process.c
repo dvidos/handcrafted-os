@@ -102,7 +102,7 @@ process_t *running_process() {
 
 
 // this is how the running task can block itself
-void block_me(int reason, void *channel) {
+void proc_block(int reason, void *channel) {
     lock_scheduler();
     running_proc->state = BLOCKED;
     running_proc->block_reason = reason;
@@ -163,8 +163,8 @@ void unblock_process_that(int block_reason, void *block_channel) {
 }
 
 
-// wait for any child to exit
-int wait(int *exit_code) {
+// wait for any child to exit, returns child's PID
+int proc_wait_child(int *exit_code) {
 
     // first find if we do have any children!
     bool has_children = false;
@@ -212,7 +212,7 @@ int wait(int *exit_code) {
 }
 
 // voluntarily give up the CPU to another task
-void yield() {
+void proc_yield() {
     klog_trace("process %s is yielding", running_proc->name);
     lock_scheduler();
     schedule(); // allow someone else to run
@@ -220,7 +220,7 @@ void yield() {
 }
 
 // a task can ask to sleep for some time
-void sleep(int milliseconds) {
+void proc_sleep(int milliseconds) {
     if (milliseconds <= 0)
         return;
     lock_scheduler();
@@ -270,11 +270,11 @@ void proc_exit(uint8_t exit_code) {
     unlock_scheduler();
 }
 
-pid_t getpid() {
+pid_t proc_getpid() {
     return running_proc->pid;
 }
 
-pid_t getppid() {
+pid_t proc_getppid() {
     return running_proc->parent_pid;
 }
 

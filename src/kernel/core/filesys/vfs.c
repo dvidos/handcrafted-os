@@ -125,6 +125,13 @@ int vfs_opendir(char *path, file_t *file) {
     return file->ops->opendir(file->path, file);
 }
 
+int vfs_rewinddir(file_t *file) {
+    klog_trace("vfs_rewinddir(file=0x%p)", file);
+    if (file->ops->rewinddir == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file->ops->rewinddir(file);
+}
+
 int vfs_readdir(file_t *file, struct dir_entry *dir_entry) {
     klog_trace("vfs_readdir(file=0x%p, entry=0x%p)", file, dir_entry);
     if (file->ops->readdir == NULL)

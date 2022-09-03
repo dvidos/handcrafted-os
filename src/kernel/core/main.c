@@ -196,10 +196,10 @@ void shell_launcher() {
             // wait for the child?
             pid_t child_proc = (pid_t)err;
             int exit_code = 0;
-            err = wait(&exit_code);
+            err = proc_wait_child(&exit_code);
             printf("wait() returned %d, child process exit code is %d\n", err, exit_code);
         }
-        sleep(1000);
+        proc_sleep(1000);
     }
 }
 
@@ -207,7 +207,7 @@ void process_b_main() {
     int i = 1;
     while (true) {
         printf("i = %d\n", i++);
-        sleep(400);
+        proc_sleep(400);
     }
 }
 

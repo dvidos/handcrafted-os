@@ -228,6 +228,14 @@ static int fat_opendir(char *path, file_t *file) {
     return SUCCESS;
 }
 
+static int fat_rewinddir(file_t *file) {
+    klog_trace("fat_rewinddir()");
+    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
+    
+    return fat->ops->priv_dir_seek_slot(fat, pd, 0);
+}
+
 static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
     klog_trace("fat_readdir()");
     fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
@@ -362,6 +370,7 @@ exit:
 
 struct file_ops fat_file_operations = {
     .opendir = fat_opendir,
+    .rewinddir = fat_rewinddir,
     .readdir = fat_readdir,
     .closedir = fat_closedir,
 

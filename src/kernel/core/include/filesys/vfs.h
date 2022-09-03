@@ -86,6 +86,7 @@ enum seek_origin {
 
 struct file_ops {
     int (*opendir)(char *path, file_t *file);
+    int (*rewinddir)(file_t *file);
     int (*readdir)(file_t *file, dir_entry_t *entry);
     int (*closedir)(file_t *file);
 
@@ -101,6 +102,7 @@ struct file_ops {
 };
 
 int vfs_opendir(char *path, file_t *file);
+int vfs_rewinddir(file_t *file);
 int vfs_readdir(file_t *file, struct dir_entry *dir_entry);
 int vfs_closedir(file_t *file);
 
