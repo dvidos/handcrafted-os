@@ -103,6 +103,34 @@ void cmd_ls(int argc, char *argv[]) {
     closedir(h);
 }
 
+void cmd_cat(int argc, char *argv[]) {
+    (void)argc;
+    (void)argv;
+    
+    if (argc <= 1) {
+        printf("Usage: cat <file>\n");
+        return;
+    }
+
+    syslog_info("opening file \"%s\"", argv[1]);
+    int h = open(argv[1]);
+    if (h < 0) {
+        printf("Error %d opening %s\n", h, argv[1]);
+        return;
+    }
+
+    char buffer[64 + 1];
+    while (true) {
+        memset(buffer, 0, sizeof(buffer));
+        int bytes = read(h, buffer, sizeof(buffer) - 1);
+        printf("%s", bytes);
+
+        if (bytes < (int)(sizeof(buffer) - 1))
+            break;
+    }
+    close(h);
+}
+
 struct built_in_info {
     char *name;
     void (*func)(int argc, char *argv[]);
@@ -113,6 +141,7 @@ struct built_in_info built_ins[] = {
     {"set", cmd_set},
     {"unset", cmd_unset},
     {"ls", cmd_ls},
+    {"cat", cmd_cat},
     {NULL, NULL}
 };
 
