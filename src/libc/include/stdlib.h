@@ -4,7 +4,6 @@
 #include <ctypes.h>
 
 
-
 // these should mirror kernel's ones
 #define SYSLOG_NONE      0
 #define SYSLOG_CRITICAL  1

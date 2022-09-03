@@ -3,6 +3,7 @@
 
 #include <ctypes.h>
 #include <devices/tty.h>
+#include <filesys/vfs.h>
 
 // posix has it, i think
 typedef uint16_t pid_t;
@@ -20,6 +21,7 @@ typedef void (* func_ptr)();
 #define PRIORITY_USER_PROGRAM     4
 #define PRIORITY_IDLE_TASK        7
 
+#define MAX_FILE_HANDLES         16
 
 // create & initialize a process, don't start it yet, optinal association with a tty
 process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pid_t ppid, tty_t *tty);
@@ -38,9 +40,22 @@ int wait(int *exit_code); // returns error or exited PID
 void yield();  // voluntarily give up the CPU to another task
 void sleep(int milliseconds);  // sleep self for some milliseconds
 void block_me(int reason, void *channel); // blocks task, someone else must unblock it
-void exit(uint8_t exit_code);  // terminate self, give exit code
+void proc_exit(uint8_t exit_code);  // terminate self, give exit code
 pid_t getpid(); // get pid of current process
 
+// maintaining current working directory
+int proc_getcwd(process_t *proc, char *buffer, int size);
+int proc_setcwd(process_t *proc, char *path);
+
+// for file handles maintained on the process, CWD taken into accout
+int proc_open(process_t *proc, char *name);
+int proc_read(process_t *proc, int handle, char *buffer, int length);
+int proc_write(process_t *proc, int handle, char *buffer, int length);
+int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin);
+int proc_close(process_t *proc, int handle);
+int proc_opendir(process_t *proc, char *name);
+int proc_readdir(process_t *proc, int handle, dir_entry_t *entry);
+int proc_closedir(process_t *proc, int handle);
 
 // this is how someone can unblock a different process
 void unblock_process(process_t *proc);
@@ -148,6 +163,10 @@ struct process {
         void *stack_bottom;
 
     } user_proc;
+
+    file_t cwd;
+    char *cwd_path;
+    file_t file_handles[MAX_FILE_HANDLES];
 };
 
 

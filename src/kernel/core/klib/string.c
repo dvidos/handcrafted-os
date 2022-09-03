@@ -88,6 +88,17 @@ char *memmove(void *dest, void *source, size_t size) {
     return dest;
 }
 
+// check if a memory area consists only of one character
+bool memchk(void *buffer, char value, size_t size) {
+    char *p = (char *)buffer;
+
+    while (size-- > 0) {
+        if (*p++ != value)
+            return false;
+    }
+
+    return true;
+}
 
 void reverse(char *buffer, int len) {
     // reverse the buffer in place

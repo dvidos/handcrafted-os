@@ -28,18 +28,19 @@
 #define SYS_GET_MOUSE_EVENT    20  // returns... a lot of info (we have 4 bytes)
 
 // files manipulation
-#define SYS_OPEN             21  // arg1 = file path, returns handle or error<0
-#define SYS_READ             22  // arg1 = handle, arg2 = buffer, arg3 = len, returns len
-#define SYS_WRITE            23  // arg1 = handle, arg2 = buffer, arg3 = len, returns len
-#define SYS_SEEK             24  // arg1 = handle, arg2 = offset, arg3 = origin, returns new position
-#define SYS_CLOSE            25  // arg1 = handle
-#define SYS_OPEN_DIR         26  // arg1 = dir path, return handle or error<0
-#define SYS_READ_DIR         27  // arg1 = handle, arg2 = dentry pointer
-#define SYS_CLOSE_DIR        28  // arg1 = handle
-#define SYS_STAT             29  // arg1 = path, arg2 = stat pointer
-#define SYS_TOUCH            30  // arg1 = path
-#define SYS_MKDIR            31  // arg1 = path
-#define SYS_UNLINK           32  // arg1 = path (dir or file)
+#define SYS_GET_CWD          21  // arg1 = buffer, arg2 = buffer size
+#define SYS_SET_CWD          22  // arg1 = path
+#define SYS_OPEN             23  // arg1 = file path, returns handle or error<0
+#define SYS_READ             24  // arg1 = handle, arg2 = buffer, arg3 = len, returns len
+#define SYS_WRITE            25  // arg1 = handle, arg2 = buffer, arg3 = len, returns len
+#define SYS_SEEK             26  // arg1 = handle, arg2 = offset, arg3 = origin, returns new position
+#define SYS_CLOSE            27  // arg1 = handle
+#define SYS_OPEN_DIR         28  // arg1 = dir path, return handle or error<0
+#define SYS_READ_DIR         29  // arg1 = handle, arg2 = dentry pointer
+#define SYS_CLOSE_DIR        30  // arg1 = handle
+#define SYS_TOUCH            31  // arg1 = path
+#define SYS_MKDIR            32  // arg1 = path
+#define SYS_UNLINK           33  // arg1 = path (dir or file)
 
 // process manipulation
 #define SYS_GET_PID          41  // returns pid
@@ -54,8 +55,6 @@
 // clock info
 #define SYS_GET_UPTIME       50  // returns msecs since boot (32 bits = 49 days)
 #define SYS_GET_CLOCK        51  // arg1 = dtime pointer
-
-
 
 // IPC send, receive, shared memory
 

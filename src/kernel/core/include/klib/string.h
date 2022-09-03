@@ -18,6 +18,9 @@ void memcpy(void *dest, void *source, size_t size);
 int  memcmp(void *a, void *b, size_t size);
 char *memmove(void *dest, void *source, size_t size);
 
+// check if a memory area consists only of one character
+bool memchk(void *buffer, char value, size_t size);
+
 void reverse(char *buffer, int len);
 void ltoa(long num, char *buffer, int base);
 void ultoa(unsigned long num, char *buffer, int base);

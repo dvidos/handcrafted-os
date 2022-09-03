@@ -3,6 +3,7 @@
 #include <readline.h>
 #include <stdlib.h>
 #include "env.h"
+#include <errors.h>
 
 // what does a shell support?
 // - environment manipulation (set, unset)
@@ -77,6 +78,31 @@ void cmd_unset(int argc, char *argv[]) {
     }
 }
 
+void cmd_ls(int argc, char *argv[]) {
+    (void)argc;
+    (void)argv;
+    
+    char *path = argc <= 1 ? "/" : argv[1];
+
+    syslog_info("opening dir \"%s\"", path);
+    int h = opendir(path);
+    syslog_info("opening dir \"%s\", handle is %d", path, h);
+    if (h < 0) {
+        printf("Error %d opening folder\n", h);
+        return;
+    }
+    int err;
+    dir_entry_t entry;
+    memset(&entry, 0, sizeof(dir_entry_t));
+    syslog_info("dir handle returned = %d", h);
+    while ((err = readdir(h, &entry)) == SUCCESS) {
+        syslog_info("reading success %d", err);
+        printf("%8d %s\n", entry.file_size, entry.short_name);
+    }
+    syslog_info("closing handle %d", h);
+    closedir(h);
+}
+
 struct built_in_info {
     char *name;
     void (*func)(int argc, char *argv[]);
@@ -86,6 +112,7 @@ struct built_in_info built_ins[] = {
     {"echo", cmd_echo},
     {"set", cmd_set},
     {"unset", cmd_unset},
+    {"ls", cmd_ls},
     {NULL, NULL}
 };
 

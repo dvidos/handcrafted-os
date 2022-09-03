@@ -13,6 +13,7 @@
 #include <memory/virtmem.h>
 #include <klog.h>
 #include <errors.h>
+#include <multitask/process.h>
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
@@ -241,7 +242,7 @@ void sleep(int milliseconds) {
 }
 
 // a task can ask to be terminated
-void exit(uint8_t exit_code) {
+void proc_exit(uint8_t exit_code) {
     lock_scheduler();
     running_proc->state = TERMINATED;
     running_proc->exit_code = exit_code;
@@ -277,6 +278,42 @@ pid_t getppid() {
     return running_proc->parent_pid;
 }
 
+int proc_getcwd(process_t *proc, char *buffer, int size) {
+    if (size < strlen(proc->cwd_path) + 1)
+        return ERR_NO_SPACE_LEFT;
+    // how is this updated when the folder is deleted from the filesystem?
+    // maybe a message should be broadcasted to all processes?
+    strcpy(buffer, proc->cwd_path);
+    return SUCCESS;
+}
+
+// in unices, this would be called chdir(), especially in libc
+int proc_setcwd(process_t *proc, char *path) {
+
+    // maybe we should resolve the path, relative to the current cwd.
+    // this is to allow more of a chdir() approach
+    
+    // see if file exists
+    file_t file;
+    int err = vfs_opendir(path, &file);
+    if (err) return err;
+
+    // close previous
+    if (!memchk(&proc->cwd, 0, sizeof(file_t))) {
+        vfs_closedir(&proc->cwd);
+        memset(&proc->cwd, 0, sizeof(file_t));
+    }
+
+    memcpy(&proc->cwd, &file, sizeof(file_t));
+
+    if (proc->cwd_path != NULL)
+        kfree(proc->cwd_path);
+    proc->cwd_path = kmalloc(strlen(path) + 1);
+    strcpy(proc->cwd_path, path);
+
+    return SUCCESS;
+}
+
 static void scheduler_unlocking_entry_point() {
     // unlock the scheduler in our first execution
     unlock_scheduler(); 
@@ -290,7 +327,7 @@ static void scheduler_unlocking_entry_point() {
 
     // terminate and later free the process
     klog_warn("process(): It seems main returned");
-    exit(255);
+    proc_exit(255);
 }
 
 process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pid_t ppid, tty_t *tty) {
@@ -328,32 +365,12 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pi
     // what our scheduler_unlocking_entry_point() should call
     p->entry_point = entry_point;
 
+    // set working directory
+    proc_setcwd(p, "/");
+
     klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;
 }
-
-
-
-// process_t *create_process(func_ptr entry_point, char *name, pid_t ppid, uint8_t priority, void *stack_top, void *page_directory, tty_t *tty) {
-//     p->esp = (uint32_t)(stack_top - sizeof(switched_stack_snapshot_t));
-
-//     // when starting a new executable, we have allocated new virtual memory, 
-//     // which includes the stack, where the line below tries to write to.
-//     // the related page-directory is not switched in yet, we only see
-//     // kernel's namespace.
-//     // we must find a way to write the return address in that unmapped-yet memory page.
-
-//     // we can temporarily find the actual physical address and map the address 
-//     // temporarily somewhere in our address space.
-//     // this func does not know if the process' stack is currently map or not.
-//     p->stack_snapshot->return_address = (uint32_t)scheduler_unlocking_entry_point;
-
-//     p->entry_point = entry_point; // where scheduler_unlocking_entry_point() will jump to
-//     p->page_directory = page_directory;
-
-//     klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
-//     return p;
-// }
 
 // after a process has terminated, clean up resources
 void cleanup_process(process_t *proc) {
@@ -370,9 +387,107 @@ void cleanup_process(process_t *proc) {
     if (proc->user_proc.executable_path != NULL)
         kfree(proc->user_proc.executable_path);
     
+    if (!memchk(&proc->cwd, 0, sizeof(file_t)))
+        vfs_closedir(&proc->cwd);
+    if (proc->cwd_path != NULL)
+        kfree(proc->cwd_path);
+    
     // can't think of anything else to free
     kfree(proc);
 }
+
+static int allocate_file_handle(process_t *proc, file_t *file) {
+    // should we lock here?
+    for (int i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (memchk(&proc->file_handles[i], 0, sizeof(file_t))) {
+            // we could lock on the process
+            memcpy(&proc->file_handles[i], file, sizeof(file_t));
+            return i;
+        }
+    }
+
+    return ERR_HANDLES_EXHAUSTED;
+}
+
+static int free_file_handle(process_t *proc, int handle) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return ERR_BAD_ARGUMENT;
+    
+    // we could lock
+    memset(&proc->file_handles[handle], 0, sizeof(file_t));
+    return SUCCESS;
+}
+
+int proc_open(process_t *proc, char *name) {
+    file_t file;
+    // fast resolve relative to cwd (we'll need rewinddir() at least)
+    int err = vfs_open(name, &file);
+    if (err) return err;
+
+    int handle = allocate_file_handle(proc, &file);
+    return handle;
+}
+
+int proc_read(process_t *proc, int handle, char *buffer, int length) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return ERR_BAD_ARGUMENT;
+    return vfs_read(&proc->file_handles[handle], buffer, length);
+}
+
+int proc_write(process_t *proc, int handle, char *buffer, int length) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return ERR_BAD_ARGUMENT;
+    return vfs_write(&proc->file_handles[handle], buffer, length);
+}
+
+int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return ERR_BAD_ARGUMENT;
+    return vfs_seek(&proc->file_handles[handle], offset, origin);
+}
+
+int proc_close(process_t *proc, int handle) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return ERR_BAD_ARGUMENT;
+    int err = vfs_close(&proc->file_handles[handle]);
+    if (err) return err;
+
+    free_file_handle(proc, handle);
+    return SUCCESS;
+}
+
+int proc_opendir(process_t *proc, char *name) {
+    file_t file;
+    // fast resolve relative to cwd
+    int err = vfs_opendir(name, &file);
+    if (err) return err;
+
+    int handle = allocate_file_handle(proc, &file);
+    klog_trace("proc_opendir() -> %d", handle);
+    klog_debug("Process handles table follows");
+    klog_hex16_debug((void *)proc->file_handles, sizeof(file_t) * MAX_FILE_HANDLES, 0);
+    return handle;
+}
+
+int proc_readdir(process_t *proc, int handle, dir_entry_t *entry) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return ERR_BAD_ARGUMENT;
+    int err = vfs_readdir(&proc->file_handles[handle], entry);
+    klog_trace("proc_readdir() -> %d", err);
+    return err;
+}
+
+int proc_closedir(process_t *proc, int handle) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return ERR_BAD_ARGUMENT;
+    int err = vfs_closedir(&proc->file_handles[handle]);
+    if (err) return err;
+
+    free_file_handle(proc, handle);
+    return SUCCESS;
+}
+
+
 
 static void dump_process(process_t *proc) {
     klog_info("%-3d %-10s %08x %08x %-10s %-10s %4us", 

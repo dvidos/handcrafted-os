@@ -78,7 +78,7 @@ static int sys_set_screen_color(int color) {
 
 static int sys_exit(uint8_t exit_code) {
     // current process exiting, preserve exit code, wake up waiting parents
-    exit(exit_code);
+    proc_exit(exit_code);
     return 0;
 }
 
@@ -108,6 +108,51 @@ static void *sys_sbrk(int diff_size) {
     }
     return initial_break;
 }
+
+static int sys_get_cwd(char *buffer, int length) {
+    return proc_getcwd(running_process(), buffer, length);
+}
+static int sys_set_cwd(char *path) {
+    return proc_setcwd(running_process(), path);
+}
+static int sys_open(char *path) {
+    return proc_open(running_process(), path);
+}
+static int sys_read(int handle, char *buffer, int length) {
+    return proc_read(running_process(), handle, buffer, length);
+}
+static int sys_write(int handle, char *buffer, int length) {
+    return proc_write(running_process(), handle, buffer, length);
+}
+static int sys_seek(int handle, int offset, enum seek_origin origin) {
+    return proc_seek(running_process(), handle, offset, origin);
+}
+static int sys_close(int handle) {
+    return proc_close(running_process(), handle);
+}
+static int sys_opendir(char *path) {
+    return proc_opendir(running_process(), path);
+}
+static int sys_readdir(int handle, dir_entry_t *entry) {
+    int a = proc_readdir(running_process(), handle, entry);
+    klog_debug("sys_readdir() -> %d", a);
+    return a;
+}
+static int sys_closedir(int handle) {
+    return proc_closedir(running_process(), handle);
+}
+static int sys_touch(char *path) {
+    return vfs_touch(path);
+}
+static int sys_mkdir(char *path) {
+    return vfs_mkdir(path);
+}
+static int sys_unlink(char *path) {
+    return vfs_unlink(path);
+}
+
+
+
 
 int isr_syscall(struct syscall_stack stack) {
     // it seems we are in the stack of the user process
@@ -160,58 +205,51 @@ int isr_syscall(struct syscall_stack stack) {
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
             return_value = -1;
             break;
+
+        case SYS_GET_CWD: // arg1 = buffer, arg2 = buffer len
+            return_value = sys_get_cwd((char *)stack.passed.arg1, stack.passed.arg2);
+            break;
+        case SYS_SET_CWD: // arg1 = path
+            return_value = sys_set_cwd((char *)stack.passed.arg1);
+            break;
         case SYS_OPEN:   // arg1 = file path, returns handle or error<0
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            // find entry in process' file table
-            return_value = -1;
+            return_value = sys_open((char *)stack.passed.arg1);
             break;
         case SYS_READ:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_read(stack.passed.arg1, (char *)stack.passed.arg2, stack.passed.arg3);
             break;
         case SYS_WRITE:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_write(stack.passed.arg1, (char *)stack.passed.arg2, stack.passed.arg3);
             break;
         case SYS_SEEK:   // arg1 = handle, arg2 = offset, arg3 = origin, returns new position
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_seek(stack.passed.arg1, stack.passed.arg2, (enum seek_origin)stack.passed.arg3);
             break;
         case SYS_CLOSE:   // arg1 = handle
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_close(stack.passed.arg1);
             break;
         case SYS_OPEN_DIR:   // arg1 = dir path, return handle or error<0
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_opendir((char *)stack.passed.arg1);
+            klog_debug("in syscall handler");
             break;
         case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_readdir(stack.passed.arg1, (dir_entry_t *)stack.passed.arg2);
             break;
         case SYS_CLOSE_DIR:   // arg1 = handle
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
-            break;
-        case SYS_STAT:   // arg1 = path, arg2 = stat pointer
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_closedir(stack.passed.arg1);
             break;
         case SYS_TOUCH:   // arg1 = path
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_touch((char *)stack.passed.arg1);
             break;
         case SYS_MKDIR:   // arg1 = path
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_mkdir((char *)stack.passed.arg1);
             break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_unlink((char *)stack.passed.arg1);
             break;
         case SYS_GET_PID:   // returns pid
             return_value = running_process() == NULL ? ERR_NOT_SUPPORTED : (int)(running_process()->pid);
             break;
+            
         case SYS_GET_PPID:   // returns ppid
             klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
             return_value = -1;

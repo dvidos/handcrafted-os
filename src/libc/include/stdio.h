@@ -7,8 +7,12 @@
 
 #define EOF (-1)
 
+// ----------------------------------
+// console / screen / tty
+// ----------------------------------
+
 // prints to current tty
-int printf(const char* restrict format, ...);
+int printf(char* format, ...);
 
 // prints a message on the tty. no new line is added
 int puts(char *message);
@@ -52,8 +56,58 @@ int set_screen_color(int color);
 #define COLOR_LIGHT_BROWN    14
 #define COLOR_WHITE          15
 
-
 void getkey(key_event_t *event);
+
+
+
+// ----------------------------------
+// files
+// ----------------------------------
+
+enum seek_origin {
+    SEEK_START,
+    SEEK_CURRENT,
+    SEEK_END
+};
+
+struct file_timestamp {
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hours;
+    uint8_t minutes;
+    uint8_t seconds;
+};
+
+typedef struct dir_entry {
+    char short_name[12+1];
+    uint32_t file_size;
+    struct {
+        uint8_t label: 1;
+        uint8_t dir: 1;
+        uint8_t read_only: 1;
+    } flags;
+    struct file_timestamp created;
+    struct file_timestamp modified;
+} dir_entry_t;
+
+
+int getcwd(char *buffer, int size);
+int setcwd(char *path);
+
+int open(char *name);
+int read(int handle, char *buffer, int length);
+int write(int handle, char *buffer, int length);
+int seek(int handle, int offset, enum seek_origin origin);
+int close(int handle);
+
+int opendir(char *name);
+int readdir(int handle, dir_entry_t *entry);
+int closedir(int handle);
+
+int touch(char *path);
+int mkdir(char *path);
+int unlink(char *path);
 
 
 #endif
