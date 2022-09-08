@@ -162,6 +162,11 @@ void unblock_process_that(int block_reason, void *block_channel) {
 }
 
 
+// clone, return child's PID on parent, zero on child.
+int proc_fork() {
+    return ERR_NOT_IMPLEMENTED;
+}
+
 // wait for any child to exit, returns child's PID
 int proc_wait_child(int *exit_code) {
 
@@ -270,11 +275,11 @@ void proc_exit(uint8_t exit_code) {
 }
 
 pid_t proc_getpid() {
-    return running_proc->pid;
+    return running_proc == NULL ? ERR_NOT_SUPPORTED : running_proc->pid;
 }
 
 pid_t proc_getppid() {
-    return running_proc->parent_pid;
+    return running_proc == NULL ? ERR_NOT_SUPPORTED : running_proc->parent_pid;
 }
 
 int proc_getcwd(process_t *proc, char *buffer, int size) {

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "env.h"
 #include <errors.h>
+#include <proc.h>
 
 // what does a shell support?
 // - environment manipulation (set, unset)
@@ -136,11 +137,12 @@ void cmd_cat(int argc, char *argv[]) {
     while (true) {
         memset(buffer, 0, sizeof(buffer));
         int bytes = read(h, buffer, sizeof(buffer) - 1);
-        printf("%s", bytes);
+        printf("%s", buffer);
 
         if (bytes < (int)(sizeof(buffer) - 1))
             break;
     }
+    printf("\n");
     close(h);
 }
 
@@ -203,7 +205,7 @@ void free_run_arguments(struct run_arguments *args) {
 }
 
 
-void exec(char *line) {
+void execute_line(char *line) {
     /*
         things to support:
         - manage env variables (set, getenv() and pass env in children)
@@ -248,7 +250,22 @@ void exec(char *line) {
 
     // otherwise, try to run something from the PATH
     if (!found) {
-
+        int h = open(args->argv[0]);
+        if (h > 0) {
+            // so it is a file we can open. try to execute it.
+            close(h);
+            found = true;
+            
+            char *env[] = {NULL};
+            int err = exec(args->argv[0], &args->argv[1], env);
+            if (err < 0) {
+                printf("Error %d executing %s", err, args->argv[0]);
+            } else {
+                int exit_status = 0;
+                err = wait(&exit_status);
+                printf("\n");
+            }
+        }
     }
 
     if (!found) {
@@ -269,7 +286,7 @@ int main(int argc, char *argv[], char *envp[]) {
         if (strcmp(line, "exit") == 0)
             break;
         
-        exec(line);
+        execute_line(line);
     }
 
     fini();

@@ -11,21 +11,21 @@
 #include <drivers/pci.h>
 #include <drivers/sata.h>
 #include <drivers/ata.h>
-#include <memory/physmem.h>
+#include <devices/tty.h>
 #include <memory/virtmem.h>
 #include <memory/kheap.h>
 #include <klog.h>
 #include <klib/string.h>
+#include <memory/physmem.h>
 #include <multiboot.h>
 #include <multitask/multitask.h>
 #include <multitask/semaphore.h>
 #include <multitask/process.h>
-#include <devices/tty.h>
+#include <multitask/exec.h>
 #include <filesys/partition.h>
 #include <filesys/vfs.h>
 #include <filesys/fat.h>
 #include <filesys/ext2.h>
-#include <exec.h>
 
 // Check if the compiler thinks you are targeting the wrong operating system.
 #if defined(__linux__)

@@ -5,6 +5,7 @@
 #include <drivers/clock.h>
 #include <drivers/timer.h>
 #include <multitask/process.h>
+#include <multitask/exec.h>
 #include <devices/tty.h>
 #include <filesys/vfs.h>
 #include <memory/virtmem.h>
@@ -155,7 +156,9 @@ static int sys_mkdir(char *path) {
 static int sys_unlink(char *path) {
     return vfs_unlink(path);
 }
-
+static int sys_exec(char *path, char **argv, char **envp) {
+    return execve(path, argv, envp);
+}
 
 
 
@@ -186,7 +189,6 @@ int isr_syscall(struct syscall_stack stack) {
         case SYS_LOG_HEX_DUMP:
             sys_log_hex(stack.passed.arg1, (uint8_t *)stack.passed.arg2, (uint32_t)stack.passed.arg3, (uint32_t)stack.passed.arg4);
             break;
-
         case SYS_PUTS:   // arg1 = string
             return_value = sys_puts((char *)stack.passed.arg1);
             break;
@@ -215,10 +217,8 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_getkey((key_event_t *)stack.passed.arg1);
             break;
         case SYS_GET_MOUSE_EVENT:   // returns... a lot of info (we have 4 bytes)
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = ERR_NOT_SUPPORTED;
             break;
-
         case SYS_GET_CWD: // arg1 = buffer, arg2 = buffer len
             return_value = sys_get_cwd((char *)stack.passed.arg1, stack.passed.arg2);
             break;
@@ -259,20 +259,16 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_unlink((char *)stack.passed.arg1);
             break;
         case SYS_GET_PID:   // returns pid
-            return_value = running_process() == NULL ? ERR_NOT_SUPPORTED : (int)(running_process()->pid);
+            return_value = proc_getpid();
             break;
-            
         case SYS_GET_PPID:   // returns ppid
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = proc_getpid();
             break;
         case SYS_FORK:   // returns 0 in child, child PID in parent, neg error in parent
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = proc_fork();
             break;
         case SYS_EXEC:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+            return_value = sys_exec((char *)stack.passed.arg1, (char **)stack.passed.arg2, (char **)stack.passed.arg3);
             break;
         case SYS_YIELD:
             return_value = sys_yield();

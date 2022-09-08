@@ -41,6 +41,7 @@ void start_process(process_t *process);
 process_t *running_process();
 
 // actions that a running task can use
+int proc_fork(); // clone, return child's PID on parent, zero on child
 int proc_wait_child(int *exit_code); // returns error or exited PID
 void proc_yield();  // voluntarily give up the CPU to another task
 void proc_sleep(int milliseconds);  // sleep self for some milliseconds
