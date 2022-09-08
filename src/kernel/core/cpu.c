@@ -5,6 +5,24 @@
 #define INTERRUPT_ENABLE_FLAG 0x00000200 // Interrupt Enable
 
 
+uint32_t cpu_get_cs_register() {
+    uint32_t value;
+    __asm__ __volatile__("movl %%cs, %0\n\t" : "=g"(value) ::);
+    return value;
+}
+
+uint32_t cpu_get_ds_register() {
+    uint32_t value;
+    __asm__ __volatile__("movl %%ds, %0\n\t" : "=g"(value) ::);
+    return value;
+}
+
+uint32_t cpu_get_ss_register() {
+    uint32_t value;
+    __asm__ __volatile__("movl %%ss, %0\n\t" : "=g"(value) ::);
+    return value;
+}
+
 
 void outb(uint16_t port, uint8_t data) {
     __asm__("out %%al, %%dx" : : "a" (data), "d" (port));

@@ -4,6 +4,11 @@
 #include <ctypes.h>
 
 
+uint32_t cpu_get_cs_register();
+uint32_t cpu_get_ds_register();
+uint32_t cpu_get_ss_register();
+
+
 // suffix	meaning	number of bits
 // b	byte	8
 // w	word	16
