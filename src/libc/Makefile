@@ -5,6 +5,7 @@ AR = i686-elf-ar
 
 COMMON_CFLAGS = -std=gnu99 -ffreestanding   \
 	-Wall -Wextra -Werror  \
+	-Wno-unused-parameter \
 	-O2 -g -Iinclude
 LIBC_CFLAGS = $(COMMON_CFLAGS) -D__is_libc
 LIBK_CFLAGS = $(COMMON_CFLAGS) -D__is_libk

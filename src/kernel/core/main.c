@@ -207,7 +207,7 @@ void process_b_main() {
     int i = 1;
     while (true) {
         printf("i = %d\n", i++);
-        proc_sleep(400);
+        proc_sleep(2000);
     }
 }
 

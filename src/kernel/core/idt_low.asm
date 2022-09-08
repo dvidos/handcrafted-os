@@ -174,7 +174,7 @@ isr0x80:
 
   ; we have to clean up the values we pushed,
   ; but without affecting eax, which contains the return value
-  ; we pushed 6 variabels of 4 bytes each, so add 24 to sp
+  ; we pushed 6 variables of 4 bytes each, so add 24 to esp
   add esp, 24
 
   sti

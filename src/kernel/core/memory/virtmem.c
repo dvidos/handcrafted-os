@@ -301,7 +301,7 @@ void set_page_directory_register(void *address) {
     );
 }
 
-// get current directory register
+// get current directory register (cr3)
 void *get_page_directory_register() {
     uint32_t value;
 
