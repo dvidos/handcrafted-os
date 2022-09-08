@@ -81,7 +81,7 @@ int execve(char *path, char *argv[], char *envp[]) {
 
     // not much left, cheers!
     klog_debug("execve(): about to start process \"%s\" (pid %d)", proc->name, proc->pid);
-    start_process(proc);
+    start_process(proc, true);
 
     err = SUCCESS;
 exit:

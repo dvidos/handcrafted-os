@@ -26,6 +26,7 @@ void syslog_hex_dump(int level, void *address, uint32_t length, uint32_t startin
 
 
 
+int sleep(unsigned int milliseconds);
 void exit(uint8_t exit_code);
 
 

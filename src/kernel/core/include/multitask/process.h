@@ -35,7 +35,7 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pi
 void cleanup_process(process_t *proc);
 
 // this appends the process on the ready queues
-void start_process(process_t *process);
+void start_process(process_t *process, bool preempt_current);
 
 // get the running process
 process_t *running_process();

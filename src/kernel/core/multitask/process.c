@@ -77,7 +77,7 @@ char *process_block_reason_names[] = { "", "SLEEPING", "SEMAPHORE", "WAIT USER I
 
 
 // starts a process, by putting it on the waiting list.
-void start_process(process_t *process) {
+void start_process(process_t *process, bool preempt_current) {
 
     // if we have not started multitasking yet... not much
     if (!multitasking_enabled()) {
@@ -89,8 +89,10 @@ void start_process(process_t *process) {
     append(&ready_lists[process->priority], process);
 
     // if running task is lower priority (e.g. idle task), preempt it
-    if (running_proc != NULL && process->priority < running_proc->priority)
+    bool lower_priority = running_proc != NULL && process->priority < running_proc->priority;
+    if (preempt_current || lower_priority)
         schedule();
+    
     unlock_scheduler();
 }
 

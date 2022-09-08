@@ -1,12 +1,11 @@
 # things to do
 
-* Next steps: 
-    - files ops from user land
-    - working directory in a process (both file_t* and name in process_t),
-    - executing files from shell
-    - start the vi editor
-    - improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
-
+* Fork, seems to be a nice challenge.
+* syscall to get clock & uptime
+* randseed() and rand()
+* Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
+* Shell, working dir, chdir, file operations (cp, mv)
+* Resume the vi editor, get to editing some files
 * Good generic and simple list implementation [here](https://github.com/stevej/osdev/blob/master/kernel/include/list.h). Maybe we want to use it. Oh, he also has a nice [tree implementation](https://github.com/stevej/osdev/blob/master/kernel/include/tree.h)
 * regarding lists like environment variables or arguments etc, play with the idea
 of allocating small arrays of pointers, but nest them, the way ext2 is doing, to achieve
@@ -91,6 +90,8 @@ prior allocation.
 
 ## things done
 
+* Executing executable files from shell
+* Supporting files (VFS) ops from user programs
 * load and execute executables in their own processes, using exec()
 * Basic libc functionality [more](https://wiki.osdev.org/Creating_a_C_Library)
 * put konsole in a task, maybe allow it to own a tty device
