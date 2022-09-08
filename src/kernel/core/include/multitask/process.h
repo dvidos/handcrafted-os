@@ -2,8 +2,13 @@
 #define _PROCESS_H
 
 #include <ctypes.h>
+#include <lock.h>
 #include <devices/tty.h>
 #include <filesys/vfs.h>
+
+// used to detect stack overflows
+#define STACK_BOTTOM_MAGIC_VALUE    0x12345678
+
 
 // posix has it, i think
 typedef uint16_t pid_t;
@@ -103,6 +108,7 @@ enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT }
 // the fundamental process information for multi tasking
 struct process {
     struct process *next; // each process can only belong to one list
+    lock_t process_lock;
 
     pid_t pid;
     pid_t parent_pid;
@@ -160,7 +166,7 @@ struct process {
         void *heap;           // heap will grow upwards
         uint32_t heap_size;   // to allow sbrk() to work
 
-        // used to set and detect stack overflow
+        // used to set and detect stack underflow
         void *stack_bottom;
 
     } user_proc;

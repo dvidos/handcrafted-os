@@ -151,7 +151,7 @@ static void exec_loader_entry_point() {
     proc->page_directory = page_directory;
     set_page_directory_register(page_directory);
 
-    // we should be safe to do it?
+    // we should be safe to do it now
     err = load_elf_into_memory(&file);
     if (err) {
         klog_error("Failed loading executable \"%s\"", proc->user_proc.executable_path);
@@ -168,6 +168,9 @@ static void exec_loader_entry_point() {
     proc->user_proc.heap = heap;
     proc->user_proc.heap_size = heap_size;
     
+    proc->user_proc.stack_bottom = stack_bottom;
+    *(uint32_t *)proc->user_proc.stack_bottom = STACK_BOTTOM_MAGIC_VALUE;
+
     // we now need to change the stack and to jump to the elf crt0._start() method.
     // ideally, this will never return, as crt0 will call proc_exit()
     klog_debug("Switching CR3 from 0x%x to 0x%x and jumping to virt addr 0x%x",
