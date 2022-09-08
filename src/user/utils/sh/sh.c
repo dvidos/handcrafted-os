@@ -83,24 +83,37 @@ void cmd_ls(int argc, char *argv[]) {
     (void)argv;
     
     char *path = argc <= 1 ? "/" : argv[1];
+    syslog_trace("command ls \"%s\"", path);
 
-    syslog_info("opening dir \"%s\"", path);
     int h = opendir(path);
-    syslog_info("opening dir \"%s\", handle is %d", path, h);
     if (h < 0) {
-        printf("Error %d opening folder\n", h);
+        printf("Error %d opening dir\n", h);
         return;
     }
-    int err;
+
     dir_entry_t entry;
     memset(&entry, 0, sizeof(dir_entry_t));
     syslog_info("dir handle returned = %d", h);
+
+    int err;
     while ((err = readdir(h, &entry)) == SUCCESS) {
         syslog_info("reading success %d", err);
-        printf("%8d %s\n", entry.file_size, entry.short_name);
+        printf("%c  %8d  %04d-%02d-%02d %02d:%02d:%02d  %s\n", 
+            entry.flags.dir ? 'd' : 'f', 
+            entry.file_size, 
+            entry.modified.year,
+            entry.modified.month,
+            entry.modified.day,
+            entry.modified.hours,
+            entry.modified.minutes,
+            entry.modified.seconds,
+            entry.short_name);
     }
     syslog_info("closing handle %d", h);
-    closedir(h);
+    err = closedir(h);
+    if (err < 0) {
+        printf("Error %d closing dir\n", err);
+    }
 }
 
 void cmd_cat(int argc, char *argv[]) {

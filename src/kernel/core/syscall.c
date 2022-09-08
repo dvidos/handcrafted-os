@@ -1,4 +1,5 @@
 #include <bits.h>
+#include <cpu.h>
 #include <errors.h>
 #include <klog.h>
 #include <drivers/clock.h>
@@ -11,7 +12,7 @@
 #include "../../libc/include/syscall.h"
 #include "../../libc/include/keyboard.h"
 
-
+#define STACK_GUARD_MAGIC_NUMBER   0x1BADCAFE
 
 
 // things pushed in the isr0x80 we have in assembly appear as arguments here
@@ -140,9 +141,7 @@ static int sys_opendir(char *path) {
     return proc_opendir(running_process(), path);
 }
 static int sys_readdir(int handle, dir_entry_t *entry) {
-    int a = proc_readdir(running_process(), handle, entry);
-    klog_debug("sys_readdir() -> %d", a);
-    return a;
+    return proc_readdir(running_process(), handle, entry);
 }
 static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
@@ -161,9 +160,17 @@ static int sys_unlink(char *path) {
 
 
 int isr_syscall(struct syscall_stack stack) {
+    /* before getting to this function, the assembly isr handler
+       has pushed CS, DS and SS into the stack, and will subsequently
+       pop the values from the stack. we had 
+       cases where the SS value could be overwritten and this caused
+       a General Protection Fault, as there was no such Segment Descriptor. 
+       Therefore, we hope to catch any clobbed stack cases */
+    volatile int stack_guard = STACK_GUARD_MAGIC_NUMBER;
+    
     // it seems we are in the stack of the user process
     int return_value = 0;
-    
+
     switch (stack.passed.sysno) {
         case SYS_ECHO_TEST:
             return_value = stack.passed.arg1;
@@ -235,7 +242,6 @@ int isr_syscall(struct syscall_stack stack) {
             break;
         case SYS_OPEN_DIR:   // arg1 = dir path, return handle or error<0
             return_value = sys_opendir((char *)stack.passed.arg1);
-            klog_debug("in syscall handler");
             break;
         case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
             return_value = sys_readdir(stack.passed.arg1, (dir_entry_t *)stack.passed.arg2);
@@ -299,6 +305,11 @@ int isr_syscall(struct syscall_stack stack) {
             break;
     }
     
+    if (stack_guard != STACK_GUARD_MAGIC_NUMBER) {
+        klog_critical("Syscall garbled stack detected! Stack dump follows, from guard downwards");
+        klog_hex16_debug((void *)&stack_guard, 16 * 16, (uint32_t)&stack_guard);
+    }
+
     // both positive and negative values tested and supported
     return return_value;
 }

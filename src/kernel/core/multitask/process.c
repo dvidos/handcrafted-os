@@ -1,7 +1,6 @@
 #include <drivers/screen.h>
 #include <klib/string.h>
 #include <lock.h>
-// #include "../memory/memory.h"
 #include <drivers/timer.h>
 #include <cpu.h>
 #include <drivers/clock.h>
@@ -397,24 +396,41 @@ void cleanup_process(process_t *proc) {
 }
 
 static int allocate_file_handle(process_t *proc, file_t *file) {
-    // should we lock here?
+    int handle = ERR_HANDLES_EXHAUSTED;
+
+    acquire(&proc->process_lock);
+
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
+        // if entry is all zeros, means it's unused
         if (memchk(&proc->file_handles[i], 0, sizeof(file_t))) {
-            // we could lock on the process
-            memcpy(&proc->file_handles[i], file, sizeof(file_t));
-            return i;
+            handle = i;
+            break;
         }
     }
 
-    return ERR_HANDLES_EXHAUSTED;
+    if (handle >= 0 && handle < MAX_FILE_HANDLES)
+        memcpy(&proc->file_handles[handle], file, sizeof(file_t));
+    
+    release(&proc->process_lock);
+    return handle;
+}
+
+static bool is_valid_handle(process_t *proc, int handle) {
+    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+        return false;
+    
+    // the handle should not contain all zeros, to be used
+    return !memchk(&(proc->file_handles[handle]), 0, sizeof(file_t));
 }
 
 static int free_file_handle(process_t *proc, int handle) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
     
-    // we could lock
+    acquire(&proc->process_lock);
     memset(&proc->file_handles[handle], 0, sizeof(file_t));
+    release(&proc->process_lock);
+
     return SUCCESS;
 }
 
@@ -429,25 +445,25 @@ int proc_open(process_t *proc, char *name) {
 }
 
 int proc_read(process_t *proc, int handle, char *buffer, int length) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
     return vfs_read(&proc->file_handles[handle], buffer, length);
 }
 
 int proc_write(process_t *proc, int handle, char *buffer, int length) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
     return vfs_write(&proc->file_handles[handle], buffer, length);
 }
 
 int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
     return vfs_seek(&proc->file_handles[handle], offset, origin);
 }
 
 int proc_close(process_t *proc, int handle) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
     int err = vfs_close(&proc->file_handles[handle]);
     if (err) return err;
@@ -480,6 +496,7 @@ int proc_readdir(process_t *proc, int handle, dir_entry_t *entry) {
 int proc_closedir(process_t *proc, int handle) {
     if (handle < 0 || handle >= MAX_FILE_HANDLES)
         return ERR_BAD_ARGUMENT;
+
     int err = vfs_closedir(&proc->file_handles[handle]);
     if (err) return err;
 
