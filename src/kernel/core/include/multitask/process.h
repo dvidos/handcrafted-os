@@ -143,11 +143,11 @@ struct process {
     tty_t *tty;
 
     // exit code, to be used for parent process
-    pid_t   wait_child_pid;
-    uint8_t wait_child_exit_code;
+    uint8_t exit_code;
 
     // if parent calls the proc_wait_child() function, these two help populate the data
-    uint8_t exit_code;
+    pid_t   wait_child_pid;
+    uint8_t wait_child_exit_code;
 
     // allocated from kernel heap
     void *allocated_kernel_stack;
@@ -169,6 +169,7 @@ struct process {
 
         // used to set and detect stack underflow
         void *stack_bottom;
+        uint32_t stack_size;
 
     } user_proc;
 

@@ -251,7 +251,7 @@ void execute_line(char *line) {
     // otherwise, try to run something from the PATH
     if (!found) {
         int h = open(args->argv[0]);
-        if (h > 0) {
+        if (h >= 0) {
             // so it is a file we can open. try to execute it.
             close(h);
             found = true;

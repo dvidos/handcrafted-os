@@ -2,7 +2,9 @@
 
 * Fork, seems to be a nice challenge.
 * syscall to get clock & uptime
-* randseed() and rand()
+* randseed() and rand() in libc
+* Some syscalls that return process, devices and filesys information,
+so we can create some monitor applications.
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
 * Shell, working dir, chdir, file operations (cp, mv)
 * Resume the vi editor, get to editing some files

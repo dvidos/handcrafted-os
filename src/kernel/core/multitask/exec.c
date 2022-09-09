@@ -168,11 +168,13 @@ static void exec_loader_entry_point() {
     proc->user_proc.heap = heap;
     proc->user_proc.heap_size = heap_size;
     
+    proc->user_proc.stack_size = stack_size;
     proc->user_proc.stack_bottom = stack_bottom;
     *(uint32_t *)proc->user_proc.stack_bottom = STACK_BOTTOM_MAGIC_VALUE;
 
-    // we now need to change the stack and to jump to the elf crt0._start() method.
-    // ideally, this will never return, as crt0 will call proc_exit()
+    // we now need to change the stack ponter 
+    // and to jump to the elf crt0._start() method.
+    // in theory, this will never return, as crt0 will call proc_exit()
     klog_debug("Switching CR3 from 0x%x to 0x%x and jumping to virt addr 0x%x",
         get_page_directory_register(),
         page_directory,

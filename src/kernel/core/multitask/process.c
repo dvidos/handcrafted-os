@@ -166,6 +166,11 @@ void unblock_process_that(int block_reason, void *block_channel) {
 
 // clone, return child's PID on parent, zero on child.
 int proc_fork() {
+    // similar to create process, 
+    // we could create_process(), copy things over,
+    // but this is not enough, 
+    // we need to bring info from the exec() loader.
+    // e.g. copy segments (stack, data, heap) etc. 
     return ERR_NOT_IMPLEMENTED;
 }
 
