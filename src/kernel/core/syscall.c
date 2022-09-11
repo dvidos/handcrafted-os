@@ -262,7 +262,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = proc_getpid();
             break;
         case SYS_GET_PPID:   // returns ppid
-            return_value = proc_getpid();
+            return_value = proc_getppid();
             break;
         case SYS_FORK:   // returns 0 in child, child PID in parent, neg error in parent
             return_value = proc_fork();
