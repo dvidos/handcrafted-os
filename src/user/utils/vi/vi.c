@@ -1,7 +1,11 @@
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <keyboard.h>
+#include "line.h"
 #include "buffer.h"
-#include "viewport.h"
+#include "view.h"
+#include "cmd_line.h"
 
 
 #define MODE_COMMAND         0
@@ -15,103 +19,29 @@
 #define COMMAND_STARTING_CHARS   ":/?!"
 
 int mode = 0;
-int finished = 0;
-int count = 1;
-char command_line[80 + 1] = {0,}; 
+bool finished = false;
+int cmd_count = 1;
 char operator = 0;
+char cmd_line[80+1];
+buffer_t *buffer;
+view_t *view;
 
 
-// draw the footer line
-void draw_footer() {
-    gotoxy(0, screen_rows() - 1);
-    if (mode == MODE_COMMAND) {
-        printf("%79s", " ");
-    } else if (mode == MODE_INSERT) {
-        printf("--- INSERT ---      %d,%d     %d%%", row, col, 
-            total_rows == 0 ? 0 : first_visible_row / total_rows);
-    }
-}
-
-// draw the whole screen anew
-void draw_screen() {
-    for (int row = 0; row < screen_rows() - 1; row++) {
-        gotoxy(0, row);
-        if (row < total_rows)
-            printf("%-80s", "");
-        else
-            printf("%-80s", "~");
-    }
-    // now go where we are supposed to be
-    gotoxy(col - first_visible_col, row - first_visible_row);
-}
 
 
 void change_mode(int new_mode) {
+    char *modes[] = {
+        "", // command
+        "INSERT",
+        "REPLACE ONE",
+        "REPLACE",
+        "VISUAL CHARS",
+        "VISUAL LINES"
+    };
     mode = new_mode;
     operator = 0;
-    count = 0;
-    draw_footer();
-}
-
-// run the command line (ex mode)
-void execute_command_line() {
-    printf("Executing command [%s]\n", command);
-    // should probably do it char by char, but for now...
-    if (strcmp(command, ":q") == 0) {
-        finished = true;
-    }
-    /*
-        After ':' command:
-        w - write file
-        w! - force write
-        q - quit, warn if outstanding changes
-        q! - force quit, discard changes
-        e<filename> - edit file
-        e! - re-edit, discarding changes
-        e+<filename> - edit file, starting at EOF
-        w<name> - write specific name, warn if file exists
-        w!<name> - overwrite file 
-        sh - run shell
-        !<cmd> - run command in shell
-        n - edit next file in arglist
-    */
-}
-
-// edit the command line, first char can be ':' or '/'
-bool edit_command_line(char first_char) {
-    int cmd_len = 0;
-    key_event_t event;
-    bool accepted = false;
-
-    command_line[0] = first_char;
-    command_line[1] = '\0';
-    while (true) {
-        cmd_len = strlen(command_line);
-        gotoxy(0, screen_rows() - 1);
-        printf("%-79s", command_line);
-        gotoxy(cmd_len, screen_rows() - 1);
-
-        getkey(&event);
-        if (event.keycode == KEY_ENTER) {
-            accepted = true;
-            break;
-        } else if (event.keycode == KEY_ESCAPE) {
-            break;
-        } else if (event.keycode == KEY_BACKSPACE) {
-            if (cmd_len > 0)
-                command_line[--cmd_len] = '\0';
-            if (cmd_len == 0)
-                break;
-        } else if (event.ascii != 0) {
-            if (cmd_len < 80) {
-                command_line[cmd_len++] = key;
-                command_line[cmd_len] = '\0';
-            }
-        }
-    }
-
-    draw_footer();
-    return accepted;
+    cmd_count = 0;
+    view->ops->draw_footer(view, modes[mode]);
 }
 
 // return true if handled, false if not a common key
@@ -159,9 +89,9 @@ bool handle_all_modes_key(key_event_t *event) {
 void handle_command_mode_key(key_event_t *event) {
 
     if ((event->ascii >= '1' && event->ascii <= '9') ||
-        (count > 0 && event->ascii == '0')
+        (cmd_count > 0 && event->ascii == '0')
     ) {
-        count = (count * 10) + ('9' - event->ascii);
+        cmd_count = (cmd_count * 10) + ('9' - event->ascii);
         return;
     }
 
@@ -269,7 +199,7 @@ void handle_command_mode_key(key_event_t *event) {
         case 'N': // find prev
             break;
         case 'G':
-            if (count == 0) {
+            if (cmd_count == 0) {
                 // go to line number <n>G
             } else if (operator == 0) {
                 operator = 'G';
@@ -299,17 +229,40 @@ void handle_command_mode_key(key_event_t *event) {
 void handle_insert_mode_character(char c) {
     bool overwrite = mode == MODE_REPLACE_ONE || mode == MODE_REPLACE_CONT;
     // insert or overwrite, depending on mode
+    (void)overwrite;
+
+    if (overwrite) {
+        buffer->ops->delete_char(buffer, true);
+        buffer->ops->insert_char(buffer, c);
+    } else {
+        buffer->ops->insert_char(buffer, c);
+    }
 }
 
 
 void main() {
-    key_event_t event;
+    
+    clear_screen();
+    printf("Welcome to vi\n");
+    sleep(1000);
+    printf("editing command:\n");
+    if (edit_command_line(':', cmd_line)) {
+        printf("Command is \"%s\"\n", cmd_line);
+    } else {
+        printf("Command cancelled\n");
+    }
+    exit(1);
+
+
+    buffer = create_buffer();
+    view = create_view(buffer);
 
     // supposedly load any file from args
 
-    clear_screen();
-    draw_screen();
+    view->ops->draw_buffer(view);
+
     change_mode(MODE_COMMAND);
+    key_event_t event;
     while (!finished) {
         getkey(&event);
 
@@ -318,8 +271,8 @@ void main() {
         
         if (mode == MODE_COMMAND || mode == MODE_VISUAL_CHARS || mode == MODE_VISUAL_LINES) {
             if (event.ascii != 0 && strchr(COMMAND_STARTING_CHARS, event.ascii) != NULL) {
-                if (edit_command_line(event.ascii))
-                    execute_command_line(command_line);
+                if (edit_command_line(event.ascii, cmd_line))
+                    execute_command_line(cmd_line, buffer, &finished);
             } else {
                 handle_command_mode_key(&event);
             }

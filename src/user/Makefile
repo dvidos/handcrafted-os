@@ -14,6 +14,7 @@ CFLAGS = \
 	-ffreestanding \
 	-Wall -Wextra \
 	-Werror   \
+	-Wno-unused-parameter \
 	-O2 \
 	-g0 \
 	-I$(OUR_INCLUDES_DIR) \
@@ -25,7 +26,7 @@ UTILS_SRC_FILES = $(wildcard utils/*.c)
 UTILS_DEP_FILES = $(patsubst utils/%.c,bin/%.d,$(UTILS_SRC_FILES))
 UTILS_BIN_FILES = $(patsubst utils/%.c,bin/%,$(UTILS_SRC_FILES))
 UTILS_BIN_FILES += bin/sh
-# UTILS_BIN_FILES += bin/vi
+UTILS_BIN_FILES += bin/vi
 
 INSTALLED_BINS = $(patsubst utils/%.c,$(SYSROOT_DIR)/%,$(UTILS_SRC_FILES))
 
