@@ -73,6 +73,14 @@ int execve(char *path, char *argv[], char *envp[]) {
         tty
     );
 
+    klog_debug("Process %s[%d] created process %s[%d] (ppid %d) for executing",
+        running_process()->name,
+        running_process()->pid,
+        proc->name,
+        proc->pid,
+        proc->parent_pid
+    );
+
     // we need to populate the process with enough data to be able to start.
     proc->user_proc.executable_path = kmalloc(strlen(path) + 1);
     strcpy(proc->user_proc.executable_path, path);
@@ -81,7 +89,10 @@ int execve(char *path, char *argv[], char *envp[]) {
 
     // not much left, cheers!
     klog_debug("execve(): about to start process \"%s\" (pid %d)", proc->name, proc->pid);
-    start_process(proc, true);
+    start_process(proc);
+
+    klog_debug("Process table follows, after starting process, before scheduling");
+    dump_process_table();
 
     err = SUCCESS;
 exit:
@@ -175,17 +186,14 @@ static void exec_loader_entry_point() {
     // we now need to change the stack ponter 
     // and to jump to the elf crt0._start() method.
     // in theory, this will never return, as crt0 will call proc_exit()
-    klog_debug("Switching CR3 from 0x%x to 0x%x and jumping to virt addr 0x%x",
-        get_page_directory_register(),
-        page_directory,
-        elf_entry_point
-    );
+    
+    void *stack_top = stack_bottom + stack_size;
+    klog_debug("Changing stack pointer to 0x%x and jumping to address 0x%x", stack_top, elf_entry_point);
     __asm__ __volatile__ (
-        "mov %0, %%eax\n\t"
-        "mov %%eax, %%esp\n\t"
+        "mov %0, %%esp\n\t"
         "jmp %1"
         : // no outputs
-        : "g"(page_directory), "g"(elf_entry_point)
+        : "g"(stack_top), "g"(elf_entry_point)
         : "eax" // mingled registers
     );
 

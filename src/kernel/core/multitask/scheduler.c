@@ -11,7 +11,7 @@
 
 volatile int switching_postpone_depth = 0;
 volatile bool task_switching_pending = false;
-process_t *running_proc = NULL;
+volatile process_t *running_proc = NULL;
 proc_list_t ready_lists[PROCESS_PRIORITY_LEVELS];
 proc_list_t blocked_list;
 proc_list_t terminated_list;

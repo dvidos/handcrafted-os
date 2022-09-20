@@ -229,6 +229,6 @@ void create_some_processes() {
         tty_manager_get_device(1)
     );
 
-    start_process(proc_a, false);
-    start_process(proc_b, false);
+    start_process(proc_a);
+    start_process(proc_b);
 }

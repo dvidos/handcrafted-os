@@ -47,11 +47,11 @@
 #define SYS_GET_PPID         54  // returns ppid
 #define SYS_FORK             55  // returns 0 in child, child PID in parent, neg error in parent
 #define SYS_WAIT_CHILD       56  // returns child's PID, arg1 = pointer to write exit_code
-#define SYS_EXEC             56  // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
-#define SYS_SLEEP            57  // arg1 = millisecs
-#define SYS_YIELD            58  // no args
-#define SYS_EXIT             59  // arg1 = exit code
-#define SYS_SBRK             60  // arg1 = signed desired diff, returns pointer to new area
+#define SYS_EXEC             57  // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
+#define SYS_SLEEP            58  // arg1 = millisecs
+#define SYS_YIELD            59  // no args
+#define SYS_EXIT             60  // arg1 = exit code
+#define SYS_SBRK             61  // arg1 = signed desired diff, returns pointer to new area
 
 // clock info
 #define SYS_GET_UPTIME       80  // returns msecs since boot (32 bits = 49 days)

@@ -26,8 +26,16 @@ void syslog_hex_dump(int level, void *address, uint32_t length, uint32_t startin
 
 
 
+int getpid();
+int getppid();
+
 int sleep(unsigned int milliseconds);
 void exit(uint8_t exit_code);
+int fork();
+int wait(int *exit_status);
+
+int exec(char *path, char **argv, char **envp);
+
 
 
 
@@ -40,7 +48,8 @@ void exit(uint8_t exit_code);
     
     void __heap_verify(char *file, int line);
 #else
-    #define malloc(size)          __malloc(size, NULL, NULL, 0)
+    #define malloc(size)          __m
+    alloc(size, NULL, NULL, 0)
     #define heap_verify()         ((void)0)
 #endif
 

@@ -97,7 +97,7 @@ static void *sys_sbrk(int diff_size) {
         return NULL;
     void *initial_break = p->user_proc.heap + p->user_proc.heap_size;
     if (diff_size > 0) {
-        diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page
+        diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page / 4K
         void *heap_end = p->user_proc.heap + p->user_proc.heap_size;
         allocate_virtual_memory_range(heap_end, heap_end + diff_size, p->page_directory);
         p->user_proc.heap_size += diff_size;
@@ -159,7 +159,9 @@ static int sys_unlink(char *path) {
 static int sys_exec(char *path, char **argv, char **envp) {
     return execve(path, argv, envp);
 }
-
+static int sys_wait_child(int *exit_code) {
+    return proc_wait_child(exit_code);
+}
 
 
 int isr_syscall(struct syscall_stack stack) {
@@ -269,6 +271,9 @@ int isr_syscall(struct syscall_stack stack) {
             break;
         case SYS_EXEC:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
             return_value = sys_exec((char *)stack.passed.arg1, (char **)stack.passed.arg2, (char **)stack.passed.arg3);
+            break;
+        case SYS_WAIT_CHILD:
+            return_value = sys_wait_child((int *)stack.passed.arg1);
             break;
         case SYS_YIELD:
             return_value = sys_yield();

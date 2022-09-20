@@ -12,7 +12,7 @@
 
 
 // the current running process
-extern process_t *running_proc;
+extern volatile process_t *running_proc;
 
 // ready lists, one per priority 0=high, 3,4,5=lower
 extern proc_list_t ready_lists[PROCESS_PRIORITY_LEVELS];
