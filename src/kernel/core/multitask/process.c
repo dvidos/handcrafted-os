@@ -250,8 +250,8 @@ int proc_wait_child(int *exit_code) {
     // maybe the "running_proc" var already has our pointer, so we could hook some exit data there...
     p = running_process();
     klog_debug("proc_wait_child(): after scheduler scheduled, running_proc points to %s[%d] (should be the original parent)", p->name, p->pid);
-    *exit_code = p->wait_child_exit_code;
-    return p->wait_child_pid;
+    *exit_code = p->terminated_child_exit_code;
+    return p->terminated_child_pid;
 }
 
 // voluntarily give up the CPU to another task
@@ -286,7 +286,7 @@ void proc_sleep(int milliseconds) {
 }
 
 // a task can ask to be terminated
-void proc_exit(uint8_t exit_code) {
+void proc_exit(int exit_code) {
     lock_scheduler();
 
     process_t *p = running_process();
@@ -297,13 +297,11 @@ void proc_exit(uint8_t exit_code) {
 
     // possibly wake up parent process
     process_t *parent = p->parent;
-    if (parent != NULL &&
-        parent->state == BLOCKED &&
-        parent->block_reason == WAIT_CHILD_EXIT)
-    {
+    if (parent != NULL && parent->state == BLOCKED && parent->block_reason == WAIT_CHILD_EXIT) {
         klog_trace("Will unblock parent process %s[%d]", parent->name, parent->pid);
-        parent->wait_child_pid = p->pid;
-        parent->wait_child_exit_code = exit_code;
+        parent->terminated_child_pid = p->pid;
+        parent->terminated_child_exit_code = exit_code;
+        klog_debug("Added pid %d and exit code %d to parent", p->pid, exit_code);
         unblock_process(parent);
     }
 
@@ -371,7 +369,7 @@ static void scheduler_unlocking_entry_point() {
 
     // terminate and later free the process
     klog_warn("process(): It seems main returned");
-    proc_exit(255);
+    proc_exit(-7);
 }
 
 process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty) {
