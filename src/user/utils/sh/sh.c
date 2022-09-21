@@ -263,7 +263,13 @@ void execute_line(char *line) {
             } else {
                 int exit_status = 0;
                 err = wait(&exit_status);
-                printf("\n");
+                if (err < 0)
+                    printf("Error %d waiting for child\n", err);
+                else {
+                    int child_pid = err;
+                    //if (exit_status != 0)
+                    printf("\nChild PID %d exited with exit code %d\n", child_pid, exit_status);
+                }
             }
         }
     }

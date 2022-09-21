@@ -29,7 +29,7 @@ typedef void (* func_ptr)();
 #define MAX_FILE_HANDLES         16
 
 // create & initialize a process, don't start it yet, optinal association with a tty
-process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pid_t ppid, tty_t *tty);
+process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty);
 
 // after a process has terminated, clean up resources, free memory
 void cleanup_process(process_t *proc);
@@ -112,7 +112,7 @@ struct process {
     lock_t process_lock;
 
     pid_t pid;
-    pid_t parent_pid;
+    process_t *parent;
     char *name;
     uint8_t flags;
     uint8_t  priority;

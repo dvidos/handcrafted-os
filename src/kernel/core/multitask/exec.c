@@ -56,49 +56,40 @@ int execve(char *path, char *argv[], char *envp[]) {
     if (err) goto exit;
     file_open = false;
 
-    pid_t ppid = 0;
-    uint8_t priority = PRIORITY_USER_PROGRAM;
-    tty_t *tty = NULL;
-    if (running_process() != NULL) {
-        ppid = running_process()->pid;
-        priority = running_process()->priority;
-        tty = running_process()->tty;
-    }
-
-    process_t *proc = create_process(
+    process_t *parent = running_process();
+    process_t *child = create_process(
         path,
         exec_loader_entry_point,
-        priority,
-        ppid,
-        tty
+        parent == NULL ? PRIORITY_USER_PROGRAM : parent->priority,
+        parent,
+        parent == NULL ? NULL : parent->tty
     );
 
-    klog_debug("Process %s[%d] created process %s[%d] (ppid %d) for executing",
-        running_process()->name,
-        running_process()->pid,
-        proc->name,
-        proc->pid,
-        proc->parent_pid
+    klog_debug("Process %s[%d] created process %s[%d] for executing",
+        parent->name,
+        parent->pid,
+        child->name,
+        child->pid
     );
 
     // we need to populate the process with enough data to be able to start.
-    proc->user_proc.executable_path = kmalloc(strlen(path) + 1);
-    strcpy(proc->user_proc.executable_path, path);
-    proc->user_proc.argv = argv; // we should copy those
-    proc->user_proc.envp = envp; // we should copy those as well.
+    child->user_proc.executable_path = kmalloc(strlen(path) + 1);
+    strcpy(child->user_proc.executable_path, path);
+    child->user_proc.argv = argv; // we should copy those
+    child->user_proc.envp = envp; // we should copy those as well.
 
     // not much left, cheers!
-    klog_debug("execve(): about to start process \"%s\" (pid %d)", proc->name, proc->pid);
-    start_process(proc);
+    klog_debug("execve(): about to start process %s[%d]", child->name, child->pid);
+    start_process(child);
 
-    klog_debug("Process table follows, after starting process, before scheduling");
-    dump_process_table();
+    // usually here we have the parent as current process (e.g. vi was launched, we go sh as current)
+    klog_debug("execve(): after start_process() returned, current proc is %s[%d]", running_process()->name, running_process()->pid);
 
     err = SUCCESS;
 exit:
     if (file_open)
         vfs_close(&file);
-    return err == SUCCESS ? proc->pid : err;
+    return err == SUCCESS ? child->pid : err;
 }
 
 
