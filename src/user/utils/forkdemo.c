@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
-    printf("Hi, I am the parent, PID %d, PPID %d\n", getpid());
+    printf("Hi, I am the parent, PID %d, PPID %d\n", getpid(), getppid());
     int err = fork();
     if (err < 0) {
         printf("This is the parent, fork() failed, bummer, err = %d\n", err);

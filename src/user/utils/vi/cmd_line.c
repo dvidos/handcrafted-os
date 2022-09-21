@@ -12,12 +12,12 @@ bool edit_command_line(char first_char, char *cmd_line) {
 
     int rows;
     screen_dimensions(NULL, &rows);
-
+    
     cmd_line[0] = first_char;
     cmd_line[1] = '\0';
     while (true) {
         cmd_len = strlen(cmd_line);
-        goto_xy(0, rows);
+        goto_xy(0, rows - 1);
         printf("%-79s", cmd_line);
         goto_xy(cmd_len, rows - 1);
 
@@ -34,7 +34,7 @@ bool edit_command_line(char first_char, char *cmd_line) {
                 break;
         } else if (event.ascii != 0) {
             if (cmd_len < 80) {
-                cmd_line[cmd_len++] = first_char;
+                cmd_line[cmd_len++] = event.ascii;
                 cmd_line[cmd_len] = '\0';
             }
         }

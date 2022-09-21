@@ -6,7 +6,7 @@ int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
-    puts("Hello from int80.c user program!");
+    printf("Hello from int80.c user program!\n");
 
     return 123;
 }

@@ -243,14 +243,14 @@ void handle_insert_mode_character(char c) {
 void main() {
     
     clear_screen();
-    printf("Welcome to vi\n");
-    sleep(1000);
-    printf("editing command:\n");
+    printf("Welcome to vi, please enter command\n");
     if (edit_command_line(':', cmd_line)) {
         printf("Command is \"%s\"\n", cmd_line);
     } else {
         printf("Command cancelled\n");
     }
+    sleep(2000);
+    clear_screen();
     exit(1);
 
 
