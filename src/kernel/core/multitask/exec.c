@@ -112,7 +112,7 @@ static void exec_loader_entry_point() {
     err = vfs_open(proc->user_proc.executable_path, &file);
     if (err) {
         klog_error("Failed opening executable \"%s\"", proc->user_proc.executable_path);
-        proc_exit(101);
+        proc_exit(-1);
     }
 
     // gather information from the elf file
@@ -124,7 +124,7 @@ static void exec_loader_entry_point() {
     klog_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, elf_entry_point);
     if (err) {
         klog_error("Failed getting info from executable");
-        proc_exit(102);
+        proc_exit(-2);
     }
 
     // memory map of a process:
@@ -157,13 +157,13 @@ static void exec_loader_entry_point() {
     err = load_elf_into_memory(&file);
     if (err) {
         klog_error("Failed loading executable \"%s\"", proc->user_proc.executable_path);
-        proc_exit(103);
+        proc_exit(-3);
     }
 
     err = vfs_close(&file);
     if (err) {
         klog_error("Failed closing executable \"%s\"", proc->user_proc.executable_path);
-        proc_exit(104);
+        proc_exit(-4);
     }
 
     // allow libc to use the heap.
@@ -189,6 +189,6 @@ static void exec_loader_entry_point() {
     );
 
     klog_warn("elf_loader(): somehow, crt0._start() returned, this was not expected!");
-    proc_exit(105);
+    proc_exit(-5);
 }
 

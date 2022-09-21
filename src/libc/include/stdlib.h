@@ -30,7 +30,7 @@ int getpid();
 int getppid();
 
 int sleep(unsigned int milliseconds);
-void exit(uint8_t exit_code);
+void exit(int exit_code);
 int fork();
 int wait(int *exit_status);
 

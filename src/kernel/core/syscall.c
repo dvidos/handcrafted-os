@@ -104,7 +104,7 @@ static void *sys_sbrk(int diff_size) {
     }
     return initial_break;
 }
-static int sys_exit(uint8_t exit_code) {
+static int sys_exit(int exit_code) {
     // current process exiting, preserve exit code, wake up waiting parents
     proc_exit(exit_code);
     return 0;
@@ -282,7 +282,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_sleep((uint32_t)stack.passed.arg1);
             break;
         case SYS_EXIT:   // arg1 = exit code
-            return_value = sys_exit((uint8_t)stack.passed.arg1);
+            return_value = sys_exit(stack.passed.arg1);
             break;
         case SYS_SBRK:   // arg1 = signed desired diff, returns pointer to new area
             return_value = (int)sys_sbrk(stack.passed.arg1);

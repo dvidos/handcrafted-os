@@ -105,7 +105,7 @@ void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
     }
     if (curr == NULL) {
         syslog_warn("malloc(%u) --> Exiting, as could not find a free block, should sbrk() and extend last block", size);
-        exit(251);
+        exit(-8);
         return NULL;
     }
 
@@ -342,7 +342,7 @@ void __heap_verify(char *file, int line) {
     } else {
         syslog_critical("heap issues, detected at %s:%d", file, line);
         heap_dump();
-        exit(252);
+        exit(-9);
     }
 }
 

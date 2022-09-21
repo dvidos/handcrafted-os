@@ -46,7 +46,7 @@ int proc_wait_child(int *exit_code); // returns error or exited PID
 void proc_yield();  // voluntarily give up the CPU to another task
 void proc_sleep(int milliseconds);  // sleep self for some milliseconds
 void proc_block(int reason, void *channel); // blocks task, someone else must unblock it
-void proc_exit(uint8_t exit_code);  // terminate self, give exit code
+void proc_exit(int exit_code);  // terminate self, give exit code
 pid_t proc_getpid(); // get pid of current process
 pid_t proc_getppid(); // get parent pid of running process
 
@@ -146,8 +146,8 @@ struct process {
     uint8_t exit_code;
 
     // if parent calls the proc_wait_child() function, these two help populate the data
-    pid_t   wait_child_pid;
-    uint8_t wait_child_exit_code;
+    pid_t terminated_child_pid;
+    int   terminated_child_exit_code;
 
     // allocated from kernel heap
     void *allocated_kernel_stack;
