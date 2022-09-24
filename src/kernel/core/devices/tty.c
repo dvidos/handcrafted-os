@@ -245,16 +245,14 @@ void tty_clear() {
     if (tty == NULL)
         return;
 
-    // to make sure there is empty space on screen, 
-    // add as many empty lines as needed in our buffer
-    char newline = '\n';
-    bool redraw = false;
-    int visible_lines = (screen_rows() - tty_mgr_data.header_lines);
-    int saved_row = tty->row;
-    while (visible_lines-- > 0)
-        virtual_buffer_put_buffer(tty, &newline, 1, &redraw);
-    tty->row = saved_row + 1;
-    tty->first_visible_buffer_row = tty->row;
+    int offset = 0;
+    while (offset < tty->buffer_alloc_size) {
+        tty->screen_buffer[offset++] = ' ';
+        tty->screen_buffer[offset++] = VGA_COLOR_LIGHT_GREY;
+    }
+    tty->first_visible_buffer_row = 0;
+    tty->row = 0;
+    tty->column = 0;
     draw_tty_buffer_to_screen(tty);
 }
 
