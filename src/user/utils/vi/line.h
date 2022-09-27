@@ -18,6 +18,7 @@ struct line_ops {
     bool (*at_end_of_line)(line_t *line, int column);
 
     void (*navigate_word)(line_t *line, int *column, bool forward);
+    void (*navigate_line_boundaries)(line_t *line, int *column, bool end);
     
     void (*insert_char)(line_t *line, int *column, int chr);
     void (*insert_str)(line_t *line, int *column, char *text);

@@ -36,6 +36,14 @@ static void navigate_word(line_t *line, int *column, bool forward) {
     }
 }
 
+static void navigate_line_boundaries(line_t *line, int *column, bool end) {
+    if (end) {
+        *column = line->length;
+    } else {
+        // we could be smarter and avoid initial inentation
+        *column = 0;
+    }
+}
 
 static void ensure_adequate_buffer_size(line_t *line, int size_needed) {
     if (line->length + 1 + size_needed <= line->allocated)
@@ -131,6 +139,7 @@ line_t *create_line() {
     ops->at_start_of_line = at_start_of_line;
     ops->at_end_of_line = at_end_of_line;
     ops->navigate_word = navigate_word;
+    ops->navigate_line_boundaries = navigate_line_boundaries;
     ops->insert_char = insert_char;
     ops->insert_str = insert_str;
     ops->delete_char = delete_char;

@@ -103,11 +103,7 @@ static void navigate_word(buffer_t *buff, bool forward) {
 
 static void navigate_line_boundaries(buffer_t *buff, bool forward) {
     line_t *curr_line = buff->lines[buff->row_number];
-    if (forward) {
-        buff->col_number = curr_line->length;
-    } else {
-        buff->col_number = 0;
-    }
+    curr_line->ops->navigate_line_boundaries(curr_line, &buff->col_number, forward);
 }
 
 

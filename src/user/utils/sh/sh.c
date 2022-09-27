@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include "env.h"
 #include <errors.h>
-#include <proc.h>
 
 // what does a shell support?
 // - environment manipulation (set, unset)

@@ -48,8 +48,7 @@ int exec(char *path, char **argv, char **envp);
     
     void __heap_verify(char *file, int line);
 #else
-    #define malloc(size)          __m
-    alloc(size, NULL, NULL, 0)
+    #define malloc(size)          __malloc(size, NULL, NULL, 0)
     #define heap_verify()         ((void)0)
 #endif
 
