@@ -19,6 +19,7 @@
 
 
 qemu-system-i386 \
+    -display gtk,full-screen=on \
     -D ./qemu.log \
     -no-reboot -no-shutdown -d cpu_reset,int \
     -m 2G \

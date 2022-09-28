@@ -3,6 +3,7 @@
 #include <klib/string.h>
 #include <filesys/vfs.h>
 #include <multitask/process.h>
+#include <multitask/strpa.h>
 #include <devices/tty.h>
 #include <elf.h>
 #include <memory/virtmem.h>
@@ -34,7 +35,8 @@
  * We create a new process. If redirection or other things are wanted, we'll see.
  */
 
-static void exec_loader_entry_point();
+static void load_and_run_executable();
+
 
 
 // return pid for success, negative value for errors
@@ -59,7 +61,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     process_t *parent = running_process();
     process_t *child = create_process(
         path,
-        exec_loader_entry_point,
+        load_and_run_executable,
         parent == NULL ? PRIORITY_USER_PROGRAM : parent->priority,
         parent,
         parent == NULL ? NULL : parent->tty
@@ -75,8 +77,8 @@ int execve(char *path, char *argv[], char *envp[]) {
     // we need to populate the process with enough data to be able to start.
     child->user_proc.executable_path = kmalloc(strlen(path) + 1);
     strcpy(child->user_proc.executable_path, path);
-    child->user_proc.argv = argv; // we should copy those
-    child->user_proc.envp = envp; // we should copy those as well.
+    child->user_proc.argv = duplicate_str_ptr_arr(argv);
+    child->user_proc.envp = duplicate_str_ptr_arr(envp);
 
     // not much left, cheers!
     klog_debug("execve(): about to start process %s[%d]", child->name, child->pid);
@@ -100,12 +102,12 @@ int exec(char *path) {
     return execve(path, &null_ptr, &null_ptr);
 }
 
-static void exec_loader_entry_point() {
+static void load_and_run_executable() {
     int err;
     process_t *proc = running_process();
 
     // grab info from proc, load the executable, jump to start.
-    klog_debug("exec_loader_entry_point() running");
+    klog_debug("load_and_run_executable() running");
 
     // find info from the file
     file_t file;
@@ -178,13 +180,23 @@ static void exec_loader_entry_point() {
     // and to jump to the elf crt0._start() method.
     // in theory, this will never return, as crt0 will call proc_exit()
     
+    int argc = count_str_ptr_arr(proc->user_proc.argv);
     void *stack_top = stack_bottom + stack_size;
     klog_debug("Changing stack pointer to 0x%x and jumping to address 0x%x", stack_top, elf_entry_point);
     __asm__ __volatile__ (
         "mov %0, %%esp\n\t"
-        "jmp %1"
+        "push %1\n\t"
+        "push %2\n\t"
+        "push %3\n\t"
+        "push 0\n\t"  // we are jumping, not calling, so help C detect parameters
+        "jmp %4\n"
         : // no outputs
-        : "g"(stack_top), "g"(elf_entry_point)
+        :
+            "g"(stack_top), 
+            "g"(proc->user_proc.envp),
+            "g"(proc->user_proc.argv),
+            "g"(argc),
+            "g"(elf_entry_point)  // jump to the _start() method
         : "eax" // mingled registers
     );
 

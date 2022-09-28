@@ -255,8 +255,9 @@ void execute_line(char *line) {
             close(h);
             found = true;
             
-            char *env[] = {NULL};
-            int err = exec(args->argv[0], &args->argv[1], env);
+            char **envp = getenvptr();
+            int err = exec(args->argv[0], &args->argv[1], envp);
+            
             if (err < 0) {
                 printf("Error %d executing %s", err, args->argv[0]);
             } else {

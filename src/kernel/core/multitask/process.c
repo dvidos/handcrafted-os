@@ -13,6 +13,7 @@
 #include <klog.h>
 #include <errors.h>
 #include <multitask/process.h>
+#include <multitask/strpa.h>
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
@@ -428,6 +429,10 @@ void cleanup_process(process_t *proc) {
 
     if (proc->user_proc.executable_path != NULL)
         kfree(proc->user_proc.executable_path);
+    if (proc->user_proc.argv != NULL)
+        free_str_ptr_arr(proc->user_proc.argv);
+    if (proc->user_proc.envp != NULL)
+        free_str_ptr_arr(proc->user_proc.envp);
     
     if (!memchk(&proc->cwd, 0, sizeof(file_t)))
         vfs_closedir(&proc->cwd);

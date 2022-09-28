@@ -9,11 +9,10 @@ extern char **envp;
 
 
 void initenv();
+char **getenvptr();
 
 void setenv(char *varname, char *value);
-
 char *getenv(char *varname);
-
 void unsetenv(char *varname);
 
 

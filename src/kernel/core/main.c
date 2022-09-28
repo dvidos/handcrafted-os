@@ -212,13 +212,17 @@ void process_b_main() {
 }
 
 void create_some_processes() {
-    process_t *proc_a = create_process(
-        "Shell Launcher", 
-        shell_launcher, 
-        PRIORITY_KERNEL,
-        0,
-        tty_manager_get_device(0)
-    );
+    
+    for (int tty = 0; tty < 4; tty++) {
+        process_t *proc = create_process(
+            "Shell Launcher", 
+            shell_launcher, 
+            PRIORITY_KERNEL,
+            0,
+            tty_manager_get_device(tty)
+        );
+        start_process(proc);
+    }
 
     // we can trigger a multipage monitor app with memory, processes etc.
     process_t *proc_b = create_process(
@@ -226,9 +230,7 @@ void create_some_processes() {
         process_b_main, 
         PRIORITY_KERNEL,
         0,
-        tty_manager_get_device(1)
+        tty_manager_get_device(4)
     );
-
-    start_process(proc_a);
     start_process(proc_b);
 }

@@ -11,6 +11,10 @@ void initenv() {
     *envp = NULL;
 }
 
+char **getenvptr() {
+    return envp;
+}
+
 void setenv(char *varname, char *value) {
 
     char **p = envp;
