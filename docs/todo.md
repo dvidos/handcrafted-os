@@ -1,5 +1,8 @@
 # things to do
 
+* Make environment changeable in a process - also see this: https://stackoverflow.com/questions/64004206/where-are-environment-variables-of-a-process-is-stored-in-linux and this https://codebrowser.dev/glibc/glibc/stdlib/setenv.c.html
+* Make argc to point to executable name, not first argument
+* Make logging include module name, allow turn on/off per module name
 * Fork, seems to be a nice challenge.
 * syscall to get clock & uptime
 * randseed() and rand() in libc

@@ -140,7 +140,7 @@ void unblock_process(process_t *proc) {
 }
 
 // this is how someone can unblock a process by reason
-void unblock_process_that(int block_reason, void *block_channel) {
+void unblock_process_that(enum block_reasons block_reason, void *block_channel) {
     if (blocked_list.head == NULL)
         return;
     lock_scheduler();
@@ -584,4 +584,34 @@ void dump_process_table() {
     }
     dump_process_list(&blocked_list);
     dump_process_list(&terminated_list);
+}
+
+const char *proc_get_status_name(enum process_state state) {
+    switch (state) {
+        case READY:
+            return "READY";
+        case RUNNING:
+            return "RUNNING";
+        case BLOCKED:
+            return "BLOCKED";
+        case TERMINATED:
+            return "TERM";
+        default:
+            return "?";
+    }
+}
+
+const char *proc_get_block_reason_name(enum block_reasons reason) {
+    switch (reason) {
+        case SLEEPING:
+            return "SLEEP";
+        case SEMAPHORE:
+            return "SEMAPHORE";
+        case WAIT_USER_INPUT:
+            return "WAIT_KBD";
+        case WAIT_CHILD_EXIT:
+            return "WAIT CHILD";
+        default:
+            return "?";
+    }
 }

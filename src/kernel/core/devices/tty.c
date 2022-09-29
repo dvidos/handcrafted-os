@@ -127,6 +127,9 @@ tty_t *tty_manager_get_device(int dev_no) {
     return NULL;
 }
 
+int tty_get_devno(tty_t *tty) {
+    return tty->dev_no;
+}
 
 /**
  * Interesting approach:
@@ -253,7 +256,8 @@ void tty_clear() {
     tty->first_visible_buffer_row = 0;
     tty->row = 0;
     tty->column = 0;
-    draw_tty_buffer_to_screen(tty);
+    if (tty == tty_mgr_data.active_tty)
+        draw_tty_buffer_to_screen(tty);
 }
 
 void tty_get_cursor(uint8_t *row, uint8_t *col) {
@@ -275,10 +279,11 @@ void tty_set_cursor(uint8_t row, uint8_t col) {
     tty->row = row;
     tty->column = col;
 
-    screen_set_cursor(
-        tty_mgr_data.header_lines + tty->row - tty->first_visible_buffer_row,
-        tty->column
-    );
+    if (tty == tty_mgr_data.active_tty)
+        screen_set_cursor(
+            tty_mgr_data.header_lines + tty->row - tty->first_visible_buffer_row,
+            tty->column
+        );
 }
 
 void tty_get_dimensions(int *rows, int *cols) {

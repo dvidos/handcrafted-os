@@ -185,17 +185,17 @@ static void load_and_run_executable() {
     klog_debug("Changing stack pointer to 0x%x and jumping to address 0x%x", stack_top, elf_entry_point);
     __asm__ __volatile__ (
         "mov %0, %%esp\n\t"
-        "push %1\n\t"
-        "push %2\n\t"
         "push %3\n\t"
+        "push %2\n\t"
+        "push %1\n\t"
         "push 0\n\t"  // we are jumping, not calling, so help C detect parameters
         "jmp %4\n"
         : // no outputs
         :
             "g"(stack_top), 
-            "g"(proc->user_proc.envp),
-            "g"(proc->user_proc.argv),
             "g"(argc),
+            "g"(proc->user_proc.argv),
+            "g"(proc->user_proc.envp),
             "g"(elf_entry_point)  // jump to the _start() method
         : "eax" // mingled registers
     );

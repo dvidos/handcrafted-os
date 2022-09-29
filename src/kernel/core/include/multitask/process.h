@@ -28,51 +28,6 @@ typedef void (* func_ptr)();
 
 #define MAX_FILE_HANDLES         16
 
-// create & initialize a process, don't start it yet, optinal association with a tty
-process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty);
-
-// after a process has terminated, clean up resources, free memory
-void cleanup_process(process_t *proc);
-
-// this appends the process on the ready queues
-void start_process(process_t *process);
-
-// get the running process
-process_t *running_process();
-
-// actions that a running task can use
-int proc_fork(); // clone, return child's PID on parent, zero on child
-int proc_wait_child(int *exit_code); // returns error or exited PID
-void proc_yield();  // voluntarily give up the CPU to another task
-void proc_sleep(int milliseconds);  // sleep self for some milliseconds
-void proc_block(int reason, void *channel); // blocks task, someone else must unblock it
-void proc_exit(int exit_code);  // terminate self, give exit code
-pid_t proc_getpid(); // get pid of current process
-pid_t proc_getppid(); // get parent pid of running process
-
-// maintaining current working directory
-int proc_getcwd(process_t *proc, char *buffer, int size);
-int proc_setcwd(process_t *proc, char *path);
-
-// for file handles maintained on the process, CWD taken into accout
-int proc_open(process_t *proc, char *name);
-int proc_read(process_t *proc, int handle, char *buffer, int length);
-int proc_write(process_t *proc, int handle, char *buffer, int length);
-int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin);
-int proc_close(process_t *proc, int handle);
-int proc_opendir(process_t *proc, char *name);
-int proc_readdir(process_t *proc, int handle, dir_entry_t *entry);
-int proc_closedir(process_t *proc, int handle);
-
-// this is how someone can unblock a different process
-void unblock_process(process_t *proc);
-void unblock_process_that(int block_reason, void *block_channel);
-
-// utility tools
-void dump_process_table();
-
-
-
 /**
  * this is what's pushed when switching and is used to prepare the target return
  * first entries in the structure are what has been pushed last,
@@ -133,7 +88,7 @@ struct process {
     enum process_state state;
 
     // see relevant enums, populated when a process is blocked
-    int block_reason;
+    enum block_reasons block_reason;
     void *block_channel;
 
     // the msetcs uptime in the future, that we are to be woken up
@@ -178,6 +133,51 @@ struct process {
     file_t file_handles[MAX_FILE_HANDLES];
 };
 
+
+// create & initialize a process, don't start it yet, optinal association with a tty
+process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty);
+
+// after a process has terminated, clean up resources, free memory
+void cleanup_process(process_t *proc);
+
+// this appends the process on the ready queues
+void start_process(process_t *process);
+
+// get the running process (converts volatile to steady pointer)
+process_t *running_process();
+
+// actions that a running task can use
+int proc_fork(); // clone, return child's PID on parent, zero on child
+int proc_wait_child(int *exit_code); // returns error or exited PID
+void proc_yield();  // voluntarily give up the CPU to another task
+void proc_sleep(int milliseconds);  // sleep self for some milliseconds
+void proc_block(int reason, void *channel); // blocks task, someone else must unblock it
+void proc_exit(int exit_code);  // terminate self, give exit code
+pid_t proc_getpid(); // get pid of current process
+pid_t proc_getppid(); // get parent pid of running process
+
+// maintaining current working directory
+int proc_getcwd(process_t *proc, char *buffer, int size);
+int proc_setcwd(process_t *proc, char *path);
+
+// for file handles maintained on the process, CWD taken into accout
+int proc_open(process_t *proc, char *name);
+int proc_read(process_t *proc, int handle, char *buffer, int length);
+int proc_write(process_t *proc, int handle, char *buffer, int length);
+int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin);
+int proc_close(process_t *proc, int handle);
+int proc_opendir(process_t *proc, char *name);
+int proc_readdir(process_t *proc, int handle, dir_entry_t *entry);
+int proc_closedir(process_t *proc, int handle);
+
+// this is how someone can unblock a different process
+void unblock_process(process_t *proc);
+void unblock_process_that(enum block_reasons block_reason, void *block_channel);
+
+// utility tools
+void dump_process_table();
+const char *proc_get_status_name(enum process_state state);
+const char *proc_get_block_reason_name(enum block_reasons reason);
 
 
 #endif

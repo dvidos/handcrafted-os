@@ -3,6 +3,7 @@
 #include <cpu.h>
 #include <klog.h>
 #include <multiboot.h>
+#include <memory/physmem.h>
 
 
 // inspiration from here: http://www.brokenthorn.com/Resources/OSDev17.html
@@ -31,6 +32,7 @@ static uint32_t round_up_4k(uint32_t number);
 static uint32_t round_down_4k(uint32_t number);
 static void *page_num_to_address(int page_num);
 static uint32_t address_to_page_num(void *address);
+
 
 
 int physical_page_size() {
@@ -220,6 +222,16 @@ void free_consecutive_physical_pages(void *address, size_t size_in_bytes) {
     for (int i = 0; i < pages; i++) {
         free_physical_page(page_num_to_address(starting_page_no + i));
     }
+}
+
+void get_physical_memory_info(phys_mem_info_t *info) {
+    info->pages_total = total_free_pages + total_used_pages;
+    info->pages_free = total_free_pages;
+    info->pages_used = total_used_pages;
+
+    info->kb_total = (info->pages_total * PAGE_SIZE) / 1024;
+    info->kb_free = (info->pages_free * PAGE_SIZE) / 1024;
+    info->kb_used = (info->pages_used * PAGE_SIZE) / 1024;
 }
 
 void dump_physical_memory_map_overall() {

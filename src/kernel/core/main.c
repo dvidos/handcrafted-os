@@ -26,6 +26,7 @@
 #include <filesys/vfs.h>
 #include <filesys/fat.h>
 #include <filesys/ext2.h>
+#include <monitor.h>
 
 // Check if the compiler thinks you are targeting the wrong operating system.
 #if defined(__linux__)
@@ -162,15 +163,13 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_NONE);
     timer_pause_blocking(250);
 
-    // tty 0 - Alt+1: shell / konsole
-    // tty 1 - Alt+2: for running user processes (for now)
-    // tty 2 - Alt+3: background seconds timer
-    // tty 3 - Alt+4: system monitor (phys memory, paging, heap, processes, devices etc)
-    // tty 4 - Alt+5: kernel log
-    init_tty_manager(5, 100);
+    // tty 0-3 - Alt+1 through Alt+4: Shell
+    // tty 4 - Alt+5: system monitor (phys memory, paging, heap, processes, devices etc)
+    // tty 5 - Alt+6: kernel log
+    init_tty_manager(6, 100);
 
     // now that we have ttys, let's dedicate one to syslog
-    klog_set_tty(tty_manager_get_device(4));
+    klog_set_tty(tty_manager_get_device(5));
     klog_appender_level(LOGAPP_TTY, LOGLEV_INFO);
 
     // create desired tasks here, 
@@ -203,34 +202,25 @@ void shell_launcher() {
     }
 }
 
-void process_b_main() {
-    int i = 1;
-    while (true) {
-        printf("i = %d\n", i++);
-        proc_sleep(2000);
-    }
-}
-
 void create_some_processes() {
     
     for (int tty = 0; tty < 4; tty++) {
         process_t *proc = create_process(
             "Shell Launcher", 
             shell_launcher, 
-            PRIORITY_KERNEL,
+            PRIORITY_USER_PROGRAM,
             0,
             tty_manager_get_device(tty)
         );
         start_process(proc);
     }
 
-    // we can trigger a multipage monitor app with memory, processes etc.
-    process_t *proc_b = create_process(
-        "Task B", 
-        process_b_main, 
+    process_t *monitor_proc = create_process(
+        "Monitor", 
+        monitor_main, 
         PRIORITY_KERNEL,
         0,
         tty_manager_get_device(4)
     );
-    start_process(proc_b);
+    start_process(monitor_proc);
 }
