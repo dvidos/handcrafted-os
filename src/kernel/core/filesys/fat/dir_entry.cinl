@@ -152,7 +152,7 @@ static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t
     vfs_entry->modified.seconds = fat_entry->modified_sec;
 }
 
-static void dir_entry_set_created_time(fat_dir_entry *entry, struct clock_time *time) {
+static void dir_entry_set_created_time(fat_dir_entry *entry, real_time_clock_info_t *time) {
     entry->created_year = time->years;
     entry->created_month = time->months;
     entry->created_day = time->days;
@@ -161,7 +161,7 @@ static void dir_entry_set_created_time(fat_dir_entry *entry, struct clock_time *
     entry->created_sec = time->seconds;
 }
 
-static void dir_entry_set_modified_time(fat_dir_entry *entry, struct clock_time *time) {
+static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_info_t *time) {
     entry->modified_year = time->years;
     entry->modified_month = time->months;
     entry->modified_day = time->days;

@@ -285,7 +285,7 @@ static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *nam
     memset(entry, 0, sizeof(fat_dir_entry));
     strncpy(entry->short_name, name, 12 + 1);
     entry->attributes.flags.directory = directory;
-    struct clock_time time;
+    real_time_clock_info_t time;
     get_real_time_clock(&time);
     dir_entry_set_created_time(entry, &time);
     dir_entry_set_modified_time(entry, &time);

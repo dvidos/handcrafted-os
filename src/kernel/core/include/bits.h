@@ -18,6 +18,10 @@
 #define LOW_DWORD(value)       (uint32_t)(((value) >>  0) & 0xFFFFFFFF)
 
 
+#define EIGHTTH_BYTE(value)    (uint8_t)(((value) >> 56) & 0xFF)
+#define SEVENTH_BYTE(value)    (uint8_t)(((value) >> 48) & 0xFF)
+#define SIXTH_BYTE(value)      (uint8_t)(((value) >> 40) & 0xFF)
+#define FIFTH_BYTE(value)      (uint8_t)(((value) >> 32) & 0xFF)
 #define FOURTH_BYTE(value)     (uint8_t)(((value) >> 24) & 0xFF)
 #define THIRD_BYTE(value)      (uint8_t)(((value) >> 16) & 0xFF)
 #define SECOND_BYTE(value)     (uint8_t)(((value) >>  8) & 0xFF)

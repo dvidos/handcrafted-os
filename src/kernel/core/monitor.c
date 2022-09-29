@@ -45,7 +45,7 @@ void show_process_list(proc_list_t *list, int *row) {
 void monitor_main() {
     tty_set_title("Monitor");
 
-    clock_time_t time;
+    real_time_clock_info_t time;
     char *days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     char *months[] = {"?", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 

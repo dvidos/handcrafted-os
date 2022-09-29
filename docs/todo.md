@@ -1,13 +1,10 @@
 # things to do
 
 * Make environment changeable in a process - also see this: https://stackoverflow.com/questions/64004206/where-are-environment-variables-of-a-process-is-stored-in-linux and this https://codebrowser.dev/glibc/glibc/stdlib/setenv.c.html
-* Make argc to point to executable name, not first argument
+* Make argc[0] to point to executable name, not first argument
 * Make logging include module name, allow turn on/off per module name
 * Fork, seems to be a nice challenge.
 * syscall to get clock & uptime
-* randseed() and rand() in libc
-* Some syscalls that return process, devices and filesys information,
-so we can create some monitor applications.
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
 * Shell, working dir, chdir, file operations (cp, mv)
 * Resume the vi editor, get to editing some files
@@ -15,7 +12,6 @@ so we can create some monitor applications.
 * regarding lists like environment variables or arguments etc, play with the idea
 of allocating small arrays of pointers, but nest them, the way ext2 is doing, to achieve
 10, 100, 1K of entries etc. Allow infinite upper limit, but with small allocation for a dozen items.
-* Implement file handles per process, as well as the wait() and fork() functionality
 * Create a memory disk storage device, use it to unit test the FAT16 & FAT32 drivers
 * Start a shell and a vi editor
 * Make one console command that allows us to read/modify/write sectors off of hard disk
@@ -79,11 +75,6 @@ prior allocation.
   * file management
 * other topics
   * Beeper control for fun (maybe from PIT channel 2)
-* kernel monitor
-  * have a low level hotkey (e.g. Ctrl+Alt+Shift+M) to toggle some area of the screen to be used for kernel monitoring or console
-  * maybe it can have pages, left and right or something like that
-  * programs should not even be aware of it
-* a random number generator ([example](https://wiki.osdev.org/Random_Number_Generator))
 * sorting, hashing and other algorithmic implementations
 * a man page system, for writing and displaying man pages (eg in usr/share/man/xxxxx.txt)
 * [NetSurf](http://www.netsurf-browser.org/) seems to be a good browser we could port over.
@@ -95,6 +86,12 @@ prior allocation.
 
 ## things done
 
+* randseed() and rand() in libc (randdemo program as well)
+* exec() and wait() system call allows parents to launch and wait for children
+* File handles + operations per process
+* kernel monitor - on tty4, shown in png captured
+* Some syscalls that return process, devices and filesys information,
+so we can create some monitor applications.
 * Executing executable files from shell
 * Supporting files (VFS) ops from user programs
 * load and execute executables in their own processes, using exec()

@@ -60,6 +60,9 @@ void timer_interrupt_handler(registers_t *regs) {
     ((void)regs);
 }
 
+
+// 32 bits overflow in 49 days
+// 64 bits overflow in... 585 M years
 uint64_t timer_get_uptime_msecs() {
     return milliseconds_since_boot;
 }

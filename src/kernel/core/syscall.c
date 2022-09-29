@@ -12,6 +12,7 @@
 
 #include "../../libc/include/syscall.h"
 #include "../../libc/include/keyboard.h"
+#include "../../libc/include/time.h"
 
 #define STACK_GUARD_MAGIC_NUMBER   0x1BADCAFE
 
@@ -162,7 +163,22 @@ static int sys_exec(char *path, char **argv, char **envp) {
 static int sys_wait_child(int *exit_code) {
     return proc_wait_child(exit_code);
 }
+static int sys_get_clocktime(clocktime_t *ct) {
 
+    // translate RTC info structure into libc structure
+    real_time_clock_info_t rtc;
+    get_real_time_clock(&rtc);
+
+    ct->years = rtc.years;
+    ct->months = rtc.months;
+    ct->days = rtc.days;
+    ct->dow = rtc.dow;
+    ct->hours = rtc.hours;
+    ct->minutes = rtc.minutes;
+    ct->seconds = rtc.seconds;
+
+    return SUCCESS;
+}
 
 int isr_syscall(struct syscall_stack stack) {
     /* before getting to this function, the assembly isr handler
@@ -288,13 +304,11 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = (int)sys_sbrk(stack.passed.arg1);
             break;
         case SYS_GET_UPTIME:   // returns msecs since boot (32 bits = 49 days)
-            return_value = LOW_DWORD(timer_get_uptime_msecs());
+            timer_get_uptime_msecs((uint64_t *)stack.passed.arg1);
             break;
-        case SYS_GET_CLOCK:   // arg1 = dtime pointer
-            klog_warn("Received unimplemented syscall %d", stack.passed.sysno);
-            return_value = -1;
+        case SYS_GET_CLOCK:   // arg1 = clocktime pointer
+            sys_get_clocktime((clocktime_t *)stack.passed.arg1);
             break;
-
         default:
             klog_warn("Received syscall interrupt!");
             klog_debug("  sysno = %d (eax)", stack.passed.sysno);

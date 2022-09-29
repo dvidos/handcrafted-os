@@ -103,7 +103,7 @@ uint32_t get_uptime_in_seconds() {
     return seconds_since_boot;
 }
 
-void get_real_time_clock(clock_time_t *p) {
+void get_real_time_clock(real_time_clock_info_t *p) {
     // must make sure no update is in progress, otherwise we may get bogus values
     // we shall read two consecutive times, to make sure we get it right
     uint8_t seconds;

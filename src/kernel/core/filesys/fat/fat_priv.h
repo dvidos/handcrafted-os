@@ -300,8 +300,8 @@ static void dir_entry_to_slot(fat_dir_entry *entry, uint8_t *buffer);
 static void dir_entry_to_long_name(uint8_t *buffer, fat_dir_entry *entry);
 static void dir_long_name_to_slot(fat_dir_entry *entry, int seq_no, uint8_t *buffer);
 static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t *vfs_entry);
-static void dir_entry_set_created_time(fat_dir_entry *entry, struct clock_time *time);
-static void dir_entry_set_modified_time(fat_dir_entry *entry, struct clock_time *time);
+static void dir_entry_set_created_time(fat_dir_entry *entry, real_time_clock_info_t *time);
+static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_info_t *time);
 
 
 // fat vfs interaction
