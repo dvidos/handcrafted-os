@@ -9,6 +9,10 @@
 #include <bits.h>
 #include <multitask/multitask.h>
 
+
+MODULE("ISR");
+
+
 void isr_handler(registers_t regs) {
     // don't forget we have mapped IRQs 0+ to 0x20+
     // to avoid the first 0x1F interrupts that are CPU faults in protected mode

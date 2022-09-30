@@ -7,6 +7,9 @@
 #include <devices/storage_dev.h>
 #include <filesys/partition.h>
 
+MODULE("PART");
+
+
 static struct partition *partitions_list = NULL;
 
 struct partition *get_partitions_list() {

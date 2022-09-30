@@ -10,6 +10,8 @@
 
 #include "fat_priv.h"
 
+MODULE("FAT");
+
 #include "dir_entry.cinl"
 #include "debug.cinl"
 #include "clusters.cinl"

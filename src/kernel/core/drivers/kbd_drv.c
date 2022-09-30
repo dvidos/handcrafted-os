@@ -7,6 +7,8 @@
 
 #include <keyboard.h>  // <-- from libc, for key defines and structure
 
+MODULE("KBD");
+
 
 // interesting article: https://linuxjournal.com/article/1080
 

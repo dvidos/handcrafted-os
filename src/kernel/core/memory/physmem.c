@@ -5,6 +5,8 @@
 #include <multiboot.h>
 #include <memory/physmem.h>
 
+MODULE("PHMEM");
+
 
 // inspiration from here: http://www.brokenthorn.com/Resources/OSDev17.html
 // to map 4BGB of data, using 4KB pages, we need 1M bits.

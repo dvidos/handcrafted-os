@@ -7,6 +7,7 @@
 // things pushed in the isr_stub we have in assembly
 // this is passed when isr_handler is called from our assembly stub
 
+MODULE("IDT");
 
 
 #define GATE_TYPE_TASK              0x5  // offset value should be zero in this case

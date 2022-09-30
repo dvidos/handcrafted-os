@@ -8,6 +8,8 @@
 #include <drivers/clock.h>
 #include <devices/storage_dev.h>
 
+MODULE("SATA");
+
 // based on https://wiki.osdev.org/AHCI
 // and https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf
 

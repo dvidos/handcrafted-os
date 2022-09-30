@@ -43,6 +43,7 @@
     #error "This tutorial needs to be compiled with a ix86-elf compiler"
 #endif
 
+MODULE("MAIN");
 
 // these are defined in the linker.ld script
 // use their *addresses*, not their values!
@@ -183,8 +184,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 }
 
 void shell_launcher() {
+    klog_info("Shell launcher started, PID %d", proc_getpid());
     tty_set_title("User Shell");
-    klog_info("This is shell launcher");
 
     while (true) {
         tty_write("Launching user-space shell program\n");

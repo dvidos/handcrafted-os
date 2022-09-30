@@ -2,6 +2,7 @@
 #include <klib/string.h>
 #include <klog.h>
 
+MODULE("STRPA");
 
 
 char **create_str_ptr_arr() {

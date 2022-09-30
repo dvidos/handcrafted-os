@@ -7,6 +7,8 @@
 #include <klib/string.h>
 #include <lock.h>
 
+MODULE("TTY");
+
 // this device is given or allocated by a task
 // and the task can interact with the screen
 // WHEN the tty is visible to the user

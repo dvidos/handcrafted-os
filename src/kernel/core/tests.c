@@ -7,6 +7,8 @@
 #include <errors.h>
 
 
+MODULE("TESTS");
+
 #define assert(a)    \
     if (!(a)) {      \
         klog_error("Assertion failed: \"%s\", file %s, line %u", #a, __FILE__, __LINE__); \

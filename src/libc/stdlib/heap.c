@@ -80,7 +80,7 @@ void __init_heap() {
     heap.list_head = head;
     heap.list_tail = tail;
 
-    syslog_info("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
+    syslog_debug("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
 }
 
 // request to expand or shrink the heap by an amount

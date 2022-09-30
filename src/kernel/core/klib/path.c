@@ -2,6 +2,7 @@
 #include <errors.h>
 #include <klog.h>
 
+MODULE("PATH");
 
 
 int get_next_path_part(char *path, int *offset, char *buffer) {

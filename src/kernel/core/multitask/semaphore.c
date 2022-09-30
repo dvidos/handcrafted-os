@@ -5,6 +5,9 @@
 #include <klog.h>
 #include <klib/string.h>
 
+MODULE("SEMA");
+
+
 semaphore_t *create_semaphore(int limit) {
     semaphore_t *semaphore = kmalloc(sizeof(semaphore_t));
     memset(semaphore, 0, sizeof(semaphore_t));

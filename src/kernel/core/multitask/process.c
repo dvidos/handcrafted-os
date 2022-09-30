@@ -15,6 +15,8 @@
 #include <multitask/process.h>
 #include <multitask/strpa.h>
 
+MODULE("PROC");
+
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
 
@@ -240,9 +242,7 @@ int proc_wait_child(int *exit_code) {
     p->state = BLOCKED;
     p->block_reason = WAIT_CHILD_EXIT;
     p->block_channel = NULL;
-
     append(&blocked_list, p);
-    dump_process_table();
 
     schedule(); // allow someone else to run
     unlock_scheduler();

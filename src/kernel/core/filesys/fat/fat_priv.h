@@ -5,7 +5,7 @@
 #include <filesys/partition.h>
 #include <drivers/clock.h>
 #include <lock.h>
-
+#include <klog.h>
 
 #define min(a, b)     ((a) <= (b) ? (a) : (b))
 #define max(a, b)     ((a) >= (b) ? (a) : (b))

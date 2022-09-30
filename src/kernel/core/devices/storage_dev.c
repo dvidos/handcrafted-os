@@ -2,6 +2,10 @@
 #include <lock.h>
 #include <klog.h>
 
+
+MODULE("STDEV");
+
+
 struct storage_dev *storage_devices_list = NULL;
 int next_dev_no = 1;
 lock_t devices_list_lock;

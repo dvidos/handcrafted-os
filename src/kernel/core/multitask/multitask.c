@@ -8,6 +8,7 @@
 #include <memory/virtmem.h>
 #include <klib/string.h>
 
+MODULE("MTASK");
 
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))

@@ -9,6 +9,8 @@
 #include <memory/physmem.h>
 #include <klog.h>
 
+MODULE("ATA");
+
 
 // heavily influenced (read: copied) from here https://wiki.osdev.org/PCI_IDE_Controller
 // and here: https://github.com/HaontCorporation/os365/blob/master/hdd.h

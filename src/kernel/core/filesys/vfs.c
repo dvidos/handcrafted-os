@@ -5,6 +5,8 @@
 #include <klog.h>
 #include <errors.h>
 
+MODULE("VFS");
+
 static struct mount_info *mounts_list;
 static struct file_system_driver *drivers_list = NULL;
 

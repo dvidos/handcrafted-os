@@ -5,6 +5,7 @@
 // Refer to the intel documentation for a description of what each one does.
 // also https://wiki.osdev.org/GDT
 
+MODULE("GDT");
 
 
 // access byte

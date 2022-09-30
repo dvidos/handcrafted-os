@@ -5,6 +5,7 @@
 #include <klib/string.h>
 #include <cpu.h>
 
+MODULE("VRTMEM");
 
 /*
    Paging is mapping a virtual address to a physical one.

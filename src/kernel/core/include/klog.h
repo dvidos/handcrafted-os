@@ -36,7 +36,7 @@ void klog_append_hex(const char *module_name, log_level_t level, uint8_t *buffer
 void klog_user_syslog(int level, char *buffer);
 
 
-// #define LOG_WITH_MODULE_NAMES
+#define LOG_WITH_MODULE_NAMES
 #ifdef LOG_WITH_MODULE_NAMES
 
     #define MODULE(module_name)     static char *__module_name = module_name;

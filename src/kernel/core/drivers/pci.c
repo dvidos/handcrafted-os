@@ -4,6 +4,8 @@
 #include <memory/kheap.h>
 #include <drivers/pci.h>
 
+MODULE("PCI");
+
 // i think I need to do PCI discovery, to find any hard disks (even SATA) and USB hubs / sticks.
 // currently following https://wiki.osdev.org/PCI
 
@@ -558,7 +560,7 @@ void init_pci() {
     // now print them
     pci_device_t *dev = pci_devices_list;
     while (dev != NULL) {
-        klog_info("%d:%d:%d, vend/dev %04x/%04x, class/sub %02x/%02x, hdr %02x",
+        klog_debug("%d:%d:%d, vend/dev %04x/%04x, class/sub %02x/%02x, hdr %02x",
             dev->bus_no,
             dev->device_no,
             dev->func_no,
@@ -568,7 +570,7 @@ void init_pci() {
             dev->config.sub_class,
             dev->config.header_type
         );
-        klog_info("       %s - %s", 
+        klog_debug("       %s - %s", 
             get_pci_class_name(dev->config.class_type),
             get_pci_subclass_name(dev->config.class_type, dev->config.sub_class)
         );

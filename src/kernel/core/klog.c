@@ -60,7 +60,7 @@ void init_klog() {
 
     memset(&appenders, 0, sizeof(appenders));
 
-    default_module_level = LOGLEV_WARN;
+    default_module_level = LOGLEV_INFO;
     memset(&module_levels, 0, sizeof(module_levels));
 }
 

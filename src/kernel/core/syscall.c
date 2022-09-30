@@ -14,6 +14,8 @@
 #include "../../libc/include/keyboard.h"
 #include "../../libc/include/time.h"
 
+MODULE("SYSCALL");
+
 #define STACK_GUARD_MAGIC_NUMBER   0x1BADCAFE
 
 

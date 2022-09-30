@@ -6,6 +6,8 @@
 
 #define KMEM_MAGIC       0xAAA // something that fits in 12 bits
 
+MODULE("KHEAP");
+
 
 // doubly linked list allows fast consolidation with prev / next blocks
 // magic number allows detection of underflow or overflow

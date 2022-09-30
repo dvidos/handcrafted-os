@@ -3,6 +3,9 @@
 #include <klib/strbuff.h>
 #include <klog.h>
 
+MODULE("SBUFF");
+
+
 #define SB_FIXED    0x00
 #define SB_SCROLL   0x01
 #define SB_EXPAND   0x02
