@@ -39,7 +39,7 @@ static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd) {
     pd->fat16_root_data.loaded = false;
 
     klog_debug("open_root_dir(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
-    klog_hex16_debug(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
+    klog_debug_hex(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
 
     return SUCCESS;
 }
@@ -253,7 +253,7 @@ static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir
         if (err < 0) return err;
 
         klog_debug("read slot contents follow");
-        klog_hex16_debug(buffer32, BYTES_PER_DIR_SLOT, 0);
+        klog_debug_hex(buffer32, BYTES_PER_DIR_SLOT, 0);
 
         if (is_dir_slot_eof(buffer32))
             return ERR_NO_MORE_CONTENT;
@@ -304,7 +304,7 @@ static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *nam
         if (err != NO_ERROR && err != ERR_NO_MORE_CONTENT) goto exit;
 
         klog_debug("priv_dir_read_slot() --> slot contents follow");
-        klog_hex16_debug(buffer32, BYTES_PER_DIR_SLOT, 0);
+        klog_debug_hex(buffer32, BYTES_PER_DIR_SLOT, 0);
 
         // we need to find eof, though we do not know how we'll allocate more space
         bool passed_entries = is_dir_slot_eof(buffer32) || err == ERR_NO_MORE_CONTENT;
@@ -347,13 +347,13 @@ static int priv_dir_entry_invalidate(fat_info *fat, fat_priv_dir_info *pd, fat_d
     if (err) return err;
 
     klog_debug("Read buffer for slot, contents follow");
-    klog_hex16_debug(buffer32, 32, 0);
+    klog_debug_hex(buffer32, 32, 0);
 
     // fingers crossed this is the correct entry...
     dir_slot_mark_deleted(buffer32);
 
     klog_debug("Marking entry named \"%s\" as deleted, new buffer follows", entry->short_name);
-    klog_hex16_debug(buffer32, 32, 0);
+    klog_debug_hex(buffer32, 32, 0);
 
     err = fat->ops->priv_dir_seek_slot(fat, pd, entry->short_entry_slot_no);
     if (err) return err;

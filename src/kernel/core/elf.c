@@ -345,7 +345,7 @@ int dump_elf_information(file_t *file) {
     if (err < 0) goto exit;
     
     klog_info("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
-    klog_hex16_debug((void *)section_headers, header->shnum * header->shentsize, 0);
+    klog_debug_hex((void *)section_headers, header->shnum * header->shentsize, 0);
 
     err = vfs_seek(file, header->phoff, SEEK_START);
     if (err < 0) goto exit;
@@ -353,7 +353,7 @@ int dump_elf_information(file_t *file) {
     if (err < 0) goto exit;
     
     klog_info("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
-    klog_hex16_debug((void *)program_headers, header->phnum * header->phentsize, 0);
+    klog_debug_hex((void *)program_headers, header->phnum * header->phentsize, 0);
     
     if (header->shstrndx != 0) {
         elf32_section_header_t *names_header = (elf32_section_header_t *)(section_headers + (header->shstrndx * header->shentsize));
@@ -365,7 +365,7 @@ int dump_elf_information(file_t *file) {
         if (err < 0) goto exit;
 
         klog_info("Names from names section");
-        klog_hex16_debug(names_data, names_header->sh_size, 0);
+        klog_debug_hex(names_data, names_header->sh_size, 0);
     }
 
     klog_info("Sections");
@@ -525,7 +525,7 @@ static void dump_elf_raw_data(file_t *file, char *title, uint32_t offset, uint32
         return;
     }
     klog_info(title);
-    klog_hex16_debug(p, length, 0);
+    klog_debug_hex(p, length, 0);
     kfree(p);
 }
 

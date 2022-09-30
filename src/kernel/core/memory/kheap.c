@@ -143,7 +143,7 @@ void __kcheck(void *ptr, char *name, char *file, int line) {
     bool healthy = false;
 
     if (ptr < kernel_heap.start_address || ptr > kernel_heap.end_address) {
-        klog_critical("- ptr 0x%p (%s): pointer is not managed by kernel heap (heap is 0x%x..0x%x)", 
+        klog_crit("- ptr 0x%p (%s): pointer is not managed by kernel heap (heap is 0x%x..0x%x)", 
             ptr, name, kernel_heap.start_address, kernel_heap.end_address);
         healthy = false;
     } else {
@@ -152,7 +152,7 @@ void __kcheck(void *ptr, char *name, char *file, int line) {
         if (!healthy) {
             void *addr = ptr - 0x60; // ample room to detet underflow/overflow
             int size = 0x60 + sizeof(memory_block_t) + 0x60;
-            klog_hex16_debug(addr, size, (uint32_t)addr);
+            klog_debug_hex(addr, size, (uint32_t)addr);
             kernel_heap_dump();
         }
     }
@@ -350,7 +350,7 @@ void __kernel_heap_verify(char *file, int line) {
     if (healthy) {
         klog_debug("kernel heap healthy at %s:%d", file, line);
     } else {
-        klog_critical("kernel heap issues, detected at %s:%d", file, line);
+        klog_crit("kernel heap issues, detected at %s:%d", file, line);
         kernel_heap_dump();
         panic("Bad heap state");
     }

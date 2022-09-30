@@ -70,7 +70,7 @@ static bool check_gpt_partition_table(struct storage_dev *dev, char *buffer) {
         if (remaining == 0) {
             int err = dev->ops->read(dev, partition_entries_table_address, 0, 1, buffer);
             // klog_debug("Reading sector %d: err=%d", partition_entries_table_address, err);
-            // klog_hex16_debug(io_page, sector_size, 0);
+            // klog_debug_hex(io_page, sector_size, 0);
             partition_entries_table_address++;
             remaining += sector_size;
             entry_offset = 0;
@@ -154,7 +154,7 @@ static bool check_legacy_partition_table(struct storage_dev *dev, uint32_t start
     uint32_t extended_partition_offset = 0;
 
     klog_debug("Looking for legacy partition, at sector %d", starting_sector);
-    // klog_hex16_debug(buffer + 0x1BE, 64, 0x1BE);
+    // klog_debug_hex(buffer + 0x1BE, 64, 0x1BE);
 
     // partition entries at 1BE, 1CE, 1DE, 1EE
     bool found_something = false;

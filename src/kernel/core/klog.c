@@ -24,49 +24,110 @@ static struct {
 } memlog;
 
 tty_t *tty_appender;
+// should have a file appender as well...
 
-static struct {
-    struct appender_info {
-        log_level_t level;
-        bool have_dumped_memory;
-    } appenders[LOGAPP_SIZE];
-} __attribute__((packed)) log_flags;
+typedef struct appender_info {
+    log_level_t level;
+    bool have_dumped_memory;
+} appender_info_t;
+
+static appender_info_t appenders[LOGAPP_SIZE];
+
+
+typedef struct module_level {
+    char *module_name;
+    log_level_t level;
+} module_level_t;
+
+// static array to avoid dynamic mem allocation
+#define MODULE_LEVELS_COUNT  64
+static module_level_t module_levels[MODULE_LEVELS_COUNT];
+static log_level_t default_module_level;
 
 
 
-static void klog_append_va(log_level_t level, const char *format, va_list args);
 static void memlog_write(char *str);
-static void memory_log_append(log_level_t level, char *str);
-static void screen_log_append(log_level_t level, char *str, bool decorated);
-static void serial_log_append(log_level_t level, char *str, bool decorated);
-static void file_log_append(log_level_t level, char *str, bool decorated);
-static void tty_log_append(log_level_t level, char *str, bool decorated);
-
+static void memory_log_append(const char *module_name, log_level_t level, char *str);
+static void screen_log_append(const char *module_name, log_level_t level, char *str, bool decorated);
+static void serial_log_append(const char *module_name, log_level_t level, char *str, bool decorated);
+static void file_log_append(const char *module_name, log_level_t level, char *str, bool decorated);
+static void tty_log_append(const char *module_name, log_level_t level, char *str, bool decorated);
+static char printable(char c);
 
 void init_klog() {
     memset(memlog.buffer, '-', sizeof(memlog.buffer));
     memlog.len = 0;
-    memset(&log_flags, 0, sizeof(log_flags));
+
+    memset(&appenders, 0, sizeof(appenders));
+
+    default_module_level = LOGLEV_WARN;
+    memset(&module_levels, 0, sizeof(module_levels));
 }
 
 void klog_appender_level(log_appender_t appender, log_level_t level) {
-    bool prev_level = log_flags.appenders[appender].level;
-    log_flags.appenders[appender].level = level;
+    bool prev_level = appenders[appender].level;
+    appenders[appender].level = level;
 
+    // this is also used to enable an appender, when they are available
     // maybe dump memory contents to this newly opened appender
     if (appender != LOGAPP_MEMORY &&
         prev_level == LOGLEV_NONE && 
         level > LOGLEV_NONE &&
-        !log_flags.appenders[appender].have_dumped_memory
+        !appenders[appender].have_dumped_memory
     ) {
         if (appender == LOGAPP_SERIAL)
-            serial_log_append(LOGLEV_INFO, memlog.buffer, false);
+            serial_log_append(NULL, LOGLEV_INFO, memlog.buffer, false);
         else if (appender == LOGAPP_FILE)
-            file_log_append(LOGLEV_INFO, memlog.buffer, false);
+            file_log_append(NULL, LOGLEV_INFO, memlog.buffer, false);
         else if (appender == LOGAPP_TTY && tty_appender != NULL)
-            tty_log_append(LOGLEV_INFO, memlog.buffer, false);
-        log_flags.appenders[appender].have_dumped_memory = true;
+            tty_log_append(NULL, LOGLEV_INFO, memlog.buffer, false);
+        appenders[appender].have_dumped_memory = true;
     }
+}
+
+void klog_default_module_level(log_level_t level) {
+    default_module_level = level;
+}
+
+void klog_module_level(char *module_name, log_level_t level) {
+    
+    // see if module exists, we can update
+    for (int i = 0; i < MODULE_LEVELS_COUNT; i++) {
+        if (module_levels[i].module_name == NULL)
+            break;
+        if (strcmp(module_levels[i].module_name, module_name) == 0) {
+            module_levels[i].level = level;
+            return;
+        }
+    }
+
+    // if we are here, module not already defined, we have to add
+    for (int i = 0; i < MODULE_LEVELS_COUNT; i++) {
+        if (module_levels[i].module_name == NULL) {
+            module_levels[i].module_name = module_name;
+            module_levels[i].level = level;
+            return;
+        }
+    }
+
+    // if we gotten here, no free slot was found to add
+    panic("Not enough slots to set module log level, please increase");
+}
+
+static log_level_t get_module_log_level(const char *module_name) {
+    if (module_name == NULL)
+        return default_module_level;
+    
+    for (int i = 0; i < MODULE_LEVELS_COUNT; i++) {
+        if (module_levels[i].module_name == NULL)
+            // we reached the end of the defined names
+            return default_module_level;
+        
+        if (strcmp(module_levels[i].module_name, module_name) == 0)
+            return module_levels[i].level;
+    }
+
+    return default_module_level;
 }
 
 void klog_set_tty(tty_t *tty) {
@@ -75,73 +136,62 @@ void klog_set_tty(tty_t *tty) {
 }
 
 void klog_user_syslog(int level, char *buffer) {
-    klog_append(level, "%s[%d] %s", running_process()->name, running_process()->pid, buffer);
+    klog_append("USER", level, "%s[%d] %s", running_process()->name, running_process()->pid, buffer);
 }
 
-void klog_trace(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    klog_append_va(LOGLEV_TRACE, format, args);
-    va_end(args);
-}
+void klog_append(const char *module_name, log_level_t level, const char *format, ...) {
 
-void klog_debug(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    klog_append_va(LOGLEV_DEBUG, format, args);
-    va_end(args);
-}
-
-void klog_info(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    klog_append_va(LOGLEV_INFO, format, args);
-    va_end(args);
-}
-
-void klog_warn(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    klog_append_va(LOGLEV_WARN, format, args);
-    va_end(args);
-}
-
-void klog_error(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    klog_append_va(LOGLEV_ERROR, format, args);
-    va_end(args);
-}
-
-void klog_critical(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    klog_append_va(LOGLEV_CRITICAL, format, args);
-    va_end(args);
-}
-
-void klog_append(log_level_t level, const char *format, ...) {
     if (strlen(format) == 0)
         return;
 
+    // should check the level of the module, if any
+    if (module_name != NULL && level > get_module_log_level(module_name))
+        return; 
+
     va_list args;
     va_start(args, format);
-    klog_append_va(level, format, args);
-    va_end(args);
-}
-
-static void klog_append_va(log_level_t level, const char *format, va_list args) {
-    if (strlen(format) == 0)
-        return;
-
+    
     char buffer[256];
     vsprintfn(buffer, sizeof(buffer), format, args);
-    memory_log_append(level, buffer);
-    screen_log_append(level, buffer, true);
-    serial_log_append(level, buffer, true);
-    file_log_append(level, buffer, true);
-    tty_log_append(level, buffer, true);
+
+    memory_log_append(module_name, level, buffer);
+    screen_log_append(module_name, level, buffer, true);
+    serial_log_append(module_name, level, buffer, true);
+    file_log_append(module_name, level, buffer, true);
+    tty_log_append(module_name, level, buffer, true);
+
+    va_end(args);
 }
+
+void klog_append_hex(const char *module_name, log_level_t level,  uint8_t *buffer, size_t length, uint32_t start_address) {
+
+    if (length == 0)
+        return;
+
+    // should check the level of the module, if any
+    if (module_name != NULL && level > get_module_log_level(module_name))
+        return; 
+
+    while (length > 0) {
+        // using xxd's format, seems nice
+        klog_append(module_name, level,
+            "%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
+            start_address,
+            buffer[0], buffer[1], buffer[2], buffer[3], 
+            buffer[4], buffer[5], buffer[6], buffer[7],
+            buffer[8], buffer[9], buffer[10], buffer[11], 
+            buffer[12], buffer[13], buffer[14], buffer[15],
+            printable(buffer[0]), printable(buffer[1]), printable(buffer[2]), printable(buffer[3]),
+            printable(buffer[4]), printable(buffer[5]), printable(buffer[6]), printable(buffer[7]),
+            printable(buffer[8]), printable(buffer[9]), printable(buffer[10]), printable(buffer[11]),
+            printable(buffer[12]), printable(buffer[13]), printable(buffer[14]), printable(buffer[15])
+        );
+        buffer += 16;
+        length -= length > 16 ? 16 : length;
+        start_address += 16;
+    }
+}
+
 
 
 // write to memory log, losing older data if needed
@@ -160,22 +210,22 @@ static void memlog_write(char *str) {
     memlog.len = strlen(memlog.buffer);
 }
 
-static void memory_log_append(log_level_t level, char *str) {
-    if (level > log_flags.appenders[LOGAPP_MEMORY].level)
+static void memory_log_append(const char *module_name, log_level_t level, char *str) {
+    if (level > appenders[LOGAPP_MEMORY].level)
         return;
 
     // first write preamble
-    char buff[32];
+    char buff[128];
     uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
-    sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
+    sprintfn(buff, sizeof(buff), "[%u.%03u] %s %s: ", msecs / 1000, msecs % 1000, module_name, level_captions[level]);
 
     memlog_write(buff);
     memlog_write(str);
     memlog_write("\n");
 }
 
-static void screen_log_append(log_level_t level, char *str, bool decorated) {
-    if (level > log_flags.appenders[LOGAPP_SCREEN].level)
+static void screen_log_append(const char *module_name, log_level_t level, char *str, bool decorated) {
+    if (level > appenders[LOGAPP_SCREEN].level)
         return;
 
     uint8_t old_color = screen_get_color();
@@ -193,14 +243,14 @@ static void screen_log_append(log_level_t level, char *str, bool decorated) {
     }
 }
 
-static void serial_log_append(log_level_t level, char *str, bool decorated) {
-    if (level > log_flags.appenders[LOGAPP_SERIAL].level)
+static void serial_log_append(const char *module_name, log_level_t level, char *str, bool decorated) {
+    if (level > appenders[LOGAPP_SERIAL].level)
         return;
 
     if (decorated) {
-        char buff[32];
+        char buff[128];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
-        sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
+        sprintfn(buff, sizeof(buff), "[%u.%03u] %s %s: ", msecs / 1000, msecs % 1000, module_name, level_captions[level]);
         serial_write(buff);
     }
     serial_write(str);
@@ -209,20 +259,20 @@ static void serial_log_append(log_level_t level, char *str, bool decorated) {
     }
 }
 
-static void file_log_append(log_level_t level, char *str, bool decorated) {
+static void file_log_append(const char *module_name, log_level_t level, char *str, bool decorated) {
     ; // not implemented yet. hopefully /var/log/kernel.log
 }
 
-static void tty_log_append(log_level_t level, char *str, bool decorated) {
+static void tty_log_append(const char *module_name, log_level_t level, char *str, bool decorated) {
     if (tty_appender == NULL)
         return;
-    if (level > log_flags.appenders[LOGAPP_TTY].level)
+    if (level > appenders[LOGAPP_TTY].level)
         return;
 
     if (decorated) {
-        char buff[32];
+        char buff[128];
         uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
-        sprintfn(buff, sizeof(buff), "[%u.%03u] %s: ", msecs / 1000, msecs % 1000, level_captions[level]);
+        sprintfn(buff, sizeof(buff), "[%u.%03u] %s %s: ", msecs / 1000, msecs % 1000, module_name, level_captions[level]);
         tty_write_specific_tty(tty_appender, buff);
     }
     tty_write_specific_tty(tty_appender, str);
@@ -233,25 +283,5 @@ static void tty_log_append(log_level_t level, char *str, bool decorated) {
 
 static inline char printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
-}
-
-void klog_hex16_debug(uint8_t *buffer, size_t length, uint32_t start_address) {
-    while (length > 0) {
-        // using xxd's format, seems nice
-        klog_debug("%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
-            start_address,
-            buffer[0], buffer[1], buffer[2], buffer[3], 
-            buffer[4], buffer[5], buffer[6], buffer[7],
-            buffer[8], buffer[9], buffer[10], buffer[11], 
-            buffer[12], buffer[13], buffer[14], buffer[15],
-            printable(buffer[0]), printable(buffer[1]), printable(buffer[2]), printable(buffer[3]),
-            printable(buffer[4]), printable(buffer[5]), printable(buffer[6]), printable(buffer[7]),
-            printable(buffer[8]), printable(buffer[9]), printable(buffer[10]), printable(buffer[11]),
-            printable(buffer[12]), printable(buffer[13]), printable(buffer[14]), printable(buffer[15])
-        );
-        buffer += 16;
-        length -= length > 16 ? 16 : length;
-        start_address += 16;
-    }
 }
 

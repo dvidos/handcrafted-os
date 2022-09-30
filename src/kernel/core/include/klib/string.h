@@ -5,7 +5,7 @@
 #include <va_list.h>
 
 int strlen(const char* str);
-int strcmp(char *a, char *b);
+int strcmp(const char *a, const char *b);
 int strcpy(char *target, char *source);
 void strncpy(char *target, char *source, size_t target_size);
 

@@ -89,7 +89,7 @@ static void sys_log_entry(int level, uint8_t *buffer) {
 }
 
 static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
-    klog_hex16_debug(address, length, starting_num);
+    klog_debug_hex(address, length, starting_num);
 }
 
 static void *sys_sbrk(int diff_size) {
@@ -321,8 +321,8 @@ int isr_syscall(struct syscall_stack stack) {
     }
     
     if (stack_guard != STACK_GUARD_MAGIC_NUMBER) {
-        klog_critical("Syscall garbled stack detected! Stack dump follows, from guard downwards");
-        klog_hex16_debug((void *)&stack_guard, 16 * 16, (uint32_t)&stack_guard);
+        klog_crit("Syscall garbled stack detected! Stack dump follows, from guard downwards");
+        klog_debug_hex((void *)&stack_guard, 16 * 16, (uint32_t)&stack_guard);
     }
 
     // both positive and negative values tested and supported

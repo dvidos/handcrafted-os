@@ -55,7 +55,7 @@ static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster
         sector->loaded = true;
 
         klog_debug("allocation table sector No %d, contents follow, our offset is %d (0x%x)", fat_sector_no, offset_in_sector, offset_in_sector);
-        klog_hex16_debug(sector->buffer, fat->bytes_per_sector, 0);
+        klog_debug_hex(sector->buffer, fat->bytes_per_sector, 0);
     }
 
     // now that we have the sector, extract the next cluster_no
@@ -188,7 +188,7 @@ static int read_data_cluster(fat_info *fat, uint32_t cluster_no, cluster_t *clus
         cluster->dirty = false;
     }
     klog_trace("read_data_cluster(cluster=%d) --> %d", cluster_no, err);
-    // klog_hex16_debug(cluster->buffer, fat->bytes_per_cluster, 0);
+    // klog_debug_hex(cluster->buffer, fat->bytes_per_cluster, 0);
     return err;
 }
 

@@ -363,11 +363,11 @@ void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_add
     kernel_info.page_directory = create_page_directory(true);
 
     // klog_debug("Kernel page directory contents:");
-    // klog_hex16_debug(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
+    // klog_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
 
     // void *pt = get_entry_address(get_table_entry(kernel_page_direcory, 0));
     // klog_debug("Kernel first page table contents:");
-    // klog_hex16_debug(pt, 4096, (uint32_t)pt);
+    // klog_debug_hex(pt, 4096, (uint32_t)pt);
 
     // void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
     // void *pa = resolve_virtual_to_physical_address(va, kernel_page_direcory);

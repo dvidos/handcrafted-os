@@ -529,7 +529,7 @@ int proc_opendir(process_t *proc, char *name) {
     int handle = allocate_file_handle(proc, &file);
     klog_trace("proc_opendir() -> %d", handle);
     klog_debug("Process handles table follows");
-    klog_hex16_debug((void *)proc->file_handles, sizeof(file_t) * MAX_FILE_HANDLES, 0);
+    klog_debug_hex((void *)proc->file_handles, sizeof(file_t) * MAX_FILE_HANDLES, 0);
     return handle;
 }
 
