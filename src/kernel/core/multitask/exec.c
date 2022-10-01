@@ -3,7 +3,7 @@
 #include <klib/string.h>
 #include <filesys/vfs.h>
 #include <multitask/process.h>
-#include <multitask/strpa.h>
+#include <multitask/strvec.h>
 #include <devices/tty.h>
 #include <elf.h>
 #include <memory/virtmem.h>
@@ -60,7 +60,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     file_open = false;
 
     process_t *parent = running_process();
-    process_t *child = create_process(
+    process_t *new_proc = create_process(
         path,
         load_and_run_executable,
         parent == NULL ? PRIORITY_USER_PROGRAM : parent->priority,
@@ -71,19 +71,34 @@ int execve(char *path, char *argv[], char *envp[]) {
     klog_debug("Process %s[%d] created process %s[%d] for executing",
         parent->name,
         parent->pid,
-        child->name,
-        child->pid
+        new_proc->name,
+        new_proc->pid
     );
 
     // we need to populate the process with enough data to be able to start.
-    child->user_proc.executable_path = kmalloc(strlen(path) + 1);
-    strcpy(child->user_proc.executable_path, path);
-    child->user_proc.argv = duplicate_str_ptr_arr(argv);
-    child->user_proc.envp = duplicate_str_ptr_arr(envp);
+    // 
+    // in traditional unix, and today's (2022) linux, it seems that
+    // the actual table of argv/envp pointers is created (pushed) on the stack,
+    // and we pass pointers to the stack locations of the first element
+    // to the main() function.
+    // 
+    // maybe the inital idea was to push the actual string pointers on the stack,
+    // as actual parameters to the main() function, and then it evolved 
+    // into passing the address of the array of the pointers...
+    // 
+    // maybe the same was used to pass the initial environment.
+    // from then on, in-process environment changes are managed in libc,
+    // where the "char **environ" variable will change value every time
+    // we need to allocate a new environment block.
+    
+    new_proc->user_proc.executable_path = kmalloc(strlen(path) + 1);
+    strcpy(new_proc->user_proc.executable_path, path);
+    new_proc->user_proc.argv = clone_strvec(argv);
+    new_proc->user_proc.envp = clone_strvec(envp);
 
     // not much left, cheers!
-    klog_debug("execve(): about to start process %s[%d]", child->name, child->pid);
-    start_process(child);
+    klog_debug("execve(): about to start process %s[%d]", new_proc->name, new_proc->pid);
+    start_process(new_proc);
 
     // usually here we have the parent as current process (e.g. vi was launched, we go sh as current)
     klog_debug("execve(): after start_process() returned, current proc is %s[%d]", running_process()->name, running_process()->pid);
@@ -92,7 +107,7 @@ int execve(char *path, char *argv[], char *envp[]) {
 exit:
     if (file_open)
         vfs_close(&file);
-    return err == SUCCESS ? child->pid : err;
+    return err == SUCCESS ? new_proc->pid : err;
 }
 
 
@@ -151,9 +166,8 @@ static void load_and_run_executable() {
     void *page_directory = create_page_directory(true);
     allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
     klog_debug("Allocated new page directory 0x%x for execve()", page_directory);
-
     dump_page_directory(page_directory);
-    dump_page_directory(get_kernel_page_directory());
+    // dump_page_directory(get_kernel_page_directory());
 
     // we are not waiting for a switch, we have to set CR3 now, to load the file.
     proc->page_directory = page_directory;
@@ -184,7 +198,7 @@ static void load_and_run_executable() {
     // and to jump to the elf crt0._start() method.
     // in theory, this will never return, as crt0 will call proc_exit()
     
-    int argc = count_str_ptr_arr(proc->user_proc.argv);
+    int argc = count_strvec(proc->user_proc.argv);
     void *stack_top = stack_bottom + stack_size;
     klog_debug("Changing stack pointer to 0x%x and jumping to address 0x%x", stack_top, elf_entry_point);
     __asm__ __volatile__ (

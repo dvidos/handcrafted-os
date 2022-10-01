@@ -13,7 +13,7 @@
 #include <klog.h>
 #include <errors.h>
 #include <multitask/process.h>
-#include <multitask/strpa.h>
+#include <multitask/strvec.h>
 
 MODULE("PROC");
 
@@ -401,6 +401,7 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pr
     *(uint32_t *)p->allocated_kernel_stack = STACK_BOTTOM_MAGIC_VALUE;
 
     // we now have a small stack to set the "return" address for the first switching.
+    // how can we setup the initial stack, i.e. the arguments to that entry point?
     p->esp = (uint32_t)(p->allocated_kernel_stack + stack_size - sizeof(switched_stack_snapshot_t));
     p->stack_snapshot->return_address = (uint32_t)scheduler_unlocking_entry_point;
     p->page_directory = get_kernel_page_directory();
@@ -430,9 +431,9 @@ void cleanup_process(process_t *proc) {
     if (proc->user_proc.executable_path != NULL)
         kfree(proc->user_proc.executable_path);
     if (proc->user_proc.argv != NULL)
-        free_str_ptr_arr(proc->user_proc.argv);
+        free_strvec(proc->user_proc.argv);
     if (proc->user_proc.envp != NULL)
-        free_str_ptr_arr(proc->user_proc.envp);
+        free_strvec(proc->user_proc.envp);
     
     if (!memchk(&proc->cwd, 0, sizeof(file_t)))
         vfs_closedir(&proc->cwd);

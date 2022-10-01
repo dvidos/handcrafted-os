@@ -104,10 +104,11 @@ struct process {
     pid_t terminated_child_pid;
     int   terminated_child_exit_code;
 
-    // allocated from kernel heap
+    // allocated from kernel heap. 
+    // used for kernel tasks and for the first stage of loading an executable
     void *allocated_kernel_stack;
 
-    // each user process can have a specific page_directory
+    // each user process will have a specific page_directory
     // use get_kernel_page_directory() for kernel
     void *page_directory;
 
@@ -122,7 +123,9 @@ struct process {
         void *heap;           // heap will grow upwards
         uint32_t heap_size;   // to allow sbrk() to work
 
-        // used to set and detect stack underflow
+        // this stack allocated from physical memory
+        // along with the other segments (e.g. .code, .data, .bss)
+        // stack bottom used to set and detect stack underflow
         void *stack_bottom;
         uint32_t stack_size;
 
