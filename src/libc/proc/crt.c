@@ -29,6 +29,9 @@ void _start(int argc, char **argv, char **envp) {
     extern void __init_heap();
     __init_heap();
 
+    extern void __init_env(char **envp);
+    __init_env(envp);
+
     // then call main()
 
     extern int main(int argc, char *argv[], char *envp[]);

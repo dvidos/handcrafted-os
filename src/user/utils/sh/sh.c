@@ -2,7 +2,6 @@
 #include <string.h>
 #include <readline.h>
 #include <stdlib.h>
-#include "env.h"
 #include <errors.h>
 
 // what does a shell support?
@@ -47,7 +46,7 @@ void cmd_echo(int argc, char *argv[]) {
 void cmd_set(int argc, char *argv[]) {
     if (argc <= 1) {
         // show all
-        char **p = envp;
+        char **p = environ;
         while (*p != NULL) {
             printf("%s\n", *p);
             p++;
@@ -163,7 +162,6 @@ readline_t *rl = NULL;
 
 void init() {
     printf("Welcome to shell. Type 'help' for help, 'exit' to... exit\n");
-    initenv();
     rl = init_readline("dv @ shell $ ");
 }
 
@@ -254,9 +252,7 @@ void execute_line(char *line) {
             // so it is a file we can open. try to execute it.
             close(h);
             found = true;
-            
-            char **envp = getenvptr();
-            int err = exec(args->argv[0], args->argv, envp);
+            int err = exec(args->argv[0], args->argv, environ);
             
             if (err < 0) {
                 printf("Error %d executing %s", err, args->argv[0]);

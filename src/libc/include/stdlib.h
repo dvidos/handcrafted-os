@@ -29,23 +29,30 @@ void syslog_hex_dump(int level, void *address, uint32_t length, uint32_t startin
 int getpid();
 int getppid();
 
+
 int sleep(unsigned int milliseconds);
 void exit(int exit_code);
 int fork();
+
+// wait for any child. positive returned value is the PID
 int wait(int *exit_status);
 
+// execute a fule. argv[0] expected to be path
 int exec(char *path, char **argv, char **envp);
 
+
+// environ value may change after setenv()
+extern char **environ;
+void setenv(char *varname, char *value);
+char *getenv(char *varname);
+void unsetenv(char *varname);
 
 
 
 #define DEBUG_HEAP_OPS  1
-
 #ifdef DEBUG_HEAP_OPS
-
     #define malloc(size)          __malloc(size, #size, __FILE__, __LINE__)
     #define heap_verify()         __heap_verify(__FILE__, __LINE__)
-    
     void __heap_verify(char *file, int line);
 #else
     #define malloc(size)          __malloc(size, NULL, NULL, 0)
