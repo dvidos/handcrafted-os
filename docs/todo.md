@@ -1,10 +1,12 @@
 # things to do
 
+* fix file things:
+  * ability to work with cwd and root (resolve absolute && relative paths)
+  * file manipulation in shell (cat, mv, cp, rm)
+
+
 * Make environment changeable in a process - also see this: https://stackoverflow.com/questions/64004206/where-are-environment-variables-of-a-process-is-stored-in-linux and this https://codebrowser.dev/glibc/glibc/stdlib/setenv.c.html
-* Make argc[0] to point to executable name, not first argument
-* Make logging include module name, allow turn on/off per module name
 * Fork, seems to be a nice challenge.
-* syscall to get clock & uptime
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
 * Shell, working dir, chdir, file operations (cp, mv)
 * Resume the vi editor, get to editing some files
@@ -86,6 +88,9 @@ prior allocation.
 
 ## things done
 
+* Make argv[0] to point to executable name, not first argument
+* Make logging include module name, allow turn on/off per module name
+* syscall to get clock & uptime
 * randseed() and rand() in libc (randdemo program as well)
 * exec() and wait() system call allows parents to launch and wait for children
 * File handles + operations per process

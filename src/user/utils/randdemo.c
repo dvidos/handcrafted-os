@@ -16,14 +16,14 @@ void main(int argc, char *argv[]) {
         printf("%10u, ", rand());
     printf("\n");
 
-    if (argc > 0) {
-        uint32_t s = atoui(argv[0]);
-        printf("%u seed: ", s);
-        srand(s);
+    if (argc > 1) {
+        uint32_t seed = atoui(argv[1]);
+        printf("User seed (%u): ", seed);
+        srand(seed);
         for (int i = 0; i < 5; i++)
             printf("%10u, ", rand());
         printf("\n");
     } else { 
-        printf("Pass a seed as argument for testing\n");
+        printf("Pass a seed as first argument for testing\n");
     }
 }

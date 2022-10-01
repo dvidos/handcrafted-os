@@ -17,7 +17,8 @@ int main(int argc, char *argv[], char **envp) {
 
     printf("\n");
 
-    return 0;
+    printf("main() returning 3\n");
+    return 3;
 }
 
 

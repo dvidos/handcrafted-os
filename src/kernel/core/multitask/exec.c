@@ -100,7 +100,10 @@ exit:
 int exec(char *path) {
     // both argv and envp are considered to be terminated by a null ptr.
     char *null_ptr = NULL;
-    return execve(path, &null_ptr, &null_ptr);
+    char *argv[2] = { path, NULL };
+
+    // we should reuse current process' environment
+    return execve(path, argv, &null_ptr);
 }
 
 static void load_and_run_executable() {
