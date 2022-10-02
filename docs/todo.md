@@ -3,9 +3,10 @@
 * fix file things:
   * ability to work with cwd and root (resolve absolute && relative paths)
   * file manipulation in shell (cat, mv, cp, rm)
+  * given an opened directory handle, find and return a dir_entry, based on a path.
 
 
-* Make environment changeable in a process - also see this: https://stackoverflow.com/questions/64004206/where-are-environment-variables-of-a-process-is-stored-in-linux and this https://codebrowser.dev/glibc/glibc/stdlib/setenv.c.html
+* Monitor page with registered file systems, current mounts, and other stats
 * Fork, seems to be a nice challenge.
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
 * Shell, working dir, chdir, file operations (cp, mv)
@@ -65,9 +66,10 @@ something sile the one described [here](https://tiswww.case.edu/php/chet/readlin
 Essentially, allow add, get, index, remove operations without fear of running out, or without
 prior allocation.
 * implement IPC using `send(target, message)`, `receive(target, &message)`, `sendrec()` and `notify()`. See "synchronous message passing" [here](http://www.brokenthorn.com/Resources/OSDev25.html)
-* messages between tasks (IPC) - maybe shared memory ([this one?](https://github.com/stevej/osdev/blob/master/kernel/include/shm.h))
+* messages between tasks (IPC) - maybe shared memory ([this one?](https://github.com/stevej/osdev/blob/master/kernel/include/shm.h)) or [this one](https://tldp.org/LDP/lki/lki-5.html#ss5.2)
 * Mauch later, find way to detect very small timings, to fine tune malloc() for example.
 * porting a compiler for our os (maybe [this](https://wiki.osdev.org/Porting_GCC_to_your_OS) helps)
+* nice documentation about lists, semaphores, tasks, atomic operations [here](https://tldp.org/LDP/lki/lki-2.html#ss2.11)
 * primitive tools (tiny shell, ls, cat, echo, tiny vi etc)
 * greek language keyboard mapping and utf8 support, even in console
 * the four main tasks that user mode code can use (also described in Minix Book)
@@ -88,6 +90,7 @@ prior allocation.
 
 ## things done
 
+* Make environment changeable in a process - also see this: https://stackoverflow.com/questions/64004206/where-are-environment-variables-of-a-process-is-stored-in-linux and this https://codebrowser.dev/glibc/glibc/stdlib/setenv.c.html
 * Make argv[0] to point to executable name, not first argument
 * Make logging include module name, allow turn on/off per module name
 * syscall to get clock & uptime

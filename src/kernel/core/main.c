@@ -26,6 +26,8 @@
 #include <filesys/vfs.h>
 #include <filesys/fat.h>
 #include <filesys/ext2.h>
+#include <filesys/drivers.h>
+#include <filesys/mount.h>
 #include <monitor.h>
 
 // Check if the compiler thinks you are targeting the wrong operating system.

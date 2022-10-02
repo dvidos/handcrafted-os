@@ -1,5 +1,6 @@
 #include <filesys/vfs.h>
 #include <filesys/partition.h>
+#include <filesys/drivers.h>
 
 static int probe(struct partition *partition);
 

@@ -3,6 +3,8 @@
 
 #include <filesys/vfs.h>
 #include <filesys/partition.h>
+#include <filesys/drivers.h>
+#include <filesys/mount.h>
 #include <drivers/clock.h>
 #include <lock.h>
 #include <klog.h>

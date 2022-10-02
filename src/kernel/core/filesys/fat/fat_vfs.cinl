@@ -158,7 +158,7 @@ static int fat_probe(struct partition *partition) {
     debug_fat_info(fat);
 
     // we should register something with the VFS or logical volume manager?
-    partition->filesys_priv_data = fat;
+    partition->fs_driver_priv_data = fat;
     return SUCCESS;
 }
 
@@ -167,7 +167,7 @@ static int fat_probe(struct partition *partition) {
 
 static int fat_open(char *path, file_t *file) {
     klog_trace("fat_open(path=\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
     int err;
 
     fat_dir_entry entry;
@@ -180,22 +180,22 @@ static int fat_open(char *path, file_t *file) {
     err = fat->ops->priv_file_open(fat, entry.first_cluster_no, entry.file_size, &pf);
     if (err)
         return err;
-    file->filesys_priv_data = pf;
+    file->fs_driver_priv_data = pf;
 
     return SUCCESS;
 }
 
 static int fat_read(file_t *file, char *buffer, int length) {
     klog_trace("fat_read(length=%d)", length);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->fs_driver_priv_data;
     return fat->ops->priv_file_read(fat, pf, buffer, length);
 }
 
 static int fat_write(file_t *file, char *buffer, int length) {
     klog_trace("fat_write(length=%d)", length);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->fs_driver_priv_data;
     acquire(&fat_write_lock);
     int err = fat->ops->priv_file_write(fat, pf, buffer, length);
     release(&fat_write_lock);
@@ -204,42 +204,42 @@ static int fat_write(file_t *file, char *buffer, int length) {
 
 static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
     klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->fs_driver_priv_data;
     return fat->ops->priv_file_seek(fat, pf, offset, origin);
 }
 
 static int fat_close(file_t *file) {
     klog_trace("fat_close()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_file_info *pf = (fat_priv_file_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
+    fat_priv_file_info *pf = (fat_priv_file_info *)file->fs_driver_priv_data;
     return fat->ops->priv_file_close(fat, pf);
 }
 
 static int fat_opendir(char *path, file_t *file) {
     klog_trace("fat_opendir(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
 
     fat_priv_dir_info *pd = NULL;
     int err = fat->ops->priv_dir_find_and_open(fat, path, false, &pd);
     if (err) return err;
-    file->filesys_priv_data = pd;
+    file->fs_driver_priv_data = pd;
 
     return SUCCESS;
 }
 
 static int fat_rewinddir(file_t *file) {
     klog_trace("fat_rewinddir()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_priv_data;
     
     return fat->ops->priv_dir_seek_slot(fat, pd, 0);
 }
 
 static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
     klog_trace("fat_readdir()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_priv_data;
     
     fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
     int err = fat->ops->priv_dir_read_one_entry(fat, pd, fat_entry);
@@ -256,8 +256,8 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
 
 static int fat_closedir(file_t *file) {
     klog_trace("fat_closedir()");
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_priv_data;
 
     int err = fat->ops->priv_dir_close(fat, pd);
     return err;
@@ -265,7 +265,7 @@ static int fat_closedir(file_t *file) {
 
 static int fat_mkdir(char *path, file_t *file) {
     klog_trace("fat_mkdir(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
     char *name = NULL;
     int err;
 
@@ -297,7 +297,7 @@ exit:
 
 static int fat_touch(char *path, file_t *file) {
     klog_trace("fat_touch(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
     char *name = NULL;
     int err;
 
@@ -329,7 +329,7 @@ exit:
 
 static int fat_unlink(char *path, file_t *file) {
     klog_trace("fat_touch(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->partition->filesys_priv_data;
+    fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
     int err;
     char *name = NULL;
     fat_dir_entry *entry = NULL;
