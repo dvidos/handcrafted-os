@@ -28,7 +28,7 @@ void vfs_register_file_system_driver(struct file_system_driver *driver) {
     driver->next = NULL;
 }
 
-struct file_system_driver *find_driver_for_partition(struct partition *partition) {
+struct file_system_driver *find_vfs_driver_for_partition(struct partition *partition) {
     struct file_system_driver *driver = drivers_list;
     while (driver != NULL) {
         int err = driver->probe(partition);

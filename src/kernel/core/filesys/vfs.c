@@ -10,6 +10,46 @@
 
 MODULE("VFS");
 
+/*
+    see `namei()` for a very traditional conversion of a path name
+    to a pointed file structure
+
+    use a variable `dp` for directory pointer at any time.
+    if path starts with '/' use root_dir (global var), else curr_dir.
+    retrieve device maj/min from this dir
+    call iget() [???]
+        find an inode by dev and inumber
+
+    loop until we walked all the path:
+        verify dp type is directory and permissions exist
+        collect path part up to the next '/' or '\0'
+        search directory for this part, reading disk blocks as needed
+        if not found return error
+        if not more path, check permissions and return
+        if more path, if we got a directory, use that as `dp` for the next loop
+        if completed, call iput() [???] and return
+
+
+    in the Linux device drivers, we see that the api for block 
+    devices is "open(struct inode *p, struct filp *p2)"
+    it says that inode structure already contains a pointer 
+    to the storage device (or partition in our case),
+    which contains pointer to the filesystem driver private data.
+
+    same private data is set in the filp (file_t in our case)
+
+    it seems that, when probing a partition, somehow 
+    the driver will return the "super block" (usually of an ext2)
+    which contains file ops, among other things.
+    it also contains a pointer to the root "dentry"
+
+    so, an inode is information about a file, in the sense of a
+    directory entry, where it is located, traditionally it was an index
+    in a table of file entries, while a file_t structure is information
+    about an open file, e.g. mode (r/w), position, operations pointers etc.
+*/
+
+
 
 
 static int resolve_file_system_and_prepare_file_structure(char *path, file_t *file) {

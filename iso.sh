@@ -15,7 +15,7 @@ cp sysroot/boot/kernel.bin tempdir/boot
 cp -r sysroot/* tempdir
 cat > tempdir/boot/grub/grub.cfg << EOF
 menuentry "kernel" {
-    multiboot /boot/kernel.bin
+    multiboot /boot/kernel.bin root=d2p1
 }
 menuentry "kernel tests" {
     multiboot /boot/kernel.bin tests

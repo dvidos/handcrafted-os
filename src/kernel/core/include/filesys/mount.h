@@ -15,9 +15,13 @@ typedef struct mount_info {
 } mount_info_t;
 
 struct mount_info *vfs_get_mounts_list();
+struct mount_info *vfs_get_root_mount();
+struct mount_info *vfs_get_mount_info_by_numbers(int dev_no, int part_no);
+struct mount_info *vfs_get_mount_info_by_path(char *path);
+
 int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path);
 int vfs_umount(char *path);
-void vfs_discover_and_mount_filesystems(struct partition *partitions_list);
+int vfs_discover_and_mount_filesystems(char *kernel_cmd_line);
 
 
 

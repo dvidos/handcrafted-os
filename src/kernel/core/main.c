@@ -154,10 +154,11 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_pci();
 
     klog_info("Initializing file system...");
+    klog_module_level("MOUNT", LOGLEV_TRACE);
     discover_storage_dev_partitions(storage_mgr_get_devices_list());
     fat_register_vfs_driver();
     ext2_register_vfs_driver();
-    vfs_discover_and_mount_filesystems(get_partitions_list());
+    vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();

@@ -1,12 +1,17 @@
 # things to do
 
+* write a doc how the VFS works
+  * include: storage devices, partitions/logicalvols, filesystems
+  * include: how to write a file system (e.g. FAT or ext2)
+  * include: how to write a storage device driver (e.g. USB stick or loop device)
+
 * fix file things:
   * ability to work with cwd and root (resolve absolute && relative paths)
   * file manipulation in shell (cat, mv, cp, rm)
   * given an opened directory handle, find and return a dir_entry, based on a path.
 
 
-* Monitor page with registered file systems, current mounts, and other stats
+* Monitor page with discovered storage devices and partitions, registered file systems, current mounts, and other stats...
 * Fork, seems to be a nice challenge.
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
 * Shell, working dir, chdir, file operations (cp, mv)
