@@ -78,7 +78,7 @@ void open_filedisk(char *path, size_t size) {
     filedisk_dev->ops = ops;
     filedisk_dev->driver_priv_data = &filedisk_info;
     
-    storage_mgr_register_device(filedisk_dev);
+    register_storage_device(filedisk_dev);
 }
 
 void close_filedisk() {

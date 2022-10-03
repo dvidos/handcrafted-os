@@ -17,6 +17,8 @@ struct partition {
 };
 
 void discover_storage_dev_partitions(struct storage_dev *devices_list);
+
+void register_partition(struct partition *partition);
 struct partition *get_partitions_list();
 struct partition *get_partition(struct storage_dev *dev, uint8_t part_no);
 

@@ -11,7 +11,7 @@ int next_dev_no = 1;
 lock_t devices_list_lock;
 
 
-void storage_mgr_register_device(struct storage_dev *dev) {
+void register_storage_device(struct storage_dev *dev) {
     acquire(&devices_list_lock);
     dev->dev_no = next_dev_no++;
     dev->next = NULL;
@@ -28,11 +28,11 @@ void storage_mgr_register_device(struct storage_dev *dev) {
     klog_debug("Device \"%s\" registered as storage dev #%d", dev->name, dev->dev_no);
 }
 
-struct storage_dev *storage_mgr_get_devices_list() {
+struct storage_dev *get_storage_devices_list() {
     return storage_devices_list;
 }
 
-struct storage_dev *storage_mgr_get_device(int dev_no) {
+struct storage_dev *get_storage_device(int dev_no) {
     struct storage_dev *ptr = storage_devices_list;
     while (ptr != NULL) {
         if (ptr->dev_no == dev_no)

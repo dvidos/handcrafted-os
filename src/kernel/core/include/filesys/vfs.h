@@ -68,6 +68,45 @@ struct file_ops {
     int (*touch)(char *path, file_t *file);
     int (*mkdir)(char *path, file_t *file);
     int (*unlink)(char *path, file_t *file);
+
+    // version 2, using dir_entry as the equivaluent of an inode in unix 
+    // (this may bite us later, when we implement ext2)
+
+    // there should be two file structures:
+    // entry_t   closed file information (size, cluster) - aka inode in linux
+    // file_t    open file information (mode, position)  - aka FILE in linux
+    
+    // we don't work with paths, we work with entries
+    // use an open dir to translate a path to an entry
+    // using an entry we can opendir() the CWD.
+    // so we can have either the root dir, or the CWD
+    // to resolve a path into an entry.
+
+    // all operations (read, write) work with entries
+    // so that they don't need to resolve the path every time
+    // they can use the cluster_no / inode_no or anything 
+    // to affect files fast.
+
+    // i may be naive, thinking i need only two objects,
+    // linux today employs 4: superblock, inode, dentry, file.
+    // maybe I need to delve deeper into ext2?
+    // see https://unix.stackexchange.com/questions/4402/what-is-a-superblock-inode-dentry-and-a-file
+    // and https://developer.ibm.com/tutorials/l-linux-filesystem/
+
+
+    // // open root dir, without any path designated. populate file_t.
+    // // find_dir_entry() and opendir() should be used to open the current directory.
+    // int (*open_root_dir)(file_t *root_dir);
+
+    // // resolve, based on the start dir
+    // // should be fast, iterating on parts of the rel_path,
+    // // could use either root dir or current working dir
+    // int (*find_dir_entry)(file_t *start_dir, char *rel_path, fentry_t *fentry);
+
+    // // open based on entry. entry should contain cluster_no already, so it should be fast.
+    // int (*open)(fentry_t *fentry, file_t *file);
+
+    // int (*opendir)(fentry_t *fentry,  file_t *file);
 };
 
 // lots of vfs info here: https://tldp.org/LDP/lki/lki-3.html

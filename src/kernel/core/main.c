@@ -11,6 +11,7 @@
 #include <drivers/pci.h>
 #include <drivers/sata.h>
 #include <drivers/ata.h>
+#include <drivers/ramdisk.h>
 #include <devices/tty.h>
 #include <memory/virtmem.h>
 #include <memory/kheap.h>
@@ -155,9 +156,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     klog_info("Initializing file system...");
     klog_module_level("MOUNT", LOGLEV_TRACE);
-    discover_storage_dev_partitions(storage_mgr_get_devices_list());
+    discover_storage_dev_partitions(get_storage_devices_list());
     fat_register_vfs_driver();
     ext2_register_vfs_driver();
+    init_ramdisk(2 * 1024 * 1024); // 2 MBs
     vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
 
     klog_info("Initializing multi-tasking...");
@@ -168,12 +170,13 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     timer_pause_blocking(250);
 
     // tty 0-3 - Alt+1 through Alt+4: Shell
-    // tty 4 - Alt+5: system monitor (phys memory, paging, heap, processes, devices etc)
-    // tty 5 - Alt+6: kernel log
-    init_tty_manager(6, 100);
+    // tty 4 - Alt+5: process monitor (memory, heap, processes)
+    // tty 5 - Alt+6: filesystem monitor (devices, partitions, mounts)
+    // tty 6 - Alt+7: kernel log
+    init_tty_manager(7, 100);
 
     // now that we have ttys, let's dedicate one to syslog
-    klog_set_tty(tty_manager_get_device(5));
+    klog_set_tty(tty_manager_get_device(6));
     klog_appender_level(LOGAPP_TTY, LOGLEV_INFO);
 
     // create desired tasks here, 
@@ -188,7 +191,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
 void shell_launcher() {
     klog_info("Shell launcher started, PID %d", proc_getpid());
-    tty_set_title("User Shell");
+    tty_set_title("Shell");
 
     while (true) {
         tty_write("Launching user-space shell program\n");
@@ -200,15 +203,15 @@ void shell_launcher() {
             pid_t child_proc = (pid_t)err;
             int exit_code = 0;
             err = proc_wait_child(&exit_code);
-            printf("wait() returned %d, child process exit code is %d\n", err, exit_code);
+            printf("Shell exit code was %d\n", exit_code);
         }
-        proc_sleep(1000);
     }
 }
 
 void create_some_processes() {
     
-    for (int tty = 0; tty < 4; tty++) {
+    int tty;
+    for (tty = 0; tty < 4; tty++) {
         process_t *proc = create_process(
             "Shell Launcher", 
             shell_launcher, 
@@ -219,12 +222,21 @@ void create_some_processes() {
         start_process(proc);
     }
 
-    process_t *monitor_proc = create_process(
-        "Monitor", 
-        monitor_main, 
-        PRIORITY_KERNEL,
+    process_t *proc_monitor_proc = create_process(
+        "Process Monitor", 
+        process_monitor_main, 
+        PRIORITY_USER_PROGRAM,
         0,
-        tty_manager_get_device(4)
+        tty_manager_get_device(tty++)
     );
-    start_process(monitor_proc);
+    start_process(proc_monitor_proc);
+
+    process_t *vfs_monitor_proc = create_process(
+        "VFS Monitor", 
+        vfs_monitor_main, 
+        PRIORITY_USER_PROGRAM,
+        0,
+        tty_manager_get_device(tty++)
+    );
+    start_process(vfs_monitor_proc);
 }

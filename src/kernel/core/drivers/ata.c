@@ -482,7 +482,7 @@ static struct storage_dev_ops ide_ops = {
     .write = storage_dev_write
 };
 
-static void register_storage_device(struct pci_dev_driver_data *data, int drive_no, pci_device_t *pci_device) {
+static void register_drive(struct pci_dev_driver_data *data, int drive_no, pci_device_t *pci_device) {
     // prepare registration info
     char *name = kmalloc(80);
     sprintfn(name, 80, "IDE %s %s (drive_no #%d): %s",
@@ -503,7 +503,7 @@ static void register_storage_device(struct pci_dev_driver_data *data, int drive_
     storage_dev->driver_priv_data = priv_data;
     storage_dev->ops = &ide_ops;
 
-    storage_mgr_register_device(storage_dev);
+    register_storage_device(storage_dev);
 }
 
 static bool probe_drive(struct ide_drive *drive, struct ide_channel *channel, char *buffer) {
@@ -641,7 +641,7 @@ static int probe(pci_device_t *pci_dev) {
             // ata_rw_operation(ATA_READ, drive_no, 1, 1, 0, (uint32_t)buffer);
             // klog_hex16_info(buffer, 512, 512);
 
-            register_storage_device(driver_data, drive_no, pci_dev);
+            register_drive(driver_data, drive_no, pci_dev);
         }
     }
 

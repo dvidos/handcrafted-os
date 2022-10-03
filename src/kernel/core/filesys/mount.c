@@ -48,7 +48,7 @@ struct mount_info *vfs_get_mount_info_by_path(char *path) {
 int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
     klog_trace("vfs_mount(%d, %d, \"%s\")", dev_no, part_no, path);
 
-    struct storage_dev *dev = storage_mgr_get_device(dev_no);
+    struct storage_dev *dev = get_storage_device(dev_no);
     if (dev == NULL) {
         klog_error("Storage dev %d not found - cannot mount root filesystem", dev_no);
         return ERR_NO_DEVICE;

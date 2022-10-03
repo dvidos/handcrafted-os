@@ -2,7 +2,8 @@
 #define _MONITOR_H
 
 
-void monitor_main();
+void process_monitor_main();
+void vfs_monitor_main();
 
 
 #endif

@@ -6,6 +6,11 @@
 #include <memory/kheap.h>
 #include <drivers/clock.h>
 #include <drivers/timer.h>
+#include <devices/storage_dev.h>
+#include <filesys/partition.h>
+#include <filesys/partition.h>
+#include <filesys/mount.h>
+#include <filesys/drivers.h>
 
 
 static void show_process(bool title, process_t *p, int *row) {
@@ -42,8 +47,8 @@ void show_process_list(proc_list_t *list, int *row) {
         show_process(false, p, row);
 }
 
-void monitor_main() {
-    tty_set_title("Monitor");
+void process_monitor_main() {
+    tty_set_title("Process Monitor");
 
     real_time_clock_info_t time;
     char *days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -125,5 +130,71 @@ void monitor_main() {
         show_process_list(&terminated_list, &row);
  
         proc_sleep(1500);
+    }
+}
+
+
+void vfs_monitor_main() {
+    tty_set_title("VFS Monitor");
+
+    while (true) {
+        tty_clear();
+        int row = 0;
+
+
+        tty_set_cursor(row++, 0);
+        printf("---------- Storage Devices ----------");
+        tty_set_cursor(row++, 0);
+        printf("DevNo Name                          ");
+        //     |  n   123456789012345678901234567890
+        struct storage_dev *dev = get_storage_devices_list();
+        while (dev != NULL) {
+            tty_set_cursor(row++, 0);
+            printf(" %2d   %s", dev->dev_no, dev->name);
+            dev = dev->next;
+        }
+        row++;
+
+        tty_set_cursor(row++, 0);
+        printf("---------- Logical Volumes ----------");
+        tty_set_cursor(row++, 0);
+        printf("Dev Part Tp B Name                                      Sectors  1st    count");
+        //     | n    n  XX * 123456789012345678901234567890123456789012345 12345678 12345678
+        struct partition *part = get_partitions_list();
+        while (part != NULL) {
+            tty_set_cursor(row++, 0);
+            printf("%2d   %2d  %02x %c %-45s %8d %8d",
+                part->dev->dev_no,
+                part->part_no,
+                part->legacy_type,
+                part->bootable ? 'B' : ' ',
+                part->name,
+                part->first_sector,
+                part->num_sectors
+            );
+            part = part->next;
+        }
+        row++;
+
+
+        tty_set_cursor(row++, 0);
+        printf("---------- Mounted Filesystems ----------");
+        tty_set_cursor(row++, 0);
+        printf("Dev Part Driver     Mount point");
+        //     | n    n  1234567890 123456789012345678901234567890
+        struct mount_info *mnt = vfs_get_mounts_list();
+        while (mnt != NULL) {
+            tty_set_cursor(row++, 0);
+            printf("%2d   %2d  %-10s %s",
+                mnt->dev->dev_no,
+                mnt->part->part_no,
+                mnt->driver->name,
+                mnt->path
+            );
+            mnt = mnt->next;
+        }
+        row++;
+
+        proc_sleep(2000);
     }
 }

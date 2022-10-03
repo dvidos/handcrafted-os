@@ -23,9 +23,9 @@ struct storage_dev_ops {
     int (*write)(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer);
 };
 
-void storage_mgr_register_device(struct storage_dev *dev);
-struct storage_dev *storage_mgr_get_devices_list();
-struct storage_dev *storage_mgr_get_device(int dev_no);
+void register_storage_device(struct storage_dev *dev);
+struct storage_dev *get_storage_devices_list();
+struct storage_dev *get_storage_device(int dev_no);
 
 
 

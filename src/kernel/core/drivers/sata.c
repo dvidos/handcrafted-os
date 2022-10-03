@@ -694,7 +694,7 @@ static int probe(pci_device_t *pci_dev) {
         storage_dev->driver_priv_data = priv_data;
         storage_dev->ops = &sata_ops;
         
-        storage_mgr_register_device(storage_dev);
+        register_storage_device(storage_dev);
     }
     return 0;
 }

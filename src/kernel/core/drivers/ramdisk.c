@@ -64,11 +64,12 @@ void init_ramdisk(size_t size) {
 
     struct storage_dev *ramdisk_dev = kmalloc(sizeof(struct storage_dev));
     memset(ramdisk_dev, 0, sizeof(struct storage_dev));
-    ramdisk_dev->name = "RAM disk";
+    ramdisk_dev->name = kmalloc(64);
+    sprintfn(ramdisk_dev->name, 64, "RAM disk (%d bytes at 0x%p)", ramdisk_info.size, ramdisk_info.address);
     ramdisk_dev->ops = ops;
     ramdisk_dev->driver_priv_data = &ramdisk_info;
     
-    storage_mgr_register_device(ramdisk_dev);
+    register_storage_device(ramdisk_dev);
 }
 
 

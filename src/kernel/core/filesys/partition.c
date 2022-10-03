@@ -26,7 +26,7 @@ struct partition *get_partition(struct storage_dev *dev, uint8_t part_no) {
     return NULL;
 }
 
-static void add_partition(struct partition *partition) {
+void register_partition(struct partition *partition) {
     if (partitions_list == NULL) {
         partitions_list = partition;
     } else {
@@ -123,7 +123,7 @@ static bool check_gpt_partition_table(struct storage_dev *dev, char *buffer) {
         }
 
         char *name = kmalloc(64);
-        sprintfn(name, 64, "Partition %d (%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)",
+        sprintfn(name, 64, "Pt %d (%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)",
             part_no,
             partition_guid[0], partition_guid[1], partition_guid[2], partition_guid[3], 
             partition_guid[4], partition_guid[5], partition_guid[6], partition_guid[7], 
@@ -136,7 +136,7 @@ static bool check_gpt_partition_table(struct storage_dev *dev, char *buffer) {
         part->first_sector = LOW_DWORD(starting_lba);
         part->num_sectors = ending_lba - starting_lba;
         part->bootable = (attributes & 0x02);
-        add_partition(part);
+        register_partition(part);
 
         // move to the next
         entry_offset += partition_entry_size;
@@ -217,7 +217,7 @@ static bool check_legacy_partition_table(struct storage_dev *dev, uint32_t start
         part->legacy_type = system_id;
         part->dev = dev;
         found_something = true;
-        add_partition(part);
+        register_partition(part);
     }
 
     // now that we're done parsing our shared buffer, we can recurse
