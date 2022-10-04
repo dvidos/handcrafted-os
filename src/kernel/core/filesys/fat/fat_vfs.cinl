@@ -7,29 +7,30 @@
 // needed to lock for writes, this should be per logical volume....
 lock_t fat_write_lock;
 
-static int fat_probe(struct partition *partition) {
+static int fat_supported(struct partition *partition) {
     klog_trace("FAT probing partition #%d (legacy type 0x%02x)", partition->part_no, partition->legacy_type);
+    int err;
 
+    if (partition->dev->ops->sector_size(partition->dev) != 512) {
+        klog_error("Only devices with 512 bytes sectors are supported");
+        return ERR_NOT_SUPPORTED;
+    }
     if (sizeof(fat_boot_sector_t) != 512) {
         klog_error("Boot sector struct would not align with reading of a sector");
         return ERR_NOT_SUPPORTED;
     }
     
-    // let's check the first sector of the partition.
+    // check the first sector of the partition.
     fat_boot_sector_t *boot_sector = kmalloc(sizeof(fat_boot_sector_t));
     memset(boot_sector, 0, sizeof(fat_boot_sector_t));
-    int err = partition->dev->ops->read(
-        partition->dev, 
-        partition->first_sector, 0,
-        1,
-        (char *)boot_sector
-    );
+    err = partition->dev->ops->read(partition->dev, partition->first_sector, 0, 1, (char *)boot_sector);
     if (err) {
         klog_debug("Err %d reading first sector of partition", err);
         kfree(boot_sector);
         return err;
     }
     
+    // berify some magic numbers
     if (boot_sector->bootjmp[0] != 0xEB ||
         boot_sector->bytes_per_sector != 512 ||
         boot_sector->number_of_fats != 2 ||
@@ -47,8 +48,59 @@ static int fat_probe(struct partition *partition) {
         return ERR_NOT_SUPPORTED;
     }
 
+    if (boot_sector->types.fat_12_16.boot_signature == 0x28 || 
+        boot_sector->types.fat_12_16.boot_signature == 0x29) {
+        klog_debug("FAT12/16 detected");
+        err = SUCCESS;
+    } else if (boot_sector->types.fat_32.boot_signature == 0x28 ||
+        boot_sector->types.fat_32.boot_signature == 0x29) {
+        klog_debug("FAT32 detected");
+        err = SUCCESS;
+    } else {
+        klog_debug("Neither FAT12/16, nor FAT32, unsupported");
+        err = ERR_NOT_SUPPORTED;
+    }
+
+    kfree(boot_sector);
+    return err;
+}
+
+
+static int fat_open_superblock(struct partition *partition, struct superblock *superblock) {
+    klog_trace("fat_open_superblock(dev %d, part %d)", partition->dev->dev_no, partition->part_no);
+
+    int err = fat_supported(partition);
+    if (err)
+        return err;
+
+    fat_info *fat = NULL;
+    fat_boot_sector_t *boot_sector = kmalloc(sizeof(fat_boot_sector_t));
+    memset(boot_sector, 0, sizeof(fat_boot_sector_t));
+    err = partition->dev->ops->read(partition->dev, partition->first_sector, 0, 1, (char *)boot_sector);
+    if (err) {
+        klog_debug("Err %d reading first sector of partition", err);
+        goto error;
+    }
+    
+    if (boot_sector->bootjmp[0] != 0xEB ||
+        boot_sector->bytes_per_sector != 512 ||
+        boot_sector->number_of_fats != 2 ||
+        (boot_sector->total_sectors_16bits == 0 && boot_sector->total_sectors_32bits == 0) ||
+        (
+            boot_sector->types.fat_12_16.boot_signature != 0x28 &&
+            boot_sector->types.fat_12_16.boot_signature != 0x29 && 
+            boot_sector->types.fat_32.boot_signature != 0x28 &&
+            boot_sector->types.fat_32.boot_signature != 0x29
+        ) ||
+        boot_sector->bootable_sector_signature != 0xAA55
+    ) {
+        klog_debug("Does not look like a FAT MBR");
+        err = ERR_NOT_SUPPORTED;
+        goto error;
+    }
+
     // fat_info will allow all future operations
-    fat_info *fat = kmalloc(sizeof(fat_info));
+    fat = kmalloc(sizeof(fat_info));
     memset(fat, 0, sizeof(fat_info));
     fat->partition = partition;
     fat->boot_sector = boot_sector;
@@ -72,9 +124,8 @@ static int fat_probe(struct partition *partition) {
         fat->fat_type = FAT32;
     } else {
         klog_debug("Neither FAT12/16, nor FAT32, unsupported");
-        kfree(fat);
-        kfree(boot_sector);
-        return ERR_NOT_SUPPORTED;
+        err = ERR_NOT_SUPPORTED;
+        goto error;
     }
 
     fat->bytes_per_sector = boot_sector->bytes_per_sector;
@@ -157,13 +208,30 @@ static int fat_probe(struct partition *partition) {
     
     debug_fat_info(fat);
 
-    // we should register something with the VFS or logical volume manager?
-    partition->fs_driver_priv_data = fat;
+    superblock->partition = partition;
+    superblock->ops = fat_get_file_operations();
+    superblock->priv_fs_driver_data = fat;
+
     return SUCCESS;
+
+error:
+    if (boot_sector != NULL) kfree(boot_sector);
+    if (fat->ops != NULL) kfree(fat->ops);
+    if (fat != NULL) kfree(fat);
+    return err;
 }
 
+static int fat_close_superblock(struct superblock *superblock) {
+    klog_trace("fat_close_superblock()");
 
+    // ideally we'll sync if needed
 
+    fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
+    kfree(fat->ops);
+    kfree(fat);
+
+    return SUCCESS;
+}
 
 static int fat_open(char *path, file_t *file) {
     klog_trace("fat_open(path=\"%s\")", path);

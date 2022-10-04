@@ -189,7 +189,7 @@ void vfs_monitor_main() {
                 mnt->dev->dev_no,
                 mnt->part->part_no,
                 mnt->driver->name,
-                mnt->path
+                mnt->mount_point
             );
             mnt = mnt->next;
         }

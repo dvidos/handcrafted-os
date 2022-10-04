@@ -77,7 +77,7 @@ static int resolve_file_system_and_prepare_file_structure(char *path, file_t *fi
     file->storage_dev = mount->dev;
     file->partition = mount->part;
     file->driver = mount->driver;
-    file->ops = mount->driver->get_file_operations();
+//     file->ops = mount->driver->get_file_operations();
     klog_debug("Path \"%s\" resolved to device #%d (\"%s\"), partition #%d, file driver \"%s\"",
         path,
         file->storage_dev->dev_no,

@@ -349,7 +349,7 @@ static void draw_tty_buffer_to_screen(tty_t *tty) {
     char buffer[32];
     for (row = 0; row < tty_mgr_data.header_lines; row++)
         screen_draw_full_row(' ', header_color, row);
-    sprintfn(buffer, sizeof(buffer), "tty %d: ", tty->dev_no);
+    sprintfn(buffer, sizeof(buffer), "tty %d: ", (tty->dev_no + 1));
     screen_draw_str_at(buffer, header_color, 1, 0);
     screen_draw_str_at(
         tty->title == NULL ? "(untitled)" : tty->title, 

@@ -21,8 +21,9 @@ MODULE("FAT");
 
 static struct file_system_driver vfs_driver = {
     .name = "FAT",
-    .probe = fat_probe,
-    .get_file_operations = fat_get_file_operations
+    .supported = fat_supported,
+    .open_superblock = fat_open_superblock,
+    .close_superblock = fat_close_superblock,
 };
 
 // this is the only public method. all the rest go through pointers

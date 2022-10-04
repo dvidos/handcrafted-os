@@ -2,17 +2,21 @@
 #define _DRIVERS_H
 
 #include <devices/storage_dev.h>
-#include <filesys/partition.h>
+
+struct partition;
+struct superblock;
 
 struct file_system_driver {
-    char *name; // e.g. "FAT", "ext2" etc.
     struct file_system_driver *next;
-
-    // probe() looks at a storage dev to see if the filesystem can be understood 
-    int (*probe)(struct partition *partition);
     
-    // returns file operations pointers for this partition
-    struct file_ops *(*get_file_operations)();
+    char *name; // e.g. "FAT", "ext2" etc.
+
+    // supported() looks at a storage dev to see if the filesystem can be understood 
+    int (*supported)(struct partition *partition);
+    
+    // used in (un)mount operations
+    int (*open_superblock)(struct partition *partition, struct superblock *superblock);
+    int (*close_superblock)(struct superblock *superblock);
 };
 
 

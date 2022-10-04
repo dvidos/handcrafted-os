@@ -8,9 +8,9 @@ typedef struct mount_info {
     struct storage_dev *dev;
     struct partition *part;
     struct file_system_driver *driver;
-    char *path;
-    void *driver_private_data;
-    struct file_ops *ops;
+    struct superblock *superblock;
+    char *mount_point;
+    
     struct mount_info *next;
 } mount_info_t;
 

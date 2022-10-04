@@ -38,7 +38,7 @@ struct mount_info *vfs_get_mount_info_by_numbers(int dev_no, int part_no) {
 struct mount_info *vfs_get_mount_info_by_path(char *path) {
     struct mount_info *p = mounts_list;
     while (p != NULL) {
-        if (strcmp(p->path, path) == 0)
+        if (strcmp(p->mount_point, path) == 0)
             return p;
         p = p->next;
     }
@@ -64,23 +64,29 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
         return ERR_NO_DRIVER_FOUND;
     }
 
+    struct superblock *sb = kmalloc(sizeof(struct superblock));
+    memset(sb, 0, sizeof(struct superblock));
+    int err = driver->open_superblock(part, sb);
+    if (err) {
+        klog_error("Error %d, driver opening superblock", err);
+        kfree(sb);
+        return err;
+    }
+
     // so now we can mount?
     struct mount_info *mount = kmalloc(sizeof(struct mount_info));
     mount->dev = dev;
     mount->part = part;
     mount->driver = driver;
-    mount->ops = driver->get_file_operations();
-    mount->driver_private_data = NULL;
-    mount->path = kmalloc(strlen(path) + 1);
-    strcpy(mount->path, path);
+    mount->superblock = sb;
+    mount->mount_point = kmalloc(strlen(path) + 1);
+    strcpy(mount->mount_point, path);
 
-    // we need to get superblock information, 
-    // which will include file and fs operations
-    // also we should open (get a file_t pointer) the root directory as well.
-    
     add_mount_info_to_list(mount);
-    if (strcmp(mount->path, "/") == 0)
+    if (strcmp(mount->mount_point, "/") == 0)
         root_mount_info = mount;
+
+    // we should also open the root directory.
     
     return SUCCESS;
 }

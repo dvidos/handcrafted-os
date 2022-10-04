@@ -307,7 +307,7 @@ static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_in
 
 
 // fat vfs interaction
-static int fat_probe(struct partition *partition);
+static int fat_supported(struct partition *partition);
 static struct file_ops *fat_get_file_operations();
 
 static int fat_opendir(char *path, file_t *file);

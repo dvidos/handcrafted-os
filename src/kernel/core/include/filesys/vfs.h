@@ -2,7 +2,17 @@
 #define _VFS_H
 
 #include <ctypes.h>
+#include <filesys/drivers.h>
+#include <filesys/partition.h>
 
+
+
+// structure representing an "opened" filesystem
+struct superblock {
+    struct partition *partition;
+    struct file_ops *ops;
+    void *priv_fs_driver_data;
+};
 
 struct file_timestamp {
     uint16_t year;
@@ -23,6 +33,10 @@ typedef struct dir_entry {
     } flags;
     struct file_timestamp created;
     struct file_timestamp modified;
+
+    // fat cluster number or inode num should be in here
+    // to allow for fast opening, without path resolution.
+    void *priv_fs_driver_data;
 } dir_entry_t;
 
 struct file_ops;
@@ -32,7 +46,7 @@ typedef struct file {
     struct partition *partition;
     struct file_system_driver *driver;
     
-    char *path; // relative to mount point
+    char *path; // relative to mount point ?
     // we should have a pointer to the dir_entry here!
     void *fs_driver_priv_data;
     struct file_ops *ops;
@@ -54,6 +68,15 @@ enum seek_origin {
 
 
 struct file_ops {
+    // to create things in root dir, we need extra functions
+    // fentry and file should contain pointers to superblock,
+    // hence to partition, to storage_dev, and to priv_fat_data, 
+    int (*open_root_dir)(struct superblock *sb, file_t *file);
+    int (*find_entry)(file_t *dir, char *path, dir_entry_t *entry);
+    int (*open_entry)(dir_entry_t *entry, file_t *file);
+    // how about touch, mkdir, unlink???
+
+
     int (*opendir)(char *path, file_t *file);
     int (*rewinddir)(file_t *file);
     int (*readdir)(file_t *file, dir_entry_t *entry);
@@ -93,20 +116,6 @@ struct file_ops {
     // see https://unix.stackexchange.com/questions/4402/what-is-a-superblock-inode-dentry-and-a-file
     // and https://developer.ibm.com/tutorials/l-linux-filesystem/
 
-
-    // // open root dir, without any path designated. populate file_t.
-    // // find_dir_entry() and opendir() should be used to open the current directory.
-    // int (*open_root_dir)(file_t *root_dir);
-
-    // // resolve, based on the start dir
-    // // should be fast, iterating on parts of the rel_path,
-    // // could use either root dir or current working dir
-    // int (*find_dir_entry)(file_t *start_dir, char *rel_path, fentry_t *fentry);
-
-    // // open based on entry. entry should contain cluster_no already, so it should be fast.
-    // int (*open)(fentry_t *fentry, file_t *file);
-
-    // int (*opendir)(fentry_t *fentry,  file_t *file);
 };
 
 // lots of vfs info here: https://tldp.org/LDP/lki/lki-3.html
