@@ -10,6 +10,9 @@
   * file manipulation in shell (cat, mv, cp, rm)
   * given an opened directory handle, find and return a dir_entry, based on a path.
 
+* go and rename all "file_system" names into "filesys" for brevity
+* go and typedef all "struct storage_dev" etc into "_t" types
+
 
 * Monitor page with discovered storage devices and partitions, registered file systems, current mounts, and other stats...
 * Fork, seems to be a nice challenge.

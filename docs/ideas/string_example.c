@@ -42,7 +42,7 @@ struct string_struct {
 };
 
 string_t *create_string(int initial_capacity);
-string_t *destroy_string(string_t *string);
+void destroy_string(string_t *string);
 
 /* -------------------------------
  * Contents of the "string.c" file
@@ -107,7 +107,7 @@ string_t *create_string(int initial_capacity) {
     return string;
 }
 
-string_t *destroy_string(string_t *string) {
+void destroy_string(string_t *string) {
     if (string->priv) {
         if (string->priv->buffer)
             free(string->priv->buffer);
@@ -117,9 +117,5 @@ string_t *destroy_string(string_t *string) {
         free(string->ops);
     }
     free(string);
-
-    // return NULL to allow caller nullify the variable in one call:
-    // ptr = destroy_string(ptr);
-    return NULL;
 }
 
