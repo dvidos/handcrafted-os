@@ -33,7 +33,7 @@ KERNEL_C_FILES = \
 	$(wildcard core/konsole/*.c) \
 	$(wildcard core/devices/*.c) \
 	$(wildcard core/filesys/*.c) \
-	$(wildcard core/filesys/fat/*.c) \
+	$(wildcard core/filesys/fat/fat.c) \
 	$(wildcard core/klib/*.c)
 
 KERNEL_HEADERS = \

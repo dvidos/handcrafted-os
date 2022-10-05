@@ -12,12 +12,13 @@
 
 MODULE("FAT");
 
-#include "dir_entry.cinl"
-#include "debug.cinl"
-#include "clusters.cinl"
-#include "fat_dir_ops.cinl"
-#include "fat_file_ops.cinl"
-#include "fat_vfs.cinl"
+
+#include "dir_entry.c"
+#include "debug.c"
+#include "clusters.c"
+#include "fat_dir_ops.c"
+#include "fat_file_ops.c"
+#include "fat_vfs.c"
 
 static struct file_system_driver vfs_driver = {
     .name = "FAT",

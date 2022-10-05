@@ -1,5 +1,6 @@
 #include "fat_priv.h"
 
+
 static void debug_fat_info(fat_info *fat) {
     klog_debug("FAT info");
     klog_debug("  type                   FAT%d", fat->fat_type == FAT32 ? 32 : (fat->fat_type == FAT16 ? 16 : 12));

@@ -3,6 +3,7 @@
 #include <klog.h>
 
 
+
 static int read_fat_sector(fat_info *fat, uint32_t sector_no, sector_t *sector) {
     int err = fat->partition->dev->ops->read(fat->partition->dev,
         fat->fat_starting_lba + sector_no, 0,

@@ -1,5 +1,5 @@
-#ifndef _FAT_DIR_OPS_CINL
-#define _FAT_DIR_OPS_CINL
+#ifndef _FAT_DIR_OPS_C
+#define _FAT_DIR_OPS_C
 
 #include <drivers/clock.h>
 #include <filesys/vfs.h>

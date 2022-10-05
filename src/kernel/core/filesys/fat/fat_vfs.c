@@ -1,8 +1,10 @@
 #include <errors.h>
 #include <klib/string.h>
 #include "fat_priv.h"
-#include "fat_dir_ops.cinl"
-#include "fat_file_ops.cinl"
+#include "fat_dir_ops.c"
+#include "fat_file_ops.c"
+
+
 
 // needed to lock for writes, this should be per logical volume....
 lock_t fat_write_lock;

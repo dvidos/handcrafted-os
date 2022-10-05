@@ -1,5 +1,5 @@
-#ifndef _FAT_FILE_OPS_CINL
-#define _FAT_FILE_OPS_CINL
+#ifndef _FAT_FILE_OPS_C
+#define _FAT_FILE_OPS_C
 
 #include <filesys/vfs.h>
 #include <memory/kheap.h>
