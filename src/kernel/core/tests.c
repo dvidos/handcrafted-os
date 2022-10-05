@@ -468,7 +468,7 @@ void test_paths() {
     kfree(p);
 
     p = strdup("/usr/var/log/");
-    assert(strcmp(dirname(p), "/usr/val") == 0);
+    assert(strcmp(dirname(p), "/usr/var") == 0);
     kfree(p);
 
     p = strdup("/usr/var/log/");
