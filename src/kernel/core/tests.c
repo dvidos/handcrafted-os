@@ -455,6 +455,41 @@ void test_paths() {
     err = get_n_index_path_part(path, 0, buffer);
     assert(err == SUCCESS);
     assert(strcmp(buffer, "usr") == 0);
+
+
+    // for expectations see https://linux.die.net/man/3/dirname
+
+    char *p = strdup("/usr/home/file.txt");
+    assert(strcmp(dirname(p), "/usr/home") == 0);
+    kfree(p);
+
+    p = strdup("/usr/home/file.txt");
+    assert(strcmp(pathname(p), "file.txt") == 0);
+    kfree(p);
+
+    p = strdup("/usr/var/log/");
+    assert(strcmp(dirname(p), "/usr/val") == 0);
+    kfree(p);
+
+    p = strdup("/usr/var/log/");
+    assert(strcmp(pathname(p), "log") == 0);
+    kfree(p);
+
+    p = strdup("file");
+    assert(strcmp(dirname(p), ".") == 0);
+    kfree(p);
+
+    p = strdup("file");
+    assert(strcmp(pathname(p), "file") == 0);
+    kfree(p);
+
+    p = strdup("/");
+    assert(strcmp(dirname(p), "/") == 0);
+    kfree(p);
+
+    p = strdup("/");
+    assert(strcmp(pathname(p), "/") == 0);
+    kfree(p);
 }
 
 

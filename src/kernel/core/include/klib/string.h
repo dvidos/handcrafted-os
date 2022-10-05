@@ -13,6 +13,10 @@ char *strchr(char *str, char c);
 char *strstr(char *heystack, char *needle);
 char *strtok(char *str, char *delimiters);
 
+// caller is supposed to free the duplicate
+char *strdup(char *str);
+
+
 void memset(void *dest, char value, size_t size);
 void memcpy(void *dest, void *source, size_t size);
 int  memcmp(void *a, void *b, size_t size);

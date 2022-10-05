@@ -18,6 +18,10 @@ char *strchr(char *str, char c);
 char *strstr(char *haystack, char *needle);
 char *strtok(char *str, char *delimiters);
 
+// caller is supposed to free the duplicate
+char *strdup(char *str);
+
+
 // len of str1 that consists of char in str2
 int strspn(char *str1, char *str2);
 

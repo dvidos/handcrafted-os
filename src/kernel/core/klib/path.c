@@ -5,6 +5,80 @@
 MODULE("PATH");
 
 
+// "/home/user/file.txt" --> "/user/home", 
+// "/usr/var/log/"       --> "/usr/var"
+// "path" value may be modified. caller should not free() the returned string.
+char *dirname(char *path) {
+    if (path == NULL)
+        return NULL;
+
+    int len = strlen(path);
+    if (len == 0)
+        return path;
+    if (len == 1 && (*path == '/' || *path == '.'))
+        return path;
+    
+    char *p = path + len - 1;
+
+    // ignore & clear trailing slashes
+    while (p >= path && *p == '/')
+        *p-- = '\0';
+    
+    // if we cleaned the whole path, cannot continue
+    if (p < path)
+        return path;
+
+    // walk backwards, to the start or previous slash
+    while (p >= path && *p != '/')
+        p--;
+    
+    // we are now either before start, or pointing to a slash
+    if (p < path) {
+        // means no slashes were found, plain "file.txt", return curr dir
+        return ".";
+    } else if (p == path) {
+        // means only a root slash existed (e.g. "/file")
+        return "/";
+    } else {
+        // means this is not the first slash, terminate, return up to here
+        *p = '\0';
+        return path;
+    }
+}
+
+// "/home/user/file.txt" --> "file.txt", 
+// "/usr/var/log/"       --> "log"
+// "path" value may be modified. caller should not free() the returned string.
+char *pathname(char *path) {
+    if (path == NULL)
+        return NULL;
+
+    int len = strlen(path);
+    if (len == 0)
+        return path;
+    if (len == 1 && (*path == '/' || *path == '.'))
+        return path;
+    
+    char *p = path + len - 1;
+
+    // ignore & clear trailing slashes
+    while (p >= path && *p == '/')
+        *p-- = '\0';
+    
+    // if we cleaned the whole path, cannot continue
+    if (p < path)
+        return path;
+
+    // walk backwards, to the start or previous slash
+    while (p >= path && *p != '/')
+        p--;
+    
+    // we are now either before start, or pointing to a slash
+    // return from hereon
+    return p + 1;
+}
+
+
 int get_next_path_part(char *path, int *offset, char *buffer) {
     klog_trace("get_next_path_part(path=\"%s\", offset=%d)", path, *offset);
     char *start = path + *offset;
@@ -83,3 +157,4 @@ int get_n_index_path_part(char *path, int n, char *buffer) {
     
     return SUCCESS;
 }
+

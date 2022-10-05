@@ -39,6 +39,16 @@ void strncpy(char *target, char *source, size_t target_size) {
     *target = '\0';
 }
 
+// caller is supposed to free the duplicate
+char *strdup(char *str) {
+    if (str == NULL)
+        return NULL;
+    char *dup = kmalloc(strlen(str) + 1);
+    strcpy(dup, str);
+    return dup;
+}
+
+
 void memset(void *dest, char value, size_t size) {
     char *d = (char *)dest;
     while (size-- > 0) {

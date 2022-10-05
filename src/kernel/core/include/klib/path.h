@@ -2,6 +2,14 @@
 #define _PATH_H
 
 
+// "/home/user/file.txt" --> "/user/home", 
+// "path" value will be modified. caller should not free() the returned string.
+char *dirname(char *path);
+
+// "/home/user/file.txt" --> "file.txt", 
+// "path" value will be modified. caller should not free() the returned string.
+char *pathname(char *path);
+
 // copies the next path component to buffer, advances offset.
 int get_next_path_part(char *path, int *offset, char *buffer);
 
