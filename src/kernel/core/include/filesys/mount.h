@@ -10,7 +10,8 @@ typedef struct mount_info {
     struct file_system_driver *driver;
     struct superblock *superblock;
     char *mount_point;
-    
+    file_t *root_dir;
+
     struct mount_info *next;
 } mount_info_t;
 

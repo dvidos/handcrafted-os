@@ -135,15 +135,19 @@ static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t
 
     strncpy(vfs_entry->short_name, fat_entry->short_name, sizeof(vfs_entry->short_name));
     vfs_entry->file_size = fat_entry->file_size;
+    vfs_entry->file_location_in_device = fat_entry->first_cluster_no;
+
     vfs_entry->flags.label = fat_entry->attributes.flags.volume_label;
     vfs_entry->flags.dir = fat_entry->attributes.flags.directory;
     vfs_entry->flags.read_only = fat_entry->attributes.flags.read_only;
+
     vfs_entry->created.year = fat_entry->created_year;
     vfs_entry->created.month = fat_entry->created_month;
     vfs_entry->created.day = fat_entry->created_day;
     vfs_entry->created.hours = fat_entry->created_hour;
     vfs_entry->created.minutes = fat_entry->created_min;
     vfs_entry->created.seconds = fat_entry->created_sec;
+    
     vfs_entry->modified.year = fat_entry->modified_year;
     vfs_entry->modified.month = fat_entry->modified_month;
     vfs_entry->modified.day = fat_entry->modified_day;

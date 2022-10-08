@@ -14,14 +14,16 @@ static struct mount_info *root_mount_info = NULL;
 static struct mount_info *mounts_list = NULL;
 
 static void add_mount_info_to_list(struct mount_info *info);
+static void remove_mount_info_from_list(struct mount_info *info);
 static void get_desired_root_device(char *kernel_cmd_line, int *dev_no, int *part_no);
+
 
 
 struct mount_info *vfs_get_mounts_list() {
     return mounts_list;
 }
 
-struct mount_info *vfs_get_root_mount_info() {
+struct mount_info *vfs_get_root_mount() {
     return root_mount_info;
 }
 
@@ -64,17 +66,22 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
         return ERR_NO_DRIVER_FOUND;
     }
 
-    struct superblock *sb = kmalloc(sizeof(struct superblock));
+    int err;
+    struct superblock *sb = NULL;
+    struct mount_info *mount = NULL;
+
+    // each mounted filesystem has this structure populated by the fs driver
+    sb = kmalloc(sizeof(struct superblock));
+    sb->driver = driver;
     memset(sb, 0, sizeof(struct superblock));
-    int err = driver->open_superblock(part, sb);
+    err = driver->open_superblock(part, sb);
     if (err) {
         klog_error("Error %d, driver opening superblock", err);
-        kfree(sb);
-        return err;
+        goto error;
     }
 
     // so now we can mount?
-    struct mount_info *mount = kmalloc(sizeof(struct mount_info));
+    mount = kmalloc(sizeof(struct mount_info));
     mount->dev = dev;
     mount->part = part;
     mount->driver = driver;
@@ -82,32 +89,67 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
     mount->mount_point = kmalloc(strlen(path) + 1);
     strcpy(mount->mount_point, path);
 
+    // we also open the root directory (in order to resolve any path names)
+    if (mount->superblock->ops->open_root_dir == NULL) {
+        klog_error("Driver %s does not support open_root_dir() method", driver->name);
+        err = ERR_NOT_SUPPORTED;
+        goto error;
+    }
+    mount->root_dir = kmalloc(sizeof(file_t));
+    err = mount->superblock->ops->open_root_dir(mount->superblock, mount->root_dir);
+    if (err) {
+        klog_error("Error %d when opening superblock", err);
+        goto error;
+    }
+
+    // add to list, keep as root
     add_mount_info_to_list(mount);
     if (strcmp(mount->mount_point, "/") == 0)
         root_mount_info = mount;
 
-    // we should also open the root directory.
-    
+    klog_info("Device %d partition %d, driver \"%s\", now mounted on \"%s\"",
+        mount->dev->dev_no,
+        mount->part->part_no,
+        mount->driver->name,
+        mount->mount_point);
     return SUCCESS;
-}
-
-static void add_mount_info_to_list(struct mount_info *info) {
-    if (mounts_list == NULL) {
-        mounts_list = info;
-    } else {
-        struct mount_info *p = mounts_list;
-        while (p->next != NULL)
-            p = p->next;
-        p->next = info;
+error:
+    if (sb != NULL) kfree(sb);
+    if (mount != NULL) {
+        if (mount->mount_point != NULL) kfree(mount->mount_point);
+        if (mount->root_dir != NULL) kfree(mount->root_dir);
+        kfree(mount);
     }
-    info->next = NULL;
+    return err;
 }
-
 
 int vfs_umount(char *path) {
     klog_trace("vfs_umount(\"%s\")", path);
-    // remember to free mount->path as well
-    return ERR_NOT_IMPLEMENTED;
+    int err;
+
+    mount_info_t *mount = vfs_get_mount_info_by_path(path);
+    if (mount == NULL)
+        return ERR_NOT_FOUND;
+
+    if (mount->root_dir != NULL) {
+        err = mount->superblock->ops->closedir(mount->root_dir);
+        if (err) return err;
+    }
+
+    err = mount->driver->close_superblock(mount->superblock);
+    if (err) return err;
+
+    remove_mount_info_from_list(mount);
+    if (strcmp(mount->mount_point, "/") == 0)
+        root_mount_info = NULL;
+
+
+    if (mount->root_dir != NULL) kfree(mount->root_dir);
+    kfree(mount->superblock);
+    kfree(mount->mount_point);
+    kfree(mount);
+
+    return SUCCESS;
 }
 
 int vfs_discover_and_mount_filesystems(char *kernel_cmd_line) {
@@ -154,6 +196,31 @@ int vfs_discover_and_mount_filesystems(char *kernel_cmd_line) {
     return SUCCESS;
 }
 
+
+static void add_mount_info_to_list(struct mount_info *info) {
+    if (mounts_list == NULL) {
+        mounts_list = info;
+    } else {
+        struct mount_info *p = mounts_list;
+        while (p->next != NULL)
+            p = p->next;
+        p->next = info;
+    }
+    info->next = NULL;
+}
+
+static void remove_mount_info_from_list(struct mount_info *info) {
+    if (mounts_list == info) {
+        mounts_list = info->next;
+    } else {
+        struct mount_info *p = mounts_list->next;
+        while (p->next != NULL && p->next != info)
+            p = p->next;
+        if (p->next == info)
+            p->next = info->next;
+    }
+    info->next = NULL;
+}
 
 static void get_desired_root_device(char *kernel_cmd_line, int *dev_no, int *part_no) {
     // a root device can be designated in the kernel cmdline.

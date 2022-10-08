@@ -5,7 +5,6 @@
 #include "fat_file_ops.c"
 
 
-
 // needed to lock for writes, this should be per logical volume....
 lock_t fat_write_lock;
 
@@ -286,6 +285,84 @@ static int fat_close(file_t *file) {
     return fat->ops->priv_file_close(fat, pf);
 }
 
+
+static int fat_open_root_dir(struct superblock *sb, file_t *file) {
+    klog_trace("fat_open_root_dir()");
+    fat_info *fat = (fat_info *)sb->priv_fs_driver_data;
+
+    file->superblock = sb;
+    file->driver = sb->driver;
+    file->partition = sb->partition;
+    file->storage_dev = sb->partition->dev;
+    file->path = "/";
+    
+    // need to signify to other that this is the root directory
+
+    // 
+    if (fat->fat_type == FAT32) {
+        return ERR_NOT_IMPLEMENTED;
+        // solve this when we implement the normal open_dir for FAT
+        // return priv_dir_open_cluster(fat, fat->boot_sector->types.fat_32.root_dir_cluster, ppd);
+    }
+
+    fat_priv_dir_info *pd = kmalloc(sizeof(fat_priv_dir_info));
+    // *ppd = pd;
+    memset(pd, 0, sizeof(fat_priv_dir_info));
+    pd->is_fat16_root = true;
+    pd->fat16_root_data.sector_buffer = kmalloc(fat->bytes_per_sector);
+
+    // need to read first sector
+    // a sample value is 32 sectors for the root directory.
+    // therefore the root dir total size is 16KB.
+
+    int err = fat->partition->dev->ops->read(fat->partition->dev,
+        fat->root_dir_starting_lba, 0, 1, pd->fat16_root_data.sector_buffer);
+    if (err) return err;
+
+    pd->fat16_root_data.sector_no = 0;
+    pd->fat16_root_data.offset_in_sector = 0;
+    pd->fat16_root_data.sector_dirty = false;
+    pd->fat16_root_data.loaded = false;
+
+    klog_debug("fat_open_root_dir(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
+    klog_debug_hex(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
+
+    file->fs_driver_priv_data = pd;
+    return SUCCESS;
+}
+
+static int fat_find_entry(file_t *parentdir, char *name, dir_entry_t *entry) {
+    fat_info *fat = (fat_info *)parentdir->superblock->priv_fs_driver_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)parentdir->fs_driver_priv_data;
+    fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
+    int err;
+
+    entry->superblock = parentdir->superblock;
+
+    // find the entry in this dir
+    fat->ops->priv_dir_seek_slot(fat, pd, 0);
+    while (true) {
+        err = fat->ops->priv_dir_read_one_entry(fat, pd, fat_entry);
+        if (err == ERR_NO_MORE_CONTENT)
+            break;
+        if (err != SUCCESS)
+            goto out;
+
+        klog_debug("fat_readdir(): got entry \"%s\"", fat_entry->short_name);
+        if (strcmp(entry->short_name, name) == 0) {
+            fat_dir_entry_to_vfs_dir_entry(fat_entry, entry);
+            break;
+        }
+    }
+
+out:
+    if (entry != NULL)
+        kfree(entry);
+    return err;
+}
+
+
+
 static int fat_opendir(char *path, file_t *file) {
     klog_trace("fat_opendir(\"%s\")", path);
     fat_info *fat = (fat_info *)file->partition->fs_driver_priv_data;
@@ -439,20 +516,21 @@ exit:
 
 
 struct file_ops fat_file_operations = {
-    .opendir = fat_opendir,
-    .rewinddir = fat_rewinddir,
-    .readdir = fat_readdir,
-    .closedir = fat_closedir,
+    .open_root_dir = fat_open_root_dir
+    // .opendir = fat_opendir,
+    // .rewinddir = fat_rewinddir,
+    // .readdir = fat_readdir,
+    // .closedir = fat_closedir,
 
-    .open = fat_open,
-    .read = fat_read,
-    .write = fat_write,
-    .seek = fat_seek,
-    .close = fat_close,
+    // .open = fat_open,
+    // .read = fat_read,
+    // .write = fat_write,
+    // .seek = fat_seek,
+    // .close = fat_close,
 
-    .touch = fat_touch,
-    .mkdir = fat_mkdir,
-    .unlink = fat_unlink
+    // .touch = fat_touch,
+    // .mkdir = fat_mkdir,
+    // .unlink = fat_unlink
 };
 
 static struct file_ops *fat_get_file_operations() {

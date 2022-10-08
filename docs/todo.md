@@ -14,8 +14,9 @@
   * move all vfs structures into their own files (entry, file etc)
 
 
-* Monitor page with discovered storage devices and partitions, registered file systems, current mounts, and other stats...
-* Fork, seems to be a nice challenge.
+* When VFS works again, implement some flags on open()
+
+* fork(), seems to be a nice challenge.
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
 * Shell, working dir, chdir, file operations (cp, mv)
 * Resume the vi editor, get to editing some files
@@ -98,6 +99,7 @@ prior allocation.
 
 ## things done
 
+* Monitor page with discovered storage devices and partitions, registered file systems, current mounts, and other stats...
 * Make environment changeable in a process - also see this: https://stackoverflow.com/questions/64004206/where-are-environment-variables-of-a-process-is-stored-in-linux and this https://codebrowser.dev/glibc/glibc/stdlib/setenv.c.html
 * Make argv[0] to point to executable name, not first argument
 * Make logging include module name, allow turn on/off per module name

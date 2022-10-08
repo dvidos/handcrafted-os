@@ -38,7 +38,7 @@ static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd) {
     pd->fat16_root_data.sector_dirty = false;
     pd->fat16_root_data.loaded = false;
 
-    klog_debug("open_root_dir(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
+    klog_debug("priv_dir_open_root(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
     klog_debug_hex(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
 
     return SUCCESS;

@@ -13,7 +13,6 @@
 #define max(a, b)     ((a) >= (b) ? (a) : (b))
 
 
-
 // used to lock when writing. should be per logical volume
 extern lock_t fat_write_lock;
 
@@ -92,7 +91,7 @@ typedef struct {
 
 enum FAT_TYPE { FAT32, FAT16, FAT12 };
 
-// stored in the private data of the partition or logical volume
+// stored in the private data of the superblock
 typedef struct {
     struct partition *partition;
     fat_boot_sector_t *boot_sector;
@@ -197,6 +196,7 @@ typedef struct {
 
     // for FAT32 and subdirs of FAT16,
     // we use file operations to manipulate the directory contents 
+    // treating the directory as a file with contents
     fat_priv_file_info *pf;    
 } fat_priv_dir_info;
 

@@ -9,6 +9,7 @@
 
 // structure representing an "opened" filesystem
 struct superblock {
+    struct file_system_driver *driver;
     struct partition *partition;
     struct file_ops *ops;
     void *priv_fs_driver_data;
@@ -24,6 +25,16 @@ struct file_timestamp {
 };
 
 typedef struct dir_entry {
+
+    // linking back to where this entry will reside
+    struct superblock *superblock;
+
+    // filesystem specific, inode for ext2, cluster_no for FAT etc
+    // using this instead of a pointer to private data, 
+    // as we want this structure to not need nested free()
+    // this is to allow fast opening of a file without path re-discovery
+    uint32_t file_location_in_device;
+
     char short_name[12+1];
     uint32_t file_size;
     struct {
@@ -33,23 +44,20 @@ typedef struct dir_entry {
     } flags;
     struct file_timestamp created;
     struct file_timestamp modified;
-
-    // fat cluster number or inode num should be in here
-    // to allow for fast opening, without path resolution.
-    void *priv_fs_driver_data;
 } dir_entry_t;
 
 struct file_ops;
 
 typedef struct file {
+    struct superblock *superblock;
     struct storage_dev *storage_dev;
     struct partition *partition;
     struct file_system_driver *driver;
+    struct dir_entry_t *entry;
     
-    char *path; // relative to mount point ?
+    char *path; // relative to mount point
     // we should have a pointer to the dir_entry here!
     void *fs_driver_priv_data;
-    struct file_ops *ops;
 } file_t;
 
 enum seek_origin {
@@ -71,26 +79,26 @@ struct file_ops {
     // to create things in root dir, we need extra functions
     // fentry and file should contain pointers to superblock,
     // hence to partition, to storage_dev, and to priv_fat_data, 
+
+    // convention: structures will be allocated by callers
     int (*open_root_dir)(struct superblock *sb, file_t *file);
-    int (*find_entry)(file_t *dir, char *path, dir_entry_t *entry);
-    int (*open_entry)(dir_entry_t *entry, file_t *file);
-    // how about touch, mkdir, unlink???
+    int (*find_entry)(file_t *parentdir, char *name, dir_entry_t *entry);
 
 
-    int (*opendir)(char *path, file_t *file);
+    int (*opendir)(dir_entry_t *entry, file_t *file);
     int (*rewinddir)(file_t *file);
     int (*readdir)(file_t *file, dir_entry_t *entry);
     int (*closedir)(file_t *file);
 
-    int (*open)(char *path, file_t *file);
+    int (*open)(dir_entry_t *entry, file_t *file);
     int (*read)(file_t *file, char *buffer, int bytes);
     int (*write)(file_t *file, char *buffer, int bytes);
     int (*seek)(file_t *file, int offset, enum seek_origin origin);
     int (*close)(file_t *file);
 
-    int (*touch)(char *path, file_t *file);
-    int (*mkdir)(char *path, file_t *file);
-    int (*unlink)(char *path, file_t *file);
+    int (*touch)(file_t *parentdir, char *name);
+    int (*mkdir)(file_t *parentdir, char *name);
+    int (*unlink)(file_t *parentdir, char *name);
 
     // version 2, using dir_entry as the equivaluent of an inode in unix 
     // (this may bite us later, when we implement ext2)

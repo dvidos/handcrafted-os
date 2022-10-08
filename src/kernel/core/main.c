@@ -66,6 +66,10 @@ multiboot_info_t saved_multiboot_info;
 
 
 
+void launch_initial_processes();
+void shell_launcher();
+
+
 // arguments from the multiboot loader, normally left by GRUB
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
 void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
@@ -76,6 +80,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // initialize in-memory log
     init_klog();
     klog_appender_level(LOGAPP_MEMORY, LOGLEV_DEBUG);
+    klog_module_level("VFS", LOGLEV_TRACE);
+    klog_module_level("MOUNT", LOGLEV_TRACE);
+    klog_module_level("FAT", LOGLEV_TRACE);
 
     // initialize screen and allow logs to be written to it
     screen_init();
@@ -179,14 +186,33 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_set_tty(tty_manager_get_device(6));
     klog_appender_level(LOGAPP_TTY, LOGLEV_INFO);
 
-    // create desired tasks here, 
-    void create_some_processes();
-    create_some_processes();
+    // create desired tasks here (init, logic, sh, etc)
+    launch_initial_processes();
 
     // start_multitasking() will never return
     klog_info("Starting multitasking, goodbye from main()!");
     start_multitasking();
     panic("start_multitasking() returned to main");
+}
+
+void launch_initial_processes() {
+    
+    // this would be surpassed by /etc/initrc at some point
+    
+    int tty;
+    process_t *proc;
+    int pri = PRIORITY_USER_PROGRAM;
+
+    for (tty = 0; tty < 1; tty++) {
+        proc = create_process("Shell Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty));
+        start_process(proc);
+    }
+
+    proc = create_process("Process Monitor", process_monitor_main, pri, 0, tty_manager_get_device(tty++));
+    start_process(proc);
+
+    proc = create_process("VFS Monitor", vfs_monitor_main, pri, 0, tty_manager_get_device(tty++));
+    start_process(proc);
 }
 
 void shell_launcher() {
@@ -209,35 +235,3 @@ void shell_launcher() {
     }
 }
 
-void create_some_processes() {
-    
-    int tty;
-    for (tty = 0; tty < 4; tty++) {
-        process_t *proc = create_process(
-            "Shell Launcher", 
-            shell_launcher, 
-            PRIORITY_USER_PROGRAM,
-            0,
-            tty_manager_get_device(tty)
-        );
-        start_process(proc);
-    }
-
-    process_t *proc_monitor_proc = create_process(
-        "Process Monitor", 
-        process_monitor_main, 
-        PRIORITY_USER_PROGRAM,
-        0,
-        tty_manager_get_device(tty++)
-    );
-    start_process(proc_monitor_proc);
-
-    process_t *vfs_monitor_proc = create_process(
-        "VFS Monitor", 
-        vfs_monitor_main, 
-        PRIORITY_USER_PROGRAM,
-        0,
-        tty_manager_get_device(tty++)
-    );
-    start_process(vfs_monitor_proc);
-}
