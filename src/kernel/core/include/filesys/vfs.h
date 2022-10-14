@@ -33,7 +33,7 @@ typedef struct dir_entry {
     // using this instead of a pointer to private data, 
     // as we want this structure to not need nested free()
     // this is to allow fast opening of a file without path re-discovery
-    uint32_t file_location_in_device;
+    uint32_t location_in_dev;
 
     char short_name[12+1];
     uint32_t file_size;
@@ -53,10 +53,10 @@ typedef struct file {
     struct storage_dev *storage_dev;
     struct partition *partition;
     struct file_system_driver *driver;
-    struct dir_entry_t *entry;
     
     char *path; // relative to mount point
-    // we should have a pointer to the dir_entry here!
+    dir_entry_t *entry;
+    
     void *fs_driver_priv_data;
 } file_t;
 
@@ -82,7 +82,7 @@ struct file_ops {
 
     // convention: structures will be allocated by callers
     int (*open_root_dir)(struct superblock *sb, file_t *file);
-    int (*find_entry)(file_t *parentdir, char *name, dir_entry_t *entry);
+    int (*find_dir_entry)(file_t *parentdir, char *name, dir_entry_t *entry);
 
 
     int (*opendir)(dir_entry_t *entry, file_t *file);

@@ -135,7 +135,7 @@ static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t
 
     strncpy(vfs_entry->short_name, fat_entry->short_name, sizeof(vfs_entry->short_name));
     vfs_entry->file_size = fat_entry->file_size;
-    vfs_entry->file_location_in_device = fat_entry->first_cluster_no;
+    vfs_entry->location_in_dev = fat_entry->first_cluster_no;
 
     vfs_entry->flags.label = fat_entry->attributes.flags.volume_label;
     vfs_entry->flags.dir = fat_entry->attributes.flags.directory;

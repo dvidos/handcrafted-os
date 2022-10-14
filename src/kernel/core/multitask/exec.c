@@ -107,6 +107,8 @@ int execve(char *path, char *argv[], char *envp[]) {
 exit:
     if (file_open)
         vfs_close(&file);
+    if (err)
+        klog_debug("execve() --> %d", err);
     return err == SUCCESS ? new_proc->pid : err;
 }
 

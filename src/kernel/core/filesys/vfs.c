@@ -51,6 +51,34 @@ MODULE("VFS");
     about an open file, e.g. mode (r/w), position, operations pointers etc.
 */
 
+static void debug_dir_entry_t(dir_entry_t *dir_entry) {
+    
+    klog_debug("  dir_entry->superblock     : 0x%x", dir_entry->superblock);
+    klog_debug("  dir_entry->short_name     : \"%s\"", dir_entry->short_name);
+    klog_debug("  dir_entry->file_size      : %d", dir_entry->file_size);
+    klog_debug("  dir_entry->location_in_dev: %d", dir_entry->location_in_dev);
+    klog_debug("  dir_entry->flags.dir      : %d", dir_entry->flags.dir);
+    klog_debug("  dir_entry->flags.label    : %d", dir_entry->flags.label);
+    klog_debug("  dir_entry->flags.read_only: %d", dir_entry->flags.read_only);
+    klog_debug("  dir_entry->created        : %04d-%02d-%02d %02d:%02d:%02d", 
+        dir_entry->created.year, dir_entry->created.month, dir_entry->created.day,
+        dir_entry->created.hours, dir_entry->created.minutes, dir_entry->created.seconds
+    );
+    klog_debug("  dir_entry->modified       : %04d-%02d-%02d %02d:%02d:%02d", 
+        dir_entry->modified.year, dir_entry->modified.month, dir_entry->modified.day,
+        dir_entry->modified.hours, dir_entry->modified.minutes, dir_entry->modified.seconds
+    );
+}
+
+static void debug_file_t(file_t *file) {
+    klog_debug("  file->path       : \"%s\"", file->path);
+    klog_debug("  file->entry      : 0x%x", file->entry);
+    klog_debug("  file->superblock : 0x%x", file->superblock);
+    klog_debug("  file->storage_dev: 0x%x", file->storage_dev);
+    klog_debug("  file->driver     : 0x%x", file->driver);
+    klog_debug("  file->partition  : 0x%x", file->partition);
+    klog_debug("  file->fs_driver_priv_data: 0x%x", file->fs_driver_priv_data);
+}
 
 // essentially the same function as `namei()`, back in System V...
 static int resolve_path_to_entry(char *path, dir_entry_t *entry) {
@@ -81,19 +109,22 @@ static int resolve_path_to_entry(char *path, dir_entry_t *entry) {
     allocated_dir = false;
     opened_dir = false; // because it's supposed to be open
     superblock = dir->superblock;
+    debug_file_t(dir);
     
-    klog_debug("A");
-
     while (offset < pathlen) {
         get_next_path_part(path, &offset, buffer);
-        err = superblock->ops->find_entry(dir, buffer, entry);
+        klog_debug("Looking for path part \"%s\"", buffer);
+
+        err = superblock->ops->find_dir_entry(dir, buffer, entry);
         if (err) {
             klog_error("Error %d finding entry %s in dir", err, buffer);
             goto out;
         }
+        debug_dir_entry_t(entry);
 
         // if no more path exists, it means the entry is what we were looking for!
         if (offset >= strlen(path)) {
+            klog_debug("No more path, returning last entry discovered");
             if (opened_dir) {
                 superblock->ops->closedir(dir);
                 kfree(dir);
@@ -110,13 +141,16 @@ static int resolve_path_to_entry(char *path, dir_entry_t *entry) {
         // since we have more path, we need to open this entry as a directory.
         // validate this is a directory.
         if (!entry->flags.dir) {
+            klog_debug("part is not a directory, bailing");
             err = ERR_NOT_A_DIRECTORY;
             goto out;
         }
 
         if (opened_dir) {
-            err = superblock->ops->closedir(dir);
-            if (err) goto out;
+            if (superblock->ops->closedir != NULL) {
+                err = superblock->ops->closedir(dir);
+                if (err) goto out;
+            }
             kfree(dir);
         }
 
@@ -137,15 +171,21 @@ out:
             superblock->ops->closedir(dir);
         kfree(dir);
     }
+    if (err)
+        klog_debug("resolve_path_to_entry(\"%s\") --> %d", path, err);
     return err;
 }
 
 
 
 
-static int resolve_file_system_and_prepare_file_structure(char *path, file_t *file) {
-    klog_trace("resolve_file_system_and_prepare_file_structure(\"%s\")", path);
+static int __deprecate__resolve_file_system_and_prepare_file_structure(char *path, file_t *file) {
+    klog_trace("__deprecate__resolve_file_system_and_prepare_file_structure(\"%s\")", path);
     return ERR_NOT_IMPLEMENTED;
+
+    // based on path, we should find the filesystem and the relative path
+    // for now, let's say we have not mounted anything
+
 
     // every path much be relative to a directory,
     // even the absolute paths are relative to the root directory.
@@ -154,34 +194,34 @@ static int resolve_file_system_and_prepare_file_structure(char *path, file_t *fi
     // least the root directory of the whole filesytem must be loaded upon mount.
 
 
-    // in theory, we would parse the path to find the mount point and mounted path
-    // but for now, let's assume only one mounted system
-    struct mount_info *mount = vfs_get_mounts_list();
-    if (mount == NULL)
-        return ERR_NOT_FOUND;
+//     // in theory, we would parse the path to find the mount point and mounted path
+//     // but for now, let's assume only one mounted system
+//     struct mount_info *mount = vfs_get_mounts_list();
+//     if (mount == NULL)
+//         return ERR_NOT_FOUND;
 
-    // let's go with the second mount for now.
-    if (mount->next == NULL)
-        return ERR_NOT_FOUND;
-    mount = mount->next;
+//     // let's go with the second mount for now.
+//     if (mount->next == NULL)
+//         return ERR_NOT_FOUND;
+//     mount = mount->next;
 
-    // we need to fill in the file_t structure.
-    file->storage_dev = mount->dev;
-    file->partition = mount->part;
-    file->driver = mount->driver;
-//     file->superblock->ops = mount->driver->get_file_operations();
-    klog_debug("Path \"%s\" resolved to device #%d (\"%s\"), partition #%d, file driver \"%s\"",
-        path,
-        file->storage_dev->dev_no,
-        file->storage_dev->name,
-        file->partition->part_no,
-        file->driver->name
-    );
+//     // we need to fill in the file_t structure.
+//     file->storage_dev = mount->dev;
+//     file->partition = mount->part;
+//     file->driver = mount->driver;
+// //     file->superblock->ops = mount->driver->get_file_operations();
+//     klog_debug("Path \"%s\" resolved to device #%d (\"%s\"), partition #%d, file driver \"%s\"",
+//         path,
+//         file->storage_dev->dev_no,
+//         file->storage_dev->name,
+//         file->partition->part_no,
+//         file->driver->name
+//     );
 
-    // normally, we should give the relative path, after the mount
-    file->path = path;
+//     // normally, we should give the relative path, after the mount
+//     file->path = path;
     
-    return NO_ERROR;    
+//     return NO_ERROR;    
 }
 
 int vfs_opendir(char *path, file_t *file) {
@@ -197,7 +237,7 @@ int vfs_opendir(char *path, file_t *file) {
     klog_error("Opening subdirs not supported yet! :-(");
     // // find entry_t based on root or current workding dir,
     // // call the appropriate opendir(), passing the entry_t
-    // int err = resolve_file_system_and_prepare_file_structure(path, file);
+    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, file);
     // if (err) 
     //     return err;
     // if (file->superblock->ops->opendir == NULL)
@@ -230,15 +270,21 @@ int vfs_closedir(file_t *file) {
 
 int vfs_open(char *path, file_t *file) {
     klog_trace("vfs_open(\"%s\")", path);
-    // klog_error("error: vfs_open(\"%s\")", path);
+    dir_entry_t *entry = kmalloc(sizeof(dir_entry_t));
+    int err;
 
-    // int err = resolve_file_system_and_prepare_file_structure(path, file);
-    // if (err)
-    //     return err;
-    // if (file->superblock->ops->open == NULL)
-    //     return ERR_NOT_SUPPORTED;
-    // return file->superblock->ops->open(file->path, file);
-    return ERR_NOT_SUPPORTED;
+    err = resolve_path_to_entry(path, entry);
+    if (err) goto out;
+    if (entry->superblock->ops->open == NULL) {
+        err = ERR_NOT_SUPPORTED;
+        goto out;
+    }
+    err = entry->superblock->ops->open(entry, file);
+    if (err) goto out;
+
+out:
+    if (entry) kfree(entry);
+    return err;
 }
 
 int vfs_read(file_t *file, char *buffer, int bytes) {
@@ -266,34 +312,34 @@ int vfs_close(file_t *file) {
 }
 
 int vfs_touch(char *path) {
-    file_t file;
-    int err = resolve_file_system_and_prepare_file_structure(path, &file);
-    if (err)
-        return err;
-    if (file.superblock->ops->touch == NULL)
-        return ERR_NOT_SUPPORTED;
+    // file_t file;
+    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, &file);
+    // if (err)
+    //     return err;
+    // if (file.superblock->ops->touch == NULL)
+    //     return ERR_NOT_SUPPORTED;
     // return file.superblock->ops->touch(file.path, &file);
     return ERR_NOT_SUPPORTED;
 }
 
 int vfs_mkdir(char *path) {
-    file_t file;
-    int err = resolve_file_system_and_prepare_file_structure(path, &file);
-    if (err)
-        return err;
-    if (file.superblock->ops->mkdir == NULL)
-        return ERR_NOT_SUPPORTED;
+    // file_t file;
+    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, &file);
+    // if (err)
+    //     return err;
+    // if (file.superblock->ops->mkdir == NULL)
+    //     return ERR_NOT_SUPPORTED;
     // return file.superblock->ops->mkdir(file.path, &file);
     return ERR_NOT_SUPPORTED;
 }
 
 int vfs_unlink(char *path) {
-    file_t file;
-    int err = resolve_file_system_and_prepare_file_structure(path, &file);
-    if (err)
-        return err;
-    if (file.superblock->ops->unlink == NULL)
-        return ERR_NOT_SUPPORTED;
+    // file_t file;
+    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, &file);
+    // if (err)
+    //     return err;
+    // if (file.superblock->ops->unlink == NULL)
+    //     return ERR_NOT_SUPPORTED;
     // return file.superblock->ops->unlink(file.path, &file);
     return ERR_NOT_SUPPORTED;
 }

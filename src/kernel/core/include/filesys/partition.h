@@ -12,7 +12,6 @@ struct partition {
     uint32_t num_sectors;
     bool bootable;
     uint8_t legacy_type;            // for legacy partition tables
-    void *fs_driver_priv_data;        // private data for the filesystem (e.g. FAT information)
     struct partition *next;
 };
 
