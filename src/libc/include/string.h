@@ -11,7 +11,7 @@ void* memmove(void* destination, const void* source, size_t size);
 void* memset(void*, int, size_t);
 
 size_t strlen(const char*);
-void strcpy(char *target, char *source);
+void strcpy(char *target, const char *source);
 void strcat(char *target, char *src);
 int strcmp(const char *a, const char *b);
 char *strchr(char *str, char c);
@@ -19,7 +19,7 @@ char *strstr(char *haystack, char *needle);
 char *strtok(char *str, char *delimiters);
 
 // caller is supposed to free the duplicate
-char *strdup(char *str);
+char *strdup(const char *str);
 
 
 // len of str1 that consists of char in str2

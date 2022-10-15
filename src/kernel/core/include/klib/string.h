@@ -11,10 +11,14 @@ void strncpy(char *target, char *source, size_t target_size);
 
 char *strchr(char *str, char c);
 char *strstr(char *heystack, char *needle);
+
+// tokenize string (modifies str), return first token, zero terminated
+// pass a NULL str for subsequent tokens
+// returns NULL if there are no more tokens
 char *strtok(char *str, char *delimiters);
 
 // caller is supposed to free the duplicate
-char *strdup(char *str);
+char *strdup(const char *str);
 
 
 void memset(void *dest, char value, size_t size);

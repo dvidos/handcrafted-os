@@ -475,6 +475,14 @@ void test_paths() {
     assert(strcmp(pathname(p), "log") == 0);
     kfree(p);
 
+    p = strdup("dir/file");
+    assert(strcmp(dirname(p), "dir") == 0);
+    kfree(p);
+
+    p = strdup("dir/file");
+    assert(strcmp(pathname(p), "file") == 0);
+    kfree(p);
+
     p = strdup("file");
     assert(strcmp(dirname(p), ".") == 0);
     kfree(p);

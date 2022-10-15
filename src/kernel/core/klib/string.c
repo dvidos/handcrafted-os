@@ -23,7 +23,7 @@ int strcmp(const char *a, const char *b) {
     return (int)(*a - *b);
 }
 
-void strcpy(char *target, char *source) {
+void strcpy(char *target, const char *source) {
     while (*source != '\0') {
         *target++ = *source++;
     }
@@ -41,7 +41,7 @@ void strncpy(char *target, char *source, size_t target_size) {
 }
 
 // caller is supposed to free the duplicate
-char *strdup(char *str) {
+char *strdup(const char *str) {
     if (str == NULL)
         return NULL;
     char *dup = kmalloc(strlen(str) + 1);
