@@ -5,13 +5,13 @@
 
 static int supported(struct partition *partition);
 
-static struct file_system_driver vfs_driver = {
+static struct filesys_driver vfs_driver = {
     .name = "ext2",
     .supported = supported
 };
 
 void ext2_register_vfs_driver() {
-    vfs_register_file_system_driver(&vfs_driver);
+    vfs_register_filesys_driver(&vfs_driver);
 }
 
 static int supported(struct partition *partition) {

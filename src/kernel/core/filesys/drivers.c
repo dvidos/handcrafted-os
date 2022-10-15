@@ -8,19 +8,19 @@
 
 MODULE("VFS");
 
-static struct file_system_driver *drivers_list = NULL;
+static struct filesys_driver *drivers_list = NULL;
 
 
-struct file_system_driver *vfs_get_drivers_list() {
+struct filesys_driver *vfs_get_drivers_list() {
     return drivers_list;
 }
 
-void vfs_register_file_system_driver(struct file_system_driver *driver) {
+void vfs_register_filesys_driver(struct filesys_driver *driver) {
     // add it to the list of possible file systems (FAT, ext2 etc)
     if (drivers_list == NULL) {
         drivers_list = driver;
     } else {
-        struct file_system_driver *p = drivers_list;
+        struct filesys_driver *p = drivers_list;
         while (p->next != NULL)
             p = p->next;
         p->next = driver;
@@ -28,8 +28,8 @@ void vfs_register_file_system_driver(struct file_system_driver *driver) {
     driver->next = NULL;
 }
 
-struct file_system_driver *find_vfs_driver_for_partition(struct partition *partition) {
-    struct file_system_driver *driver = drivers_list;
+struct filesys_driver *find_vfs_driver_for_partition(struct partition *partition) {
+    struct filesys_driver *driver = drivers_list;
     while (driver != NULL) {
         int result = driver->supported(partition);
         if (result == SUCCESS)

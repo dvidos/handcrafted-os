@@ -9,7 +9,7 @@
 
 // structure representing an "opened" filesystem
 struct superblock {
-    struct file_system_driver *driver;
+    struct filesys_driver *driver;
     struct partition *partition;
     struct file_ops *ops;
     void *priv_fs_driver_data;
@@ -52,7 +52,7 @@ typedef struct file {
     struct superblock *superblock;
     struct storage_dev *storage_dev;
     struct partition *partition;
-    struct file_system_driver *driver;
+    struct filesys_driver *driver;
     
     char *path; // relative to mount point
     dir_entry_t *entry;

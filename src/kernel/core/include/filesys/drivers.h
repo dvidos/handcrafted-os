@@ -6,8 +6,8 @@
 struct partition;
 struct superblock;
 
-struct file_system_driver {
-    struct file_system_driver *next;
+struct filesys_driver {
+    struct filesys_driver *next;
     
     char *name; // e.g. "FAT", "ext2" etc.
 
@@ -20,9 +20,9 @@ struct file_system_driver {
 };
 
 
-struct file_system_driver *vfs_get_drivers_list();
-void vfs_register_file_system_driver(struct file_system_driver *driver);
-struct file_system_driver *find_vfs_driver_for_partition(struct partition *partition);
+struct filesys_driver *vfs_get_drivers_list();
+void vfs_register_filesys_driver(struct filesys_driver *driver);
+struct filesys_driver *find_vfs_driver_for_partition(struct partition *partition);
 
 
 

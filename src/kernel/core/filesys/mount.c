@@ -60,7 +60,7 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
         klog_error("Partition %d not found on device %d - cannot mount root filesystem", dev_no, part_no);
         return ERR_NO_PARTITION;
     }
-    struct file_system_driver *driver = find_vfs_driver_for_partition(part);
+    struct filesys_driver *driver = find_vfs_driver_for_partition(part);
     if (driver == NULL) {
         klog_error("No driver found for dev %d part %d - cannot mount root filesystem", dev_no, part_no);
         return ERR_NO_DRIVER_FOUND;
@@ -178,7 +178,7 @@ int vfs_discover_and_mount_filesystems(char *kernel_cmd_line) {
             part = part->next;
             continue;
         }
-        struct file_system_driver *drv = find_vfs_driver_for_partition(part);
+        struct filesys_driver *drv = find_vfs_driver_for_partition(part);
         if (drv == NULL) {
             klog_debug("No filesystem driver for dev %d, part %d, maybe write one?", dev_no, part->part_no);
             part = part->next;

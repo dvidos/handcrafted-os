@@ -20,7 +20,7 @@ MODULE("FAT");
 #include "fat_file_ops.c"
 #include "fat_vfs.c"
 
-static struct file_system_driver vfs_driver = {
+static struct filesys_driver vfs_driver = {
     .name = "FAT",
     .supported = fat_supported,
     .open_superblock = fat_open_superblock,
@@ -29,5 +29,5 @@ static struct file_system_driver vfs_driver = {
 
 // this is the only public method. all the rest go through pointers
 void fat_register_vfs_driver() {
-    vfs_register_file_system_driver(&vfs_driver);
+    vfs_register_filesys_driver(&vfs_driver);
 }

@@ -66,11 +66,11 @@ struct partition {
 
 Various file systems can be implemented to support
 files in partitions. Each file system should register itself,
-using the `vfs_register_file_system_driver()` function. 
+using the `vfs_register_filesys_driver()` function. 
 It must pass an instance of the following structure:
 
 ```c
-struct file_system_driver {
+struct filesys_driver {
     char *name;    // e.g. "FAT", "ext2" etc.
 
     // probe() looks at a partition to see if the stored format is supported
@@ -124,7 +124,7 @@ point is given below:
 struct mount_info {
     struct storage_dev *dev;
     struct partition *part;
-    struct file_system_driver *driver;
+    struct filesys_driver *driver;
     struct super_block *superblock;
 
     char *path;

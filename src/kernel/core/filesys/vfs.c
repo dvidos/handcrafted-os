@@ -179,8 +179,8 @@ out:
 
 
 
-static int __deprecate__resolve_file_system_and_prepare_file_structure(char *path, file_t *file) {
-    klog_trace("__deprecate__resolve_file_system_and_prepare_file_structure(\"%s\")", path);
+static int __deprecate__resolve_filesys_and_prepare_file_structure(char *path, file_t *file) {
+    klog_trace("__deprecate__resolve_filesys_and_prepare_file_structure(\"%s\")", path);
     return ERR_NOT_IMPLEMENTED;
 
     // based on path, we should find the filesystem and the relative path
@@ -237,7 +237,7 @@ int vfs_opendir(char *path, file_t *file) {
     klog_error("Opening subdirs not supported yet! :-(");
     // // find entry_t based on root or current workding dir,
     // // call the appropriate opendir(), passing the entry_t
-    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, file);
+    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, file);
     // if (err) 
     //     return err;
     // if (file->superblock->ops->opendir == NULL)
@@ -313,7 +313,7 @@ int vfs_close(file_t *file) {
 
 int vfs_touch(char *path) {
     // file_t file;
-    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, &file);
+    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, &file);
     // if (err)
     //     return err;
     // if (file.superblock->ops->touch == NULL)
@@ -324,7 +324,7 @@ int vfs_touch(char *path) {
 
 int vfs_mkdir(char *path) {
     // file_t file;
-    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, &file);
+    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, &file);
     // if (err)
     //     return err;
     // if (file.superblock->ops->mkdir == NULL)
@@ -335,7 +335,7 @@ int vfs_mkdir(char *path) {
 
 int vfs_unlink(char *path) {
     // file_t file;
-    // int err = __deprecate__resolve_file_system_and_prepare_file_structure(path, &file);
+    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, &file);
     // if (err)
     //     return err;
     // if (file.superblock->ops->unlink == NULL)

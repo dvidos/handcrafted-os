@@ -7,7 +7,7 @@
 typedef struct mount_info {
     struct storage_dev *dev;
     struct partition *part;
-    struct file_system_driver *driver;
+    struct filesys_driver *driver;
     struct superblock *superblock;
     char *mount_point;
     file_t *root_dir;

@@ -237,7 +237,7 @@ and provides a uniform interface through functions such as `vfs_open()`, `vfs_re
 
 To interface between a flat physical address space and the abstraction of 
 directories and files, various file system drivers can be implemented. 
-They register themselves by calling the `vfs_register_file_system_driver()` call,
+They register themselves by calling the `vfs_register_filesys_driver()` call,
 so that, when a logical volume (e.g. a partition) is discovered, the driver's 
 `probe()` method is called, to check whether the filesystem on the volume
 can be mounted and used.
