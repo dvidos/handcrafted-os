@@ -89,6 +89,28 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
     mount->mount_point = kmalloc(strlen(path) + 1);
     strcpy(mount->mount_point, path);
 
+    // we should get the two file descriptors...
+
+    if (strcmp(path, "/") == 0) {
+        // we are mounting the root file system
+        mount->host_dir = NULL;
+    } else {
+        // TODO: we are mounting somewhere we should discover it.
+        klog_warn("Must resolve where we mount");
+    }
+
+    // we also keep the hosted root directory
+    if (mount->superblock->ops->root_dir_descriptor == NULL) {
+        klog_error("Driver %s does not support root_dir_descriptor() method", driver->name);
+        err = ERR_NOT_SUPPORTED;
+        goto error;
+    }
+    err = mount->superblock->ops->root_dir_descriptor(mount->superblock, &mount->mounted_fs_root);
+    if (err) {
+        klog_error("Error %d retrieving root dir descriptor", err);
+        goto error;
+    } 
+
     // we also open the root directory (in order to resolve any path names)
     if (mount->superblock->ops->open_root_dir == NULL) {
         klog_error("Driver %s does not support open_root_dir() method", driver->name);
@@ -98,7 +120,7 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
     mount->root_dir = kmalloc(sizeof(file_t));
     err = mount->superblock->ops->open_root_dir(mount->superblock, mount->root_dir);
     if (err) {
-        klog_error("Error %d when opening superblock", err);
+        klog_error("Error %d when opening root dir", err);
         goto error;
     }
 

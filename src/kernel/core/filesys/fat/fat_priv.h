@@ -110,6 +110,7 @@ typedef struct {
     uint32_t data_clusters_starting_lba;
     uint32_t root_dir_sectors_count; // for FAT12/16 only
 
+    file_descriptor_t *root_dir_descriptor;
     struct fat_operations *ops;
 } fat_info;
 

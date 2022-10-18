@@ -8,12 +8,47 @@
 
 
 // structure representing an "opened" filesystem
-struct superblock {
+typedef struct superblock {
     struct filesys_driver *driver;
     struct partition *partition;
     struct file_ops *ops;
     void *priv_fs_driver_data;
-};
+} superblock_t;
+
+
+// file_descriptor->flags
+#define FD_FILE   1
+#define FD_DIR    2
+
+// this structure must be treated as a value object,
+// we want to copy it, clone it, compare it etc.
+// this allows VFS to make decisions, e.g. to hop directories etc.
+// it must be entirely managed by VFS (i.e. have no private structure of unknown size)
+// so that ic can be used for over-filesys ceoncerns, such as the mounting table.
+typedef struct file_descriptor {
+    // just reference
+    struct superblock *superblock; 
+
+    // needed to update file size and mtime on file close, NULL for root dir
+    // referenced, not cloned.
+    struct file_descriptor *owning_directory; 
+
+    char *name; // file name, not full path (owned, cloned, free etc)
+    uint32_t location; // e.g. inode for ext2, cluster_no for FAT
+    uint32_t size;
+    uint32_t flags;
+    uint32_t ctime; // create time since 1970
+    uint32_t mtime; // modified time since 1970
+} file_descriptor_t;
+
+file_descriptor_t *create_file_descriptor(superblock_t *superblock, const char *name, uint32_t location);
+file_descriptor_t *clone_file_descriptor(file_descriptor_t *fd);
+void copy_file_descriptor(file_descriptor_t *dest, file_descriptor_t *source);
+bool file_descriptors_equal(file_descriptor_t *a, file_descriptor_t *b);
+void destroy_file_descriptor(file_descriptor_t *fd);
+void debug_file_descriptor(file_descriptor_t *fd);
+
+
 
 struct file_timestamp {
     uint16_t year;
@@ -80,7 +115,13 @@ struct file_ops {
     // fentry and file should contain pointers to superblock,
     // hence to partition, to storage_dev, and to priv_fat_data, 
 
-    // convention: structures will be allocated by callers
+    // convention: 
+    // simple pointers: structures allocated and freed by callers
+    // pointer to pointer: structure allocated by callee
+
+    // get root descriptor, not freed, can point to static data
+    int (*root_dir_descriptor)(struct superblock *sb, file_descriptor_t **fd);
+
     int (*open_root_dir)(struct superblock *sb, file_t *file);
     int (*find_dir_entry)(file_t *parentdir, char *name, dir_entry_t *entry);
 

@@ -207,6 +207,12 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     fat->ops->find_path_dir_entry = find_path_dir_entry;
     fat->ops->find_entry_in_dir = find_entry_in_dir;
     
+    fat->root_dir_descriptor = create_file_descriptor(
+        superblock, 
+        "/", 
+        fat->fat_type == FAT32 ? fat->boot_sector->types.fat_32.root_dir_cluster : 0
+    );
+
     debug_fat_info(fat);
 
     superblock->partition = partition;
@@ -217,6 +223,7 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
 
 error:
     if (boot_sector != NULL) kfree(boot_sector);
+    if (fat->root_dir_descriptor != NULL) destroy_file_descriptor(fat->root_dir_descriptor);
     if (fat->ops != NULL) kfree(fat->ops);
     if (fat != NULL) kfree(fat);
     return err;
@@ -228,6 +235,10 @@ static int fat_close_superblock(struct superblock *superblock) {
     // ideally we'll sync if needed
 
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
+
+    if (fat->root_dir_descriptor != NULL)
+        destroy_file_descriptor(fat->root_dir_descriptor);
+    
     kfree(fat->ops);
     kfree(fat);
 
@@ -289,6 +300,11 @@ static int fat_close(file_t *file) {
 }
 
 
+static int fat_root_descriptor(superblock_t *superblock, file_descriptor_t **fd) {
+    fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
+    *fd = fat->root_dir_descriptor;
+    return SUCCESS;
+}
 static int fat_open_root_dir(struct superblock *superblock, file_t *file) {
     klog_trace("fat_open_root_dir()");
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
@@ -519,6 +535,8 @@ exit:
 
 
 struct file_ops fat_file_operations = {
+    .root_dir_descriptor = fat_root_descriptor,
+
     .open_root_dir = fat_open_root_dir,
     .find_dir_entry = fat_find_dir_entry,
     .open = fat_open,
