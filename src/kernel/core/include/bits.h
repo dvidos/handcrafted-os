@@ -37,10 +37,11 @@
 #define MASK64_OF(bits_count)     (0xFFFFFFFFFFFFFFFFu >> (64 - (bits_count)))
 #define MASK32_OF(bits_count)     (        0xFFFFFFFFu >> (32 - (bits_count)))
 
-// for example BIT_RANGE(address, 12, 5), bit numbers are inclusive and zero-based
-#define BIT_RANGE(value, hi_bit_no, lo_bit_no)     (((value)>>(lo_bit_no)) & MASK64_OF((hi_bit_no)-(lo_bit_no)+1))
+// for example "var = BIT_RANGE(address, 12, 5)", bit numbers are inclusive and zero-based
+#define BIT_RANGE(value, hi_bit_no, lo_bit_no)     \
+    (((value)>>(lo_bit_no)) & MASK64_OF((hi_bit_no)-(lo_bit_no)+1))
 
-// for example SET_BIT_RANGE(buffer, day, 12, 10). Bit nums are inclusive, zero based
+// for example "var = SET_BIT_RANGE(123, 12, 5)". Bit nums are inclusive, zero based
 #define SET_BIT_RANGE(value, hi_bit_no, lo_bit_no)   \
     (((value) & MASK64_OF((hi_bit_no)-(lo_bit_no)+1)) << (lo_bit_no))
 
@@ -50,8 +51,6 @@
 
 
 
-// linux has smarter approach, processor specific mactos
-// FROM/TO LITTLE/LARGE ENDIAN ()
 
 #define SWAP_16(x)                  \
   ( (((x) >> 8) & 0xff)             \
@@ -73,5 +72,30 @@
     | (((x) & 0x000000000000ff00ull) << 40)  \
     | (((x) & 0x00000000000000ffull) << 56))
 
+
+// intel machines are traditionally little endian (smaller value stored first)
+#define LITTLE_ENDIAN_ARCH
+
+#ifdef LITTLE_ENDIAN_ARCH
+    #define LE16_TO_CPU(x)    (x)
+    #define BE16_TO_CPU(x)    (SWAP_16(x))
+    #define CPU_TO_LE16(x)    (x)
+    #define CPU_TO_BE16(x)    (SWAP_16(x))
+
+    #define LE32_TO_CPU(x)    (x)
+    #define BE32_TO_CPU(x)    (SWAP_32(x))
+    #define CPU_TO_LE32(x)    (x)
+    #define CPU_TO_BE32(x)    (SWAP_32(x))
+#else
+    #define LE16_TO_CPU(x)    (SWAP_16(x))
+    #define BE16_TO_CPU(x)    (x)
+    #define CPU_TO_LE16(x)    (SWAP_16(x))
+    #define CPU_TO_BE16(x)    (x)
+
+    #define LE32_TO_CPU(x)    (SWAP_32(x))
+    #define BE32_TO_CPU(x)    (x)
+    #define CPU_TO_LE32(x)    (SWAP_32(x))
+    #define CPU_TO_BE32(x)    (x)
+#endif
 
 #endif
