@@ -9,20 +9,6 @@
 #include <klib/string.h>
 
 /*
-typedef struct open_file {
-    // ---- managed by VFS ----
-    struct superblock *superblock;
-    struct file_descriptor *descriptor;
-
-    // ---- managed by filesystem ----
-    int position;
-    void *fs_private_data;
-} open_file_t;
-
-
-
-
-
 
 // attempt to simplify, based on https://tldp.org/LDP/khg/HyperNews/get/fs/vfstour.html
 // we should implement a read/write cache as well, at some point in the future
@@ -36,8 +22,6 @@ struct open_file;
 typedef struct fs_driver fs_driver_t;
 typedef struct partition partition_t;
 typedef struct superblock superblock_t;
-typedef struct file_descriptor file_descriptor_t;
-typedef struct open_file open_file_t;
 
 struct fs_driver_ops {
     // read partition and verify if the filesystem is supported
@@ -76,31 +60,31 @@ struct filesys_ops {
     int (*lookup)(file_descriptor_t *dir, char *name, file_descriptor_t **result);
 
     // open file for reading or writing, populate file
-    int (*open)(file_descriptor_t *dir, int flags, open_file_t **file);
+    int (*open)(file_descriptor_t *dir, int flags, file_t **file);
 
     // move the position in the file, return new position or negative error
-    int (*seek)(open_file_t *file, int offset, int origin);
+    int (*seek)(file_t *file, int offset, int origin);
 
     // read from file, returns bytes read or negative error
-    int (*read)(open_file_t *file, char *buffer, int length);
+    int (*read)(file_t *file, char *buffer, int length);
 
     // write to file, returns bytes read or negative error
-    int (*write)(open_file_t *file, char *buffer, int length);
+    int (*write)(file_t *file, char *buffer, int length);
 
     // flush the file caches
-    int (*flush)(open_file_t *file);
+    int (*flush)(file_t *file);
 
     // flush and close the file, free resources
-    int (*close)(open_file_t *file);
+    int (*close)(file_t *file);
 
     // open dir for enumerating
-    int (*opendir)(file_descriptor_t *dir, open_file_t **open_dir);
+    int (*opendir)(file_descriptor_t *dir, file_t **open_dir);
 
     // get the next entry from the directory list
-    int (*readdir)(open_file_t *open_dir, file_descriptor_t *entry);
+    int (*readdir)(file_t *open_dir, file_descriptor_t *entry);
 
     // close the directory handle, free resources
-    int (*closedir)(open_file_t *open_dir);
+    int (*closedir)(file_t *open_dir);
 
     // create a normal file (or whatever the fs supports)
     int (*create)(file_descriptor_t *parent_dir, char *name);
@@ -238,30 +222,30 @@ out:
     return err;
 }
 
-int vfs_open(char *path, file_descriptor_t *curr_dir, int flags, open_file_t **file) {
+int vfs_open(char *path, file_descriptor_t *curr_dir, int flags, file_t **file) {
     // resolve the path to file_derscriptor
     // open the descriptor
 }
 
-int vfs_read(open_file_t *file, char *buffer, int length) {
+int vfs_read(file_t *file, char *buffer, int length) {
     if (file->superblock->ops->read == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->read(file, buffer, length);
 }
 
-int vfs_write(open_file_t *file, char *buffer, int length) {
+int vfs_write(file_t *file, char *buffer, int length) {
     if (file->superblock->ops->write == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->write(file, buffer, length);
 }
 
-int vfs_seek(open_file_t *file, int offset, enum seek_origin origin) {
+int vfs_seek(file_t *file, int offset, enum seek_origin origin) {
     if (file->superblock->ops->seek == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->seek(file, offset, origin);
 }
 
-int vfs_close(open_file_t *file, char *buffer, int length) {
+int vfs_close(file_t *file, char *buffer, int length) {
     if (file->superblock->ops->close == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->close(file);
@@ -310,15 +294,15 @@ int mockfs_mkfs(partition_t *partition, char *options);
 
 file_descriptor_t *mockfs_root_dir();
 int mockfs_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result);
-int mockfs_open(file_descriptor_t *dir, int flags, open_file_t **file);
-int mockfs_seek(open_file_t *file, int offset, int origin);
-int mockfs_read(open_file_t *file, char *buffer, int length);
-int mockfs_write(open_file_t *file, char *buffer, int length);
-int mockfs_flush(open_file_t *file);
-int mockfs_close(open_file_t *file);
-int mockfs_opendir(file_descriptor_t *dir, open_file_t **open_dir);
-int mockfs_readdir(open_file_t *open_dir, file_descriptor_t *entry);
-int mockfs_closedir(open_file_t *open_dir);
+int mockfs_open(file_descriptor_t *dir, int flags, file_t **file);
+int mockfs_seek(file_t *file, int offset, int origin);
+int mockfs_read(file_t *file, char *buffer, int length);
+int mockfs_write(file_t *file, char *buffer, int length);
+int mockfs_flush(file_t *file);
+int mockfs_close(file_t *file);
+int mockfs_opendir(file_descriptor_t *dir, file_t **open_dir);
+int mockfs_readdir(file_t *open_dir, file_descriptor_t *entry);
+int mockfs_closedir(file_t *open_dir);
 int mockfs_create(file_descriptor_t *parent_dir, char *name);
 int mockfs_unlink(file_descriptor_t *parent_dir, char *name);
 int mockfs_mkdir(file_descriptor_t *parent_dir, char *name);
@@ -349,39 +333,39 @@ int mockfs_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result
     return ERR_NOT_IMPLEMENTED;
 }
 // open file for reading or writing, populate file
-int mockfs_open(file_descriptor_t *dir, int flags, open_file_t **file) {
+int mockfs_open(file_descriptor_t *dir, int flags, file_t **file) {
     return ERR_NOT_IMPLEMENTED;
 }
 // move the position in the file, return new position or negative error
-int mockfs_seek(open_file_t *file, int offset, int origin) {
+int mockfs_seek(file_t *file, int offset, int origin) {
     return ERR_NOT_IMPLEMENTED;
 }
 // read from file, returns bytes read or negative error
-int mockfs_read(open_file_t *file, char *buffer, int length) {
+int mockfs_read(file_t *file, char *buffer, int length) {
     return ERR_NOT_IMPLEMENTED;
 }
 // write to file, returns bytes read or negative error
-int mockfs_write(open_file_t *file, char *buffer, int length) {
+int mockfs_write(file_t *file, char *buffer, int length) {
     return ERR_NOT_IMPLEMENTED;
 }
 // flush the file caches
-int mockfs_flush(open_file_t *file) {
+int mockfs_flush(file_t *file) {
     return ERR_NOT_IMPLEMENTED;
 }
 // flush and close the file, free resources
-int mockfs_close(open_file_t *file) {
+int mockfs_close(file_t *file) {
     return ERR_NOT_IMPLEMENTED;
 }
 // open dir for enumerating
-int mockfs_opendir(file_descriptor_t *dir, open_file_t **open_dir) {
+int mockfs_opendir(file_descriptor_t *dir, file_t **open_dir) {
     return ERR_NOT_IMPLEMENTED;
 }
 // get the next entry from the directory list
-int mockfs_readdir(open_file_t *open_dir, file_descriptor_t *entry) {
+int mockfs_readdir(file_t *open_dir, file_descriptor_t *entry) {
     return ERR_NOT_IMPLEMENTED;
 }
 // close the directory handle, free resources
-int mockfs_closedir(open_file_t *open_dir) {
+int mockfs_closedir(file_t *open_dir) {
     return ERR_NOT_IMPLEMENTED;
 }
 // create a normal file (or whatever the fs supports)

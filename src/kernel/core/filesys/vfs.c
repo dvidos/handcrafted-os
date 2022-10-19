@@ -70,16 +70,6 @@ static void debug_dir_entry_t(dir_entry_t *dir_entry) {
     );
 }
 
-static void debug_file_t(file_t *file) {
-    klog_debug("  file->path       : \"%s\"", file->path);
-    klog_debug("  file->entry      : 0x%x", file->entry);
-    klog_debug("  file->superblock : 0x%x", file->superblock);
-    klog_debug("  file->storage_dev: 0x%x", file->storage_dev);
-    klog_debug("  file->driver     : 0x%x", file->driver);
-    klog_debug("  file->partition  : 0x%x", file->partition);
-    klog_debug("  file->fs_driver_priv_data: 0x%x", file->fs_driver_priv_data);
-}
-
 
 // similar to namei() in unix/linux
 static int resolve_path_to_descriptor(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {

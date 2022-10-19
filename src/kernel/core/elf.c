@@ -147,7 +147,7 @@ typedef struct {
 
 // returns SUCCESS or ERR_NOT_SUPPORTED accordingly
 int verify_elf_executable(file_t *file) {
-    klog_trace("verify_elf_executable(\"%s\")", file->path);
+    klog_trace("verify_elf_executable(\"%s\")", file->descriptor->name);
     char identification[16];
 
     int err = vfs_seek(file, 0, SEEK_START);
@@ -190,7 +190,7 @@ int verify_elf_executable(file_t *file) {
 
 // calcualtes information for setting up a new process
 int get_elf_load_information(file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point) {
-    klog_trace("get_elf_load_information(\"%s\")", file->path);
+    klog_trace("get_elf_load_information(\"%s\")", file->descriptor->name);
 
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -251,7 +251,7 @@ exit:
 
 // loads segments from the file into memory
 int load_elf_into_memory(file_t *file) {
-    klog_trace("load_elf_into_memory(\"%s\")", file->path);
+    klog_trace("load_elf_into_memory(\"%s\")", file->descriptor->name);
     
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -332,7 +332,7 @@ int dump_elf_information(file_t *file) {
     err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
     if (err < 0) goto exit;
 
-    klog_info("ELF header for file \"%s\"", file->path);
+    klog_info("ELF header for file \"%s\"", file->descriptor->name);
     dump_elf_header(header);
 
     // so now we can load all section headers and all program headers

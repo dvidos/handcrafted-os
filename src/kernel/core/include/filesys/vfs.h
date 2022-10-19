@@ -16,11 +16,13 @@ typedef struct superblock {
 } superblock_t;
 
 
+
 // file_descriptor->flags
 #define FD_FILE   1
 #define FD_DIR    2
 
-// this structure must be treated as a value object,
+// structure representing a pointer to a file, somewhere on disk
+// this structure to be treated as a value object,
 // we want to copy it, clone it, compare it etc.
 // this allows VFS to make decisions, e.g. to hop directories etc.
 // it must be entirely managed by VFS (i.e. have no private structure of unknown size)
@@ -41,6 +43,7 @@ typedef struct file_descriptor {
     uint32_t mtime; // modified time since 1970
 } file_descriptor_t;
 
+
 file_descriptor_t *create_file_descriptor(superblock_t *superblock, const char *name, uint32_t location);
 file_descriptor_t *clone_file_descriptor(const file_descriptor_t *fd);
 void copy_file_descriptor(file_descriptor_t *dest, const file_descriptor_t *source);
@@ -49,13 +52,17 @@ void destroy_file_descriptor(file_descriptor_t *fd);
 void debug_file_descriptor(const file_descriptor_t *fd);
 
 
-typedef struct open_file {
-    // ---- managed by VFS ----
+typedef struct file {
     struct superblock *superblock;
     struct file_descriptor *descriptor;
-    // ---- managed by filesystem ----
-    void *fs_private_data;
-} open_file_t;
+    const void *fs_driver_private_data;
+} file_t;
+
+
+file_t *create_file_t(superblock_t *superblock, file_descriptor_t *descriptor);
+void debug_file_t(file_t *file);
+void destroy_file_t(file_t *file);
+
 
 
 
@@ -91,21 +98,9 @@ typedef struct dir_entry {
     struct file_timestamp modified;
 } dir_entry_t;
 
-struct file_ops;
 
-typedef struct file {
-    superblock_t *superblock;
-    file_descriptor_t *descriptor;
-    struct storage_dev *storage_dev;
-    struct partition *partition;
-    struct filesys_driver *driver;
-    
-    char *path; // relative to mount point
-    dir_entry_t *entry;
-    file_descriptor_t *fd;
-    
-    void *fs_driver_priv_data;
-} file_t;
+
+
 
 enum seek_origin {
     SEEK_START,

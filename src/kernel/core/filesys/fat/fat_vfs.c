@@ -246,6 +246,20 @@ static int fat_close_superblock(struct superblock *superblock) {
     return SUCCESS;
 }
 
+static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result) {
+    // we must find the entry "name" in directory dir, return pointer to result.
+    // something analogous to opendir()/readdir()/closedir().
+    fat_info *fat = (fat_info *)dir->superblock->priv_fs_driver_data;
+
+    if ((fat->fat_type == FAT12 || fat->fat_type == FAT16) && dir->location == 0) {
+        // root dir
+    } else {
+        // cluster dir
+    }
+
+    return ERR_NOT_IMPLEMENTED;
+}
+
 static int fat_open2(file_descriptor_t *fd, int flags, file_t **file) {
     klog_trace("fat_open2(descriptor=0x%x)", fd);
     fat_info *fat = (fat_info *)fd->superblock->priv_fs_driver_data;
@@ -258,16 +272,8 @@ static int fat_open2(file_descriptor_t *fd, int flags, file_t **file) {
     if (err)
         return err;
 
-    file_t *f = kmalloc(sizeof(file_t));
-    f->superblock = fd->superblock;
-    f->storage_dev = fd->superblock->partition->dev;
-    f->partition = fd->superblock->partition;
-    f->driver = fd->superblock->driver;
-    f->entry = NULL;
-    f->path = "some path";
-    f->fs_driver_priv_data = pfi;
-
-    *file = f;
+    (*file) = create_file_t(fd->superblock, fd);
+    (*file)->fs_driver_private_data = pfi;
     return SUCCESS;
 }
 
@@ -284,12 +290,7 @@ static int fat_open_deprecated(dir_entry_t *entry, file_t *file) {
         return err;
 
     file->superblock = entry->superblock;
-    file->storage_dev = entry->superblock->partition->dev;
-    file->partition = entry->superblock->partition;
-    file->driver = entry->superblock->driver;
-    file->entry = entry;
-    file->path = "some path";
-    file->fs_driver_priv_data = pfi;
+    file->fs_driver_private_data = pfi;
 
     return SUCCESS;
 }
@@ -297,14 +298,14 @@ static int fat_open_deprecated(dir_entry_t *entry, file_t *file) {
 static int fat_read(file_t *file, char *buffer, int length) {
     klog_trace("fat_read(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_priv_data;
+    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_read(fat, pfi, buffer, length);
 }
 
 static int fat_write(file_t *file, char *buffer, int length) {
     klog_trace("fat_write(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_priv_data;
+    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     acquire(&fat_write_lock);
     int err = fat->ops->priv_file_write(fat, pfi, buffer, length);
     release(&fat_write_lock);
@@ -314,14 +315,14 @@ static int fat_write(file_t *file, char *buffer, int length) {
 static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
     klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_priv_data;
+    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_seek(fat, pfi, offset, origin);
 }
 
 static int fat_close(file_t *file) {
     klog_trace("fat_close()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_priv_data;
+    fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_close(fat, pfi);
 }
 
@@ -339,10 +340,6 @@ static int fat_open_root_dir(struct superblock *superblock, file_t *file) {
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
 
     file->superblock = superblock;
-    file->driver = superblock->driver;
-    file->partition = superblock->partition;
-    file->storage_dev = superblock->partition->dev;
-    file->path = "/";
     
     // need to signify to other that this is the root directory
 
@@ -374,14 +371,14 @@ static int fat_open_root_dir(struct superblock *superblock, file_t *file) {
     klog_debug("fat_open_root_dir(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
     klog_debug_hex(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
 
-    file->fs_driver_priv_data = pd;
+    file->fs_driver_private_data = pd;
     return SUCCESS;
 }
 
 static int fat_find_dir_entry(file_t *parentdir, char *name, dir_entry_t *entry) {
     klog_trace("fat_find_dir_entry(\"%s\")", name);
     fat_info *fat = (fat_info *)parentdir->superblock->priv_fs_driver_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)parentdir->fs_driver_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)parentdir->fs_driver_private_data;
     fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
     int err;
 
@@ -418,7 +415,7 @@ static int fat_opendir(dir_entry_t *entry, file_t *file) {
     // fat_priv_dir_info *pd = NULL;
     // int err = fat->ops->priv_dir_find_and_open(fat, path, false, &pd);
     // if (err) return err;
-    // file->fs_driver_priv_data = pd;
+    // file->fs_driver_private_data = pd;
 
     return ERR_NOT_IMPLEMENTED;
 }
@@ -426,7 +423,7 @@ static int fat_opendir(dir_entry_t *entry, file_t *file) {
 static int fat_rewinddir(file_t *file) {
     klog_trace("fat_rewinddir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_private_data;
     
     return fat->ops->priv_dir_seek_slot(fat, pd, 0);
 }
@@ -434,7 +431,7 @@ static int fat_rewinddir(file_t *file) {
 static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
     klog_trace("fat_readdir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_private_data;
     
     fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
     int err = fat->ops->priv_dir_read_one_entry(fat, pd, fat_entry);
@@ -452,7 +449,7 @@ static int fat_readdir(file_t *file, struct dir_entry *dir_entry) {
 static int fat_closedir(file_t *file) {
     klog_trace("fat_closedir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_priv_data;
+    fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_private_data;
 
     int err = fat->ops->priv_dir_close(fat, pd);
     return err;
@@ -565,6 +562,7 @@ exit:
 
 struct file_ops fat_file_operations = {
     .root_dir_descriptor = fat_root_descriptor,
+    .lookup = fat_lookup,
     .open2 = fat_open2,
 
     .deprecated_open_root_dir = fat_open_root_dir,
