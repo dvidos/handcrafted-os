@@ -13,10 +13,10 @@
 
 static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info **ppf) {
     klog_trace("priv_file_open(cluster=%d, size=%d)", cluster_no, file_size);
+    int err;
 
     fat_priv_file_info *pf = kmalloc(sizeof(fat_priv_file_info));
     *ppf = pf;
-
     memset(pf, 0, sizeof(fat_priv_file_info));
     pf->sector = kmalloc(sizeof(sector_t));
     memset(pf->sector, 0, sizeof(sector_t));
@@ -30,15 +30,23 @@ static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size
     // read the first cluster, to prepare for reading
     if (file_size > 0 && cluster_no > 0) {
         int err = fat->ops->read_data_cluster(fat, cluster_no, pf->cluster);
-        if (err) return err;
+        if (err) goto error;
     }
     
     pf->cluster_n_index = 0;
     pf->first_cluster_no = cluster_no;
     pf->size = file_size;
     pf->offset = 0;
-
-    return SUCCESS;
+    err = SUCCESS;
+    goto out;
+error:
+    if (pf->cluster != NULL && pf->cluster->buffer != NULL) kfree(pf->cluster->buffer);
+    if (pf->sector != NULL && pf->sector->buffer != NULL) kfree(pf->sector->buffer);
+    if (pf->cluster != NULL) kfree(pf->cluster);
+    if (pf->sector != NULL) kfree(pf->sector);
+    if (pf != NULL) kfree(pf);
+out:
+    return err;
 }
 
 static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length) {

@@ -32,7 +32,7 @@ typedef struct file_descriptor {
     struct superblock *superblock; 
 
     // needed to update file size and mtime on file close, NULL for root dir
-    // referenced, not cloned.
+    // cloned and freed.
     struct file_descriptor *owning_directory; 
 
     char *name; // file name, not full path (owned, cloned, free etc)
@@ -44,12 +44,12 @@ typedef struct file_descriptor {
 } file_descriptor_t;
 
 
-file_descriptor_t *create_file_descriptor(superblock_t *superblock, const char *name, uint32_t location);
+file_descriptor_t *create_file_descriptor(superblock_t *superblock, const char *name, uint32_t location, file_descriptor_t *owning_dir);
 file_descriptor_t *clone_file_descriptor(const file_descriptor_t *fd);
 void copy_file_descriptor(file_descriptor_t *dest, const file_descriptor_t *source);
 bool file_descriptors_equal(const file_descriptor_t *a, const file_descriptor_t *b);
 void destroy_file_descriptor(file_descriptor_t *fd);
-void debug_file_descriptor(const file_descriptor_t *fd);
+void debug_file_descriptor(const file_descriptor_t *fd, int depth);
 
 
 typedef struct file {
@@ -126,7 +126,7 @@ struct file_ops {
     int (*lookup)(file_descriptor_t *dir, char *name, file_descriptor_t **result);
 
     // open file for reading or writing, populate file
-    int (*open2)(file_descriptor_t *dir, int flags, file_t **file);
+    int (*open2)(file_descriptor_t *fd, int flags, file_t **file);
 
     // -- old style methods -- to be refactored --
     // -----------------------------------------------------------------

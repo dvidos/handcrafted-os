@@ -43,19 +43,19 @@ static void load_and_run_executable();
 // return pid for success, negative value for errors
 int execve(char *path, char *argv[], char *envp[]) {
     klog_trace("execve(path=\"%s\")", path);
-    file_t file;
+    file_t *file = NULL;
     int err;
     bool file_open = false;
 
-    err = vfs_open(path, &file);
+    err = vfs_open2(path, &file);
     if (err) goto exit;
     file_open = true;
 
     // this is where we could support the "#!/bin/sh" construct
-    err = verify_elf_executable(&file);
+    err = verify_elf_executable(file);
     if (err) goto exit;
     
-    err = vfs_close(&file);
+    err = vfs_close(file);
     if (err) goto exit;
     file_open = false;
 
@@ -97,7 +97,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     new_proc->user_proc.envp = clone_strvec(envp);
 
     // not much left, cheers!
-    klog_debug("execve(): about to start process %s[%d]", new_proc->name, new_proc->pid);
+    klog_debug("execve(): starting process %s[%d]", new_proc->name, new_proc->pid);
     start_process(new_proc);
 
     // usually here we have the parent as current process (e.g. vi was launched, we go sh as current)
@@ -106,7 +106,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     err = SUCCESS;
 exit:
     if (file_open)
-        vfs_close(&file);
+        vfs_close(file);
     if (err)
         klog_debug("execve() --> %d", err);
     return err == SUCCESS ? new_proc->pid : err;
@@ -131,8 +131,8 @@ static void load_and_run_executable() {
     klog_debug("load_and_run_executable() running");
 
     // find info from the file
-    file_t file;
-    err = vfs_open(proc->user_proc.executable_path, &file);
+    file_t *file = NULL;
+    err = vfs_open2(proc->user_proc.executable_path, &file);
     if (err) {
         klog_error("Failed opening executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(-1);
@@ -143,7 +143,7 @@ static void load_and_run_executable() {
     void *virt_addr_end = NULL;
     void *elf_entry_point = NULL;
 
-    err = get_elf_load_information(&file, &virt_addr_start, &virt_addr_end, &elf_entry_point);
+    err = get_elf_load_information(file, &virt_addr_start, &virt_addr_end, &elf_entry_point);
     klog_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, elf_entry_point);
     if (err) {
         klog_error("Failed getting info from executable");
@@ -176,13 +176,13 @@ static void load_and_run_executable() {
     set_page_directory_register(page_directory);
 
     // we should be safe to do it now
-    err = load_elf_into_memory(&file);
+    err = load_elf_into_memory(file);
     if (err) {
         klog_error("Failed loading executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(-3);
     }
 
-    err = vfs_close(&file);
+    err = vfs_close(file);
     if (err) {
         klog_error("Failed closing executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(-4);

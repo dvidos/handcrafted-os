@@ -73,7 +73,10 @@ static void debug_dir_entry_t(dir_entry_t *dir_entry) {
 
 // similar to namei() in unix/linux
 static int resolve_path_to_descriptor(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
-    // test edge cases
+    klog_trace("resolve_path_to_descriptor(\"%s\", root=0x%x, curr=0x%x, container=%d)",
+        path, root_dir, curr_dir, (int)containing_folder);
+    
+    // test edge cases first
     if (path == NULL)
         return ERR_BAD_ARGUMENT;
     if (*path == '\0')
@@ -174,7 +177,8 @@ static int resolve_path_to_descriptor(const char *path, const file_descriptor_t 
     // we visited all levels, we should be ok.
     err = SUCCESS;
 out:
-    kfree(work_path);
+    if (work_path != NULL)
+        kfree(work_path);
     return err;
 }
 
@@ -223,23 +227,33 @@ int vfs_closedir(file_t *file) {
 }
 
 int vfs_open(char *path, file_t *file) {
-    klog_trace("vfs_open(\"%s\")", path);
     return ERR_NOT_IMPLEMENTED;
-//     dir_entry_t *entry = kmalloc(sizeof(dir_entry_t));
-//     int err;
+}
 
-//     err = resolve_path_to_entry(path, entry);
-//     if (err) goto out;
-//     if (entry->superblock->ops->open == NULL) {
-//         err = ERR_NOT_SUPPORTED;
-//         goto out;
-//     }
-//     err = entry->superblock->ops->open(entry, file);
-//     if (err) goto out;
+int vfs_open2(char *path, file_t **file) {
+    int err;
 
-// out:
-//     if (entry) kfree(entry);
-//     return err;
+    if (vfs_get_root_mount() == NULL) {
+        err = ERR_NO_FS_MOUNTED;
+        goto out;
+    }
+    
+    // only absolute paths for now
+    file_descriptor_t *target = NULL;
+    err = resolve_path_to_descriptor(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
+    if (err) goto out;
+
+    debug_file_descriptor(target, 0);
+    if (target == NULL) {
+        err = ERR_BAD_VALUE;
+        goto out;
+    }
+
+    err = target->superblock->ops->open2(target, 0, file);
+
+out:
+    klog_trace("vfs_open2(\"%s\") -> %d", path, err);
+    return err;
 }
 
 int vfs_read(file_t *file, char *buffer, int bytes) {

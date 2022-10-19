@@ -210,7 +210,8 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     fat->root_dir_descriptor = create_file_descriptor(
         superblock, 
         "/", 
-        fat->fat_type == FAT32 ? fat->boot_sector->types.fat_32.root_dir_cluster : 0
+        fat->fat_type == FAT32 ? fat->boot_sector->types.fat_32.root_dir_cluster : 0,
+        NULL
     );
     fat->root_dir_descriptor->flags = FD_DIR;
 
@@ -247,17 +248,47 @@ static int fat_close_superblock(struct superblock *superblock) {
 }
 
 static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result) {
+    klog_trace("fat_lookup(dir=0x%x, name=\"%s\")", dir, name);
     // we must find the entry "name" in directory dir, return pointer to result.
     // something analogous to opendir()/readdir()/closedir().
     fat_info *fat = (fat_info *)dir->superblock->priv_fs_driver_data;
+    int err = ERR_NOT_FOUND;
+    fat_priv_dir_info *fpdi;
+    fat_dir_entry *entry = kmalloc(sizeof(fat_dir_entry));
 
-    if ((fat->fat_type == FAT12 || fat->fat_type == FAT16) && dir->location == 0) {
-        // root dir
-    } else {
-        // cluster dir
+    if ((fat->fat_type == FAT12 || fat->fat_type == FAT16) && dir->location == 0)
+        err = fat->ops->priv_dir_open_root(fat, &fpdi);
+    else
+        err = fat->ops->priv_dir_open_cluster(fat, dir->location, &fpdi);
+    if (err) goto out;
+
+    while (true) {
+        err = fat->ops->priv_dir_read_one_entry(fat, fpdi, entry);
+        if (err == ERR_NO_MORE_CONTENT) {
+            err = ERR_NOT_FOUND;
+            goto close;
+        }
+        if (err)
+            goto close;
+        
+        if (strcmp(entry->short_name, name) == 0) {
+            (*result) = create_file_descriptor(dir->superblock, name, entry->first_cluster_no, dir);
+            if (entry->attributes.flags.directory)
+                (*result)->flags |= FD_DIR;
+            else if (!entry->attributes.flags.volume_label)
+                (*result)->flags |= FD_FILE;
+            (*result)->size = entry->file_size;
+            break;
+        }
     }
 
-    return ERR_NOT_IMPLEMENTED;
+close:
+    // don't affect `err`, we may have some specific error
+    fat->ops->priv_dir_close(fat, fpdi);
+out:
+    if (entry)
+        kfree(entry);
+    return err;
 }
 
 static int fat_open2(file_descriptor_t *fd, int flags, file_t **file) {
@@ -564,25 +595,19 @@ struct file_ops fat_file_operations = {
     .root_dir_descriptor = fat_root_descriptor,
     .lookup = fat_lookup,
     .open2 = fat_open2,
+    .read = fat_read,
+    .write = fat_write,
+    .seek = fat_seek,
+    .close = fat_close,
 
     .deprecated_open_root_dir = fat_open_root_dir,
     .deprecated_find_dir_entry = fat_find_dir_entry,
     .deprecated_open_old = fat_open_deprecated,
-    .read = fat_read,
-    .write = fat_write,
-    .seek = fat_seek,
-    .close = fat_close
 
     // .opendir = fat_opendir,
     // .rewinddir = fat_rewinddir,
     // .readdir = fat_readdir,
     // .closedir = fat_closedir,
-
-    // .deprecated_open_old = fat_open_deprecated,
-    // .read = fat_read,
-    // .write = fat_write,
-    // .seek = fat_seek,
-    // .close = fat_close,
 
     // .touch = fat_touch,
     // .mkdir = fat_mkdir,

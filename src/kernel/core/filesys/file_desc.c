@@ -6,21 +6,28 @@
 MODULE("VFS");
 
 
-file_descriptor_t *create_file_descriptor(struct superblock *superblock, const char *name, uint32_t location) {
+file_descriptor_t *create_file_descriptor(superblock_t *superblock, const char *name, uint32_t location, file_descriptor_t *owning_dir) {
     file_descriptor_t *fd = kmalloc(sizeof(file_descriptor_t));
+    memset(fd, 0, sizeof(file_descriptor_t));
 
     fd->superblock = superblock;
     fd->name = strdup(name);
     fd->location = location;
+    fd->owning_directory = clone_file_descriptor(owning_dir);
 
     return fd;
 }
 
 file_descriptor_t *clone_file_descriptor(const file_descriptor_t *fd) {
-    file_descriptor_t *clone = kmalloc(sizeof(file_descriptor_t));
+    if (fd == NULL)
+        return NULL;
 
+    file_descriptor_t *clone = kmalloc(sizeof(file_descriptor_t));
     memcpy(clone, fd, sizeof(file_descriptor_t));
     clone->name = strdup(fd->name);
+    
+    if (fd->owning_directory != NULL)
+        clone->owning_directory = clone_file_descriptor(fd->owning_directory);
 
     return clone;
 }
@@ -39,6 +46,10 @@ void copy_file_descriptor(file_descriptor_t *dest, const file_descriptor_t *sour
     if (dest->name != NULL)
         kfree(dest->name);
     dest->name = strdup(source->name);
+
+    if (dest->owning_directory != NULL)
+        destroy_file_descriptor(dest->owning_directory);
+    dest->owning_directory = clone_file_descriptor(source->owning_directory);
 }
 
 bool file_descriptors_equal(const file_descriptor_t *a, const file_descriptor_t *b) {
@@ -65,17 +76,24 @@ bool file_descriptors_equal(const file_descriptor_t *a, const file_descriptor_t 
 
 void destroy_file_descriptor(file_descriptor_t *fd) {
     // superblock is referenced, not owned, we don't free() it
-    // is it the same with owning directory??? - or else we'd copy it, in clone()
+    if (fd->owning_directory != NULL)
+        destroy_file_descriptor(fd->owning_directory);
     kfree(fd->name);
     kfree(fd);
 }
 
-void debug_file_descriptor(const file_descriptor_t *fd) {
-    klog_debug("  superblock: 0x%08x", fd->superblock);
-    klog_debug("  name:       \"%s\"", fd->name);
-    klog_debug("  location:   %u", fd->location);
-    klog_debug("  size:       %u", fd->size);
-    klog_debug("  flags:      0x%x (%04bb)", fd->flags, fd->flags);
-    klog_debug("  ctime:       %u", fd->ctime);
-    klog_debug("  mtime:       %u", fd->mtime);
+void debug_file_descriptor(const file_descriptor_t *fd, int depth) {
+    char indent[36 + 1];
+    memset(indent, ' ', sizeof(indent));
+    indent[sizeof(indent) - 1] = 0;
+    if (depth <= (int)((sizeof(indent) - 1) / 3))
+        indent[depth * 3] = 0;
+    
+    klog_debug("%s  file descriptor at 0x%x, name: \"%s\"", indent, fd, fd->name);
+    klog_debug("%s  flags: 0x%02x / %08bb (file=%d, dir=%d)", indent, fd->flags, fd->flags, FD_FILE, FD_DIR);
+    klog_debug("%s  location: %u, size: %u, ctime: %u, mtime: %u", indent, fd->location, fd->size, fd->ctime, fd->mtime);
+    klog_debug("%s  superblock: 0x%x,  parent: 0x%x", indent, fd->superblock, fd->owning_directory);
+
+    if (fd->owning_directory != NULL)
+        debug_file_descriptor(fd->owning_directory, depth + 1);
 }

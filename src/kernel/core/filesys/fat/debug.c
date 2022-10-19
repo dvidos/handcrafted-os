@@ -24,7 +24,7 @@ static void debug_fat_info(fat_info *fat) {
     klog_debug("  root dir starting lba       %d", fat->root_dir_starting_lba);
     klog_debug("  root dir sectors size       %d", fat->root_dir_sectors_count);
     klog_debug("Root dir descriptor:");
-    debug_file_descriptor(fat->root_dir_descriptor);
+    debug_file_descriptor(fat->root_dir_descriptor, 0);
 }
 
 static void debug_fat_dir_entry(bool title_line, fat_dir_entry *entry) {
