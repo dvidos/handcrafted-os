@@ -112,13 +112,13 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
     } 
 
     // we also open the root directory (in order to resolve any path names)
-    if (mount->superblock->ops->open_root_dir == NULL) {
-        klog_error("Driver %s does not support open_root_dir() method", driver->name);
+    if (mount->superblock->ops->deprecated_open_root_dir == NULL) {
+        klog_error("Driver %s does not support deprecated_open_root_dir() method", driver->name);
         err = ERR_NOT_SUPPORTED;
         goto error;
     }
     mount->root_dir = kmalloc(sizeof(file_t));
-    err = mount->superblock->ops->open_root_dir(mount->superblock, mount->root_dir);
+    err = mount->superblock->ops->deprecated_open_root_dir(mount->superblock, mount->root_dir);
     if (err) {
         klog_error("Error %d when opening root dir", err);
         goto error;

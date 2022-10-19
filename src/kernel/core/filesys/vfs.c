@@ -80,161 +80,125 @@ static void debug_file_t(file_t *file) {
     klog_debug("  file->fs_driver_priv_data: 0x%x", file->fs_driver_priv_data);
 }
 
-// essentially the same function as `namei()`, back in System V...
-static int resolve_path_to_entry(char *path, dir_entry_t *entry) {
-    klog_trace("resolve_path_to_entry(\"%s\")", path);
 
-    file_t *dir = NULL;
-    struct superblock *superblock = NULL;
-    bool allocated_dir = false;
-    bool opened_dir = false;
+// similar to namei() in unix/linux
+static int resolve_path_to_descriptor(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
+    // test edge cases
+    if (path == NULL)
+        return ERR_BAD_ARGUMENT;
+    if (*path == '\0')
+        return ERR_BAD_ARGUMENT;
+    if (root_dir == NULL)
+        return ERR_NO_FS_MOUNTED;
 
-    int offset = 0;
-    int pathlen = strlen(path);
-    char *buffer = kmalloc(pathlen + 1); // to be sure parts fit.
-    int err;
-
-    // resolve where we start from
-    if (path[offset] == '/') {
-        if (vfs_get_root_mount() == NULL)
-            return ERR_NO_FS_MOUNTED;
-        dir = vfs_get_root_mount()->root_dir;
-        offset++;
-    } else {
-        process_t *p = running_process();
-        if (p == NULL)
-            return ERR_NO_RUNNING_PROCESS;
-        dir = &p->cwd;
+    // easy cases to get out of the way fast.
+    if (strlen(path) == 1) {
+        if (*path == '/') {
+            *target = clone_file_descriptor(root_dir);
+            return SUCCESS;
+        } else if (*path == '.') {
+            if (curr_dir == NULL)
+                return ERR_BAD_ARGUMENT;
+            *target = clone_file_descriptor(curr_dir);
+            return SUCCESS;
+        }
     }
-    allocated_dir = false;
-    opened_dir = false; // because it's supposed to be open
-    superblock = dir->superblock;
-    debug_file_t(dir);
+
+    // duplicate so we may go to containing folder, tokenize and parse
+    char *work_path = strdup(path);
+    if (containing_folder) {
+        // we could have cases "./asdf", "asdf" or "/asdf"
+        work_path = dirname(work_path);
+        if (strlen(work_path) == 1 && *work_path == '.') {
+            if (curr_dir == NULL)
+                return ERR_BAD_ARGUMENT;
+            *target = clone_file_descriptor(curr_dir);
+            kfree(work_path);
+            return SUCCESS;
+        }
+        else if (strlen(work_path) == 1 && *work_path == '/') {
+            *target = clone_file_descriptor(root_dir);
+            kfree(work_path);
+            return SUCCESS;
+        }
+    }
+
+    // establish base dir
+    file_descriptor_t *base_dir = NULL;
+    if (*path == '/') {
+        base_dir = clone_file_descriptor(root_dir);
+        path++;
+    } else {
+        if (curr_dir == NULL)
+            return ERR_BAD_ARGUMENT;
+        base_dir = clone_file_descriptor(curr_dir);
+    }
     
-    while (offset < pathlen) {
-        get_next_path_part(path, &offset, buffer);
-        klog_debug("Looking for path part \"%s\"", buffer);
+    // maybe we were given "/mnt/hdd2/dir/file.txt" and we are at the "hdd2"
+    // how to see that this is a mounted file system?
+    // so that we switch to the new superblock and the correct function pointers?
+    // maybe each filesystem driver will maintain a list of mounts and directories,
+    // e.g. a list of file_designator_t and mounts,
+    // so that resolving such a directory, we are given the root directory
+    // of the mounted file system.
+    // but, to not implement this in every filesys driver, 
+    // we must implement something on VFS level. 
 
-        err = superblock->ops->find_dir_entry(dir, buffer, entry);
-        if (err) {
-            klog_error("Error %d finding entry %s in dir", err, buffer);
-            goto out;
-        }
-        debug_dir_entry_t(entry);
+    int err = SUCCESS;
+    char *name = strtok(work_path, "/");
+    while (true) {
 
-        // if no more path exists, it means the entry is what we were looking for!
-        if (offset >= strlen(path)) {
-            klog_debug("No more path, returning last entry discovered");
-            if (opened_dir) {
-                superblock->ops->closedir(dir);
-                kfree(dir);
-            }
-            err = SUCCESS;
-            goto out;
-        }
-
-        // Question: what will happen if path is ".." 
-        // and we should move into another superblock?
-        // we will have to solve this at some point...
-
-
-        // since we have more path, we need to open this entry as a directory.
-        // validate this is a directory.
-        if (!entry->flags.dir) {
-            klog_debug("part is not a directory, bailing");
+        // there's another part to look for, verify that 
+        // we are searching inside a directory, not a file
+        if ((base_dir->flags && FD_DIR) == 0) {
             err = ERR_NOT_A_DIRECTORY;
             goto out;
         }
 
-        if (opened_dir) {
-            if (superblock->ops->closedir != NULL) {
-                err = superblock->ops->closedir(dir);
-                if (err) goto out;
-            }
-            kfree(dir);
+        // we are now sure we are based in a directory.
+        err = base_dir->superblock->ops->lookup(base_dir, name, target);
+        if (err) goto out;
+
+        // here we could translate for mounted filesystems.
+        // one can think of a mount as two pairs of file descriptors:
+        // one for the mount point directory of the host system,
+        // one for the root directory of the hosted system.
+        // so, if we got a descriptor pointing to one dir (e.g. fs A, "/mnt/hda")
+        // we could substitute the other dir (fs B, "/")
+
+        // let's check if we finished
+        name = strtok(NULL, "/");
+        if (name == NULL || strlen(name) == 0) {
+            // we are done, target contains the... target, so free base_dir
+            destroy_file_descriptor(base_dir);
+            break;
         }
 
-        dir = kmalloc(sizeof(file_t));
-        memset(dir, 0, sizeof(file_t));
-        allocated_dir = true;
-
-        err = superblock->ops->opendir(entry, dir);
-        if (err) goto out;
-        opened_dir = true;
+        // we will search again, so rebase on the new target.
+        // lookup() will create a new file_descriptor each call
+        // so, free our current, use the new one.
+        destroy_file_descriptor(base_dir);
+        base_dir = *target;
     }
 
+    // we visited all levels, we should be ok.
+    err = SUCCESS;
 out:
-    if (buffer != NULL)
-        kfree(buffer);
-    if (dir != NULL && allocated_dir) {
-        if (opened_dir)
-            superblock->ops->closedir(dir);
-        kfree(dir);
-    }
-    if (err)
-        klog_debug("resolve_path_to_entry(\"%s\") --> %d", path, err);
+    kfree(work_path);
     return err;
-}
-
-
-
-
-static int __deprecate__resolve_filesys_and_prepare_file_structure(char *path, file_t *file) {
-    klog_trace("__deprecate__resolve_filesys_and_prepare_file_structure(\"%s\")", path);
-    return ERR_NOT_IMPLEMENTED;
-
-    // based on path, we should find the filesystem and the relative path
-    // for now, let's say we have not mounted anything
-
-
-    // every path much be relative to a directory,
-    // even the absolute paths are relative to the root directory.
-    // it seems we need to keep the root directory of each mount opened,
-    // so that we can resolve paths relative to them.
-    // least the root directory of the whole filesytem must be loaded upon mount.
-
-
-//     // in theory, we would parse the path to find the mount point and mounted path
-//     // but for now, let's assume only one mounted system
-//     struct mount_info *mount = vfs_get_mounts_list();
-//     if (mount == NULL)
-//         return ERR_NOT_FOUND;
-
-//     // let's go with the second mount for now.
-//     if (mount->next == NULL)
-//         return ERR_NOT_FOUND;
-//     mount = mount->next;
-
-//     // we need to fill in the file_t structure.
-//     file->storage_dev = mount->dev;
-//     file->partition = mount->part;
-//     file->driver = mount->driver;
-// //     file->superblock->ops = mount->driver->get_file_operations();
-//     klog_debug("Path \"%s\" resolved to device #%d (\"%s\"), partition #%d, file driver \"%s\"",
-//         path,
-//         file->storage_dev->dev_no,
-//         file->storage_dev->name,
-//         file->partition->part_no,
-//         file->driver->name
-//     );
-
-//     // normally, we should give the relative path, after the mount
-//     file->path = path;
-    
-//     return NO_ERROR;    
 }
 
 int vfs_opendir(char *path, file_t *file) {
     klog_trace("vfs_opendir(path=\"%s\", file=0x%p)", path, file);
 
-    if (strcmp(path, "/") == 0) {
-        mount_info_t *mount = vfs_get_root_mount();
-        if (mount == NULL)
-            return ERR_NO_FS_MOUNTED;
-        return mount->superblock->ops->open_root_dir(mount->superblock, file);
-    }
+    // if (strcmp(path, "/") == 0) {
+    //     mount_info_t *mount = vfs_get_root_mount();
+    //     if (mount == NULL)
+    //         return ERR_NO_FS_MOUNTED;
+    //     return mount->superblock->ops->deprecated_open_root_dir(mount->superblock, file);
+    // }
 
-    klog_error("Opening subdirs not supported yet! :-(");
+    // klog_error("Opening subdirs not supported yet! :-(");
     // // find entry_t based on root or current workding dir,
     // // call the appropriate opendir(), passing the entry_t
     // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, file);
@@ -270,21 +234,22 @@ int vfs_closedir(file_t *file) {
 
 int vfs_open(char *path, file_t *file) {
     klog_trace("vfs_open(\"%s\")", path);
-    dir_entry_t *entry = kmalloc(sizeof(dir_entry_t));
-    int err;
+    return ERR_NOT_IMPLEMENTED;
+//     dir_entry_t *entry = kmalloc(sizeof(dir_entry_t));
+//     int err;
 
-    err = resolve_path_to_entry(path, entry);
-    if (err) goto out;
-    if (entry->superblock->ops->open == NULL) {
-        err = ERR_NOT_SUPPORTED;
-        goto out;
-    }
-    err = entry->superblock->ops->open(entry, file);
-    if (err) goto out;
+//     err = resolve_path_to_entry(path, entry);
+//     if (err) goto out;
+//     if (entry->superblock->ops->open == NULL) {
+//         err = ERR_NOT_SUPPORTED;
+//         goto out;
+//     }
+//     err = entry->superblock->ops->open(entry, file);
+//     if (err) goto out;
 
-out:
-    if (entry) kfree(entry);
-    return err;
+// out:
+//     if (entry) kfree(entry);
+//     return err;
 }
 
 int vfs_read(file_t *file, char *buffer, int bytes) {

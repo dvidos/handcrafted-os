@@ -16,7 +16,7 @@ file_descriptor_t *create_file_descriptor(struct superblock *superblock, const c
     return fd;
 }
 
-file_descriptor_t *clone_file_descriptor(file_descriptor_t *fd) {
+file_descriptor_t *clone_file_descriptor(const file_descriptor_t *fd) {
     file_descriptor_t *clone = kmalloc(sizeof(file_descriptor_t));
 
     memcpy(clone, fd, sizeof(file_descriptor_t));
@@ -25,7 +25,7 @@ file_descriptor_t *clone_file_descriptor(file_descriptor_t *fd) {
     return clone;
 }
 
-void copy_file_descriptor(file_descriptor_t *dest, file_descriptor_t *source) {
+void copy_file_descriptor(file_descriptor_t *dest, const file_descriptor_t *source) {
     // we don't own superblock, so we copy the pointer.
     dest->superblock = source->superblock;
 
@@ -41,7 +41,7 @@ void copy_file_descriptor(file_descriptor_t *dest, file_descriptor_t *source) {
     dest->name = strdup(source->name);
 }
 
-bool file_descriptors_equal(file_descriptor_t *a, file_descriptor_t *b) {
+bool file_descriptors_equal(const file_descriptor_t *a, const file_descriptor_t *b) {
     if ((a == NULL && b == NULL) || (a == b))
         return true;
     
@@ -70,7 +70,7 @@ void destroy_file_descriptor(file_descriptor_t *fd) {
     kfree(fd);
 }
 
-void debug_file_descriptor(file_descriptor_t *fd) {
+void debug_file_descriptor(const file_descriptor_t *fd) {
     klog_debug("  superblock: 0x%08x", fd->superblock);
     klog_debug("  name:       \"%s\"", fd->name);
     klog_debug("  location:   %u", fd->location);

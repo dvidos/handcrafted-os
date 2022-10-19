@@ -22,7 +22,7 @@ char *strdup(const char *str);
 
 
 void memset(void *dest, char value, size_t size);
-void memcpy(void *dest, void *source, size_t size);
+void memcpy(void *dest, const void *source, size_t size);
 int  memcmp(void *a, void *b, size_t size);
 char *memmove(void *dest, void *source, size_t size);
 

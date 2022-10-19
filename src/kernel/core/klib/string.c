@@ -58,7 +58,7 @@ void memset(void *dest, char value, size_t size) {
 }
 
 
-void memcpy(void *dest, void *source, size_t size) {
+void memcpy(void *dest, const void *source, size_t size) {
     char *d = (char *)dest;
     char *s = (char *)source;
     while (size-- > 0) {

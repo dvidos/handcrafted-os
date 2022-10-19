@@ -212,6 +212,7 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
         "/", 
         fat->fat_type == FAT32 ? fat->boot_sector->types.fat_32.root_dir_cluster : 0
     );
+    fat->root_dir_descriptor->flags = FD_DIR;
 
     debug_fat_info(fat);
 
@@ -245,8 +246,33 @@ static int fat_close_superblock(struct superblock *superblock) {
     return SUCCESS;
 }
 
-static int fat_open(dir_entry_t *entry, file_t *file) {
-    klog_trace("fat_open(entry=\"%s\")", entry->short_name);
+static int fat_open2(file_descriptor_t *fd, int flags, file_t **file) {
+    klog_trace("fat_open2(descriptor=0x%x)", fd);
+    fat_info *fat = (fat_info *)fd->superblock->priv_fs_driver_data;
+
+    if ((fd->flags & FD_FILE) == 0)
+        return ERR_NOT_A_FILE;
+    
+    fat_priv_file_info *pfi = NULL;
+    int err = fat->ops->priv_file_open(fat, fd->location, fd->size, &pfi);
+    if (err)
+        return err;
+
+    file_t *f = kmalloc(sizeof(file_t));
+    f->superblock = fd->superblock;
+    f->storage_dev = fd->superblock->partition->dev;
+    f->partition = fd->superblock->partition;
+    f->driver = fd->superblock->driver;
+    f->entry = NULL;
+    f->path = "some path";
+    f->fs_driver_priv_data = pfi;
+
+    *file = f;
+    return SUCCESS;
+}
+
+static int fat_open_deprecated(dir_entry_t *entry, file_t *file) {
+    klog_trace("fat_open_deprecated(entry=\"%s\")", entry->short_name);
     fat_info *fat = (fat_info *)entry->superblock->priv_fs_driver_data;
 
     if (entry->flags.dir || entry->flags.label)
@@ -305,6 +331,9 @@ static int fat_root_descriptor(superblock_t *superblock, file_descriptor_t **fd)
     *fd = fat->root_dir_descriptor;
     return SUCCESS;
 }
+
+
+
 static int fat_open_root_dir(struct superblock *superblock, file_t *file) {
     klog_trace("fat_open_root_dir()");
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
@@ -536,10 +565,11 @@ exit:
 
 struct file_ops fat_file_operations = {
     .root_dir_descriptor = fat_root_descriptor,
+    .open2 = fat_open2,
 
-    .open_root_dir = fat_open_root_dir,
-    .find_dir_entry = fat_find_dir_entry,
-    .open = fat_open,
+    .deprecated_open_root_dir = fat_open_root_dir,
+    .deprecated_find_dir_entry = fat_find_dir_entry,
+    .deprecated_open_old = fat_open_deprecated,
     .read = fat_read,
     .write = fat_write,
     .seek = fat_seek,
@@ -550,7 +580,7 @@ struct file_ops fat_file_operations = {
     // .readdir = fat_readdir,
     // .closedir = fat_closedir,
 
-    // .open = fat_open,
+    // .deprecated_open_old = fat_open_deprecated,
     // .read = fat_read,
     // .write = fat_write,
     // .seek = fat_seek,

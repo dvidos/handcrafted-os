@@ -42,11 +42,21 @@ typedef struct file_descriptor {
 } file_descriptor_t;
 
 file_descriptor_t *create_file_descriptor(superblock_t *superblock, const char *name, uint32_t location);
-file_descriptor_t *clone_file_descriptor(file_descriptor_t *fd);
-void copy_file_descriptor(file_descriptor_t *dest, file_descriptor_t *source);
-bool file_descriptors_equal(file_descriptor_t *a, file_descriptor_t *b);
+file_descriptor_t *clone_file_descriptor(const file_descriptor_t *fd);
+void copy_file_descriptor(file_descriptor_t *dest, const file_descriptor_t *source);
+bool file_descriptors_equal(const file_descriptor_t *a, const file_descriptor_t *b);
 void destroy_file_descriptor(file_descriptor_t *fd);
-void debug_file_descriptor(file_descriptor_t *fd);
+void debug_file_descriptor(const file_descriptor_t *fd);
+
+
+typedef struct open_file {
+    // ---- managed by VFS ----
+    struct superblock *superblock;
+    struct file_descriptor *descriptor;
+    // ---- managed by filesystem ----
+    void *fs_private_data;
+} open_file_t;
+
 
 
 
@@ -84,13 +94,15 @@ typedef struct dir_entry {
 struct file_ops;
 
 typedef struct file {
-    struct superblock *superblock;
+    superblock_t *superblock;
+    file_descriptor_t *descriptor;
     struct storage_dev *storage_dev;
     struct partition *partition;
     struct filesys_driver *driver;
     
     char *path; // relative to mount point
     dir_entry_t *entry;
+    file_descriptor_t *fd;
     
     void *fs_driver_priv_data;
 } file_t;
@@ -111,19 +123,21 @@ enum seek_origin {
 
 
 struct file_ops {
-    // to create things in root dir, we need extra functions
-    // fentry and file should contain pointers to superblock,
-    // hence to partition, to storage_dev, and to priv_fat_data, 
-
-    // convention: 
-    // simple pointers: structures allocated and freed by callers
-    // pointer to pointer: structure allocated by callee
 
     // get root descriptor, not freed, can point to static data
     int (*root_dir_descriptor)(struct superblock *sb, file_descriptor_t **fd);
 
-    int (*open_root_dir)(struct superblock *sb, file_t *file);
-    int (*find_dir_entry)(file_t *parentdir, char *name, dir_entry_t *entry);
+    // find a name in a directory, and populate a file_descriptor
+    int (*lookup)(file_descriptor_t *dir, char *name, file_descriptor_t **result);
+
+    // open file for reading or writing, populate file
+    int (*open2)(file_descriptor_t *dir, int flags, file_t **file);
+
+    // -- old style methods -- to be refactored --
+    // -----------------------------------------------------------------
+
+    int (*deprecated_open_root_dir)(struct superblock *sb, file_t *file);
+    int (*deprecated_find_dir_entry)(file_t *parentdir, char *name, dir_entry_t *entry);
 
 
     int (*opendir)(dir_entry_t *entry, file_t *file);
@@ -131,7 +145,7 @@ struct file_ops {
     int (*readdir)(file_t *file, dir_entry_t *entry);
     int (*closedir)(file_t *file);
 
-    int (*open)(dir_entry_t *entry, file_t *file);
+    int (*deprecated_open_old)(dir_entry_t *entry, file_t *file);
     int (*read)(file_t *file, char *buffer, int bytes);
     int (*write)(file_t *file, char *buffer, int bytes);
     int (*seek)(file_t *file, int offset, enum seek_origin origin);
@@ -187,6 +201,7 @@ int vfs_readdir(file_t *file, struct dir_entry *dir_entry);
 int vfs_closedir(file_t *file);
 
 int vfs_open(char *path, file_t *file);
+int vfs_open2(char *path, file_t **file);
 int vfs_read(file_t *file, char *buffer, int bytes);
 int vfs_write(file_t *file, char *buffer, int bytes);
 int vfs_seek(file_t *file, int offset, enum seek_origin origin);
