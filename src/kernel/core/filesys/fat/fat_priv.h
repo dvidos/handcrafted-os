@@ -318,7 +318,6 @@ static int fat_closedir(file_t *file);
 
 // file operations
 static uint32_t calculate_new_file_offset(uint32_t old_position, uint32_t size, int offset, enum seek_origin origin);
-static int fat_open_deprecated(dir_entry_t *entry, file_t *file);
 static int fat_read(file_t *file, char *buffer, int length);
 static int fat_write(file_t *file, char *buffer, int length);
 static int fat_seek(file_t *file, int offset, enum seek_origin origin);

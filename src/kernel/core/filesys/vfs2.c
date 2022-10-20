@@ -222,11 +222,6 @@ out:
     return err;
 }
 
-int vfs_open(char *path, file_descriptor_t *curr_dir, int flags, file_t **file) {
-    // resolve the path to file_derscriptor
-    // open the descriptor
-}
-
 int vfs_read(file_t *file, char *buffer, int length) {
     if (file->superblock->ops->read == NULL)
         return ERR_NOT_SUPPORTED;

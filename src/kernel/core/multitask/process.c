@@ -102,7 +102,7 @@ void start_process(process_t *process) {
 process_t *running_process() {
     // at this point, we convert from volatile to normal pointer.
     // callers using the returned value are no longer expecting a volatile value
-    return (process_t *)running_proc;
+    return multitasking_enabled() ? (process_t *)running_proc : NULL;
 }
 
 
@@ -458,6 +458,7 @@ static int allocate_file_handle(process_t *proc, file_t *file) {
     }
 
     if (handle >= 0 && handle < MAX_FILE_HANDLES)
+        // we should really do a deep copy function
         memcpy(&proc->file_handles[handle], file, sizeof(file_t));
     
     release(&proc->process_lock);
@@ -484,12 +485,12 @@ static int free_file_handle(process_t *proc, int handle) {
 }
 
 int proc_open(process_t *proc, char *name) {
-    file_t file;
+    file_t *file;
     // fast resolve relative to cwd (we'll need rewinddir() at least)
     int err = vfs_open(name, &file);
     if (err) return err;
 
-    int handle = allocate_file_handle(proc, &file);
+    int handle = allocate_file_handle(proc, file);
     return handle;
 }
 

@@ -47,7 +47,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     int err;
     bool file_open = false;
 
-    err = vfs_open2(path, &file);
+    err = vfs_open(path, &file);
     if (err) goto exit;
     file_open = true;
 
@@ -132,7 +132,7 @@ static void load_and_run_executable() {
 
     // find info from the file
     file_t *file = NULL;
-    err = vfs_open2(proc->user_proc.executable_path, &file);
+    err = vfs_open(proc->user_proc.executable_path, &file);
     if (err) {
         klog_error("Failed opening executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(-1);

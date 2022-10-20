@@ -52,7 +52,7 @@ void open_filedisk(char *path, size_t size) {
     buffer = kmalloc(buffer_size);
     memset(buffer, 0, buffer_size);
 
-    vfs_open(path, filedisk_info.file);
+    vfs_open(path, &filedisk_info.file);
     filedisk_info.size = size;
 
     int offset = vfs_seek(filedisk_info.file, 0, SEEK_END);

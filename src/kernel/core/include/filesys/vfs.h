@@ -126,7 +126,7 @@ struct file_ops {
     int (*lookup)(file_descriptor_t *dir, char *name, file_descriptor_t **result);
 
     // open file for reading or writing, populate file
-    int (*open2)(file_descriptor_t *fd, int flags, file_t **file);
+    int (*open)(file_descriptor_t *fd, int flags, file_t **file);
 
     // -- old style methods -- to be refactored --
     // -----------------------------------------------------------------
@@ -140,7 +140,6 @@ struct file_ops {
     int (*readdir)(file_t *file, dir_entry_t *entry);
     int (*closedir)(file_t *file);
 
-    int (*deprecated_open_old)(dir_entry_t *entry, file_t *file);
     int (*read)(file_t *file, char *buffer, int bytes);
     int (*write)(file_t *file, char *buffer, int bytes);
     int (*seek)(file_t *file, int offset, enum seek_origin origin);
@@ -195,8 +194,7 @@ int vfs_rewinddir(file_t *file);
 int vfs_readdir(file_t *file, struct dir_entry *dir_entry);
 int vfs_closedir(file_t *file);
 
-int vfs_open(char *path, file_t *file);
-int vfs_open2(char *path, file_t **file);
+int vfs_open(char *path, file_t **file);
 int vfs_read(file_t *file, char *buffer, int bytes);
 int vfs_write(file_t *file, char *buffer, int bytes);
 int vfs_seek(file_t *file, int offset, enum seek_origin origin);

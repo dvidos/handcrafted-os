@@ -226,11 +226,7 @@ int vfs_closedir(file_t *file) {
     return file->superblock->ops->closedir(file);
 }
 
-int vfs_open(char *path, file_t *file) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-int vfs_open2(char *path, file_t **file) {
+int vfs_open(char *path, file_t **file) {
     int err;
 
     if (vfs_get_root_mount() == NULL) {
@@ -242,17 +238,18 @@ int vfs_open2(char *path, file_t **file) {
     file_descriptor_t *target = NULL;
     err = resolve_path_to_descriptor(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
     if (err) goto out;
-
-    debug_file_descriptor(target, 0);
     if (target == NULL) {
         err = ERR_BAD_VALUE;
         goto out;
     }
 
-    err = target->superblock->ops->open2(target, 0, file);
+    klog_debug("vfs_open(), resolved descriptor follows");
+    debug_file_descriptor(target, 0);
+
+    err = target->superblock->ops->open(target, 0, file);
 
 out:
-    klog_trace("vfs_open2(\"%s\") -> %d", path, err);
+    klog_trace("vfs_open(\"%s\") -> %d", path, err);
     return err;
 }
 

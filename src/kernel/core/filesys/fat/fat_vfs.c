@@ -291,7 +291,7 @@ out:
     return err;
 }
 
-static int fat_open2(file_descriptor_t *fd, int flags, file_t **file) {
+static int fat_open(file_descriptor_t *fd, int flags, file_t **file) {
     klog_trace("fat_open2(descriptor=0x%x)", fd);
     fat_info *fat = (fat_info *)fd->superblock->priv_fs_driver_data;
 
@@ -305,24 +305,6 @@ static int fat_open2(file_descriptor_t *fd, int flags, file_t **file) {
 
     (*file) = create_file_t(fd->superblock, fd);
     (*file)->fs_driver_private_data = pfi;
-    return SUCCESS;
-}
-
-static int fat_open_deprecated(dir_entry_t *entry, file_t *file) {
-    klog_trace("fat_open_deprecated(entry=\"%s\")", entry->short_name);
-    fat_info *fat = (fat_info *)entry->superblock->priv_fs_driver_data;
-
-    if (entry->flags.dir || entry->flags.label)
-        return ERR_NOT_A_FILE;
-    
-    fat_priv_file_info *pfi = NULL;
-    int err = fat->ops->priv_file_open(fat, entry->location_in_dev, entry->file_size, &pfi);
-    if (err)
-        return err;
-
-    file->superblock = entry->superblock;
-    file->fs_driver_private_data = pfi;
-
     return SUCCESS;
 }
 
@@ -594,7 +576,7 @@ exit:
 struct file_ops fat_file_operations = {
     .root_dir_descriptor = fat_root_descriptor,
     .lookup = fat_lookup,
-    .open2 = fat_open2,
+    .open = fat_open,
     .read = fat_read,
     .write = fat_write,
     .seek = fat_seek,
@@ -602,7 +584,6 @@ struct file_ops fat_file_operations = {
 
     .deprecated_open_root_dir = fat_open_root_dir,
     .deprecated_find_dir_entry = fat_find_dir_entry,
-    .deprecated_open_old = fat_open_deprecated,
 
     // .opendir = fat_opendir,
     // .rewinddir = fat_rewinddir,

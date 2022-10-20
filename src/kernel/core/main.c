@@ -80,9 +80,9 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // initialize in-memory log
     init_klog();
     klog_appender_level(LOGAPP_MEMORY, LOGLEV_DEBUG);
-    klog_module_level("VFS", LOGLEV_TRACE);
-    klog_module_level("MOUNT", LOGLEV_TRACE);
-    klog_module_level("FAT", LOGLEV_TRACE);
+    // klog_module_level("VFS", LOGLEV_TRACE);
+    // klog_module_level("MOUNT", LOGLEV_TRACE);
+    // klog_module_level("FAT", LOGLEV_TRACE);
 
     // initialize screen and allow logs to be written to it
     screen_init();
@@ -203,7 +203,7 @@ void launch_initial_processes() {
     process_t *proc;
     int pri = PRIORITY_USER_PROGRAM;
 
-    for (tty = 0; tty < 1; tty++) {
+    for (tty = 0; tty < 4; tty++) {
         proc = create_process("Shell Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty));
         start_process(proc);
     }

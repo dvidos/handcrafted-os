@@ -4,8 +4,11 @@
   * include: storage devices, partitions/logicalvols, filesystems
   * include: how to write a file system (e.g. FAT or ext2)
   * include: how to write a storage device driver (e.g. USB stick or loop device)
+  * include: a simple open/read/close program and how calls work
 
 * fix file things:
+  * copying of file_t data in handles in process space.
+  * remove old logic of opening based on dentry
   * ability to work with cwd and root (resolve absolute && relative paths)
   * file manipulation in shell (cat, mv, cp, rm)
   * given an opened directory handle, find and return a dir_entry, based on a path.
@@ -16,9 +19,10 @@
 
 * When VFS works again, implement some flags on open()
 
+* shell command for setting error levels per appender and per module
 * fork(), seems to be a nice challenge.
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
-* Shell, working dir, chdir, file operations (cp, mv)
+* Shell, working dir, chdir, file operations (cp, mv, cat)
 * Resume the vi editor, get to editing some files
 * Good generic and simple list implementation [here](https://github.com/stevej/osdev/blob/master/kernel/include/list.h). Maybe we want to use it. Oh, he also has a nice [tree implementation](https://github.com/stevej/osdev/blob/master/kernel/include/tree.h)
 * regarding lists like environment variables or arguments etc, play with the idea
@@ -90,6 +94,10 @@ prior allocation.
   * Beeper control for fun (maybe from PIT channel 2)
 * sorting, hashing and other algorithmic implementations
 * a man page system, for writing and displaying man pages (eg in usr/share/man/xxxxx.txt)
+* consider our own boot loader
+  * a 512 bytes boot sector, with a second stage loader
+  * ability to put into graphics mode, detect memory, switch to protected mode
+  * then call kernel
 * [NetSurf](http://www.netsurf-browser.org/) seems to be a good browser we could port over.
 * Instead of GLib ToaruOS uses the [newLib](https://sourceware.org/newlib/) which is more lightweight
 * The ToaruOS guy also said that porting `gcc` over was easy, as all it needs is to read and write files.
