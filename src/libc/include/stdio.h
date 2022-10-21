@@ -15,7 +15,7 @@
 int printf(char* format, ...);
 
 // prints a message on the tty. no new line is added
-int puts(char *message);
+int puts(const char *message);
 
 // prints one char on the tty
 int putchar(int c);
@@ -105,7 +105,7 @@ typedef struct dirent {
 
 
 int getcwd(char *buffer, int size);
-int setcwd(char *path);
+int chdir(char *path);
 
 int open(char *name);
 int read(int handle, char *buffer, int length);

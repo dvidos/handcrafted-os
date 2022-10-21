@@ -123,8 +123,8 @@ static int sys_yield() {
 static int sys_get_cwd(char *buffer, int length) {
     return proc_getcwd(running_process(), buffer, length);
 }
-static int sys_set_cwd(char *path) {
-    return proc_setcwd(running_process(), path);
+static int sys_chdir(char *path) {
+    return proc_chdir(running_process(), path);
 }
 static int sys_open(char *path) {
     return proc_open(running_process(), path);
@@ -245,8 +245,8 @@ int isr_syscall(struct syscall_stack stack) {
         case SYS_GET_CWD: // arg1 = buffer, arg2 = buffer len
             return_value = sys_get_cwd((char *)stack.passed.arg1, stack.passed.arg2);
             break;
-        case SYS_SET_CWD: // arg1 = path
-            return_value = sys_set_cwd((char *)stack.passed.arg1);
+        case SYS_CHDIR: // arg1 = path
+            return_value = sys_chdir((char *)stack.passed.arg1);
             break;
         case SYS_OPEN:   // arg1 = file path, returns handle or error<0
             return_value = sys_open((char *)stack.passed.arg1);

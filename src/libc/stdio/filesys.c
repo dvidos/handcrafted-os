@@ -11,8 +11,8 @@ int getcwd(char *buffer, int size) {
     return syscall(SYS_GET_CWD, (int)buffer, size, 0, 0, 0);
 }
 
-int setcwd(char *path) {
-    return syscall(SYS_SET_CWD, (int)path, 0, 0, 0, 0);
+int chdir(char *path) {
+    return syscall(SYS_CHDIR, (int)path, 0, 0, 0, 0);
 }
 
 int open(char *file) {

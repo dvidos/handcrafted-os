@@ -97,3 +97,43 @@ void debug_file_descriptor(const file_descriptor_t *fd, int depth) {
     if (fd->owning_directory != NULL)
         debug_file_descriptor(fd->owning_directory, depth + 1);
 }
+
+int file_descriptor_get_full_path_length(const file_descriptor_t *fd) {
+    if (fd == NULL || fd->name == NULL)
+        return 0;
+    
+    int len = strlen(fd->name);
+    if (fd->owning_directory != NULL)
+        // allow room for path separator
+        len += 1 + file_descriptor_get_full_path_length(fd->owning_directory);
+
+    return len;
+}
+
+
+static void _recursively_copy_full_path(const file_descriptor_t *fd, char *full_path) {
+    
+    // first copy parent (top will be "/")
+    if (fd->owning_directory != NULL) {
+        _recursively_copy_full_path(fd->owning_directory, full_path);
+
+        // add separator, unless it was the root dir
+        if (strcmp(fd->owning_directory->name, "/") != 0)
+            strcat(full_path, "/");
+    }
+
+    // then copy our name
+    strcat(full_path, fd->name);
+}
+
+// caller to free path
+void file_descriptor_get_full_path(const file_descriptor_t *fd, char **full_path) {
+    if (fd == NULL || fd->name == NULL) {
+        (*full_path) = NULL;
+        return;
+    }
+
+    int len = file_descriptor_get_full_path_length(fd);
+    (*full_path) = kmalloc(len + 1);
+    _recursively_copy_full_path(fd, *full_path);
+}

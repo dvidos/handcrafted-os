@@ -131,8 +131,8 @@ struct process {
 
     } user_proc;
 
-    file_t cwd;
-    char *cwd_path;
+    file_descriptor_t *curr_dir;
+    char *curr_dir_path;
     file_t file_handles[MAX_FILE_HANDLES];
 };
 
@@ -161,7 +161,7 @@ pid_t proc_getppid(); // get parent pid of running process
 
 // maintaining current working directory
 int proc_getcwd(process_t *proc, char *buffer, int size);
-int proc_setcwd(process_t *proc, char *path);
+int proc_chdir(process_t *proc, const char *path);
 
 
 

@@ -30,6 +30,18 @@ void strcpy(char *target, const char *source) {
     *target = *source; // final null char
 }
 
+void strcat(char *target, const char *source) {
+    
+    char *dest = target;
+    while (*dest != '\0')
+        dest++;
+    
+    while (*source != '\0') {
+        *dest++ = *source++;
+    }
+    *dest = *source; // final null char
+}
+
 void strncpy(char *target, char *source, size_t target_size) {
     while (*source != '\0' && target_size-- > 1) {
         *target++ = *source++;

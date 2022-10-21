@@ -50,7 +50,8 @@ void copy_file_descriptor(file_descriptor_t *dest, const file_descriptor_t *sour
 bool file_descriptors_equal(const file_descriptor_t *a, const file_descriptor_t *b);
 void destroy_file_descriptor(file_descriptor_t *fd);
 void debug_file_descriptor(const file_descriptor_t *fd, int depth);
-
+int file_descriptor_get_full_path_length(const file_descriptor_t *fd);
+void file_descriptor_get_full_path(const file_descriptor_t *fd, char **full_path); // caller to free path
 
 typedef struct file {
     struct superblock *superblock;
@@ -189,6 +190,9 @@ struct file_ops {
 
 // -------------------------------------
 
+// resolves a relative or absolute path to a descriptor. caller to destroy.
+int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target);
+
 int vfs_open(char *path, file_t **file);
 int vfs_read(file_t *file, char *buffer, int bytes);
 int vfs_write(file_t *file, char *buffer, int bytes);
@@ -198,10 +202,7 @@ int vfs_close(file_t *file);
 
 int vfs_opendir(char *path, file_t **file);
 int vfs_rewinddir(file_t *file);
-
-// creates one file descriptor. caller should destroy it.
-int vfs_readdir(file_t *file, file_descriptor_t **fd);
-
+int vfs_readdir(file_t *file, file_descriptor_t **fd); // caller must destroy fd
 int vfs_closedir(file_t *file);
 
 int vfs_touch(char *path);

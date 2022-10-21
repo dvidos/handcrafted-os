@@ -43,7 +43,7 @@
 
 // process manipulation
 #define SYS_GET_CWD          51  // arg1 = buffer, arg2 = buffer size
-#define SYS_SET_CWD          52  // arg1 = path
+#define SYS_CHDIR            52  // arg1 = path
 #define SYS_GET_PID          53  // returns pid
 #define SYS_GET_PPID         54  // returns ppid
 #define SYS_FORK             55  // returns 0 in child, child PID in parent, neg error in parent

@@ -12,26 +12,15 @@
 // - communicate with kernel, show progress etc.
 // - should be able to work with pty, in graphics mode.
 
-// file_t *cwd;
-// char *cwd_name;
+readline_t *rl = NULL;
+char cwd[256] = {0,};
+char prompt[256] = {0,};
 
-// void chdir(char *path) {
-//     // open the new directory
-//     // set the cwd name
-// }
-
-// char *getcwd() {
-//     return cwd_name
-// }
 
 
 // // we can have stdin, stdout, stderr, file streams, memory streams, etc.
-// void stream_read(stream_t *stream, char *buffer, int len) {
-
-// }
-// void stream_write(stream_t *stream, char *buffer, int len) {
-
-// }
+// void stream_read(stream_t *stream, char *buffer, int len) { }
+// void stream_write(stream_t *stream, char *buffer, int len) { }
 
 
 void cmd_echo(int argc, char *argv[]) {
@@ -81,7 +70,7 @@ void cmd_ls(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
     
-    char *path = argc <= 1 ? "/" : argv[1];
+    char *path = argc <= 1 ? "." : argv[1];
     syslog_trace("command ls \"%s\"", path);
 
     int h = opendir(path);
@@ -132,12 +121,38 @@ void cmd_cat(int argc, char *argv[]) {
     close(h);
 }
 
+void cmd_cd(int argc, char *argv[]) {
+    int err;
+
+    if (argc <= 1) {
+        int err = getcwd(cwd, sizeof(cwd));
+        if (err) {
+            printf("Error %d getting current working directory\n");
+        } else {
+            puts(cwd);
+            printf("\n");
+        }
+    } else {
+        err = chdir(argv[1]);
+        if (err) {
+            printf("Error %d changing directory\n", err);
+        } else {
+            cwd[0] = '\0';
+            getcwd(cwd, sizeof(cwd));
+            strcpy(prompt, cwd);
+            strcat(prompt, " $ ");
+            readline_set_prompt(rl, prompt);
+        }
+    }
+}
+
 struct built_in_info {
     char *name;
     void (*func)(int argc, char *argv[]);
 };
 
 struct built_in_info built_ins[] = {
+    {"cd", cmd_cd},
     {"echo", cmd_echo},
     {"set", cmd_set},
     {"unset", cmd_unset},
@@ -146,11 +161,15 @@ struct built_in_info built_ins[] = {
     {NULL, NULL}
 };
 
-readline_t *rl = NULL;
-
 void init() {
     printf("Welcome to shell. Type 'help' for help, 'exit' to... exit\n");
-    rl = init_readline("dv @ shell $ ");
+    rl = init_readline();
+
+    cwd[0] = '\0';
+    getcwd(cwd, sizeof(cwd));
+    strcpy(prompt, cwd);
+    strcat(prompt, " $ ");
+    readline_set_prompt(rl, prompt);
 }
 
 void fini() {

@@ -14,6 +14,8 @@
 #include <errors.h>
 #include <multitask/process.h>
 #include <multitask/strvec.h>
+#include <filesys/mount.h>
+#include <filesys/vfs.h>
 
 MODULE("PROC");
 
@@ -322,38 +324,34 @@ pid_t proc_getppid() {
 }
 
 int proc_getcwd(process_t *proc, char *buffer, int size) {
-    if (size < strlen(proc->cwd_path) + 1)
+    if (size < strlen(proc->curr_dir_path) + 1)
         return ERR_NO_SPACE_LEFT;
     // how is this updated when the folder is deleted from the filesystem?
     // maybe a message should be broadcasted to all processes?
-    strcpy(buffer, proc->cwd_path);
+    strcpy(buffer, proc->curr_dir_path);
     return SUCCESS;
 }
 
 // in unices, this would be called chdir(), especially in libc
-int proc_setcwd(process_t *proc, char *path) {
+int proc_chdir(process_t *proc, const char *path) {
 
-    // maybe we should resolve the path, relative to the current cwd.
-    // this is to allow more of a chdir() approach
+    if (vfs_get_root_mount() == NULL)
+        return ERR_NO_FS_MOUNTED;
     
-    // see if file exists
-    file_t *file;
-    int err = vfs_opendir(path, &file);
-    if (err) return err;
+    file_descriptor_t *root = vfs_get_root_mount()->mounted_fs_root;
+    file_descriptor_t *target = NULL;
+    int err = vfs_resolve(path, root, proc->curr_dir, false, &target);
+    if (err)
+        return err;
 
-    // close previous
-    if (!memchk(&proc->cwd, 0, sizeof(file_t))) {
-        vfs_closedir(&proc->cwd);
-        memset(&proc->cwd, 0, sizeof(file_t));
-    }
+    if (proc->curr_dir != NULL)
+        destroy_file_descriptor(proc->curr_dir);
+    proc->curr_dir = target;
 
-    memcpy(&proc->cwd, &file, sizeof(file_t));
-
-    if (proc->cwd_path != NULL)
-        kfree(proc->cwd_path);
-    proc->cwd_path = kmalloc(strlen(path) + 1);
-    strcpy(proc->cwd_path, path);
-
+    if (proc->curr_dir_path != NULL)
+        kfree(proc->curr_dir_path);
+    file_descriptor_get_full_path(proc->curr_dir, &proc->curr_dir_path);
+    
     return SUCCESS;
 }
 
@@ -410,7 +408,7 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pr
     p->entry_point = entry_point;
 
     // set working directory
-    proc_setcwd(p, "/");
+    proc_chdir(p, "/");
 
     klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;
@@ -435,10 +433,10 @@ void cleanup_process(process_t *proc) {
     if (proc->user_proc.envp != NULL)
         free_strvec(proc->user_proc.envp);
     
-    if (!memchk(&proc->cwd, 0, sizeof(file_t)))
-        vfs_closedir(&proc->cwd);
-    if (proc->cwd_path != NULL)
-        kfree(proc->cwd_path);
+    if (proc->curr_dir != NULL)
+        destroy_file_descriptor(proc->curr_dir);
+    if (proc->curr_dir_path != NULL)
+        kfree(proc->curr_dir_path);
     
     // can't think of anything else to free
     kfree(proc);

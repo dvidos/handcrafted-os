@@ -13,7 +13,7 @@ struct readline_info {
     slist_t *history;
     slist_t *keywords;
     int cursor_row;
-    char *prompt;
+    const char *prompt;
     char line[128];
     uint16_t line_pos;
     int history_pos;
@@ -30,18 +30,23 @@ typedef struct readline_info readline_t;
 
 
 // initializes the readline library
-readline_t *init_readline(char *prompt) {
+readline_t *init_readline() {
     readline_t *rl = malloc(sizeof(readline_t));
     memset(rl, 0, sizeof(readline_t));
 
     rl->history = slist_create();
     rl->keywords = slist_create();
-    rl->prompt = prompt;
+    rl->prompt = "$ ";
     rl->history_pos = -1; // past end of last entry
     rl->line_pos = 0;
 
     return rl;
 }
+
+void readline_set_prompt(readline_t *rl, const char *prompt) {
+    rl->prompt = prompt;
+}
+
 
 // after initializing, allows to add keywords for autocomplete
 void readline_add_keyword(readline_t *rl, char *keyword) {

@@ -31,8 +31,8 @@ cd ../..
 
 
 echo Preparing disk image...
-rm -rf /mnt/userImg/*
-cp -rv sysroot/* /mnt/userImg
+rm -rf /mnt/hcos/*
+cp -rv sysroot/* /mnt/hcos
 sync
 
 

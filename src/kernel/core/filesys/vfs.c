@@ -72,8 +72,8 @@ static void debug_dir_entry_t(dir_entry_t *dir_entry) {
 
 
 // similar to namei() in unix/linux
-static int resolve_path_to_descriptor(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
-    klog_trace("resolve_path_to_descriptor(\"%s\", root=0x%x, curr=0x%x, container=%d)",
+int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
+    klog_trace("vfs_resolve(\"%s\", root=0x%x, curr=0x%x, container=%d)",
         path, root_dir, curr_dir, (int)containing_folder);
     
     // test edge cases first
@@ -192,7 +192,7 @@ int vfs_open(char *path, file_t **file) {
     
     // only absolute paths for now
     file_descriptor_t *target = NULL;
-    err = resolve_path_to_descriptor(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
     if (err) goto out;
     if (target == NULL) {
         err = ERR_BAD_VALUE;
@@ -252,7 +252,7 @@ int vfs_opendir(char *path, file_t **file) {
     
     // only absolute paths for now
     file_descriptor_t *target = NULL;
-    err = resolve_path_to_descriptor(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
     if (err) goto out;
     if (target == NULL) {
         err = ERR_BAD_VALUE;
