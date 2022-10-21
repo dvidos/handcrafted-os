@@ -90,23 +90,11 @@ void cmd_ls(int argc, char *argv[]) {
         return;
     }
 
-    dir_entry_t entry;
-    memset(&entry, 0, sizeof(dir_entry_t));
-    syslog_info("dir handle returned = %d", h);
+    dirent_t *ent;
 
     int err;
-    while ((err = readdir(h, &entry)) == SUCCESS) {
-        syslog_info("reading success %d", err);
-        printf("%c  %8d  %04d-%02d-%02d %02d:%02d:%02d  %s\n", 
-            entry.flags.dir ? 'd' : 'f', 
-            entry.file_size, 
-            entry.modified.year,
-            entry.modified.month,
-            entry.modified.day,
-            entry.modified.hours,
-            entry.modified.minutes,
-            entry.modified.seconds,
-            entry.short_name);
+    while ((ent = readdir(h)) != NULL) {
+        printf("%c  %8d  %s\n", ent->type == 2 ? 'd' : 'f', ent->size, ent->name);
     }
     syslog_info("closing handle %d", h);
     err = closedir(h);

@@ -4,6 +4,8 @@
 
 #ifdef __is_libc
 
+dirent_t dirent;
+
 
 int getcwd(char *buffer, int size) {
     return syscall(SYS_GET_CWD, (int)buffer, size, 0, 0, 0);
@@ -37,8 +39,13 @@ int opendir(char *name) {
     return syscall(SYS_OPEN_DIR, (int)name, 0, 0, 0, 0);
 }
 
-int readdir(int handle, dir_entry_t *entry) {
-    return syscall(SYS_READ_DIR, handle, (int)entry, 0, 0, 0);
+int rewinddir(int handle) {
+    return syscall(SYS_REWIND_DIR, handle, 0, 0, 0, 0);
+}
+
+dirent_t *readdir(int handle) {
+    int err = syscall(SYS_READ_DIR, handle, (int)&dirent, 0, 0, 0);
+    return err ? NULL : &dirent;
 }
 
 int closedir(int handle) {

@@ -182,50 +182,6 @@ out:
     return err;
 }
 
-int vfs_opendir(char *path, file_t *file) {
-    klog_trace("vfs_opendir(path=\"%s\", file=0x%p)", path, file);
-
-    // if (strcmp(path, "/") == 0) {
-    //     mount_info_t *mount = vfs_get_root_mount();
-    //     if (mount == NULL)
-    //         return ERR_NO_FS_MOUNTED;
-    //     return mount->superblock->ops->deprecated_open_root_dir(mount->superblock, file);
-    // }
-
-    // klog_error("Opening subdirs not supported yet! :-(");
-    // // find entry_t based on root or current workding dir,
-    // // call the appropriate opendir(), passing the entry_t
-    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, file);
-    // if (err) 
-    //     return err;
-    // if (file->superblock->ops->opendir == NULL)
-    //     return ERR_NOT_SUPPORTED;
-
-    // // return file->superblock->ops->opendir(file->path, file);
-    return ERR_NOT_SUPPORTED;
-}
-
-int vfs_rewinddir(file_t *file) {
-    klog_trace("vfs_rewinddir(file=0x%p)", file);
-    if (file->superblock->ops->rewinddir == NULL)
-        return ERR_NOT_SUPPORTED;
-    return file->superblock->ops->rewinddir(file);
-}
-
-int vfs_readdir(file_t *file, struct dir_entry *dir_entry) {
-    klog_trace("vfs_readdir(file=0x%p, entry=0x%p)", file, dir_entry);
-    if (file->superblock->ops->readdir == NULL)
-        return ERR_NOT_SUPPORTED;
-    return file->superblock->ops->readdir(file, dir_entry);
-}
-
-int vfs_closedir(file_t *file) {
-    klog_trace("vfs_closedir(file=0x%p)", file);
-    if (file->superblock->ops->closedir == NULL)
-        return ERR_NOT_SUPPORTED;
-    return file->superblock->ops->closedir(file);
-}
-
 int vfs_open(char *path, file_t **file) {
     int err;
 
@@ -246,6 +202,8 @@ int vfs_open(char *path, file_t **file) {
     klog_debug("vfs_open(), resolved descriptor follows");
     debug_file_descriptor(target, 0);
 
+    if (target->superblock->ops->open == NULL)
+        return ERR_NOT_SUPPORTED;
     err = target->superblock->ops->open(target, 0, file);
 
 out:
@@ -271,10 +229,66 @@ int vfs_seek(file_t *file, int offset, enum seek_origin origin) {
     return file->superblock->ops->seek(file, offset, origin);
 }
 
+int vfs_flush(file_t *file) {
+    if (file->superblock->ops->flush == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file->superblock->ops->flush(file);
+}
+
 int vfs_close(file_t *file) {
     if (file->superblock->ops->close == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->close(file);
+}
+
+int vfs_opendir(char *path, file_t **file) {
+    klog_trace("vfs_opendir(path=\"%s\")", path);
+    int err;
+
+    if (vfs_get_root_mount() == NULL) {
+        err = ERR_NO_FS_MOUNTED;
+        goto out;
+    }
+    
+    // only absolute paths for now
+    file_descriptor_t *target = NULL;
+    err = resolve_path_to_descriptor(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
+    if (err) goto out;
+    if (target == NULL) {
+        err = ERR_BAD_VALUE;
+        goto out;
+    }
+
+    klog_debug("vfs_opendir(), resolved descriptor follows");
+    debug_file_descriptor(target, 0);
+
+    if (target->superblock->ops->opendir == NULL)
+        return ERR_NOT_SUPPORTED;
+    err = target->superblock->ops->opendir(target, file);
+out:
+    klog_trace("vfs_opendir(\"%s\") -> %d", path, err);
+    return err;
+}
+
+int vfs_rewinddir(file_t *file) {
+    klog_trace("vfs_rewinddir(file=0x%p)", file);
+    if (file->superblock->ops->rewinddir == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file->superblock->ops->rewinddir(file);
+}
+
+int vfs_readdir(file_t *file, file_descriptor_t **fd) {
+    klog_trace("vfs_readdir(file=0x%p)", file);
+    if (file->superblock->ops->readdir == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file->superblock->ops->readdir(file, fd);
+}
+
+int vfs_closedir(file_t *file) {
+    klog_trace("vfs_closedir(file=0x%p)", file);
+    if (file->superblock->ops->closedir == NULL)
+        return ERR_NOT_SUPPORTED;
+    return file->superblock->ops->closedir(file);
 }
 
 int vfs_touch(char *path) {

@@ -34,11 +34,12 @@
 #define SYS_SEEK             34  // arg1 = handle, arg2 = offset, arg3 = origin, returns new position
 #define SYS_CLOSE            35  // arg1 = handle
 #define SYS_OPEN_DIR         36  // arg1 = dir path, return handle or error<0
-#define SYS_READ_DIR         37  // arg1 = handle, arg2 = dentry pointer
-#define SYS_CLOSE_DIR        38  // arg1 = handle
-#define SYS_TOUCH            39  // arg1 = path
-#define SYS_MKDIR            40  // arg1 = path
-#define SYS_UNLINK           41  // arg1 = path (dir or file)
+#define SYS_READ_DIR         37  // arg1 = handle, return static dirent pointer
+#define SYS_REWIND_DIR       38  // arg1 = handle
+#define SYS_CLOSE_DIR        39  // arg1 = handle
+#define SYS_TOUCH            40  // arg1 = path
+#define SYS_MKDIR            41  // arg1 = path
+#define SYS_UNLINK           42  // arg1 = path (dir or file)
 
 // process manipulation
 #define SYS_GET_CWD          51  // arg1 = buffer, arg2 = buffer size

@@ -163,6 +163,9 @@ pid_t proc_getppid(); // get parent pid of running process
 int proc_getcwd(process_t *proc, char *buffer, int size);
 int proc_setcwd(process_t *proc, char *path);
 
+
+
+
 // for file handles maintained on the process, CWD taken into accout
 int proc_open(process_t *proc, char *name);
 int proc_read(process_t *proc, int handle, char *buffer, int length);
@@ -170,7 +173,8 @@ int proc_write(process_t *proc, int handle, char *buffer, int length);
 int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin);
 int proc_close(process_t *proc, int handle);
 int proc_opendir(process_t *proc, char *name);
-int proc_readdir(process_t *proc, int handle, dir_entry_t *entry);
+int proc_rewinddir(process_t *proc, int handle);
+int proc_readdir(process_t *proc, int handle, dirent_t *entry);
 int proc_closedir(process_t *proc, int handle);
 
 // this is how someone can unblock a different process

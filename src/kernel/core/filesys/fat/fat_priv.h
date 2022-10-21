@@ -198,7 +198,7 @@ typedef struct {
     // for FAT32 and subdirs of FAT16,
     // we use file operations to manipulate the directory contents 
     // treating the directory as a file with contents
-    fat_priv_file_info *pf;    
+    fat_priv_file_info *pf;
 } fat_priv_dir_info;
 
 
@@ -311,9 +311,9 @@ static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_in
 static int fat_supported(struct partition *partition);
 static struct file_ops *fat_get_file_operations();
 
-static int fat_opendir(dir_entry_t *entry, file_t *file);
+static int fat_opendir(file_descriptor_t *fd, file_t **dir);
 static int fat_rewinddir(file_t *file);
-static int fat_readdir(file_t *file, struct dir_entry *dir_entry);
+static int fat_readdir(file_t *file, file_descriptor_t **fd);
 static int fat_closedir(file_t *file);
 
 // file operations
@@ -321,6 +321,7 @@ static uint32_t calculate_new_file_offset(uint32_t old_position, uint32_t size, 
 static int fat_read(file_t *file, char *buffer, int length);
 static int fat_write(file_t *file, char *buffer, int length);
 static int fat_seek(file_t *file, int offset, enum seek_origin origin);
+static int fat_flush(file_t *file);
 static int fat_close(file_t *file);
 
 

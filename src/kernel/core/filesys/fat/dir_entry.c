@@ -156,6 +156,20 @@ static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t
     vfs_entry->modified.seconds = fat_entry->modified_sec;
 }
 
+static void fat_dir_entry_to_file_descriptor(file_descriptor_t *parent_dir, fat_dir_entry *fat_entry, file_descriptor_t **fd) {
+    (*fd) = create_file_descriptor(
+        parent_dir->superblock, 
+        fat_entry->short_name, 
+        fat_entry->first_cluster_no,
+        parent_dir);
+    (*fd)->size = fat_entry->file_size;
+
+    if (fat_entry->attributes.flags.directory)
+        (*fd)->flags = FD_DIR;
+    else if (!fat_entry->attributes.flags.volume_label)
+        (*fd)->flags = FD_FILE;
+}
+
 static void dir_entry_set_created_time(fat_dir_entry *entry, real_time_clock_info_t *time) {
     entry->created_year = time->years;
     entry->created_month = time->months;

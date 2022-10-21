@@ -12,7 +12,7 @@
   * ability to work with cwd and root (resolve absolute && relative paths)
   * file manipulation in shell (cat, mv, cp, rm)
   * given an opened directory handle, find and return a dir_entry, based on a path.
-  * go and rename all "file_system" names into "filesys" for brevity
+  * [ok] go and rename all "file_system" names into "filesys" for brevity
   * go and typedef all "struct storage_dev" etc into "_t" types
   * move all vfs structures into their own files (entry, file etc)
 

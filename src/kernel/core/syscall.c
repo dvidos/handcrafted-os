@@ -144,8 +144,11 @@ static int sys_close(int handle) {
 static int sys_opendir(char *path) {
     return proc_opendir(running_process(), path);
 }
-static int sys_readdir(int handle, dir_entry_t *entry) {
-    return proc_readdir(running_process(), handle, entry);
+static int sys_rewinddir(int handle) {
+    return proc_rewinddir(running_process(), handle);
+}
+static int sys_readdir(int handle, dirent_t *dirent) {
+    return proc_readdir(running_process(), handle, dirent);
 }
 static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
@@ -264,7 +267,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_opendir((char *)stack.passed.arg1);
             break;
         case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
-            return_value = sys_readdir(stack.passed.arg1, (dir_entry_t *)stack.passed.arg2);
+            return_value = sys_readdir(stack.passed.arg1, (dirent_t *)stack.passed.arg2);
             break;
         case SYS_CLOSE_DIR:   // arg1 = handle
             return_value = sys_closedir(stack.passed.arg1);

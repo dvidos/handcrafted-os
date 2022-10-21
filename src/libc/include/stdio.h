@@ -92,6 +92,18 @@ typedef struct dir_entry {
 } dir_entry_t;
 
 
+// dirent.type
+#define DE_TYPE_DIR   1
+#define DE_TYPE_FILE  2
+
+typedef struct dirent {
+    char name[256];
+    uint8_t  type;
+    uint32_t size;
+    uint32_t location;
+} dirent_t;
+
+
 int getcwd(char *buffer, int size);
 int setcwd(char *path);
 
@@ -102,7 +114,8 @@ int seek(int handle, int offset, enum seek_origin origin);
 int close(int handle);
 
 int opendir(char *name);
-int readdir(int handle, dir_entry_t *entry);
+int rewinddir(int handle);
+dirent_t *readdir(int handle);
 int closedir(int handle);
 
 int touch(char *path);

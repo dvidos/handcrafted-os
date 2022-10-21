@@ -337,7 +337,7 @@ int proc_setcwd(process_t *proc, char *path) {
     // this is to allow more of a chdir() approach
     
     // see if file exists
-    file_t file;
+    file_t *file;
     int err = vfs_opendir(path, &file);
     if (err) return err;
 
@@ -523,22 +523,30 @@ int proc_close(process_t *proc, int handle) {
 }
 
 int proc_opendir(process_t *proc, char *name) {
-    file_t file;
+    file_t *file;
     // fast resolve relative to cwd
     int err = vfs_opendir(name, &file);
     if (err) return err;
 
-    int handle = allocate_file_handle(proc, &file);
+    int handle = allocate_file_handle(proc, file);
     klog_trace("proc_opendir() -> %d", handle);
     klog_debug("Process handles table follows");
     klog_debug_hex((void *)proc->file_handles, sizeof(file_t) * MAX_FILE_HANDLES, 0);
     return handle;
 }
 
-int proc_readdir(process_t *proc, int handle, dir_entry_t *entry) {
+int proc_readdir(process_t *proc, int handle, dirent_t *entry) {
     if (handle < 0 || handle >= MAX_FILE_HANDLES)
         return ERR_BAD_ARGUMENT;
-    int err = vfs_readdir(&proc->file_handles[handle], entry);
+    file_descriptor_t *fd;
+    int err = vfs_readdir(&proc->file_handles[handle], &fd);
+    if (!err) {
+        entry->location = fd->location;
+        entry->size = fd->size;
+        entry->type = fd->flags;
+        strncpy(entry->name, fd->name, sizeof(entry->name));
+        destroy_file_descriptor(fd);
+    }
     klog_trace("proc_readdir() -> %d", err);
     return err;
 }
