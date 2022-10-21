@@ -192,7 +192,8 @@ int vfs_open(char *path, file_t **file) {
     
     // only absolute paths for now
     file_descriptor_t *target = NULL;
-    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
+    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, false, &target);
     if (err) goto out;
     if (target == NULL) {
         err = ERR_BAD_VALUE;
@@ -252,7 +253,8 @@ int vfs_opendir(char *path, file_t **file) {
     
     // only absolute paths for now
     file_descriptor_t *target = NULL;
-    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, NULL, false, &target);
+    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, false, &target);
     if (err) goto out;
     if (target == NULL) {
         err = ERR_BAD_VALUE;

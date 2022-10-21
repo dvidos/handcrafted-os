@@ -80,7 +80,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     // initialize in-memory log
     init_klog();
     klog_appender_level(LOGAPP_MEMORY, LOGLEV_DEBUG);
-    // klog_module_level("VFS", LOGLEV_TRACE);
+    klog_module_level("VFS", LOGLEV_TRACE);
     // klog_module_level("MOUNT", LOGLEV_TRACE);
     // klog_module_level("FAT", LOGLEV_TRACE);
 
