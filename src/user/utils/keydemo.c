@@ -15,6 +15,8 @@ int main(int argc, char *argv[]) {
 
         if (e.ascii != 0) {
             putchar(e.ascii);
+        } else if (e.keycode != 0) {
+            printf("[0x%x]", e.keycode);
         }
     }
 

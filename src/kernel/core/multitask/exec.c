@@ -75,6 +75,10 @@ int execve(char *path, char *argv[], char *envp[]) {
         new_proc->pid
     );
 
+    // make child have the same working directory as parent
+    // this allows loading execs without the full path
+    proc_chdir(new_proc, parent->curr_dir_path);
+
     // we need to populate the process with enough data to be able to start.
     // 
     // in traditional unix, and today's (2022) linux, it seems that
@@ -97,7 +101,7 @@ int execve(char *path, char *argv[], char *envp[]) {
     new_proc->user_proc.envp = clone_strvec(envp);
 
     // not much left, cheers!
-    klog_debug("execve(): starting process %s[%d]", new_proc->name, new_proc->pid);
+    klog_info("execve(): starting process %s[%d]", new_proc->name, new_proc->pid);
     start_process(new_proc);
 
     // usually here we have the parent as current process (e.g. vi was launched, we go sh as current)
