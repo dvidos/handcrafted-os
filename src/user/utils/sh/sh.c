@@ -17,149 +17,8 @@ char cwd[256] = {0,};
 char prompt[256] = {0,};
 
 
+#include "file_cmds.c"
 
-// // we can have stdin, stdout, stderr, file streams, memory streams, etc.
-// void stream_read(stream_t *stream, char *buffer, int len) { }
-// void stream_write(stream_t *stream, char *buffer, int len) { }
-
-
-void cmd_echo(int argc, char *argv[]) {
-    for (int i = 1; i < argc; i++) {
-        printf("%s ", argv[i]);
-    }
-    
-    // for normal unix, "-n" suppresses the new line character
-    printf("\n");
-}
-
-void cmd_set(int argc, char *argv[]) {
-    if (argc <= 1) {
-        // show all
-        char **p = environ;
-        while (*p != NULL) {
-            printf("%s\n", *p);
-            p++;
-        }
-
-    } else {
-        for (int i = 1; i < argc; i++) {
-            // need to split the "=" part
-            char *equal = strchr(argv[i], '=');
-            char *name;
-            char *value;
-            if (equal == NULL) {
-                name = "_";
-                value = argv[i];
-            } else {
-                *equal = '\0';
-                name = argv[i];
-                value = equal + 1;
-            }
-            setenv(name, value);
-        }
-    }
-}
-
-void cmd_unset(int argc, char *argv[]) {
-    for (int i = 1; i < argc; i++) {
-        unsetenv(argv[i]);
-    }
-}
-
-void cmd_ls(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-    
-    char *path = argc <= 1 ? "." : argv[1];
-    syslog_trace("command ls \"%s\"", path);
-
-    int h = opendir(path);
-    if (h < 0) {
-        printf("Error %d opening dir\n", h);
-        return;
-    }
-
-    dirent_t *ent;
-
-    int err;
-    while ((ent = readdir(h)) != NULL) {
-        printf("%c  %8d  %s\n", ent->type == 2 ? 'd' : 'f', ent->size, ent->name);
-    }
-    syslog_info("closing handle %d", h);
-    err = closedir(h);
-    if (err < 0) {
-        printf("Error %d closing dir\n", err);
-    }
-}
-
-void cmd_cat(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-    
-    if (argc <= 1) {
-        printf("Usage: cat <file>\n");
-        return;
-    }
-
-    syslog_info("opening file \"%s\"", argv[1]);
-    int h = open(argv[1]);
-    if (h < 0) {
-        printf("Error %d opening %s\n", h, argv[1]);
-        return;
-    }
-
-    char buffer[64 + 1];
-    while (true) {
-        memset(buffer, 0, sizeof(buffer));
-        int bytes = read(h, buffer, sizeof(buffer) - 1);
-        printf("%s", buffer);
-
-        if (bytes < (int)(sizeof(buffer) - 1))
-            break;
-    }
-    printf("\n");
-    close(h);
-}
-
-void cmd_cd(int argc, char *argv[]) {
-    int err;
-
-    if (argc <= 1) {
-        int err = getcwd(cwd, sizeof(cwd));
-        if (err) {
-            printf("Error %d getting current working directory\n");
-        } else {
-            puts(cwd);
-            printf("\n");
-        }
-    } else {
-        err = chdir(argv[1]);
-        if (err) {
-            printf("Error %d changing directory\n", err);
-        } else {
-            cwd[0] = '\0';
-            getcwd(cwd, sizeof(cwd));
-            strcpy(prompt, cwd);
-            strcat(prompt, " $ ");
-            readline_set_prompt(rl, prompt);
-        }
-    }
-}
-
-struct built_in_info {
-    char *name;
-    void (*func)(int argc, char *argv[]);
-};
-
-struct built_in_info built_ins[] = {
-    {"cd", cmd_cd},
-    {"echo", cmd_echo},
-    {"set", cmd_set},
-    {"unset", cmd_unset},
-    {"ls", cmd_ls},
-    {"cat", cmd_cat},
-    {NULL, NULL}
-};
 
 void init() {
     printf("Welcome to shell. Type 'help' for help, 'exit' to... exit\n");
@@ -207,7 +66,6 @@ void free_run_arguments(struct run_arguments *args) {
     free(args->tokens);
     free(args);
 }
-
 
 void execute_line(char *line) {
     /*

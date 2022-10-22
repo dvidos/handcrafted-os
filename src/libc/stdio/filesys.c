@@ -60,6 +60,10 @@ int mkdir(char *path) {
     return syscall(SYS_MKDIR, (int)path, 0, 0, 0, 0);
 }
 
+int rmdir(char *path) {
+    return syscall(SYS_RMDIR, (int)path, 0, 0, 0, 0);
+}
+
 int unlink(char *path) {
     return syscall(SYS_UNLINK, (int)path, 0, 0, 0, 0);
 }

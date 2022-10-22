@@ -41,7 +41,7 @@ print:
 
 -include $(UTILS_DEP_FILES)
 
-bin/sh: $(wildcard utils/sh/*.c)
+bin/sh: utils/sh/sh.c  # $(wildcard utils/sh/*.c)
 	mkdir -p ./bin
 	$(CC) -MD $^ -o $@ $(CFLAGS)
 

@@ -153,15 +153,6 @@ static int sys_readdir(int handle, dirent_t *dirent) {
 static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
 }
-static int sys_touch(char *path) {
-    return vfs_touch(path);
-}
-static int sys_mkdir(char *path) {
-    return vfs_mkdir(path);
-}
-static int sys_unlink(char *path) {
-    return vfs_unlink(path);
-}
 static int sys_exec(char *path, char **argv, char **envp) {
     return execve(path, argv, envp);
 }
@@ -273,13 +264,16 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_closedir(stack.passed.arg1);
             break;
         case SYS_TOUCH:   // arg1 = path
-            return_value = sys_touch((char *)stack.passed.arg1);
-            break;
-        case SYS_MKDIR:   // arg1 = path
-            return_value = sys_mkdir((char *)stack.passed.arg1);
+            return_value = vfs_touch((char *)stack.passed.arg1);
             break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
-            return_value = sys_unlink((char *)stack.passed.arg1);
+            return_value = vfs_unlink((char *)stack.passed.arg1);
+            break;
+        case SYS_MKDIR:   // arg1 = path
+            return_value = vfs_mkdir((char *)stack.passed.arg1);
+            break;
+        case SYS_RMDIR:  // arg1 = path
+            return_value = vfs_rmdir((char *)stack.passed.arg1);
             break;
         case SYS_GET_PID:   // returns pid
             return_value = proc_getpid();

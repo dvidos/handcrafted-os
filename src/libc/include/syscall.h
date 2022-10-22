@@ -38,8 +38,9 @@
 #define SYS_REWIND_DIR       38  // arg1 = handle
 #define SYS_CLOSE_DIR        39  // arg1 = handle
 #define SYS_TOUCH            40  // arg1 = path
-#define SYS_MKDIR            41  // arg1 = path
-#define SYS_UNLINK           42  // arg1 = path (dir or file)
+#define SYS_UNLINK           41  // arg1 = path
+#define SYS_MKDIR            42  // arg1 = path
+#define SYS_RMDIR            43  // arg1 = path
 
 // process manipulation
 #define SYS_GET_CWD          51  // arg1 = buffer, arg2 = buffer size

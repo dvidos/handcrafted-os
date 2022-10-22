@@ -1,8 +1,7 @@
 #include <errors.h>
 
-// caller is supposed to free the duplicate
 char *strerror(int err) {
-    // avoiding an array to avoid 
+    // avoiding an array to avoid reordering every time.
     switch (err) {
         case NO_ERROR: return "NO_ERROR";
         case ERR_NOT_FOUND: return "NOT_FOUND";

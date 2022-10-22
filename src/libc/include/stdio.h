@@ -119,8 +119,10 @@ dirent_t *readdir(int handle);
 int closedir(int handle);
 
 int touch(char *path);
-int mkdir(char *path);
 int unlink(char *path);
+
+int mkdir(char *path);
+int rmdir(char *path);
 
 
 #endif
