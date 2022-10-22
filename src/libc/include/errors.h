@@ -7,6 +7,9 @@
 // negative:  error
 // positive:  some value
 
+// remember to update strerror() as well.
+
+
 #define SUCCESS                   NO_ERROR
 #define NO_ERROR                  0
 
@@ -25,7 +28,8 @@
 #define ERR_NOT_A_FILE           -14
 #define ERR_NO_SPACE_LEFT        -15
 #define ERR_NO_FS_MOUNTED        -16
-#define ERR_NO_RUNNING_PROCESS   -17
+#define ERR_DIR_NOT_EMPTY        -17
+#define ERR_NO_RUNNING_PROCESS   -18
 
 #define ERR_READING_FILE         -20
 #define ERR_WRITING_FILE         -21
