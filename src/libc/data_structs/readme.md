@@ -78,3 +78,28 @@ where one passes in the `operations` structure, along with any remaining argumen
 
 Corresponding free methods exist of course.
 
+# On objects with C
+
+Very nice material on classes and objects using C is here:
+https://www.cs.rit.edu/~ats/books/ooc.pdf
+
+Very briefly, each class is a structure that has a size, ctor pointer (a var args method),
+a dtor pointer, a comparer and a cloner.
+
+There is one generic function `new(class, ...)` in which we pass the class.
+The memory for the new instance is allocated, the class pointer is 
+assigned (convention is that the first member of an object is a pointer to the class) 
+and the constructor is called, if present. Then the object is returned.
+
+There is one generic function `delete(obj)` in which we pass the object,
+and it will call the appropriate destructor, then free the memory.
+Same, there are generic functions `clone()` and `differ()` which
+use the class to see if there are appropriate methods to clone, compare etc.
+
+Most of the object methods are pointers on the class structure, not the object
+structure. (e.g. they don't change from instance to instance). The data are indeed
+part of the object structure (as they change from instance to instance)
+
+At some point, he breaks out an awk preprocessor, because the syntax
+becomes so complex that it's not nice to maintain manually...
+This goes beyond what I'd like to achieve. 
