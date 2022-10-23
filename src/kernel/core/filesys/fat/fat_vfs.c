@@ -5,8 +5,6 @@
 #include "fat_file_ops.c"
 
 
-// needed to lock for writes, this should be per logical volume....
-lock_t fat_write_lock;
 
 static int fat_supported(struct partition *partition) {
     klog_trace("FAT probing partition #%d (legacy type 0x%02x)", partition->part_no, partition->legacy_type);
@@ -170,13 +168,14 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     fat->ops = kmalloc(sizeof(struct fat_operations));
     memset(fat->ops, 0, sizeof(struct fat_operations));
 
-    fat->ops->read_fat_sector = read_fat_sector;
-    fat->ops->write_fat_sector = write_fat_sector;
-    fat->ops->get_fat_entry_value = get_fat_entry_value;
-    fat->ops->set_fat_entry_value = set_fat_entry_value;
+    fat->ops->read_allocation_table_sector = read_allocation_table_sector;
+    fat->ops->write_allocation_table_sector = write_allocation_table_sector;
+    fat->ops->get_allocation_table_entry = get_allocation_table_entry;
+    fat->ops->set_allocation_table_entry = set_allocation_table_entry;
     fat->ops->is_end_of_chain_entry_value = is_end_of_chain_entry_value;
     fat->ops->find_a_free_cluster = find_a_free_cluster;
     fat->ops->get_n_index_cluster_no = get_n_index_cluster_no;
+    fat->ops->release_allocation_chain = release_allocation_chain;
     
     fat->ops->read_data_cluster = read_data_cluster;
     fat->ops->write_data_cluster = write_data_cluster;
@@ -234,7 +233,7 @@ error:
 static int fat_close_superblock(struct superblock *superblock) {
     klog_trace("fat_close_superblock()");
 
-    // ideally we'll sync if needed
+    // ideally we'll sync all buffers to disk first, then apply write lock
 
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
 
@@ -249,10 +248,11 @@ static int fat_close_superblock(struct superblock *superblock) {
 
 static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result) {
     klog_trace("fat_lookup(dir=0x%x, name=\"%s\")", dir, name);
+
     // we must find the entry "name" in directory dir, return pointer to result.
     // something analogous to opendir()/readdir()/closedir().
     fat_info *fat = (fat_info *)dir->superblock->priv_fs_driver_data;
-    int err = ERR_NOT_FOUND;
+    int err = ERR_NOT_SUPPORTED;
     fat_priv_dir_info *pdi;
     fat_dir_entry *entry = kmalloc(sizeof(fat_dir_entry));
 
@@ -262,25 +262,11 @@ static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **re
         err = fat->ops->priv_dir_open_cluster(fat, dir->location, &pdi);
     if (err) goto out;
 
-    while (true) {
-        err = fat->ops->priv_dir_read_one_entry(fat, pdi, entry);
-        if (err == ERR_NO_MORE_CONTENT) {
-            err = ERR_NOT_FOUND;
-            goto close;
-        }
-        if (err)
-            goto close;
-        
-        if (strcmp(entry->short_name, name) == 0) {
-            (*result) = create_file_descriptor(dir->superblock, name, entry->first_cluster_no, dir);
-            if (entry->attributes.flags.directory)
-                (*result)->flags |= FD_DIR;
-            else if (!entry->attributes.flags.volume_label)
-                (*result)->flags |= FD_FILE;
-            (*result)->size = entry->file_size;
-            break;
-        }
-    }
+    err = fat->ops->find_entry_in_dir(fat, pdi, name, entry);
+    if (err) goto close;
+
+    fat_dir_entry_to_file_descriptor(dir, entry, result);
+    if (err) goto close;
 
 close:
     // don't affect `err`, we may have some specific error
@@ -319,9 +305,9 @@ static int fat_write(file_t *file, char *buffer, int length) {
     klog_trace("fat_write(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
-    acquire(&fat_write_lock);
+    acquire(&file->superblock->write_lock);
     int err = fat->ops->priv_file_write(fat, pfi, buffer, length);
-    release(&fat_write_lock);
+    release(&file->superblock->write_lock);
     return err;
 }
 
@@ -345,7 +331,7 @@ static int fat_flush(file_t *file) {
     }
 
     if (pfi->sector->dirty) {
-        err = fat->ops->write_fat_sector(fat, pfi->sector);
+        err = fat->ops->write_allocation_table_sector(fat, pfi->sector);
         if (err) return err;
     }
 
@@ -422,109 +408,117 @@ static int fat_closedir(file_t *file) {
     return err;
 }
 
-static int fat_mkdir(char *path, file_t *file) {
-    klog_trace("fat_mkdir(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    char *name = NULL;
+
+static int fat_create_entry(file_descriptor_t *parent_dir, char *name, bool want_directory) {
+    fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
     int err;
 
     // don't use return, to make sure we release this.
-    acquire(&fat_write_lock);
-    
+    acquire(&parent_dir->superblock->write_lock);
+
     // find and open containing dir 
-    fat_priv_dir_info *pd = NULL;
-    err = fat->ops->priv_dir_find_and_open(fat, path, true, &pd);
+    fat_priv_dir_info *pdi = NULL;
+    if ((fat->fat_type == FAT12 || fat->fat_type == FAT16) && parent_dir->location == 0)
+        err = fat->ops->priv_dir_open_root(fat, &pdi);
+    else
+        err = fat->ops->priv_dir_open_cluster(fat, parent_dir->location, &pdi);
     if (err) goto exit;
 
-    // get name only and create entry
-    int path_parts = count_path_parts(path);
-    name = kmalloc(strlen(path) + 1);
-    get_n_index_path_part(path, path_parts - 1, name);
-    err = fat->ops->priv_dir_create_entry(fat, pd, name, true);
+    // see if it exists
+    fat_dir_entry entry;
+    err = fat->ops->find_entry_in_dir(fat, pdi, name, &entry);
+    if (err == 0) {
+        err = ERR_ALREADY_EXISTS;
+        goto exit;
+    }
+
+    err = fat->ops->priv_dir_create_entry(fat, pdi, name, want_directory);
     if (err) goto exit;
 
-    err = fat->ops->priv_dir_close(fat, pd);
+    if (want_directory) {
+        // shouldn't we create the "." and ".." entries?
+    }
+
+    err = SUCCESS;
+exit:
+    if (pdi != NULL)
+        fat->ops->priv_dir_close(fat, pdi);
+
+    release(&parent_dir->superblock->write_lock);
+    return err;
+}
+
+static int fat_remove_entry(file_descriptor_t *parent_dir, char *name, bool want_directory) {
+    fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
+    int err;
+
+    // don't use return, to make sure we release this.
+    acquire(&parent_dir->superblock->write_lock);
+
+    // find and open containing dir 
+    fat_priv_dir_info *pdi = NULL;
+    if ((fat->fat_type == FAT12 || fat->fat_type == FAT16) && parent_dir->location == 0)
+        err = fat->ops->priv_dir_open_root(fat, &pdi);
+    else
+        err = fat->ops->priv_dir_open_cluster(fat, parent_dir->location, &pdi);
+    if (err) goto exit;
+
+    // see if it exists
+    fat_dir_entry entry;
+    err = fat->ops->find_entry_in_dir(fat, pdi, name, &entry);
+    if (err == ERR_NO_MORE_CONTENT) {
+        err = ERR_NOT_FOUND;
+        goto exit;
+    }
+    if (err) goto exit;
+
+    // make sure it's the correct type
+    if (want_directory && !entry.attributes.flags.directory) {
+        err = ERR_NOT_A_DIRECTORY;
+        goto exit;
+    } else if (!want_directory && entry.attributes.flags.directory) {
+        err = ERR_NOT_A_FILE;
+        goto exit;
+    }
+
+    // mark the entry as invalid
+    err = fat->ops->priv_dir_entry_invalidate(fat, pdi, &entry);
+    if (err) goto exit;
+
+    // mark all clusters as available (free file space)
+    err = fat->ops->release_allocation_chain(fat, pdi->pf->sector, entry.first_cluster_no);
     if (err) goto exit;
 
     err = SUCCESS;
 exit:
-    if (name != NULL)
-        kfree(name);
-    release(&fat_write_lock);
+    if (pdi != NULL)
+        fat->ops->priv_dir_close(fat, pdi);
+    release(&parent_dir->superblock->write_lock);
     return err;
 }
 
-static int fat_touch(char *path, file_t *file) {
-    klog_trace("fat_touch(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    char *name = NULL;
-    int err;
 
-    // don't use return, to make sure we release this.
-    acquire(&fat_write_lock);
-    
-    // find and open containing dir 
-    fat_priv_dir_info *pd = NULL;
-    err = fat->ops->priv_dir_find_and_open(fat, path, true, &pd);
-    if (err) goto exit;
 
-    // get name and invalidate
-    int path_parts = count_path_parts(path);
-    name = kmalloc(strlen(path) + 1);
-    get_n_index_path_part(path, path_parts - 1, name);
-    err = fat->ops->priv_dir_create_entry(fat, pd, name, false);
-    if (err) goto exit;
 
-    err = fat->ops->priv_dir_close(fat, pd);
-    if (err) goto exit;
-
-    err = SUCCESS;
-exit:
-    if (name != NULL)
-        kfree(name);
-    release(&fat_write_lock);
-    return err;
+static int fat_touch(file_descriptor_t *parent_dir, char *name) {
+    klog_trace("fat_touch(\"%s\")", name);
+    return fat_create_entry(parent_dir, name, false);
 }
 
-static int fat_unlink(char *path, file_t *file) {
-    klog_trace("fat_touch(\"%s\")", path);
-    fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
-    int err;
-    char *name = NULL;
-    fat_dir_entry *entry = NULL;
-
-    // don't use return, to make sure we release this.
-    acquire(&fat_write_lock);
-    
-    // find and open containing dir 
-    fat_priv_dir_info *pd = NULL;
-    err = fat->ops->priv_dir_find_and_open(fat, path, true, &pd);
-    if (err) goto exit;
-
-    // get filename to find entry
-    int path_parts = count_path_parts(path);
-    name = kmalloc(strlen(path) + 1);
-    entry = kmalloc(sizeof(fat_dir_entry));
-    get_n_index_path_part(path, path_parts - 1, name);
-    err = fat->ops->find_entry_in_dir(fat, pd, name, entry);
-    if (err) goto exit;
-
-    err = fat->ops->priv_dir_entry_invalidate(fat, pd, entry);
-    if (err) goto exit;
-
-    err = fat->ops->priv_dir_close(fat, pd);
-    if (err) goto exit;
-
-    err = SUCCESS;
-exit:
-    if (name != NULL)
-        kfree(name);
-    if (entry != NULL)
-        kfree(entry);
-    release(&fat_write_lock);
-    return err;
+static int fat_unlink(file_descriptor_t *parent_dir, char *name) {
+    klog_trace("fat_touch(\"%s\")", name);
+    return fat_remove_entry(parent_dir, name, false);
 }
 
+static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
+    klog_trace("fat_mkdir(\"%s\")", name);
+    return fat_create_entry(parent_dir, name, true);
+}
+
+static int fat_rmdir(file_descriptor_t *parent_dir, char *name) {
+    klog_trace("fat_rmdir(\"%s\")", name);
+    return fat_remove_entry(parent_dir, name, true);
+}
 
 
 struct file_ops fat_file_operations = {
@@ -543,9 +537,10 @@ struct file_ops fat_file_operations = {
     .readdir = fat_readdir,
     .closedir = fat_closedir,
 
-    // .touch = fat_touch,
-    // .mkdir = fat_mkdir,
-    // .unlink = fat_unlink
+    .touch = fat_touch,
+    .unlink = fat_unlink,
+    .mkdir = fat_mkdir,
+    .rmdir = fat_rmdir,
 };
 
 static struct file_ops *fat_get_file_operations() {

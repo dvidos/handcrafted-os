@@ -374,12 +374,16 @@ static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name
 
     while (true) {
         err = priv_dir_read_one_entry(fat, pd, entry);
-        if (err) return err;
+        if (err == ERR_NO_MORE_CONTENT)
+            return ERR_NOT_FOUND;
+        else if (err)
+            return err;
 
         klog_debug("find_entry_in_dir(): gotten entry for \"%s\"", entry->short_name);
         if (strcmp(entry->short_name, name) == 0)
             break;
     }
+    
     return SUCCESS;
 }
 

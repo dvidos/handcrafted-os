@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <errors.h>
 
 struct built_in_info {
     char *name;
@@ -68,7 +69,7 @@ void cmd_ls(int argc, char *argv[]) {
 
     int h = opendir(path);
     if (h < 0) {
-        printf("Error %d opening dir\n", h);
+        printf("Error %s (%d) opening dir\n", strerror(h), h);
         return;
     }
 

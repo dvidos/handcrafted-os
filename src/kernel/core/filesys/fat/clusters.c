@@ -4,7 +4,7 @@
 
 
 
-static int read_fat_sector(fat_info *fat, uint32_t sector_no, sector_t *sector) {
+static int read_allocation_table_sector(fat_info *fat, uint32_t sector_no, sector_t *sector) {
     int err = fat->partition->dev->ops->read(fat->partition->dev,
         fat->fat_starting_lba + sector_no, 0,
         1, sector->buffer
@@ -14,23 +14,23 @@ static int read_fat_sector(fat_info *fat, uint32_t sector_no, sector_t *sector) 
         sector->dirty = false;
         sector->loaded = true;
     }
-    klog_trace("read_fat_sector(sector=%d) -> %d", sector_no, err);
+    klog_trace("read_allocation_table_sector(sector=%d) -> %d", sector_no, err);
     return err;
 }
 
-static int write_fat_sector(fat_info *fat, sector_t *sector) {
+static int write_allocation_table_sector(fat_info *fat, sector_t *sector) {
     int err = fat->partition->dev->ops->write(fat->partition->dev,
         fat->fat_starting_lba + sector->sector_no, 0,
         1, sector->buffer
     );
-    klog_trace("write_fat_sector(sector=%d) -> %d", sector->sector_no, err);
+    klog_trace("write_allocation_table_sector(sector=%d) -> %d", sector->sector_no, err);
     if (err == 0) {
         sector->dirty = false;
     }
     return err;
 }
 
-static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value) {
+static int get_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value) {
     uint32_t offset_in_fat;
     if (fat->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
@@ -49,7 +49,7 @@ static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster
 
     bool already_loaded = sector->loaded && sector->sector_no == fat_sector_no;
     if (!already_loaded) {
-        int err = read_fat_sector(fat, fat_sector_no, sector);
+        int err = read_allocation_table_sector(fat, fat_sector_no, sector);
         if (err)
             return err;
         sector->sector_no = fat_sector_no;
@@ -82,12 +82,12 @@ static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster
         return ERR_NOT_SUPPORTED;
     }
 
-    klog_trace("get_fat_entry_value(cluster=%d, new_value=%d)", cluster_no, *value);
+    klog_trace("get_allocation_table_entry(cluster=%d, new_value=%d)", cluster_no, *value);
     return SUCCESS;
 }
 
-static int set_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value) {
-    klog_trace("set_fat_entry_value(cluster=%d, value=%d)", cluster_no, value);
+static int set_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value) {
+    klog_trace("set_allocation_table_entry(cluster=%d, value=%d)", cluster_no, value);
     uint32_t offset_in_fat;
     if (fat->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
@@ -106,7 +106,7 @@ static int set_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster
 
     bool already_loaded = sector->loaded && sector->sector_no == fat_sector_no;
     if (!already_loaded) {
-        int err = read_fat_sector(fat, fat_sector_no, sector);
+        int err = read_allocation_table_sector(fat, fat_sector_no, sector);
         if (err)
             return err;
         sector->sector_no = fat_sector_no;
@@ -147,7 +147,7 @@ static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluste
     klog_trace("find_a_free_cluster()");
     uint32_t value;
     for (uint32_t cl = 2; cl < fat->largest_cluster_no; cl++) {
-        int err = get_fat_entry_value(fat, sector, cl, &value);
+        int err = get_allocation_table_entry(fat, sector, cl, &value);
         if (err)
             return err;
         if (value == 0) {
@@ -166,7 +166,7 @@ static int get_n_index_cluster_no(fat_info *fat, sector_t *sector, uint32_t firs
     uint32_t curr_cluster_no = first_cluster;
     uint32_t value = 0;
     while (cluster_n_index-- > 0) {
-        int err = get_fat_entry_value(fat, sector, curr_cluster_no, &value);
+        int err = get_allocation_table_entry(fat, sector, curr_cluster_no, &value);
         if (err)
             return err;
         curr_cluster_no = value;
@@ -222,9 +222,9 @@ static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf)
     if (err) return err;
     
     // but also mark the new one as end-of-chain, i.e. non-free
-    err = set_fat_entry_value(fat, pf->sector, new_cluster_no, fat->end_of_chain_value);
+    err = set_allocation_table_entry(fat, pf->sector, new_cluster_no, fat->end_of_chain_value);
     if (err) return err;
-    err = write_fat_sector(fat, pf->sector);
+    err = write_allocation_table_sector(fat, pf->sector);
     if (err) return err;
 
     // clear this sector
@@ -249,7 +249,7 @@ static int move_to_next_data_cluster(fat_info *fat, fat_priv_file_info *pf, bool
     }
 
     uint32_t next_cluster_no;
-    err = get_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, &next_cluster_no);
+    err = get_allocation_table_entry(fat, pf->sector, pf->cluster->cluster_no, &next_cluster_no);
     if (err) return err;
 
     if (!is_end_of_chain_entry_value(fat, next_cluster_no)) {
@@ -266,15 +266,15 @@ static int move_to_next_data_cluster(fat_info *fat, fat_priv_file_info *pf, bool
         if (err) return err;
         
         // we must write the pointer from the previous cluster to this one
-        err = set_fat_entry_value(fat, pf->sector, pf->cluster->cluster_no, new_cluster_no);
+        err = set_allocation_table_entry(fat, pf->sector, pf->cluster->cluster_no, new_cluster_no);
         if (err) return err;
-        err = write_fat_sector(fat, pf->sector);
+        err = write_allocation_table_sector(fat, pf->sector);
         if (err) return err;
         
         // but also mark the new one as end-of-chain, i.e. non-free
-        err = set_fat_entry_value(fat, pf->sector, new_cluster_no, fat->end_of_chain_value);
+        err = set_allocation_table_entry(fat, pf->sector, new_cluster_no, fat->end_of_chain_value);
         if (err) return err;
-        err = write_fat_sector(fat, pf->sector);
+        err = write_allocation_table_sector(fat, pf->sector);
         if (err) return err;
 
         memset(pf->cluster->buffer, 0, fat->bytes_per_cluster);
@@ -317,4 +317,29 @@ static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, u
     pf->cluster_n_index = cluster_n_index;
     return SUCCESS;
 }
+
+static int release_allocation_chain(fat_info *fat, sector_t *sector, uint32_t first_cluster_no) {
+    uint32_t cluster = 0;
+    uint32_t value = 0;
+    int err;
+
+    cluster = first_cluster_no;
+    while (true) {
+        err = fat->ops->get_allocation_table_entry(fat, sector, cluster, &value);
+        if (err) break;
+
+        err = fat->ops->set_allocation_table_entry(fat, sector, cluster, 0);
+        if (err) break;
+
+        // are we done?
+        if (fat->ops->is_end_of_chain_entry_value(fat, value) || value == 0)
+            break;
+        
+        // use value as the next cluster to clear
+        cluster = value;
+    }
+
+    return err;
+}
+
 

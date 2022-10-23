@@ -2,6 +2,7 @@
 #define _VFS_H
 
 #include <ctypes.h>
+#include <lock.h>
 #include <filesys/drivers.h>
 #include <filesys/partition.h>
 
@@ -12,6 +13,7 @@ typedef struct superblock {
     struct filesys_driver *driver;
     struct partition *partition;
     struct file_ops *ops;
+    lock_t write_lock;
     void *priv_fs_driver_data;
 } superblock_t;
 
@@ -167,13 +169,17 @@ struct file_ops {
     // close the directory handle, free resources
     int (*closedir)(file_t *open_dir);
 
-    // -- old style methods -- to be refactored --
-    // -----------------------------------------------------------------
+    // create a file (or refresh access time)
+    int (*touch)(file_descriptor_t *parent_dir, char *name);
 
-    int (*touch)(file_t *parentdir, char *name);
-    int (*mkdir)(file_t *parentdir, char *name);
-    int (*unlink)(file_t *parentdir, char *name);
+    // unlink a file
+    int (*unlink)(file_descriptor_t *parent_dir, char *name);
 
+    // make a directory (maybe the . and .. as well?)
+    int (*mkdir)(file_descriptor_t *parent_dir, char *name);
+
+    // remove a directory (maybe the . and .. as well?)
+    int (*rmdir)(file_descriptor_t *parent_dir, char *name);
 };
 
 // lots of vfs info here: https://tldp.org/LDP/lki/lki-3.html
@@ -206,8 +212,9 @@ int vfs_readdir(file_t *file, file_descriptor_t **fd); // caller must destroy fd
 int vfs_closedir(file_t *file);
 
 int vfs_touch(char *path);
-int vfs_mkdir(char *path);
 int vfs_unlink(char *path);
+int vfs_mkdir(char *path);
+int vfs_rmdir(char *path);
 
 
 #endif

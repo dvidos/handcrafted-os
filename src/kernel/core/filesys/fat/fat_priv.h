@@ -206,13 +206,14 @@ typedef struct {
 struct fat_operations {
 
     // working with the allocation table
-    int (*read_fat_sector)(fat_info *fat, uint32_t sector_no, sector_t *sector);
-    int (*write_fat_sector)(fat_info *fat, sector_t *sector);
-    int (*get_fat_entry_value)(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value);
-    int (*set_fat_entry_value)(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value);
+    int (*read_allocation_table_sector)(fat_info *fat, uint32_t sector_no, sector_t *sector);
+    int (*write_allocation_table_sector)(fat_info *fat, sector_t *sector);
+    int (*get_allocation_table_entry)(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value);
+    int (*set_allocation_table_entry)(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value);
     bool (*is_end_of_chain_entry_value)(fat_info *fat, uint32_t value);
     int (*find_a_free_cluster)(fat_info *fat, sector_t *sector, uint32_t *cluster_no);
     int (*get_n_index_cluster_no)(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+    int (*release_allocation_chain)(fat_info *fat, sector_t *sector, uint32_t first_cluster_no);
 
     // working with data clusters
     int (*read_data_cluster)(fat_info *fat, uint32_t cluster_no, cluster_t *cluster);
@@ -252,13 +253,14 @@ struct fat_operations {
 
 
 // clusters low level work
-static int read_fat_sector(fat_info *fat, uint32_t sector_no, sector_t *sector);
-static int write_fat_sector(fat_info *fat, sector_t *sector);
-static int get_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value);
-static int set_fat_entry_value(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value);
+static int read_allocation_table_sector(fat_info *fat, uint32_t sector_no, sector_t *sector);
+static int write_allocation_table_sector(fat_info *fat, sector_t *sector);
+static int get_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t *value);
+static int set_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value);
 static bool is_end_of_chain_entry_value(fat_info *fat, uint32_t value);
 static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluster_no);
 static int get_n_index_cluster_no(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+static int release_allocation_chain(fat_info *fat, sector_t *sector, uint32_t first_cluster_no);
 static int read_data_cluster(fat_info *fat, uint32_t cluster_no, cluster_t *cluster);
 static int write_data_cluster(fat_info *fat, cluster_t *cluster);
 
@@ -303,6 +305,7 @@ static void dir_entry_to_slot(fat_dir_entry *entry, uint8_t *buffer);
 static void dir_entry_to_long_name(uint8_t *buffer, fat_dir_entry *entry);
 static void dir_long_name_to_slot(fat_dir_entry *entry, int seq_no, uint8_t *buffer);
 static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t *vfs_entry);
+static void fat_dir_entry_to_file_descriptor(file_descriptor_t *parent_dir, fat_dir_entry *fat_entry, file_descriptor_t **fd);
 static void dir_entry_set_created_time(fat_dir_entry *entry, real_time_clock_info_t *time);
 static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_info_t *time);
 

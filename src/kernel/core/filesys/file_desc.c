@@ -21,7 +21,6 @@ file_descriptor_t *create_file_descriptor(superblock_t *superblock, const char *
 file_descriptor_t *clone_file_descriptor(const file_descriptor_t *fd) {
     if (fd == NULL)
         return NULL;
-
     file_descriptor_t *clone = kmalloc(sizeof(file_descriptor_t));
     memcpy(clone, fd, sizeof(file_descriptor_t));
     clone->name = strdup(fd->name);

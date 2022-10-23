@@ -20,6 +20,7 @@ char *strerror(int err);
 #define ERR_NOT_IMPLEMENTED       -5
 #define ERR_BAD_ARGUMENT          -6
 #define ERR_BAD_VALUE             -7
+#define ERR_ALREADY_EXISTS        -8
 
 #define ERR_NO_DEVICE            -10
 #define ERR_NO_PARTITION         -11

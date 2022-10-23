@@ -11,6 +11,7 @@ char *strerror(int err) {
         case ERR_NOT_IMPLEMENTED: return "NOT_IMPLEMENTED";
         case ERR_BAD_ARGUMENT: return "BAD_ARGUMENT";
         case ERR_BAD_VALUE: return "BAD_VALUE";
+        case ERR_ALREADY_EXISTS: return "ALREADY_EXISTS";
         case ERR_NO_DEVICE: return "NO_DEVICE";
         case ERR_NO_PARTITION: return "NO_PARTITION";
         case ERR_NO_DRIVER_FOUND: return "NO_DRIVER_FOUND";

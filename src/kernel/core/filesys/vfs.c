@@ -75,6 +75,9 @@ static void debug_dir_entry_t(dir_entry_t *dir_entry) {
 int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
     klog_trace("vfs_resolve(\"%s\", root=0x%x, curr=0x%x, container=%d)",
         path, root_dir, curr_dir, (int)containing_folder);
+    int err = SUCCESS;
+    char *path_copy = NULL;
+    char *final_path = NULL;
     
     // test edge cases first
     if (path == NULL)
@@ -84,41 +87,33 @@ int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_
     if (root_dir == NULL)
         return ERR_NO_FS_MOUNTED;
 
-    // easy cases to get out of the way fast.
-    if (strlen(path) == 1) {
-        if (*path == '/') {
-            *target = clone_file_descriptor(root_dir);
-            return SUCCESS;
-        } else if (*path == '.') {
-            if (curr_dir == NULL)
-                return ERR_BAD_ARGUMENT;
-            *target = clone_file_descriptor(curr_dir);
-            return SUCCESS;
-        }
-    }
+    // duplicate to go though dirname (which modifies the string)
+    // but also again, because we will tokenize (modify the string)
+    // and dirname may return a constant strict (e.g. ".")
+    path_copy = strdup(path);
+    if (containing_folder)
+        final_path = strdup(dirname(path_copy));
+    else
+        final_path = strdup(path_copy);
 
-    // duplicate so we may go to containing folder, tokenize and parse
-    char *work_path = strdup(path);
-    if (containing_folder) {
-        // we could have cases "./asdf", "asdf" or "/asdf"
-        work_path = dirname(work_path);
-        if (strlen(work_path) == 1 && *work_path == '.') {
-            if (curr_dir == NULL)
-                return ERR_BAD_ARGUMENT;
+    if (strlen(final_path) == 1) {
+        if (*final_path == '.') {
+            if (curr_dir == NULL) {
+                err = ERR_BAD_ARGUMENT;
+                goto out;
+            }
             *target = clone_file_descriptor(curr_dir);
-            kfree(work_path);
-            return SUCCESS;
+            goto out;
         }
-        else if (strlen(work_path) == 1 && *work_path == '/') {
+        else if (*final_path == '/') {
             *target = clone_file_descriptor(root_dir);
-            kfree(work_path);
-            return SUCCESS;
+            goto out;
         }
     }
 
     // establish base dir
     file_descriptor_t *base_dir = NULL;
-    if (*path == '/') {
+    if (*final_path == '/') {
         base_dir = clone_file_descriptor(root_dir);
         path++;
     } else {
@@ -137,9 +132,12 @@ int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_
     // but, to not implement this in every filesys driver, 
     // we must implement something on VFS level. 
 
-    int err = SUCCESS;
-    char *name = strtok(work_path, "/");
+    // TODO: we may need to lock here, to avoid reentrance 
+    // from another task, as the strtok() is not thread safe?
+
+    char *name = strtok(final_path, "/");
     while (true) {
+        klog_trace("Looking for name \"%s\" in base directory \"%s\"", name, base_dir->name);
 
         // there's another part to look for, verify that 
         // we are searching inside a directory, not a file
@@ -177,8 +175,10 @@ int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_
     // we visited all levels, we should be ok.
     err = SUCCESS;
 out:
-    if (work_path != NULL)
-        kfree(work_path);
+    if (path_copy != NULL)
+        kfree(path_copy);
+    if (final_path != NULL)
+        kfree(final_path);
     return err;
 }
 
@@ -190,13 +190,16 @@ int vfs_open(char *path, file_t **file) {
         goto out;
     }
     
-    // only absolute paths for now
     file_descriptor_t *target = NULL;
     file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, false, &target);
     if (err) goto out;
     if (target == NULL) {
         err = ERR_BAD_VALUE;
+        goto out;
+    }
+    if ((target->flags & FD_FILE) == 0) {
+        err = ERR_NOT_A_FILE;
         goto out;
     }
 
@@ -251,13 +254,16 @@ int vfs_opendir(char *path, file_t **file) {
         goto out;
     }
     
-    // only absolute paths for now
     file_descriptor_t *target = NULL;
     file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, false, &target);
     if (err) goto out;
     if (target == NULL) {
         err = ERR_BAD_VALUE;
+        goto out;
+    }
+    if ((target->flags & FD_DIR) == 0) {
+        err = ERR_NOT_A_DIRECTORY;
         goto out;
     }
 
@@ -294,35 +300,181 @@ int vfs_closedir(file_t *file) {
 }
 
 int vfs_touch(char *path) {
-    // file_t file;
-    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, &file);
-    // if (err)
-    //     return err;
-    // if (file.superblock->ops->touch == NULL)
-    //     return ERR_NOT_SUPPORTED;
-    // return file.superblock->ops->touch(file.path, &file);
-    return ERR_NOT_SUPPORTED;
-}
+    klog_trace("vfs_touch(path=\"%s\")", path);
+    int err;
+    char *copy = NULL;
 
-int vfs_mkdir(char *path) {
-    // file_t file;
-    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, &file);
-    // if (err)
-    //     return err;
-    // if (file.superblock->ops->mkdir == NULL)
-    //     return ERR_NOT_SUPPORTED;
-    // return file.superblock->ops->mkdir(file.path, &file);
-    return ERR_NOT_SUPPORTED;
+    if (vfs_get_root_mount() == NULL) {
+        err = ERR_NO_FS_MOUNTED;
+        goto out;
+    }
+    
+    file_descriptor_t *parent = NULL;
+    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
+    if (err) goto out;
+    if (parent == NULL) {
+        err = ERR_BAD_VALUE;
+        goto out;
+    }
+
+    klog_debug("vfs_touch(), resolved descriptor follows");
+    debug_file_descriptor(parent, 0);
+
+    if (parent->superblock->ops->touch == NULL) {
+        err = ERR_NOT_SUPPORTED;
+        goto out;
+    }
+    
+    copy = strdup(path);
+    err = parent->superblock->ops->touch(parent, pathname(copy));
+
+out:
+    if (copy != NULL)
+        kfree(copy);
+    klog_trace("vfs_touch(\"%s\") -> %d", path, err);
+    return err;
 }
 
 int vfs_unlink(char *path) {
-    // file_t file;
-    // int err = __deprecate__resolve_filesys_and_prepare_file_structure(path, &file);
-    // if (err)
-    //     return err;
-    // if (file.superblock->ops->unlink == NULL)
-    //     return ERR_NOT_SUPPORTED;
-    // return file.superblock->ops->unlink(file.path, &file);
-    return ERR_NOT_SUPPORTED;
+    klog_trace("vfs_unlink(path=\"%s\")", path);
+    int err;
+    char *copy = NULL;
+
+    if (vfs_get_root_mount() == NULL) {
+        err = ERR_NO_FS_MOUNTED;
+        goto out;
+    }
+    
+    file_descriptor_t *parent = NULL;
+    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
+    if (err) goto out;
+    if (parent == NULL) {
+        err = ERR_BAD_VALUE;
+        goto out;
+    }
+
+    klog_debug("vfs_unlink(), resolved descriptor follows");
+    debug_file_descriptor(parent, 0);
+
+    if (parent->superblock->ops->unlink == NULL) {
+        err = ERR_NOT_SUPPORTED;
+        goto out;
+    }
+    
+    copy = strdup(path);
+    err = parent->superblock->ops->unlink(parent, pathname(copy));
+
+out:
+    if (copy != NULL)
+        kfree(copy);
+    klog_trace("vfs_unlink(\"%s\") -> %d", path, err);
+    return err;
+}
+
+int vfs_mkdir(char *path) {
+    klog_trace("vfs_mkdir(path=\"%s\")", path);
+    int err;
+    char *copy = NULL;
+
+    if (vfs_get_root_mount() == NULL) {
+        err = ERR_NO_FS_MOUNTED;
+        goto out;
+    }
+    
+    file_descriptor_t *parent = NULL;
+    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
+    if (err) goto out;
+    if (parent == NULL) {
+        err = ERR_BAD_VALUE;
+        goto out;
+    }
+
+    klog_debug("vfs_mkdir(), resolved descriptor follows");
+    debug_file_descriptor(parent, 0);
+
+    if (parent->superblock->ops->mkdir == NULL) {
+        err = ERR_NOT_SUPPORTED;
+        goto out;
+    }
+    
+    copy = strdup(path);
+    err = parent->superblock->ops->mkdir(parent, pathname(copy));
+
+    // who should create the "." and ".." entries? VFS or the fs driver?
+
+out:
+    if (copy != NULL)
+        kfree(copy);
+    klog_trace("vfs_mkdir(\"%s\") -> %d", path, err);
+    return err;
+}
+
+int vfs_rmdir(char *path) {
+    klog_trace("vfs_rmdir(path=\"%s\")", path);
+    int err;
+    char *copy = NULL;
+
+    if (vfs_get_root_mount() == NULL) {
+        err = ERR_NO_FS_MOUNTED;
+        goto out;
+    }
+    
+    file_descriptor_t *parent = NULL;
+    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
+    if (err) goto out;
+    if (parent == NULL) {
+        err = ERR_BAD_VALUE;
+        goto out;
+    }
+
+    klog_debug("vfs_vfs_rmdir(), resolved descriptor follows");
+    debug_file_descriptor(parent, 0);
+
+    if (parent->superblock->ops->rmdir == NULL) {
+        err = ERR_NOT_SUPPORTED;
+        goto out;
+    }
+    
+    // must see if empty, if supported
+    int dir_contents = 0;
+    if (parent->superblock->ops->opendir != NULL
+        && parent->superblock->ops->readdir != NULL 
+        && parent->superblock->ops->closedir != NULL
+    ) {
+        klog_debug("vfs_rmdir() checking if dir is empty...");
+        file_t *f;
+        file_descriptor_t *fd;
+        err = parent->superblock->ops->opendir(parent, &f);
+        if (err) {
+            klog_debug("error %d opendir() directory to count contents", err);
+            goto out;
+        }
+        while (parent->superblock->ops->readdir(f, &fd) == SUCCESS) {
+            if (strcmp(fd->name, ".") != 0 && strcmp(fd->name, "..") != 0)
+                dir_contents++;
+            destroy_file_descriptor(fd);
+        }
+        parent->superblock->ops->closedir(f);
+    }
+    if (dir_contents > 0) {
+        err = ERR_DIR_NOT_EMPTY;
+        goto out;
+    }
+
+    // who should remove the "." and ".." entries, if any?
+    // VFS or the fs driver?
+
+    copy = strdup(path);
+    err = parent->superblock->ops->rmdir(parent, pathname(copy));
+
+out:
+    if (copy != NULL)
+        kfree(copy);
+    klog_trace("vfs_rmdir(\"%s\") -> %d", path, err);
+    return err;
 }
 
