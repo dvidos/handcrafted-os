@@ -103,16 +103,20 @@ static void dir_entry_to_slot(fat_dir_entry *entry, uint8_t *buffer) {
     int max_chars = 8;
     int chars_so_far = 0;
     int len = strlen(entry->short_name);
-    for (int i = 0; i < len; i++) {
-        if (entry->short_name[i] == '.') {
-            pos = 8;
-            max_chars = 3;
-            chars_so_far = 0;
-            continue;
-        }
-        if (chars_so_far < max_chars) {
-            buffer[pos++] = toupper(entry->short_name[i]);
-            chars_so_far++;
+    if (strcmp(entry->short_name, ".") == 0 || strcmp(entry->short_name, "..") == 0) {
+        memcpy(buffer, entry->short_name, len);
+    } else {
+        for (int i = 0; i < len; i++) {
+            if (entry->short_name[i] == '.') {
+                pos = 8;
+                max_chars = 3;
+                chars_so_far = 0;
+                continue;
+            }
+            if (chars_so_far < max_chars) {
+                buffer[pos++] = toupper(entry->short_name[i]);
+                chars_so_far++;
+            }
         }
     }
 }

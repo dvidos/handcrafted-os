@@ -92,13 +92,13 @@ typedef struct dir_entry {
 } dir_entry_t;
 
 
-// dirent.type
-#define DE_TYPE_DIR   1
-#define DE_TYPE_FILE  2
+// dirent.type, also see kernel vfs.h
+#define DE_TYPE_FILE  1
+#define DE_TYPE_DIR   2
 
 typedef struct dirent {
     char name[256];
-    uint8_t  type;
+    uint8_t  type; // see DE_TYPE_* defines
     uint32_t size;
     uint32_t location;
 } dirent_t;

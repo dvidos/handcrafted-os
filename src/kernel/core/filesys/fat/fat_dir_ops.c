@@ -273,8 +273,8 @@ static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir
     return SUCCESS;
 }
 
-static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *name, bool directory) {
-    klog_trace("priv_dir_create_entry(name=\"%s\", dir=%s)", name, directory ? "true" : "false");
+static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *name, uint32_t cluster_no, uint32_t size, bool directory) {
+    klog_trace("priv_dir_create_entry(name=\"%s\", dir=%s, clust=%u, size=%u)", name, directory ? "true" : "false", cluster_no, size);
     uint8_t buffer32[BYTES_PER_DIR_SLOT];
     uint32_t slot_no;
     int err;
@@ -290,10 +290,8 @@ static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *nam
     dir_entry_set_created_time(entry, &time);
     dir_entry_set_modified_time(entry, &time);
     
-    // creating an empty file does not allocate a new cluster.
-    // not so sure about directories though...
-    entry->first_cluster_no = 0;
-    entry->file_size = 0;
+    entry->first_cluster_no = cluster_no;
+    entry->file_size = size;
 
     // read through all the entries to find an empty slot
     // later, to save long names, we'll need to find lots of consecutive free slots.
@@ -318,6 +316,9 @@ static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *nam
 
         // we can save long name here too
         dir_entry_to_slot(entry, buffer32);
+        klog_debug("Slot we prepared to write:");
+        klog_debug_hex(buffer32, 32, 0);
+
         err = priv_dir_write_slot(fat, pd, buffer32);
         if (err) goto exit;
         break;

@@ -403,8 +403,6 @@ int vfs_mkdir(char *path) {
     copy = strdup(path);
     err = parent->superblock->ops->mkdir(parent, pathname(copy));
 
-    // who should create the "." and ".." entries? VFS or the fs driver?
-
 out:
     if (copy != NULL)
         kfree(copy);
@@ -464,9 +462,6 @@ int vfs_rmdir(char *path) {
         err = ERR_DIR_NOT_EMPTY;
         goto out;
     }
-
-    // who should remove the "." and ".." entries, if any?
-    // VFS or the fs driver?
 
     copy = strdup(path);
     err = parent->superblock->ops->rmdir(parent, pathname(copy));

@@ -175,6 +175,7 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     fat->ops->is_end_of_chain_entry_value = is_end_of_chain_entry_value;
     fat->ops->find_a_free_cluster = find_a_free_cluster;
     fat->ops->get_n_index_cluster_no = get_n_index_cluster_no;
+    fat->ops->allocate_new_cluster_chain = allocate_new_cluster_chain;
     fat->ops->release_allocation_chain = release_allocation_chain;
     
     fat->ops->read_data_cluster = read_data_cluster;
@@ -214,6 +215,16 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     );
     fat->root_dir_descriptor->flags = FD_DIR;
 
+    fat->io_buffers = kmalloc(sizeof(struct io_buffers));
+    fat->io_buffers->sector = kmalloc(sizeof(sector_t));
+    memset(fat->io_buffers->sector, 0, sizeof(sector_t));
+    fat->io_buffers->sector->buffer = kmalloc(fat->bytes_per_sector);
+    memset(fat->io_buffers->sector->buffer, 0, fat->bytes_per_sector);
+    fat->io_buffers->cluster = kmalloc(sizeof(cluster_t));
+    memset(fat->io_buffers->cluster, 0, sizeof(cluster_t));
+    fat->io_buffers->cluster->buffer = kmalloc(fat->bytes_per_cluster);
+    memset(fat->io_buffers->cluster->buffer, 0, fat->bytes_per_cluster);
+    
     debug_fat_info(fat);
 
     superblock->partition = partition;
@@ -226,6 +237,19 @@ error:
     if (boot_sector != NULL) kfree(boot_sector);
     if (fat->root_dir_descriptor != NULL) destroy_file_descriptor(fat->root_dir_descriptor);
     if (fat->ops != NULL) kfree(fat->ops);
+    if (fat->io_buffers != NULL) {
+        if (fat->io_buffers->sector != NULL) {
+            if (fat->io_buffers->sector->buffer != NULL)
+                kfree(fat->io_buffers->sector->buffer);
+            kfree(fat->io_buffers->sector);
+        }
+        if (fat->io_buffers->cluster != NULL) {
+            if (fat->io_buffers->cluster->buffer != NULL)
+                kfree(fat->io_buffers->cluster->buffer);
+            kfree(fat->io_buffers->cluster);
+        }
+        kfree(fat->io_buffers);
+    }
     if (fat != NULL) kfree(fat);
     return err;
 }
@@ -409,12 +433,10 @@ static int fat_closedir(file_t *file) {
 }
 
 
-static int fat_create_entry(file_descriptor_t *parent_dir, char *name, bool want_directory) {
+static int create_directory_entry(file_descriptor_t *parent_dir, char *name, uint32_t cluster_no, uint32_t size, bool allocate_cluster, bool want_directory) {
+    klog_trace("create_directory_entry(parent=%s, name=%s, clust=%u, size=%u, allocate=%d, want_dir=%d)", parent_dir->name, name, cluster_no, size, allocate_cluster, want_directory);
     fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
     int err;
-
-    // don't use return, to make sure we release this.
-    acquire(&parent_dir->superblock->write_lock);
 
     // find and open containing dir 
     fat_priv_dir_info *pdi = NULL;
@@ -432,28 +454,38 @@ static int fat_create_entry(file_descriptor_t *parent_dir, char *name, bool want
         goto exit;
     }
 
-    err = fat->ops->priv_dir_create_entry(fat, pdi, name, want_directory);
-    if (err) goto exit;
-
-    if (want_directory) {
-        // shouldn't we create the "." and ".." entries?
+    // if the caller wants a directory, there's two options:
+    // - they want to create the "." or ".." entries, who have a specific cluster no.
+    // - they want to create a new generic directory, which needs to point to a cluster.
+    // remember, a directory pointing to zero cluster is essentially pointing to the root directory...
+    // the "." will point to a valid cluster, the ".." may point to a zero cluster, in a FAT16, firts level directory!
+    // so we cannot create a dir entry without a cluster, 
+    // cause if we do, we'll always open the root directory when we open it!
+     
+    if (want_directory && allocate_cluster) {
+        err = fat->ops->allocate_new_cluster_chain(fat, fat->io_buffers->sector, fat->io_buffers->cluster, true, &cluster_no);
+        if (err) {
+            klog_warn("Failed allocating new cluster for new directory...");
+            goto exit;
+        }
+        size = fat->bytes_per_cluster;
     }
+
+    err = fat->ops->priv_dir_create_entry(fat, pdi, name, cluster_no, size, want_directory);
+    if (err) goto exit;
 
     err = SUCCESS;
 exit:
     if (pdi != NULL)
         fat->ops->priv_dir_close(fat, pdi);
 
-    release(&parent_dir->superblock->write_lock);
     return err;
 }
 
-static int fat_remove_entry(file_descriptor_t *parent_dir, char *name, bool want_directory) {
+static int remove_directory_entry(file_descriptor_t *parent_dir, char *name, bool want_directory) {
+    klog_trace("remove_directory_entry(parent=%s, name=%s, want_dir=%d)", parent_dir->name, name, want_directory);
     fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
     int err;
-
-    // don't use return, to make sure we release this.
-    acquire(&parent_dir->superblock->write_lock);
 
     // find and open containing dir 
     fat_priv_dir_info *pdi = NULL;
@@ -502,22 +534,66 @@ exit:
 
 static int fat_touch(file_descriptor_t *parent_dir, char *name) {
     klog_trace("fat_touch(\"%s\")", name);
-    return fat_create_entry(parent_dir, name, false);
+    acquire(&parent_dir->superblock->write_lock);
+
+    // a zero sized file does not need cluster allocated.
+    int err = create_directory_entry(parent_dir, name, 0, 0, false, false);
+
+    release(&parent_dir->superblock->write_lock);
+    return err;
 }
 
 static int fat_unlink(file_descriptor_t *parent_dir, char *name) {
     klog_trace("fat_touch(\"%s\")", name);
-    return fat_remove_entry(parent_dir, name, false);
+    acquire(&parent_dir->superblock->write_lock);
+
+    int err = remove_directory_entry(parent_dir, name, false);
+
+    release(&parent_dir->superblock->write_lock);
+    return err;
 }
 
 static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
     klog_trace("fat_mkdir(\"%s\")", name);
-    return fat_create_entry(parent_dir, name, true);
+    acquire(&parent_dir->superblock->write_lock);
+
+    // if we created a directory, we need to create the "." and ".." entries
+    // essentially, we are creating three directory entries, all of type directory!
+    file_descriptor_t *new_dir = NULL;
+
+    int err = create_directory_entry(parent_dir, name, 0, 0, true, true);
+    if (err) goto exit;
+
+    err = fat_lookup(parent_dir, name, &new_dir);
+    if (err) goto exit;
+
+    klog_debug("Newly created dir descriptor:");
+    debug_file_descriptor(new_dir, 0);
+    
+klog_trace("a");
+    err = create_directory_entry(new_dir, "$", new_dir->location, new_dir->size, false, true);
+    if (err) goto exit;
+klog_trace("b");
+    err = create_directory_entry(new_dir, "..", parent_dir->location, 0, false, true);
+    if (err) goto exit;
+klog_trace("c");
+
+exit:
+    if (new_dir != NULL)
+        destroy_file_descriptor(new_dir);
+
+    release(&parent_dir->superblock->write_lock);
+    return err;
 }
 
 static int fat_rmdir(file_descriptor_t *parent_dir, char *name) {
     klog_trace("fat_rmdir(\"%s\")", name);
-    return fat_remove_entry(parent_dir, name, true);
+    acquire(&parent_dir->superblock->write_lock);
+
+    int err = remove_directory_entry(parent_dir, name, true);
+
+    release(&parent_dir->superblock->write_lock);
+    return err;
 }
 
 

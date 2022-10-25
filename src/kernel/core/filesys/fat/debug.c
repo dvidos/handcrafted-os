@@ -25,6 +25,29 @@ static void debug_fat_info(fat_info *fat) {
     klog_debug("  root dir sectors size       %d", fat->root_dir_sectors_count);
     klog_debug("Root dir descriptor:");
     debug_file_descriptor(fat->root_dir_descriptor, 0);
+
+    klog_debug("IO Buffers");
+    klog_debug("  Sector -> 0x%p, sector_no=%u, buffer -> 0x%p, loaded=%d, dirty=%d",
+        fat->io_buffers->sector,
+        fat->io_buffers->sector->sector_no, 
+        fat->io_buffers->sector->buffer, 
+        fat->io_buffers->sector->loaded, 
+        fat->io_buffers->sector->dirty
+    );
+    klog_debug("            contents [0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x ...]",
+        fat->io_buffers->sector->buffer[0], fat->io_buffers->sector->buffer[1], fat->io_buffers->sector->buffer[2], fat->io_buffers->sector->buffer[3],
+        fat->io_buffers->sector->buffer[4], fat->io_buffers->sector->buffer[5], fat->io_buffers->sector->buffer[6], fat->io_buffers->sector->buffer[7]);
+
+    klog_debug("  Cluster -> 0x%p, cluster_no=%u, buffer -> 0x%p, loaded=%d, dirty=%d",
+        fat->io_buffers->cluster,
+        fat->io_buffers->cluster->cluster_no, 
+        fat->io_buffers->cluster->buffer, 
+        fat->io_buffers->cluster->loaded, 
+        fat->io_buffers->cluster->dirty
+    );
+    klog_debug("            contents [0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x ...]",
+        fat->io_buffers->cluster->buffer[0], fat->io_buffers->cluster->buffer[1], fat->io_buffers->cluster->buffer[2], fat->io_buffers->cluster->buffer[3],
+        fat->io_buffers->cluster->buffer[4], fat->io_buffers->cluster->buffer[5], fat->io_buffers->cluster->buffer[6], fat->io_buffers->cluster->buffer[7]);
 }
 
 static void debug_fat_dir_entry(bool title_line, fat_dir_entry *entry) {

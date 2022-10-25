@@ -82,7 +82,7 @@ static int get_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t 
         return ERR_NOT_SUPPORTED;
     }
 
-    klog_trace("get_allocation_table_entry(cluster=%d, new_value=%d)", cluster_no, *value);
+    klog_trace("get_allocation_table_entry(cluster=%d), new_value=%d", cluster_no, *value);
     return SUCCESS;
 }
 
@@ -152,7 +152,7 @@ static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluste
             return err;
         if (value == 0) {
             *cluster_no = cl;
-            klog_trace("find_a_free_cluster(free_cluster=%d)", *cluster_no);
+            klog_trace("find_a_free_cluster() -> free_cluster=%d)", *cluster_no);
             return SUCCESS;
         }
     }
@@ -315,6 +315,36 @@ static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, u
     if (err) return err;
 
     pf->cluster_n_index = cluster_n_index;
+    return SUCCESS;
+}
+
+static int allocate_new_cluster_chain(fat_info *fat, sector_t *sector, cluster_t *cluster, bool clear_data, uint32_t *first_cluster_no) {
+
+    uint32_t cluster_no;
+    int err = find_a_free_cluster(fat, sector, &cluster_no);
+    if (err) return err;
+    
+    // but also mark the new one as end-of-chain, i.e. non-free
+    err = set_allocation_table_entry(fat, sector, cluster_no, fat->end_of_chain_value);
+    if (err) return err;
+
+    err = write_allocation_table_sector(fat, sector);
+    if (err) return err;
+
+    if (clear_data) {
+klog_debug("Clearing cluster data, for cluster %u", cluster_no);
+        cluster->cluster_no = cluster_no;
+        err = fat->ops->read_data_cluster(fat, cluster_no, cluster);
+        if (err) return err;
+        cluster->cluster_no = cluster_no;
+        cluster->dirty = true;
+        memset(cluster->buffer, 0, fat->bytes_per_cluster);
+        err = fat->ops->write_data_cluster(fat, cluster);
+        if (err) return err;
+    }
+
+    *first_cluster_no = cluster_no;
+klog_debug("allocate_new_cluster_chain() -> %d", SUCCESS);
     return SUCCESS;
 }
 

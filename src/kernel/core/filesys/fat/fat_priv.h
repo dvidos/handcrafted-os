@@ -88,6 +88,10 @@ typedef struct {
     bool dirty;
 } cluster_t;
 
+struct io_buffers {
+    sector_t *sector;
+    cluster_t *cluster;
+};
 
 enum FAT_TYPE { FAT32, FAT16, FAT12 };
 
@@ -112,6 +116,7 @@ typedef struct {
 
     file_descriptor_t *root_dir_descriptor;
     struct fat_operations *ops;
+    struct io_buffers *io_buffers;
 } fat_info;
 
 
@@ -213,6 +218,7 @@ struct fat_operations {
     bool (*is_end_of_chain_entry_value)(fat_info *fat, uint32_t value);
     int (*find_a_free_cluster)(fat_info *fat, sector_t *sector, uint32_t *cluster_no);
     int (*get_n_index_cluster_no)(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+    int (*allocate_new_cluster_chain)(fat_info *fat, sector_t *sector, cluster_t *cluster, bool clear_data, uint32_t *first_cluster_no);
     int (*release_allocation_chain)(fat_info *fat, sector_t *sector, uint32_t first_cluster_no);
 
     // working with data clusters
@@ -243,7 +249,7 @@ struct fat_operations {
 
     // high level dir functions
     int (*priv_dir_read_one_entry)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-    int (*priv_dir_create_entry)(fat_info *fat, fat_priv_dir_info *pd, char *name, bool directory);
+    int (*priv_dir_create_entry)(fat_info *fat, fat_priv_dir_info *pd, char *name, uint32_t cluster_no, uint32_t size, bool directory);
     int (*priv_dir_entry_invalidate)(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
 
     // facilitate resolving paths to priv dirs and files
@@ -260,6 +266,7 @@ static int set_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t 
 static bool is_end_of_chain_entry_value(fat_info *fat, uint32_t value);
 static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluster_no);
 static int get_n_index_cluster_no(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no);
+static int allocate_new_cluster_chain(fat_info *fat, sector_t *sector, cluster_t *cluster, bool clear_data, uint32_t *first_cluster_no);
 static int release_allocation_chain(fat_info *fat, sector_t *sector, uint32_t first_cluster_no);
 static int read_data_cluster(fat_info *fat, uint32_t cluster_no, cluster_t *cluster);
 static int write_data_cluster(fat_info *fat, cluster_t *cluster);
@@ -285,7 +292,7 @@ static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no)
 static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd);
 
 static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
-static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *name, bool directory);
+static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *name, uint32_t cluster_no, uint32_t size, bool directory);
 static int priv_dir_entry_invalidate(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry);
 
 static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name, fat_dir_entry *entry);

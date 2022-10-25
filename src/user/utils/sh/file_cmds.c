@@ -75,9 +75,15 @@ void cmd_ls(int argc, char *argv[]) {
 
     dirent_t *ent;
 
+    printf("Type      Size   Cluster  Name\n");
+    //      1234  12345678  12345678  123456...
     int err;
     while ((ent = readdir(h)) != NULL) {
-        printf("%c  %8d  %s\n", ent->type == 2 ? 'd' : 'f', ent->size, ent->name);
+        printf("%-4s  %8d  %8d  %s\n", 
+            ent->type == DE_TYPE_DIR ? "dir" : "file", 
+            ent->size, 
+            ent->location,
+            ent->name);
     }
     syslog_info("closing handle %d", h);
     err = closedir(h);
@@ -154,7 +160,7 @@ void cmd_touch(int argc, char *argv[]) {
 
             int err = touch(argv[i]);
             if (err)
-                printf("Error %d touching %s\n", argv[i]);
+                printf("Error %s (%d) creating %s\n", strerror(err), err, argv[i]);
 
             if (verbose)
                 printf("\n");
@@ -176,7 +182,7 @@ void cmd_rm(int argc, char *argv[]) {
 
             int err = unlink(argv[i]);
             if (err)
-                printf("Error %d unlinking %s\n", argv[i]);
+                printf("Error %s (%d) unlinking %s\n", strerror(err), err, argv[i]);
 
             if (verbose)
                 printf("\n");
@@ -198,7 +204,7 @@ void cmd_mkdir(int argc, char *argv[]) {
 
             int err = mkdir(argv[i]);
             if (err)
-                printf("Error %d creating directory %s\n", argv[i]);
+                printf("Error %s (%d) making directory %s\n", strerror(err), err, argv[i]);
 
             if (verbose)
                 printf("\n");
@@ -221,7 +227,7 @@ void cmd_rmdir(int argc, char *argv[]) {
             // empty check should be a vfs issue, no?
             int err = rmdir(argv[i]);
             if (err)
-                printf("Error %d removing directory %s\n", argv[i]);
+                printf("Error %s (%d) removing directory %s\n", strerror(err), err, argv[i]);
 
             if (verbose)
                 printf("\n");
