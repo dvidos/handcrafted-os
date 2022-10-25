@@ -570,13 +570,10 @@ static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
     klog_debug("Newly created dir descriptor:");
     debug_file_descriptor(new_dir, 0);
     
-klog_trace("a");
-    err = create_directory_entry(new_dir, "$", new_dir->location, new_dir->size, false, true);
+    err = create_directory_entry(new_dir, ".", new_dir->location, new_dir->size, false, true);
     if (err) goto exit;
-klog_trace("b");
     err = create_directory_entry(new_dir, "..", parent_dir->location, 0, false, true);
     if (err) goto exit;
-klog_trace("c");
 
 exit:
     if (new_dir != NULL)

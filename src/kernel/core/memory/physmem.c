@@ -5,7 +5,7 @@
 #include <multiboot.h>
 #include <memory/physmem.h>
 
-MODULE("PHMEM");
+MODULE("PMEM");
 
 
 // inspiration from here: http://www.brokenthorn.com/Resources/OSDev17.html

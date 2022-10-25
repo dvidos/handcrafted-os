@@ -5,7 +5,7 @@
 
 
 // naive effort, needs to rewrite completely
-void init_kernel_heap(size_t heap_size, void *minimum_address);
+void init_kernel_heap(void *heap_start, size_t heap_size);
 
 // define DEBUG_HEAP_OPS to help debugging overflows
 void *__kmalloc(size_t size, char *expl, char *file, uint16_t line);

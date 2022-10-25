@@ -42,18 +42,19 @@ static int ramdisk_write(struct storage_dev *dev, uint32_t sector_low, uint32_t 
 // creates a ram disk of some size and registers with device manager
 // if instead of memory mapped content, we had a file mapped content,
 // we would have invented the loopback device!
-void init_ramdisk(size_t size) {
+void init_ramdisk(uint32_t start_address, uint32_t end_address) {
+
 
     // we must have a way to get kernel's current addresses
     // and a way to maintain the kernel's resident allocated mappings
     // let's go for the 10MB+ area for now.
-    ramdisk_info.address = (void *)0xA00000; // 10MB
-    ramdisk_info.size = size;
-    allocate_virtual_memory_range(
-        ramdisk_info.address, 
-        ramdisk_info.address + ramdisk_info.size, 
-        get_kernel_page_directory()
-    );
+    ramdisk_info.address = (void *)start_address;
+    ramdisk_info.size = (size_t)(end_address - start_address);
+    // allocate_virtual_memory_range(
+    //     ramdisk_info.address, 
+    //     ramdisk_info.address + ramdisk_info.size, 
+    //     get_kernel_page_directory()
+    // );
 
     memset(ramdisk_info.address, 0, ramdisk_info.size);
 
@@ -65,7 +66,7 @@ void init_ramdisk(size_t size) {
     struct storage_dev *ramdisk_dev = kmalloc(sizeof(struct storage_dev));
     memset(ramdisk_dev, 0, sizeof(struct storage_dev));
     ramdisk_dev->name = kmalloc(64);
-    sprintfn(ramdisk_dev->name, 64, "RAM disk (%d bytes at 0x%p)", ramdisk_info.size, ramdisk_info.address);
+    sprintfn(ramdisk_dev->name, 64, "RAM disk (%d KB at 0x%p)", ramdisk_info.size / 1024, ramdisk_info.address);
     ramdisk_dev->ops = ops;
     ramdisk_dev->driver_priv_data = &ramdisk_info;
     

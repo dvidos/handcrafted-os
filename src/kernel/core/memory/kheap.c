@@ -44,12 +44,9 @@ memory_heap_t kernel_heap;
 static bool __check_block(memory_block_t *block);
 
 
-void init_kernel_heap(size_t heap_size, void *minimum_address) {
-    void *heap = allocate_consecutive_physical_pages(heap_size, minimum_address);
-    if (heap == NULL)
-        panic("Failed allocating physical memory for kernel heap");
-    kernel_heap.start_address = heap;
-    kernel_heap.end_address = heap + heap_size;
+void init_kernel_heap(void *heap_start, size_t heap_size) {
+    kernel_heap.start_address = heap_start;
+    kernel_heap.end_address = heap_start + heap_size;
     kernel_heap.available_memory = heap_size - 2 * sizeof(memory_block_t);
     // putting a block at the end of the area, to detect possible overflow
     memory_block_t *head = (memory_block_t *)(kernel_heap.start_address);
@@ -71,6 +68,12 @@ void init_kernel_heap(size_t heap_size, void *minimum_address) {
 
     kernel_heap.list_head = head;
     kernel_heap.list_tail = tail;
+
+    klog_debug("Kernel heap initialized in range 0x%x - 0x%x, %u KB available",
+        kernel_heap.start_address,
+        kernel_heap.end_address,
+        kernel_heap.available_memory / 1024
+    );
 }
 
 // allocate a chunk of memory from kernel heap

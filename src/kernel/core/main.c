@@ -62,8 +62,8 @@ void kernel_data_size() {}
 void kernel_rodata_size() {}
 void kernel_bss_size() {}
 multiboot_info_t saved_multiboot_info;
-#define KERNEL_HEAP_SIZE_KB  2048
-
+#define KERNEL_HEAP_SIZE_KB  4096
+#define KERNEL_RAMDISK_SIZE_KB  4096
 
 
 void launch_initial_processes();
@@ -76,30 +76,32 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 {
     // interrupts are disabled, nmi is also disabled
     // to allow us to set up our Interrupt Table
+    
+    uint32_t heap_start = ROUND_UP_4K((uint32_t)&kernel_end_address);
+    uint32_t heap_end =   heap_start + KERNEL_HEAP_SIZE_KB * 1024;
+    uint32_t ramdisk_start = heap_end;
+    uint32_t ramdisk_end = ramdisk_start + KERNEL_RAMDISK_SIZE_KB * 1024;
 
     // initialize in-memory log
     init_klog();
     klog_appender_level(LOGAPP_MEMORY, LOGLEV_DEBUG);
-    klog_module_level("VFS", LOGLEV_TRACE);
-    klog_module_level("FAT", LOGLEV_TRACE);
+    // klog_module_level("VFS", LOGLEV_DEBUG);
+    // klog_module_level("FAT", LOGLEV_TRACE);
+    // klog_module_level("KHEAP", LOGLEV_DEBUG);
+    // klog_module_level("VMEM", LOGLEV_TRACE);
 
     // initialize screen and allow logs to be written to it
     screen_init();
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_INFO);
     
-    uint32_t heap_start = ((((uint32_t)&kernel_end_address)+4095) & 0xFFFFF000);
-    uint32_t heap_end =   ((((uint32_t)&kernel_end_address)+4095) & 0xFFFFF000) + KERNEL_HEAP_SIZE_KB * 1024;
-
     klog_info("C kernel started");
-    // klog_info("  - kernel start address: %4d KB  (0x%x)", (size_t)&kernel_start_address / 1024, (size_t)&kernel_start_address);
-    // klog_info("  - kernel end address:   %4d KB  (0x%x)", (size_t)&kernel_end_address / 1024, (size_t)&kernel_end_address);
-    // klog_info("  - total kernel size:    %4d KB", ((size_t)&kernel_end_address - (size_t)&kernel_start_address) / 1024);
     klog_info("  Segments                     Size  From        To");
     klog_info("  code (.text)              %4d KB  0x%08x  0x%08x", ((size_t)&kernel_text_size) / 1024, (size_t)&kernel_start_address, (size_t)&kernel_text_end_address);
     klog_info("  ro data (.rodata)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_rodata_size) / 1024, (size_t)&kernel_text_end_address, (size_t)&kernel_rodata_end_address);
     klog_info("  init data (.data)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_data_size) / 1024, (size_t)&kernel_rodata_end_address, (size_t)&kernel_data_end_address);
     klog_info("  zero data & stack (.bss)  %4d KB  0x%08x  0x%08x", ((size_t)&kernel_bss_size) / 1024, (size_t)&kernel_data_end_address, (size_t)&kernel_bss_end_address);
     klog_info("  heap                      %4d KB  0x%08x  0x%08x", KERNEL_HEAP_SIZE_KB, heap_start, heap_end);
+    klog_info("  ramdisk                   %4d KB  0x%08x  0x%08x", KERNEL_RAMDISK_SIZE_KB, ramdisk_start, ramdisk_end);
 
     if (boot_magic == 0x2BADB002) {
         klog_info("Bootloader info detected, copying it, size of %d bytes", sizeof(multiboot_info_t));
@@ -127,7 +129,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     init_real_time_clock(15);
 
     klog_info("Initializing Physical Memory Manager...");
-    init_physical_memory_manager((void *)&saved_multiboot_info, (void *)&kernel_start_address, &kernel_end_address);
+    init_physical_memory_manager((void *)&saved_multiboot_info, (void *)&kernel_start_address, (void *)ramdisk_end);
 
     klog_info("Initializing Serial Port 1 for logging...");
     init_serial_port();
@@ -137,10 +139,10 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
     
     klog_info("Initializing Kernel Heap...");
-    init_kernel_heap(KERNEL_HEAP_SIZE_KB * 1024, (void *)heap_start);
+    init_kernel_heap((void *)heap_start, KERNEL_HEAP_SIZE_KB * 1024);
 
     klog_info("Initializing virtual memory mapping...");
-    init_virtual_memory_paging(0, (void *)heap_end);
+    init_virtual_memory_paging(0, (void *)ramdisk_end);
 
     klog_info("Enabling interrupts & NMI...");
     sti();
@@ -160,12 +162,14 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     sata_register_pci_driver();
     init_pci();
 
+    klog_info("Creating RAM disk...");
+    init_ramdisk(ramdisk_start, ramdisk_end);
+
     klog_info("Initializing file system...");
     klog_module_level("MOUNT", LOGLEV_TRACE);
     discover_storage_dev_partitions(get_storage_devices_list());
     fat_register_vfs_driver();
     ext2_register_vfs_driver();
-    init_ramdisk(2 * 1024 * 1024); // 2 MBs
     vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
 
     klog_info("Initializing multi-tasking...");

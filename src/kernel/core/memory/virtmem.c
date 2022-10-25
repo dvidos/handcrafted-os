@@ -5,7 +5,7 @@
 #include <klib/string.h>
 #include <cpu.h>
 
-MODULE("VRTMEM");
+MODULE("VMEM");
 
 /*
    Paging is mapping a virtual address to a physical one.
@@ -347,6 +347,8 @@ static void disable_memory_paging_cpu_bit() {
     );
 }
 
+// this to be included in every page directory we create,
+// so that kernel structures and code are always available.
 static struct {
     void *page_directory; 
     void *start_address;
@@ -377,6 +379,8 @@ void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_add
     // now enable paging (fingers crossed!)
     set_page_directory_register(kernel_info.page_directory);
     enable_memory_paging_cpu_bit();
+
+    klog_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
 }
 
 void *get_kernel_page_directory() {
