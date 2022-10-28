@@ -148,15 +148,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     sti();
     enable_nmi();
 
-    if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
-        extern void run_tests();
-        printk("Running tests: ");
-        // klogger must be initialized for tests to report errors
-        run_tests();
-        printk("\nTests finished, pausing forever...");
-        for(;;) asm("hlt");
-    }
-
     klog_info("Detecting PCI devices...");
     ata_register_pci_driver();
     sata_register_pci_driver();
@@ -174,6 +165,23 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();
+
+    klog_info("Running tests...");
+    klog_module_level("UNITTEST", LOGLEV_DEBUG);
+    extern bool run_frameworked_unit_tests_demo();
+    if (!run_frameworked_unit_tests_demo()) {
+        klog_error("Tests failed, freezing");
+        for (;;) asm("hlt");
+    }
+
+    if (strcmp((char *)saved_multiboot_info.cmdline, "tests") == 0) {
+        extern void run_tests();
+        printk("Running tests: ");
+        // klogger must be initialized for tests to report errors
+        run_tests();
+        printk("\nTests finished, pausing forever...");
+        for(;;) asm("hlt");
+    }
 
     klog_info("Giving the console to TTY manager...");
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_NONE);

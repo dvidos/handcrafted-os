@@ -1,6 +1,5 @@
 # things to do
-
-* validate mkdir, rmdir, touch, unlick work
+* validate mkdir, rmdir, touch, unlink work
 * make all fat code to use the sector and cluster of superblock. clean up local files and clusters.
 * try to organize / write low level routines that make sense for fat. allocation, clusters, chains, etc.
 * improve the ram disk code and try to make a unit test for fat.
