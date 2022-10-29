@@ -66,7 +66,10 @@ void testing_framework_register_expected_value(char *func_name, char *arg_name, 
 void testing_framework_check_numeric_argument(char *func_name, char *arg_name, int value, const char *file, int line);
 
 // used in the mock function, to perform validation of argument against expectation
-void testing_framework_check_str_argument(char *func_name, char *arg_name, char *value, const char *file, int line);
+void testing_framework_check_str_argument(const char *func_name, char *arg_name, char *value, const char *file, int line);
+
+// logs information about injected functions, mock values, and named arguments values
+void testing_framework_debug_test_setup();
 
 // used to run a suite of tests
 bool testing_framework_run_test_suite(unit_test_t *tests, int count);
@@ -122,6 +125,7 @@ bool testing_framework_run_test_suite(unit_test_t *tests, int count);
 #define check_str_arg(argument)  \
             testing_framework_check_str_argument(__FUNCTION__, #argument, (char *)argument, __FILE__, __LINE__)
 
-
+#define debug_test_setup()  \
+            testing_framework_debug_test_setup()
 
 #endif

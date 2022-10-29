@@ -18,8 +18,8 @@ int create_file(char *name) {
     return filesys_create_ptr(name);
 }
 
-int mock_filesys_create(char *name) {
-    // check_expected(name);
+static int filesys_create_injected_func(char *name) {
+    check_str_arg(name);
     return mocked_value();
 }
 
@@ -27,59 +27,46 @@ int mock_filesys_create(char *name) {
 
 // test cases
 void test_null_name_returns_bad_argument() {
-    filesys_create_ptr = mock_filesys_create;
+    filesys_create_ptr = filesys_create_injected_func;
     int err = create_file(NULL);
     assert(err == ERR_BAD_ARGUMENT);
 }
 
 void test_empty_name_returns_bad_argument() {
-    filesys_create_ptr = mock_filesys_create;
+    debug_test_setup();
+    filesys_create_ptr = filesys_create_injected_func;
     int err = create_file("");
-    assert(err == ERR_BAD_VALUE);
+    assert(err == ERR_BAD_ARGUMENT);
 }
 
 void test_create_happy_path() {
-    expect_arg(mock_filesys_create, name, "testing");
-    mock_value(mock_filesys_create, SUCCESS);
+    expect_arg(filesys_create_injected_func, name, "testing");
+    mock_value(filesys_create_injected_func, SUCCESS);
+    filesys_create_ptr = filesys_create_injected_func;
 
-    filesys_create_ptr = mock_filesys_create;
+    // before running, just to see
+    debug_test_setup();
+
     int err = create_file("testing");
     assert(err == SUCCESS);
 }
 
 void test_create_lower_error_is_returned() {
-    expect_arg(mock_filesys_create, name, "testing");
-    mock_value(mock_filesys_create, ERR_NOT_SUPPORTED);
+    expect_arg(filesys_create_injected_func, name, "testing");
+    mock_value(filesys_create_injected_func, ERR_NOT_SUPPORTED);
 
-    filesys_create_ptr = mock_filesys_create;
+    filesys_create_ptr = filesys_create_injected_func;
     int err = create_file("testing");
     assert(err == ERR_NOT_SUPPORTED);
-}
-
-void test_something_really_peculiar() {
-    assert(1==1);
-    assert(3==3);
-}
-
-void noop() {
-    klog_debug("Hello from NOOP test!");
-}
-
-void noop2() {
-    klog_debug("Hello from NOOP II test!");
-    //char *p = kmalloc(100);
 }
 
 // final code to be run
 bool run_frameworked_unit_tests_demo() {
     unit_test_t tests[] = {
-        unit_test(noop),
-        unit_test(noop2),
-        //unit_test(test_create_happy_path),
-        // unit_test(test_create_lower_error_is_returned),
-        // unit_test(test_null_name_returns_bad_argument),
-        // unit_test(test_empty_name_returns_bad_argument),
-        unit_test(test_something_really_peculiar),
+        unit_test(test_create_happy_path),
+        unit_test(test_create_lower_error_is_returned),
+        unit_test(test_null_name_returns_bad_argument),
+        unit_test(test_empty_name_returns_bad_argument),
     };
     return run_tests(tests);
 }
