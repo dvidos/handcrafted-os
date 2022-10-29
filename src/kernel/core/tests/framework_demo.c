@@ -27,35 +27,37 @@ int mock_filesys_create(char *name) {
 
 // test cases
 void test_null_name_returns_bad_argument() {
+    filesys_create_ptr = mock_filesys_create;
     int err = create_file(NULL);
     assert(err == ERR_BAD_ARGUMENT);
 }
 
 void test_empty_name_returns_bad_argument() {
+    filesys_create_ptr = mock_filesys_create;
     int err = create_file("");
     assert(err == ERR_BAD_VALUE);
 }
 
 void test_create_happy_path() {
-    expect_string(mock_filesys_create, name, "testing");
+    expect_arg(mock_filesys_create, name, "testing");
     mock_value(mock_filesys_create, SUCCESS);
-    filesys_create_ptr = mock_filesys_create;
 
+    filesys_create_ptr = mock_filesys_create;
     int err = create_file("testing");
     assert(err == SUCCESS);
 }
 
 void test_create_lower_error_is_returned() {
-    expect_string(mock_filesys_create, name, "testing");
+    expect_arg(mock_filesys_create, name, "testing");
     mock_value(mock_filesys_create, ERR_NOT_SUPPORTED);
-    filesys_create_ptr = mock_filesys_create;
 
+    filesys_create_ptr = mock_filesys_create;
     int err = create_file("testing");
     assert(err == ERR_NOT_SUPPORTED);
 }
 
 void test_something_really_peculiar() {
-    assert(1==2);
+    assert(1==1);
     assert(3==3);
 }
 
@@ -73,7 +75,7 @@ bool run_frameworked_unit_tests_demo() {
     unit_test_t tests[] = {
         unit_test(noop),
         unit_test(noop2),
-        // unit_test(test_create_happy_path),
+        //unit_test(test_create_happy_path),
         // unit_test(test_create_lower_error_is_returned),
         // unit_test(test_null_name_returns_bad_argument),
         // unit_test(test_empty_name_returns_bad_argument),

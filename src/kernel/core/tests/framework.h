@@ -47,6 +47,31 @@ typedef struct unit_test {
 
 
 
+// used to forcibly fail a test
+void testing_framework_test_failed(const char *message, const char *data, const char *file, int line);
+
+// used in the test case function, to test assertions
+void testing_framework_assert(int result, char *expression, const char *file, int line);
+
+// used in the test case function, to set mocked values for mock functions
+void testing_framework_add_mock_value(const char *func_name, int value);
+
+// used in the mock function, to retrieve a mocked value
+int testing_framework_pop_mock_value(const char *func_name, const char *file, int line);
+
+// used in the test case function, to set expectation of argument of the mock function
+void testing_framework_register_expected_value(char *func_name, char *arg_name, int value);
+
+// used in the mock function, to perform validation of argument against expectation
+void testing_framework_check_numeric_argument(char *func_name, char *arg_name, int value, const char *file, int line);
+
+// used in the mock function, to perform validation of argument against expectation
+void testing_framework_check_str_argument(char *func_name, char *arg_name, char *value, const char *file, int line);
+
+// used to run a suite of tests
+bool testing_framework_run_test_suite(unit_test_t *tests, int count);
+
+
 // used to run a suite of tests
 #define run_tests(tests)   \
             testing_framework_run_test_suite(tests, sizeof(tests)/sizeof(tests[0]))
@@ -74,8 +99,8 @@ typedef struct unit_test {
             testing_framework_assert((int)(x), #x, __FILE__, __LINE__)
 
 // used in the test case function, to test assertions
-#define fail(msg)   \
-            testing_framework_fail("fail() called in test", msg, __FILE__, __LINE__)
+#define fail(msg, data)   \
+            testing_framework_test_failed(msg, data, __FILE__, __LINE__)
 
 // used in the test case function, to set mocked values for mock functions
 #define mock_value(mock_func_ptr, value)  \
@@ -86,41 +111,17 @@ typedef struct unit_test {
             testing_framework_pop_mock_value(__FUNCTION__, __FILE__, __LINE__)
 
 // used in the test case function, to set expectation of argument of the mock function
-#define expect_string(mock_func_ptr, argument, str_ptr)  \
-            testing_framework_register_expected_string(#mock_func_ptr "_" #argument, str_ptr)
-
-// used in the test case function, to set expectation of argument of the mock function
-#define expect_value(mock_func_ptr, argument, value)  \
-            testing_framework_register_expected_value(#mock_func_ptr "_" #argument, value)
+#define expect_arg(mock_func_ptr, argument, value)  \
+            testing_framework_register_expected_value(#mock_func_ptr, #argument, (int)(value))
 
 // used in the mock function, to perform validation of argument against expectation
-#define check_expected(argument)  \
-            testing_framework_check_mock_argument(__FUNCTION__ "_" #argument, (int)argument)
-
-
-// used to forcibly fail a test
-void testing_framework_fail(char *message, const char *data, const char *file, int line);
-
-// used in the test case function, to test assertions
-void testing_framework_assert(int result, char *expression, const char *file, int line);
-
-// used in the test case function, to set mocked values for mock functions
-void testing_framework_add_mock_value(const char *func_name, int value);
-
-// used in the mock function, to retrieve a mocked value
-int testing_framework_pop_mock_value(const char *func_name, const char *file, int line);
-
-// used in the test case function, to set expectation of argument of the mock function
-void testing_framework_register_expected_string(char *func_arg_name, char *value);
-
-// used in the test case function, to set expectation of argument of the mock function
-void testing_framework_register_expected_value(char *func_arg_name, int value);
+#define check_num_arg(argument)  \
+            testing_framework_check_numeric_argument(__FUNCTION__, #argument, (int)argument, __FILE__, __LINE__)
 
 // used in the mock function, to perform validation of argument against expectation
-void testing_framework_check_mock_argument(char *func_arg_name, int value);
+#define check_str_arg(argument)  \
+            testing_framework_check_str_argument(__FUNCTION__, #argument, (char *)argument, __FILE__, __LINE__)
 
-// used to run a suite of tests
-bool testing_framework_run_test_suite(unit_test_t *tests, int count);
 
 
 #endif
