@@ -1,6 +1,8 @@
 #ifndef _FRAMEWORK_H
 #define _FRAMEWORK_H
 
+#include <ctypes.h>
+#include <errors.h>
 
 
 

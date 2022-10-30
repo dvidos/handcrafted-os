@@ -17,9 +17,6 @@ cat > tempdir/boot/grub/grub.cfg << EOF
 menuentry "kernel" {
     multiboot /boot/kernel.bin root=d1p1
 }
-menuentry "kernel tests" {
-    multiboot /boot/kernel.bin tests
-}
 EOF
 grub-mkrescue -o handcrafted-os.iso tempdir
 
