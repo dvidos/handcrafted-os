@@ -1,4 +1,9 @@
 # things to do
+
+* make malloc uniform, it's bad to have two systems.
+  * make it support some initialization, so we can initialize from either _start() or from kernel's main.
+  * it will help us discover dependencies, like sbrk(), or log() etc.
+
 * validate mkdir, rmdir, touch, unlink work
 * make all fat code to use the sector and cluster of superblock. clean up local files and clusters.
 * try to organize / write low level routines that make sense for fat. allocation, clusters, chains, etc.
