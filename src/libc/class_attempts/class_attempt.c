@@ -133,3 +133,10 @@ void demo() {
     delete(r2);
     delete(r3);
 }
+
+// from here on, it's specific syntax, so it turns ugly. 
+// let's try the idea of a pointer to object,
+// having a pointer to class, having a pointer to super class etc,
+// but pointers to functions are resolved at constructor time.
+// therefore the object shall have a pointer to the class pointers table.
+

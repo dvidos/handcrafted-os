@@ -28,6 +28,10 @@
 
 * When VFS works again, implement some flags on open()
 
+* Research, adopt, implement qsort(), bsearch(), lsearch(), hsearch() and tsearch().
+  * In theory binary search, linear, hash, tree.
+
+
 * shell command for setting error levels per appender and per module
 * fork(), seems to be a nice challenge.
 * Improve build system to create and run a single .img file, without the .iso (see [here](https://github.com/stevej/osdev/blob/master/image-builder/create-image.sh))
