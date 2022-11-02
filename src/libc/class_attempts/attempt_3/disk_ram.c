@@ -4,19 +4,20 @@
 #include "objects.h"
 
 
-static int ram_disk_read(struct disk *self, int sector, char *buffer) {
-    return -1;
-
-}
-
-static int ram_disk_write(struct disk *self, int sector, char *buffer) {
-    return -1;
-}
-
 struct ram_private_data {
     void *buffer;
     int disk_size;
 };
+
+static int ram_disk_read(struct disk *self, int sector, char *buffer) {
+    struct ram_private_data *pd = (struct ram_private_data *)self->private_data;
+    return -1;
+}
+
+static int ram_disk_write(struct disk *self, int sector, char *buffer) {
+    struct ram_private_data *pd = (struct ram_private_data *)self->private_data;
+    return -1;
+}
 
 static struct disk_operations ram_operations = {
     .read = ram_disk_read,

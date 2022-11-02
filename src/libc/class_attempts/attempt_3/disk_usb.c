@@ -5,17 +5,19 @@
 
 
 
+struct usb_private_data {
+    char *device_name;
+};
+
 static int usb_disk_read(struct disk *self, int sector, char *buffer) {
+    struct usb_private_data *pd = (struct usb_private_data *)self->private_data;
     return -1;
 }
 
 static int usb_disk_write(struct disk *self, int sector, char *buffer) {
+    struct usb_private_data *pd = (struct usb_private_data *)self->private_data;
     return -1;
 }
-
-struct usb_private_data {
-    char *device_name;
-};
 
 static struct disk_operations usb_operations = {
     .read = usb_disk_read,
@@ -25,7 +27,7 @@ static struct disk_operations usb_operations = {
 static void usb_disk_constructor(void *instance, va_list args) {
     struct disk *disk = (struct disk *)instance;
     disk->sector_size = 512;
-    disk->ops = &ram_operations;
+    disk->ops = &usb_operations;
 
     struct usb_private_data *pd = malloc(sizeof(struct usb_private_data));
     pd->device_name = strdup(va_arg(args, char *));

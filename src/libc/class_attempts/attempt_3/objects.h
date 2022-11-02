@@ -12,7 +12,7 @@ struct object_info {
 
 
 void *new(struct object_info *info, ...);
-void delete(struct object_info *info, void *instance);
+void delete(void *instance);
 
 
 

@@ -4,18 +4,20 @@
 #include "objects.h"
 
 
-static int ide_disk_read(struct disk *self, int sector, char *buffer) {
-    return -1;
-}
-
-static int ide_disk_write(struct disk *self, int sector, char *buffer) {
-    return -1;
-}
-
 struct ide_private_data {
     int controller_no;
     int slave_bit;
 };
+
+static int ide_disk_read(struct disk *self, int sector, char *buffer) {
+    struct ide_private_data *pd = (struct ide_private_data *)self->private_data;
+    return -1;
+}
+
+static int ide_disk_write(struct disk *self, int sector, char *buffer) {
+    struct ide_private_data *pd = (struct ide_private_data *)self->private_data;
+    return -1;
+}
 
 static struct disk_operations ide_operations = {
     .read = ide_disk_read,
