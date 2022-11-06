@@ -11,12 +11,16 @@ struct ram_private_data {
 
 static int ram_disk_read(struct disk *self, int sector, char *buffer) {
     struct ram_private_data *pd = (struct ram_private_data *)self->private_data;
-    return -1;
+    // validations are omitted for brevity
+    memcpy(buffer, pd->buffer + (512 * sector), 512);
+    return 0;
 }
 
 static int ram_disk_write(struct disk *self, int sector, char *buffer) {
     struct ram_private_data *pd = (struct ram_private_data *)self->private_data;
-    return -1;
+    // validations are omitted for brevity
+    memcpy(pd->buffer + (512 * sector), buffer, 512);
+    return 0;
 }
 
 static struct disk_operations ram_operations = {
@@ -26,6 +30,7 @@ static struct disk_operations ram_operations = {
 
 static void ram_disk_constructor(void *instance, va_list args) {
     struct disk *disk = (struct disk *)instance;
+    disk->object_info->name = "Disk_RAM";
     disk->sector_size = 512;
     disk->ops = &ram_operations;
 
@@ -38,9 +43,8 @@ static void ram_disk_constructor(void *instance, va_list args) {
 static void ram_disk_destructor(void *instance) {
     struct disk *disk = (struct disk *)instance;
     struct ram_private_data *pd = (struct ram_private_data *)disk->private_data;
-
     free(pd->buffer);
-    free(disk->private_data);
+    free(pd);
 }
 
 static struct object_info _ram_disk_info = {

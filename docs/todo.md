@@ -1,5 +1,7 @@
 # things to do
 
+* write learnings from this project, what threads we had open, and close for the season.
+
 * make malloc uniform, it's bad to have two systems.
   * make it support some initialization, so we can initialize from either _start() or from kernel's main.
   * it will help us discover dependencies, like sbrk(), or log() etc.

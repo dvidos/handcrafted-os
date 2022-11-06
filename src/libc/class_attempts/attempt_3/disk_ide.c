@@ -26,6 +26,7 @@ static struct disk_operations ide_operations = {
 
 static void ide_disk_constructor(void *instance, va_list args) {
     struct disk *disk = (struct disk *)instance;
+    disk->object_info->name = "Disk_IDE";
     disk->sector_size = 512;
     disk->ops = &ide_operations;
 
@@ -38,7 +39,6 @@ static void ide_disk_constructor(void *instance, va_list args) {
 static void ide_disk_destructor(void *instance) {
     struct disk *disk = (struct disk *)instance;
     struct ide_private_data *pd = (struct ide_private_data *)disk->private_data;
-
     free(pd);
 }
 
