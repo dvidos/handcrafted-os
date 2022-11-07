@@ -102,6 +102,10 @@ void schedule() {
      * for example, after the switch, the "old" becomes whatever was used 
      * to switch out the thing we are going to switch in!!!!
      * so, be careful what the expectations are before and after calling this method.
+     * 
+     * The Lions book, section 8.9 says that the "swtch()" method (what is one does)
+     * does not access any local variables, only global and static ones.
+     * Such approach could avoid painful maintenance in the future.
      * -------------------------------------------------------------------
      */
     low_level_context_switch(
