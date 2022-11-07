@@ -26,7 +26,7 @@ static struct disk_operations ide_operations = {
 
 static void ide_disk_constructor(void *instance, va_list args) {
     struct disk *disk = (struct disk *)instance;
-    disk->object_info->name = "Disk_IDE";
+    disk->class_info->name = "Disk_IDE";
     disk->sector_size = 512;
     disk->ops = &ide_operations;
 
@@ -42,12 +42,12 @@ static void ide_disk_destructor(void *instance) {
     free(pd);
 }
 
-static struct object_info _ide_disk_info = {
+static struct class_info _ide_disk_info = {
     .size = sizeof(struct disk),
     .constructor = ide_disk_constructor,
     .destructor = ide_disk_destructor
 };
 
-struct object_info *IdeDisk = &_ide_disk_info;  // the only exported symbol
+struct class_info *IdeDisk = &_ide_disk_info;  // the only exported symbol
 
 

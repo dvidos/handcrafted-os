@@ -5,14 +5,30 @@
 #include "objects.h"
 
 
-void *new(struct object_info *info, ...) {
+static memory_allocator *_malloc = NULL;
+static memory_deallocator *_free = NULL;
+
+void init_objects_runtime(memory_allocator *allocator, memory_deallocator *deallocator) {
+    _malloc = allocator;
+    _free = deallocator;
+}
+
+static inline struct class_info *_get_class_info(void *instance) {
+    // the first member of an instance must be a pointer to an class_info structure
+    struct class_info *info = *(struct class_info **)instance;
+    return info->magic == OBJECT_INFO_MAGIC ? info : NULL;
+}
+
+void *new(struct class_info *info, ...) {
     if (info->magic != OBJECT_INFO_MAGIC)
         return NULL;
 
-    void *instance = malloc(info->size);
+    if (!_malloc)
+        return NULL;
+    void *instance = _malloc(info->size);
 
-    // the first member of an instance must be a pointer to an object_info structure
-    *(struct object_info **)instance = info;
+    // the first member of an instance must be a pointer to an class_info structure
+    *(struct class_info **)instance = info;
 
     // if class supports it, do the special treatment
     if (info->constructor) {
@@ -26,23 +42,23 @@ void *new(struct object_info *info, ...) {
 }
 
 void delete(void *instance) {
-    // the first member of an instance must be a pointer to an object_info structure
-    struct object_info *info = *(struct object_info **)instance;
-    if (info->magic != OBJECT_INFO_MAGIC)
+    struct class_info *info = _get_class_info(instance);
+    if (info == NULL)
         return;
 
     // if class supports it, do the special treatment
     if (info->destructor)
         info->destructor(instance);
 
-    free(instance);
+    if (!_free)
+        return;
+    
+    _free(instance);
 }
 
-
 void *clone(void *instance) {
-    // the first member of an instance must be a pointer to an object_info structure
-    struct object_info *info = *(struct object_info **)instance;
-    if (info->magic != OBJECT_INFO_MAGIC)
+    struct class_info *info = _get_class_info(instance);
+    if (info == NULL)
         return NULL;
 
     // if class supports it, do the special treatment
@@ -50,7 +66,7 @@ void *clone(void *instance) {
         return info->clone(instance);
 
     // otherwise, produce a shallow copy
-    void *ptr = malloc(info->size);
+    void *ptr = _malloc(info->size);
     memcpy(ptr, instance, info->size);
     return ptr;
 }
@@ -65,16 +81,15 @@ bool equals(void *instance_a, void *instance_b) {
     if (instance_a == instance_b)
         return true;
     
-    // the first member of an instance must be a pointer to an object_info structure
-    struct object_info *info_a = *(struct object_info **)instance_a;
-    struct object_info *info_b = *(struct object_info **)instance_b;
-    if (info_a->magic != OBJECT_INFO_MAGIC || info_b->magic != OBJECT_INFO_MAGIC)
-        return;
+    struct class_info *info_a = _get_class_info(instance_a);
+    struct class_info *info_b = _get_class_info(instance_b);
+    if (info_a == NULL || info_b == NULL)
+        return false;
 
     if (info_a != info_b)
         return false;
 
-    // if class supports it, do the special treatment
+    // if class supports it, do the special equality check
     if (info_a->equals)
         return info_a->equals(instance_a, instance_b);
 
@@ -83,9 +98,8 @@ bool equals(void *instance_a, void *instance_b) {
 }
 
 uint32_t hash(void *instance) {
-    // the first member of an instance must be a pointer to an object_info structure
-    struct object_info *info = *(struct object_info **)instance;
-    if (info->magic != OBJECT_INFO_MAGIC)
+    struct class_info *info = _get_class_info(instance);
+    if (info == NULL)
         return 0;
 
     // if class supports it, do the special treatment
@@ -97,9 +111,8 @@ uint32_t hash(void *instance) {
 }
 
 char *to_string(void *instance) {  // caller to free returned string
-    // the first member of an instance must be a pointer to an object_info structure
-    struct object_info *info = *(struct object_info **)instance;
-    if (info->magic != OBJECT_INFO_MAGIC)
+    struct class_info *info = _get_class_info(instance);
+    if (info == NULL)
         return NULL;
 
     // if class supports it, do the special treatment
@@ -109,15 +122,34 @@ char *to_string(void *instance) {  // caller to free returned string
     // otherwise, produce a simple description
     char *name;
     if (info->name) {
-        name = malloc(strlen(info->name) + 32);
+        name = _malloc(strlen(info->name) + 32);
         sprintfn(name, strlen(info->name) + 32, "%s at 0x%p", info->name, instance);
     } else {
-        name = malloc(64);
+        name = _malloc(64);
         sprintfn(name, 64, "Object[0x%p] at 0x%p", info, instance);
     }
 
     return name;
 }
+
+size_t size_of(void *instance) {
+    struct class_info *info = _get_class_info(instance);
+    if (info == NULL)
+        return 0;
+
+    return info->size;
+}
+
+bool instance_of(void *instance, struct class_info *info) {
+    struct class_info *instance_info = _get_class_info(instance);
+    return instance_info == info;
+}
+
+struct class_info *class_of(void *instance) {
+    return _get_class_info(instance);
+}
+
+
 
 uint32_t simple_memory_hash(uint32_t initial_hash, void *ptr, size_t size) {
     // see http://www.partow.net/programming/hashfunctions/index.html for ideas

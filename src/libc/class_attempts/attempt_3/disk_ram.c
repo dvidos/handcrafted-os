@@ -30,7 +30,7 @@ static struct disk_operations ram_operations = {
 
 static void ram_disk_constructor(void *instance, va_list args) {
     struct disk *disk = (struct disk *)instance;
-    disk->object_info->name = "Disk_RAM";
+    disk->class_info->name = "Disk_RAM";
     disk->sector_size = 512;
     disk->ops = &ram_operations;
 
@@ -47,11 +47,11 @@ static void ram_disk_destructor(void *instance) {
     free(pd);
 }
 
-static struct object_info _ram_disk_info = {
+static struct class_info _ram_disk_info = {
     .size = sizeof(struct disk),
     .constructor = ram_disk_constructor
 };
 
-struct object_info *RamDisk = &_ram_disk_info;  // the only exported symbol
+struct class_info *RamDisk = &_ram_disk_info;  // the only exported symbol
 
 

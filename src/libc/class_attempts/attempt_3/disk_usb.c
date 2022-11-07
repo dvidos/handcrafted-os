@@ -26,7 +26,7 @@ static struct disk_operations usb_operations = {
 
 static void usb_disk_constructor(void *instance, va_list args) {
     struct disk *disk = (struct disk *)instance;
-    disk->object_info->name = "Disk_USB";
+    disk->class_info->name = "Disk_USB";
     disk->sector_size = 512;
     disk->ops = &usb_operations;
 
@@ -41,11 +41,11 @@ static void usb_disk_destructor(void *instance) {
     free(pd);
 }
 
-static struct object_info _usb_disk_info = {
+static struct class_info _usb_disk_info = {
     .size = sizeof(struct disk),
     .constructor = usb_disk_constructor,
     .destructor = usb_disk_destructor
 };
 
-struct object_info *UsbDisk = &_usb_disk_info;  // the only exported symbol
+struct class_info *UsbDisk = &_usb_disk_info;  // the only exported symbol
 
