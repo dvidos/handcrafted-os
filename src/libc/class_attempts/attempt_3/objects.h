@@ -32,7 +32,7 @@ void delete(void *instance);
 void *clone(void *instance);
 bool equals(void *instance_a, void *instance_b);
 uint32_t hash(void *instance);
-char *to_string(void *instance);  // caller to free returned string
+char *to_string(void *instance);  // caller must free returned string
 size_t size_of(void *instance);
 bool instance_of(void *instance, struct class_info *info);
 struct class_info *class_of(void *instance); // returned value not to be freed

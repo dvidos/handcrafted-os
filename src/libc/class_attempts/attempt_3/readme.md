@@ -5,7 +5,7 @@ This third attempt has the following characteristics:
 * Allows for polymorphism: different constructors are called, 
 they set up their own private data and their own method pointers.
 * Clean syntax for the client. `struct disk *d = new(IdeDisk, 1, 0);`
-* If we assume that `object_info` pointer is the first member in the 
+* If we assume that `class_info` pointer is the first member in the 
 object structure, we can have an even cleaner `delete(ptr)` call.
 
 It keeps a good balance between strongly typed pointers, 
@@ -19,7 +19,7 @@ We could have specific methods for it.
 The public interface must have the following elements:
 
 * A structure containing:
-  * a pointer to the `object_info` structure (as the first member)
+  * a pointer to the `class_info` structure (as the first member)
   * any public data (can be modified by anyone)
   * a pointer to a structure with pointers to methods, typically called `ops`
   * a `void *` pointer to private data
@@ -33,7 +33,7 @@ Example:
 
 ```c
 struct disk {
-    struct object_info *object_info;
+    struct class_info *class_info;
 
     struct disk_operations {
         int (*read)(struct disk *self, int sector, char *buffer);
@@ -54,7 +54,7 @@ To implement a discrete implementation of the above interface we need the follow
 * A static variable of the function pointers structure, initialized accordingly
 * A static constructor, that will initialize the object, 
 and possibly allocate and initialize any private data as well
-* A static variable of an `object_info` structure, initialized accordingly,
+* A static variable of an `class_info` structure, initialized accordingly,
 * A public pointer to the above variable, the only public symbol the module is exporting.
 
 Example:
@@ -98,13 +98,13 @@ static void ide_disk_destructor(void *instance) {
     free(pd);
 }
 
-static struct object_info _ide_disk_info = {
+static struct class_info _ide_disk_info = {
     .size = sizeof(struct disk),
     .constructor = ide_disk_constructor,
     .destructor = ide_disk_destructor
 };
 
-struct object_info *IdeDisk = &_ide_disk_info;
+struct class_info *IdeDisk = &_ide_disk_info;
 ```
 
 As an example, the above interface also could be implemented for other storage media,
@@ -113,7 +113,7 @@ like a SATA disk, a RAM disk, or a USB stick, or mock objects for unit tests
 ## Using the interface and implementation
 
 To use the polymorphic interface, one has to have the declaration
-of the interface and the pointer to the `object_info` structure.
+of the interface and the pointer to the `class_info` structure.
 
 Example:
 
@@ -143,11 +143,11 @@ either type safety, or readable syntax. Maybe it's pointless to try to implement
 C, since C++ already exists and is a choice.
 
 For an object to be considered to be handled by this subsystem, the first member 
-must be a pointer to an `object_info` structure. This contains meta information
+must be a pointer to an `class_info` structure. This contains meta information
 on how the object is to be allocated or freed, for now.
 
 ```c
-struct object_info {
+struct class_info {
     int size;
     void (*constructor)(void *instance, va_list args);
     void (*destructor)(void *instance);
@@ -163,7 +163,7 @@ syntax to create the objects, without resorting to discrete factory functions.
 Fuuture operations can include: class_name(), clone(), compare(), size_of(), is_a(), equals(), hash(), 
 to_string(), serialize(), unserialize(), etc.
 
-We also have not investigated generating object_info dynamically, e.g. using a factory function.
+We also have not investigated generating a `class_info` dynamically, e.g. using a factory function.
 
 
 ## Inheritance & composition
@@ -172,4 +172,12 @@ It does not allow for inheritance, but I don't think we need it.
 It does allow for composition, which is clean.
 
 Private data can have pointers to other objects, in lower levels.
+
+## Where to?
+
+All these classes, along with possible boxing of scalar values (e.g. integers, strings etc)
+could lead to crean collections implementations, e.g. lists, binary trees, hash tables, etc
+
+In the extreme, we could have a very agile data structure that can store 
+arbitrary tree like data, similar to json trees.
 
