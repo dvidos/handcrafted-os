@@ -176,7 +176,6 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     klog_info("Giving the console to TTY manager...");
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_NONE);
-    timer_pause_blocking(250);
 
     // tty 0-3 - Alt+1 through Alt+4: Shell
     // tty 4 - Alt+5: process monitor (memory, heap, processes)
