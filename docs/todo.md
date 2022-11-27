@@ -1,5 +1,20 @@
 # things to do
 
+* If I want to avoid grub and rely on my code 100%,
+  * Implement a 2nd stage loader on sectors 2-31 of disk. This allows for 15 KB loader
+  * Implement a data area of .. some KB for any information I want to load (e.g. fonts)
+  * Make a tool that allows to create / modify this image (maybe `dd` & `cat` is enough though)
+  * Update the FAT to have reserved sectors for this.
+  * Extend the img.sh script to allow create the image file by copying the two bootloaders, then creating a FAT with 10 reserved sectors
+  * 1st boot loader at 0x7C00 = ~ 32K
+  * We can load the 2nd stage boot loader at 0x10000 = 64K, we'll have 512K - 64K = 400K for our code
+  * The 2nd stage will run in real mode
+  * It will collect memory info, graphics info, get into graphics mode, load the kernel, load any additional data files (initrd?)
+  * Finally, it will initialize protected mode and jump to the kernel, passing multiboot and ramdisk info.
+  * See https://wiki.osdev.org/Rolling_Your_Own_Bootloader
+
+
+
 * write learnings from this project, what threads we had open, and close for the season.
 
 * make malloc uniform, it's bad to have two systems.
@@ -27,12 +42,10 @@
   * go and typedef all "struct storage_dev" etc into "_t" types
   * move all vfs structures into their own files (entry, file etc)
 
-
 * When VFS works again, implement some flags on open()
 
-* Research, adopt, implement qsort(), bsearch(), lsearch(), hsearch() and tsearch().
+* Research, adopt & implement qsort(), bsearch(), lsearch(), hsearch() and tsearch().
   * In theory binary search, linear, hash, tree.
-
 
 * shell command for setting error levels per appender and per module
 * fork(), seems to be a nice challenge.
