@@ -68,18 +68,13 @@ KERNEL_OBJ_DEPS = $(KERNEL_C_OBJS:.o=.d)
 # target to be executed when no arguments to make
 default: kernel.bin install
 
-# this was an effort for bios loading the first 512 bytes
-# currently it does not load and boot anything
-boot/boot_sector.bin: boot/boot_sector.asm
-	nasm -f bin $< -o $@
-
 # for info on putting this on an .iso image
 # and burning a USB stick, see https://wiki.osdev.org/Bare_Bones
-kernel.bin: boot/multiboot.o $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) linker.ld 
-	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib boot/multiboot.o $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) -lgcc
+kernel.bin: core/multiboot.o $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) linker.ld 
+	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib core/multiboot.o $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) -lgcc
 
 
-boot/multiboot.o: boot/multiboot.S
+core/multiboot.o: core/multiboot.S
 	$(AS) $< -o $@
 
 

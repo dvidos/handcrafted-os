@@ -2,6 +2,7 @@ CC = i686-elf-gcc
 AS = i686-elf-as
 CFLAGS = -std=gnu99 -ffreestanding -O0
 
+BINARY = boot_loader2.bin
 
 # the idea is to put the asm startup code, as well as the C code
 # all into one executable that will be loaded (by the boot sector)
@@ -14,7 +15,7 @@ CFLAGS = -std=gnu99 -ffreestanding -O0
 # can see the resulting boot loader using:
 
 
-boot_loader2.bin: start.o main.o
+$(BINARY): start.o main.o
 	$(CC) -T linker.ld -o $@ -ffreestanding -O0 -nostdlib $^
 
 start.o: start.asm
@@ -28,7 +29,10 @@ clean:
 
 # how to dissassemble something
 dissassembly:
-	objdump -M i8086 -M intel -d start.o
+	objdump -b binary -EL -m i8086 -M i8086 -M intel --adjust-vma=0x10000 -D $(BINARY)
 
+# how to see the resulting binary, compare to dissassembled hex
 hexdump:
-	hexdump -C boot_loader2.bin
+	hexdump -C $(BINARY)
+
+
