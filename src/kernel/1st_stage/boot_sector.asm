@@ -39,41 +39,40 @@
     ; kernel will enable them at a later time
     cli
 
-    ; we are loaded at 0x7C00 through 0x7E00
-    mov ax, 0x8000  ; go to any address high enough, up to 0xffff actually!
-    mov sp, ax
-    
     ; save the drive number that bios loaded us from
     ; needed when loading the kernel from subsequent sectors
     mov [boot_drive_no], dl
 
+    ; we are loaded at 0x7C00 through 0x7E00
+    mov ax, 0xFFF0  ; go to any address high enough, up to 0xffff actually!
+    mov sp, ax
+    
     mov bx, boot_sector_running  ; essentially move the address of the label
     call print_string
     call print_crlf
 
-    mov bx, loading_2nd_stage
+    mov bx, loading_2nd_stage    ; this is just too much text!
     call print_string
     call print_crlf
 
     ; load the second stage boot loader
-    mov ax, 0x1000
-    mov es, ax          ; in order to load at 64K, we need to set the segment correctly
-    mov bx, 0x0000      ; where to load the 2nd stage
+    mov bx, 0x2000           ; where to load the 2nd stage (0x2000 = 8K)
     mov dh, 4                ; how many sectors to load (see linker script for 2nd stage boot loader)
     mov dl, [boot_drive_no]  ; from the same drive where the boot sector was
     call load_sectors
 
-    ; we could easily prepare things for the 2nd stage
-    ; for example, set all segments to 0x1000, prepare a decent stack for C to execute on
-    mov ax, 0x1000
-    mov cs, ax
-
     mov bx, executing_2nd_stage
     call print_string
-    jmp 0x1000:0x0000
 
-    ; this should never happen. loop for ever
-    jmp $
+    ; our segments have the value of zero,
+    ; our SP points to something like 0xFFF0 (e.g. high enough)
+    ; our code is loaded at 0x2000
+    ; let's give it the drive number too.
+    mov dl, [boot_drive_no] 
+
+    ; here goes nothing!
+    jmp 0x2000
+
 
 
 boot_drive_no:
