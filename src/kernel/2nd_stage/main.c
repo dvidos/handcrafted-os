@@ -21,7 +21,7 @@ void print_string(char *s);
 u16 bios_screen_functions(u16 ax) {
     u16 status;
     asm(
-        "movl %1, %%ax \n\t"
+        "movw %1, %%ax \n\t"
         "int $0x10 \n\t"
         "movw %%ax, %0 \n\t"
         : "=g" (status)
@@ -34,7 +34,7 @@ u16 bios_screen_functions(u16 ax) {
 u16 bios_keyboard_functions(u16 ax) {
     u16 status;
     asm(
-        "movl %1, %%ax \n\t"
+        "movw %1, %%ax \n\t"
         "int $0x16 \n\t"
         "movw %%ax, %0 \n\t"
         : "=g" (status)
@@ -47,7 +47,7 @@ u16 bios_keyboard_functions(u16 ax) {
 u16 bios_memory_functions(u16 ax) {
     u16 status;
     asm(
-        "movl %1, %%ax \n\t"
+        "movw %1, %%ax \n\t"
         "int $0x15 \n\t"
         "movw %%ax, %0 \n\t"
         : "=g" (status)
@@ -59,7 +59,7 @@ u16 bios_memory_functions(u16 ax) {
 u16 bios_disk_functions(u16 ax) {
     u16 status;
     asm(
-        "movl %1, %%ax \n\t"
+        "movw %1, %%ax \n\t"
         "int $0x13 \n\t"
         "movw %%ax, %0 \n\t"
         : "=g" (status)

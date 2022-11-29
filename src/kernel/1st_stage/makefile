@@ -2,7 +2,7 @@
 BINARY = boot_sector.bin
 
 
-$(BINARY): boot_sector.asm
+$(BINARY): boot_sector.asm makefile
 	nasm -f bin $< -o $@
 
 clean:

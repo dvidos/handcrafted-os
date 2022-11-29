@@ -33,10 +33,9 @@
 ; in real mode, ss (the stack segment) can go only up to 0x9000, which allows addressing up to the 640kb we have
 
 
-[org 0x7C00]
+[org 0x7C00]   ; we are loaded here by BIOS
 [bits 16]
 
-    ; kernel will enable them at a later time
     cli
 
     ; we are loaded at 0x7C00 through 0x7E00
@@ -51,41 +50,56 @@
     call print_string
     call print_crlf
 
-    mov bx, loading_2nd_stage
+    mov bx, loading_2nd_stage_boot_loader
     call print_string
     call print_crlf
 
     ; load the second stage boot loader
-    mov ax, 0x1000
-    mov es, ax          ; in order to load at 64K, we need to set the segment correctly
-    mov bx, 0x0000      ; where to load the 2nd stage
-    mov dh, 4                ; how many sectors to load (see linker script for 2nd stage boot loader)
+    mov ds, 0x1000
+    mov bx, 0x0000  ; where to load the 2nd stage
+    mov dh, 4                ; how many sectors to load
     mov dl, [boot_drive_no]  ; from the same drive where the boot sector was
     call load_sectors
 
-    ; we could easily prepare things for the 2nd stage
-    ; for example, set all segments to 0x1000, prepare a decent stack for C to execute on
-    mov ax, 0x1000
-    mov cs, ax
-
-    mov bx, executing_2nd_stage
-    call print_string
-    jmp 0x1000:0x0000
+    ; now jump to the second stage loader
+    mov cs, 0x1000
+    jmp CODE_SEG:0x0000
 
     ; this should never happen. loop for ever
     jmp $
 
 
+
+
+    ; now get to protected mode, so we can jump
+    mov bx, entering_pm_message
+    call print_string
+    call print_crlf
+    call switch_to_pm
+    jmp $  ; we will never reach this, the code will jump to protected_mode_started
+    
+[bits 32]
+protected_mode_started:
+    ; we will be jumped to here after we have switched to protected mode.
+    mov ebx, entered_pm_message
+    call print_string_protected_mode
+    jmp $
+
+
+
+
 boot_drive_no:
-    db 0 ; we will store the boot drive here
-
+    db 0 ; we will store 
 ; messages are zero terminated, to easily detect their end
-boot_sector_running:  db 'Boot sector running', 0
-loading_2nd_stage:    db 'Loading 2nd stage...', 0
-executing_2nd_stage:  db 'Executing 2nd stage...', 0
+boot_sector_running:            db 'Boot sector running', 0
+loading_2nd_stage_boot_loader:  db 'Loading 2nd stage boot loader...', 0
+entering_pm_message:            db 'Entering protected mode...', 0
+entered_pm_message:             db 'Entered protected mode!', 0
 
 
 
+
+[bits 16]
 ; function to print a string.
 ; string to be printed must be pointed by bx
 ; essentially we do "while (string[i] != 0) { print string[i]; i++ }"
@@ -117,10 +131,7 @@ print_crlf:
     popa
     ret
 
-
-; buffer for converting a word to hex string, to print it
-print_hex_buffer: db '0x0000', 0
-
+    
 ; function to print a hex word, value in dx
 ; have a buffer available, then for the four nibbles do and rotate
 ; convert numbers to ascii by adding '0' (0x30). for values > 9, add 'A' (0x41)
@@ -151,10 +162,11 @@ print_hex_done:
     popa
     ret
 
+print_hex_buffer:
+    ; buffer for converting a word to hex string, to print it
+    db '0x0000', 0
 
-; error messages
-disk_error_msg: db 'Disk error', 0
-mismatch_msg:   db 'Incorrect sectors read', 0
+
 
 ; function to load something from disk
 ; dl = drive number, dh = number of sectors, ES:BX points to target address
@@ -200,6 +212,104 @@ load_sectors_mismatch:
     jmp $
 
 
+disk_error_msg: db 'Disk error', 0
+mismatch_msg: db 'Incorrect sectors read', 0
+    
+
+
+
+
+[bits 32]
+VIDEO_MEMORY equ 0xb8000
+WHITE_ON_BLACK_COLOR equ 0x0f
+
+; function to print something in protected mode.
+; we can no longer use int 0x10, so we write to video memory directly
+; EBX points to the string we want to print
+print_string_protected_mode:
+    pusha
+    mov edx, VIDEO_MEMORY
+
+print_string_pm_next:
+    mov al, [ebx]
+    mov ah, WHITE_ON_BLACK_COLOR
+    cmp al, 0   ; see if we finished
+    je print_string_pm_done
+
+    mov [edx], ax  ; copy word to video memory
+    add ebx, 1     ; next character in string
+    add edx, 2     ; skip character and color in video memory
+    jmp print_string_pm_next
+
+print_string_pm_done:
+    popa
+    ret
+
+
+[bits 16]
+; setting up the GDT, to enable the CPU to switch to protected mode
+; actually mostly copied from the net, i did not write them myself so much
+gdt_start:
+    ; the GDT starts with a null 8-byte
+    dd 0x0 ; 4 byte
+    dd 0x0 ; 4 byte
+
+; GDT for code segment. base = 0x00000000, length = 0xfffff
+gdt_code: 
+    dw 0xffff    ; segment length, bits 0-15
+    dw 0x0       ; segment base, bits 0-15
+    db 0x0       ; segment base, bits 16-23
+    db 10011010b ; flags (8 bits)
+    db 11001111b ; flags (4 bits) + segment length, bits 16-19
+    db 0x0       ; segment base, bits 24-31
+
+; GDT for data segment. base and length identical to code segment
+; some flags changed, again, refer to os-dev.pdf
+gdt_data:
+    dw 0xffff
+    dw 0x0
+    db 0x0
+    db 10010010b
+    db 11001111b
+    db 0x0
+
+gdt_end:
+
+; GDT descriptor
+gdt_descriptor:
+    dw gdt_end - gdt_start - 1 ; size (16 bit), always one less of its true size
+    dd gdt_start ; address (32 bit)
+
+; define some constants for later use
+CODE_SEG equ gdt_code - gdt_start
+DATA_SEG equ gdt_data - gdt_start
+
+
+
+
+
+; real mode code to switch to protected mode
+[bits 16]
+switch_to_pm:
+    cli                     ; 1. disable interrupts
+    lgdt [gdt_descriptor]   ; 2. load the GDT descriptor
+    mov eax, cr0
+    or eax, 0x1             ; 3. set 32-bit mode bit in cr0
+    mov cr0, eax
+    jmp CODE_SEG:init_pm    ; 4. far jump by using a different segment (must be far jump)
+[bits 32]
+init_pm:                    ; we are now using 32-bit instructions
+    mov ax, DATA_SEG        ; 5. update the segment registers
+    mov ds, ax
+    mov ss, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ebp, 0x90000        ; 6. update the stack right at the top of the free space
+    mov esp, ebp
+    call protected_mode_started   ; 7. Call a well-known label with useful code
+
+
 
 ; Fill with 510 zeros minus the size of the previous code
 times 510-($-$$) db 0
@@ -207,3 +317,10 @@ times 510-($-$$) db 0
 ; Magic number for BIOS to understand we are a bootable sector
 ; must be the last two bytes of the sector
 dw 0xaa55 
+
+
+; BIOS only loads the first sector, the first 512 bytes.
+; So, for any code below these lines, we need to load it explicitely
+; ---------------------------------------------------------------------------
+
+

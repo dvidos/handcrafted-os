@@ -3,6 +3,7 @@ AS = i686-elf-as
 CFLAGS = -std=gnu99 -ffreestanding -O0
 
 BINARY = boot_loader2.bin
+OBJECTS = start.o main.o
 
 # the idea is to put the asm startup code, as well as the C code
 # all into one executable that will be loaded (by the boot sector)
@@ -15,17 +16,17 @@ BINARY = boot_loader2.bin
 # can see the resulting boot loader using:
 
 
-$(BINARY): start.o main.o
-	$(CC) -T linker.ld -o $@ -ffreestanding -O0 -nostdlib $^
+$(BINARY): $(OBJECTS) makefile linker.ld
+	$(CC) -T linker.ld -o $@ -ffreestanding -O0 -nostdlib $(OBJECTS)
 
 start.o: start.asm
-	nasm -f elf $< -o $@ -l $(@:.o=.l)
+	nasm -f elf $< -o $@
 
 main.o: main.c
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
-	rm *.o *.bin *.l
+	rm -f *.o *.bin *.l
 
 # how to dissassemble something
 dissassembly:

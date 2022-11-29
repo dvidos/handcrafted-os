@@ -3,19 +3,22 @@
    https://home.cs.colorado.edu/~main/cs1300/doc/gnu/ld_3.html
 */
 
-/* ENTRY(_start) */
+/* make sure what the first file will be */
 STARTUP(start.o)
 
 /* Tell where the various sections of the object files will be put in the final
    kernel image. */
 SECTIONS
 {
-	/* all my sections will be in 0x10000 (64kb) */
- 	. = 0x10000;
-	.text : { *(.text) }
-	.rodata : { *(.rodata) }
-	.data : { *(.data) }
-  	.bss : { *(.bss) }	
+	all : {
+		. = 0x0;
+		*(.text)
+		*(.rodata)
+		*(.data)
+		*(.bss)
+		FILL(0x00);
+		. = 4 * 512;  /* pad output to specific number of sectors */
+	}
 }
 
 OUTPUT_FORMAT(binary)
