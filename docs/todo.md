@@ -14,6 +14,12 @@
   * See https://wiki.osdev.org/Rolling_Your_Own_Bootloader
 
 
+* find a way to have: output of one program can be the input to another.
+that is the unix philosophy. But can also allow us to assemble systems.
+For example we can have filters, routers, distributors, aggregators, etc.
+Not only for ascii data and line-by-line, but also json objects.
+
+
 
 * write learnings from this project, what threads we had open, and close for the season.
 

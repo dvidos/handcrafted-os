@@ -10,14 +10,14 @@ STARTUP(start.o)
    kernel image. */
 SECTIONS
 {
+	. = 0x2000;
 	all : {
-		. = 0x0;
 		*(.text)
 		*(.rodata)
 		*(.data)
 		*(.bss)
 		FILL(0x00);
-		. = 4 * 512;  /* pad output to specific number of sectors */
+		. = 0x2000 + 4 * 512;  /* pad output to specific number of sectors */
 	}
 }
 

@@ -19,11 +19,24 @@
 typedef unsigned short u16;
 
 void bios_print_char(unsigned char c);
+void bios_print_str(unsigned char *str);
 
 unsigned char boot_drive;
 
 void start() {
     // save the boot drive to a variable
+
+    __asm__("mov $0x0e, %ah");  // bios print function, al has the byte
+    __asm__("mov ' ', %al");
+    __asm__("int $0x10");
+    __asm__("mov 'w', %al");
+    __asm__("int $0x10");
+    __asm__("mov 'o', %al");
+    __asm__("int $0x10");
+    __asm__("mov 'w', %al");
+    __asm__("int $0x10");
+
+
     asm("nop");
     asm("nop");
     asm("nop");
@@ -42,6 +55,33 @@ void start() {
     asm("nop");
     asm("nop");
     asm("nop");
+
+    // maybe it's the data segment who is to blame...
+    /*
+        So the problem is that the code thinks it's loaded at zero address
+        and all variables are relative to zero,
+        while we do load it at 0x10000. 
+        Maybe setting DS to 0x1000 would help?
+
+        100e7:       90                      nop
+        100e8:       90                      nop
+        100e9:       90                      nop
+        100ea:       66 83 ec 0c             sub    esp,0xc
+        100ee:       66 68 5c 01 00 00       pushd  0x15c     ; offset of string, zero based.
+        100f4:       66 e8 26 00 00 00       calld  0x10120   ; the print_str() function.
+        100fa:       66 83 c4 10             add    esp,0x10
+        100fe:       f4                      hlt    
+        100ff:       eb fd                   jmp    0x100fe
+
+        00000150  00 84 c0 75 d2 90 90 66  c9 66 c3 90 48 65 6c 6c  |...u...f.f..Hell|
+        00000160  6f 20 66 72 6f 6d 20 61  20 43 20 73 74 72 69 6e  |o from a C strin|
+        00000170  67 2c 20 77 65 27 6c 6c  20 73 65 65 20 77 68 61  |g, we'll see wha|
+        00000180  74 20 77 65 20 63 61 6e  20 64 6f 2e 00 00 00 00  |t we can do.....|
+        00000190  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+
+    */
+
+    bios_print_str("Hello from a C string, we'll see what we can do.");
     // print_string("Second stage loader running...");
 
     // loop_something(2, 5);
@@ -53,11 +93,15 @@ void start() {
 
     // gather multiboot2 information
 
-    // load final kernel
+    // navigate file system, to find /boot/kernel or something.
+
+    // parse kernel ELF header, load kernel into memory.
+
 
     // setup mini gdt, enter protected mode
 
     // jump to kernel, pass magic number and multiboot information
+    for (;;) asm("hlt");
 }
 
 
@@ -74,6 +118,14 @@ void bios_print_char(unsigned char c) {
         : // clobbers
     );
 }
+
+void bios_print_str(unsigned char *str) {
+    while (*str) {
+        bios_print_char(*str);
+        str++;
+    }
+}
+
 /*
 u16 bios_screen_functions(u16 ax) {
     u16 status;

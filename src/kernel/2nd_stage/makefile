@@ -1,6 +1,6 @@
 CC = i686-elf-gcc
 AS = i686-elf-as
-CFLAGS = -std=gnu99 -ffreestanding -O0
+CFLAGS = -std=gnu99 -ffreestanding -O0 -m16
 
 BINARY = boot_loader2.bin
 OBJECTS = start.o main.o
@@ -17,7 +17,7 @@ OBJECTS = start.o main.o
 
 
 $(BINARY): $(OBJECTS) makefile linker.ld
-	$(CC) -T linker.ld -o $@ -ffreestanding -O0 -nostdlib $(OBJECTS)
+	$(CC) -T linker.ld -o $@ -ffreestanding -O0 -m16 -nostdlib $(OBJECTS)
 
 start.o: start.asm
 	nasm -f elf $< -o $@
