@@ -6,31 +6,22 @@
 
 
     ; just to see if this is working...
-    mov ah, 0x0e ; bios print function, al has the byte
-    mov al, ' '
-    int 0x10
-    mov al, '2'
-    int 0x10
-    mov al, 'n'
-    int 0x10
-    mov al, 'd'
-    int 0x10
+    ; mov ah, 0x0e ; bios print function, al has the byte
+    ; mov al, ' '
+    ; int 0x10
+    ; mov al, '2'
+    ; int 0x10
+    ; mov al, 'n'
+    ; int 0x10
+    ; mov al, 'd'
+    ; int 0x10
 
-    ; print_string does not work, I suspect that the address is wrong...
-    ; I think it relies on linker to re-address things...
     ; mov bx, second_stage_running
     ; call print_string
     
-    ; ; stack top will be 0x0FFF0, 16 bytes below the address of the 2nd stage loader (0x10000)
-    ; ; SS will be 0x00, SS will be 0xFFF0
-    ; mov ax, 0x0
-    ; mov ss, ax
-    ; mov ax, 0xFFF0
-    ; mov sp, ax
-
-    ; ; now we can jump to our C version of boot loader
-    ; mov ax, 0x1000     ; Code loaded at 64K
-    ; mov cs, ax
+    ; stack top will be 0x0FFF0, 16 bytes below the top address of this segment
+    mov dx, 0xFFF0
+    mov sp, dx
 
     ; maybe clean some registers
     mov si, 0
@@ -44,7 +35,6 @@
     jmp start
 
 ; second_stage_running:  db '2nd stage boot loader running', 0
-
 
 
 ; ; function to print a string.
