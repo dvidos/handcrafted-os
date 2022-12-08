@@ -4,6 +4,7 @@
 *.bin
 *.iso
 *.gch
+*.dis
 kernel/*.o
 .vscode/*
 qemu*.log
@@ -22,5 +23,4 @@ tempdir
 a.out
 hcos.img
 bootable.img
-
 

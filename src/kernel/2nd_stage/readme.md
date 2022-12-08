@@ -31,3 +31,18 @@ It has to do the following things, roughly:
 * Parse elf header and load the kernel on 0x100000 (1MB)
 * Prepare a multiboot2 environment and run the kernel.
 
+Memory organization
+
+```
++--------------------+
+| top of stack       |  0xFFF0 (64 KB)
+|   ...              |     (33 kb space)
+| boot sector code   |  0x7C00
+|   ...              |     (23 kb space)
+| 2nd stage          |  0x2000
+| boot loader code   |
+|   ...              |     (8 kb space)
+| interrupts table   |  0x0000
++--------------------+
+```
+

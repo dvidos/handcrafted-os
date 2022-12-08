@@ -20,17 +20,17 @@
     ; call print_string
     
     ; stack top will be 0x0FFF0, 16 bytes below the top address of this segment
-    mov dx, 0xFFF0
-    mov sp, dx
+    mov ax, 0xFFF0
+    mov sp, ax
 
-    ; maybe clean some registers
-    mov si, 0
-    mov di, 0
-    mov ah, 0  ; remember, al has the disk number
+    ; maybe clean some registers (DL should have the boot drive no)
+    mov ax, 0
     mov bx, 0
     mov cx, 0
-    mov dx, 0
+    mov dh, 0 ; note, maintain DL
     mov bp, 0
+    mov si, 0
+    mov di, 0
 
     jmp start
 

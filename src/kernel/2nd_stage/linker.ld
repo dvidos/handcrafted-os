@@ -12,10 +12,7 @@ SECTIONS
 {
 	. = 0x2000;
 	all : {
-		*(.text)
-		*(.rodata)
-		*(.data)
-		*(.bss)
+		*(*)
 		FILL(0x00);
 		. = 0x2000 + 4 * 512;  /* pad output to specific number of sectors */
 	}

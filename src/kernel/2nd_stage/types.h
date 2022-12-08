@@ -27,5 +27,7 @@ typedef unsigned long dword;
 #define MB   (1024 * KB)
 #define GB   (1024 * MB)
 
+#define freeze()    for(;;) asm("hlt")
+
 
 #endif

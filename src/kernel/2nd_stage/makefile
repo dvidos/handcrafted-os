@@ -3,6 +3,7 @@ AS = i686-elf-as
 CFLAGS = -std=gnu99 -ffreestanding -O0 -m16
 
 BINARY = boot_loader2.bin
+MAPFILE = boot_loader2.map
 OBJECTS = \
 	start.o \
 	main.o \
@@ -20,24 +21,24 @@ OBJECTS = \
 
 
 $(BINARY): $(OBJECTS) makefile linker.ld
-	$(CC) -T linker.ld -o $@ -ffreestanding -O0 -m16 -nostdlib $(OBJECTS)
+	$(CC) -Wl,-Map,$(MAPFILE) -T linker.ld -o $@ -ffreestanding -O0 -m16 -nostdlib $(OBJECTS)
 
 start.o: start.asm
 	nasm -f elf $< -o $@
 
-main.o: main.c
-	$(CC) -S $< -o $(@:.o=.s) $(CFLAGS)
+.c.o:
+	$(CC) -S $< -o $(@:.o=.dis) $(CFLAGS)
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
-	rm -f *.o *.bin *.l main.asm
+	rm -f *.o *.bin *.l *.dis
 
 # how to dissassemble something
 dissassembly:
-	objdump -b binary -EL -m i8086 -M i8086 -M intel --adjust-vma=0x10000 -D $(BINARY)
+	objdump -b binary -EL -m i8086 -M i8086 -M intel --adjust-vma=0x2000 -D $(BINARY)
 
 # how to see the resulting binary, compare to dissassembled hex
 hexdump:
-	hexdump -C $(BINARY)
+	hexdump -C $(BINARY) -L
 
 

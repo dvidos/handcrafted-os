@@ -10,7 +10,7 @@ cd ../../..
 
 echo "Building second stage..."
 cd src/kernel/2nd_stage
-make
+make -B
 cd ../../..
 
 echo "Making image..."
@@ -21,6 +21,7 @@ ls -l $S2
 cat $S1 $S2 > bootable.img
 
 
-
-qemu-system-i386 -hda bootable.img
+qemu-system-i386 \
+    -display gtk,full-screen=on \
+    -hda bootable.img
 

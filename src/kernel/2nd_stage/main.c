@@ -18,12 +18,16 @@
 
 void bios_print_char(unsigned char c);
 void bios_print_str(unsigned char *str);
+void bios_print_int(int num);
+void bios_print_hex(int num);
+word bios_get_keystroke();
+
 word bios_get_low_memory_in_kb();
-int bios_detect_memory_map();
+int bios_detect_memory_map_e820();
 
 unsigned char boot_drive; // passed to us by first boot loader, from BIOS
-char buffer[512];
-char numbuff[32];
+char *buffer;
+char num_buff[32] = {1};
 
 struct mem_map_entry_24 {
     uint32 address_high;
@@ -35,64 +39,61 @@ struct mem_map_entry_24 {
 };
 
 
+void _print_mem_map_entry(struct mem_map_entry_24 *entry) {
+    bios_print_str("  Addr 0x           ");
+    bios_print_hex(entry->address_high);
+    bios_print_str(":");
+    bios_print_hex(entry->address_low);
+    bios_print_str("  ");
+
+    bios_print_str("Size 0x");
+    bios_print_hex(entry->size_high);
+    bios_print_str(":");
+    bios_print_hex(entry->size_low);
+    bios_print_str("  ");
+
+    bios_print_str("Type ");
+    bios_print_int(entry->type);
+    bios_print_str("\r\n");
+}
+
 void start() {
     // save the boot drive to a variable
-    __asm__("mov %%al, %0" : "=g" (boot_drive));
+    __asm__("mov %%dl, %0" : "=g" (boot_drive));
 
-    bios_print_str("\r\nSecond stage boot loader running...\r\n");
+    // we have 32k from 0x7E00 up to stack at 0xFFFF
+    buffer = (char *)0x8000;
 
-    word low_mem_kb = bios_get_low_memory_in_kb();
-    itoa(low_mem_kb, numbuff, 10);
-    bios_print_str("Low memory value: ");
-    bios_print_str(numbuff);
-    bios_print_str(" KB\r\n");
+    bios_print_str("Second stage boot loader running...\r\n");
+
+    bios_print_str("Boot drive: 0x");
+    bios_print_hex(boot_drive);
+    bios_print_str("\r\n");
     
 
-    memset(buffer, 0, sizeof(buffer));
-    int err = bios_detect_memory_map(buffer);
+    word low_mem_kb = bios_get_low_memory_in_kb();
+    bios_print_str("Low memory value: ");
+    bios_print_int(low_mem_kb);
+    bios_print_str(" KB\r\n");
+    
+    bios_print_str("Clearing buffer...");
+    memset(buffer, 0, 1); // <---- this breaks for some reason. writing outside of our... segment?
+    bios_print_str("done\r\n");
+
+    bios_print_str("Reading memory map...");
+    int times = 0;
+    int err = bios_detect_memory_map_e820(buffer, &times);
+    bios_print_str("done\r\n");
+
     if (err) {
-        bios_print_str("Error getting memory map\r\n");
+        bios_print_str("Error getting memory map");
     } else {
         bios_print_str("Memory map follows:\r\n");
-        struct mem_map_entry_24 *mmp = (struct mem_map_entry_24 *)buffer;
-        for (int i = 0; i < 8; i++) {
-
-            // memset(numbuff, 0, sizeof(numbuff));
-            // itoa(mmp->address_high, numbuff, 16);
-            // bios_print_str("Addr 0x");
-            // bios_print_str(numbuff);
-            // bios_print_str(":");
-
-            // memset(numbuff, 0, sizeof(numbuff));
-            // itoa(mmp->address_low, numbuff, 16);
-            // bios_print_str("0x");
-            // bios_print_str(numbuff);
-
-            // bios_print_str("  ");
-
-
-            // memset(numbuff, 0, sizeof(numbuff));
-            // itoa(mmp->size_high, numbuff, 16);
-            // bios_print_str("Size 0x");
-            // bios_print_str(numbuff);
-            // bios_print_str(":");
-
-            // memset(numbuff, 0, sizeof(numbuff));
-            // itoa(mmp->size_low, numbuff, 16);
-            // bios_print_str("0x");
-            // bios_print_str(numbuff);
-
-            // bios_print_str("  ");
-
-
-            memset(numbuff, 0, sizeof(numbuff));
-            itoa(mmp->type, numbuff, 16);
-            bios_print_str("Type 0x");
-            bios_print_str(numbuff);
-
-            bios_print_str("\r\n");
-            mmp += 1;
-        }
+        // struct mem_map_entry_24 *mmp = (struct mem_map_entry_24 *)buffer;
+        // for (int i = 0; i < 6; i++) {
+        //     _print_mem_map_entry(mmp);
+        //     mmp++;
+        // }
         bios_print_str("Done\r\n");
     }
 
@@ -136,6 +137,16 @@ void bios_print_str(unsigned char *str) {
     }
 }
 
+void bios_print_int(int num) {
+    itoa(num, num_buff, 10);
+    bios_print_str(num_buff);
+}
+
+void bios_print_hex(int num) {
+    itoa(num, num_buff, 16);
+    bios_print_str(num_buff);
+}
+
 word bios_get_low_memory_in_kb() {
     // detecting low memory, INT 12
     word value = 0;
@@ -157,7 +168,7 @@ word bios_get_low_memory_in_kb() {
     return error ? 0 : value;
 }
 
-int bios_detect_memory_map(void *buffer) {
+int bios_detect_memory_map_e820(void *buffer, int *times) {
     // call INT 0x15, EAX=0xE820 in a loop.
     word error = 0;
     dword continuation = 0;
@@ -167,7 +178,8 @@ int bios_detect_memory_map(void *buffer) {
     // - 4 bytes base address high 32 bits
     // - 4 bytes length low 32 bit
     // - 4 bytes length high 32 bits
-    // - 4 bytes type
+    // - 4 bytes type (and 4 bytes padding)
+    *times = 0;
     while (true) {
         asm(
             "mov $0xE820, %%eax   \n\t"
@@ -203,6 +215,7 @@ int bios_detect_memory_map(void *buffer) {
         if (error || continuation == 0)
             break;
         buffer += 24;
+        (*times) += 1;
     }
 
     return error ? ERROR : SUCCESS;
@@ -287,4 +300,13 @@ void load_disk_sector(char *s) {
     // print string by calling BIOS interrupts
 }
 */
+
+word bios_get_keystroke() {
+    word output;
+    asm(
+        "mov $0x00, %%ah  \n\t"
+        "int $0x16        \n\t"
+        : "=a" (output) // ax -> output, al=ascii, ah=scan code
+    );
+}
 

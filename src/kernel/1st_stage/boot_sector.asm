@@ -36,22 +36,32 @@
 [org 0x7C00]
 [bits 16]
 
-    ; kernel will enable them at a later time
+    ; kernel will enable interrupts at a later time
     cli
 
+    ; far jump to set CS to zero (qemu loads and jumps to 0x07C0:00000)
+    jmp 0x0000:entry
+
+entry:
     ; save the drive number that bios loaded us from
     ; needed when loading the kernel from subsequent sectors
     mov [boot_drive_no], dl
 
-    ; we are loaded at 0x7C00 through 0x7E00
+    ; the 512 bytes of the sector are loaded at 0x7C00 through 0x7E00
     mov ax, 0xFFF0  ; go to any address high enough, up to 0xffff actually!
+    mov bx, 0
+    mov ss, bx
     mov sp, ax
     
-    mov bx, boot_sector_running  ; essentially move the address of the label
+    ; reset other segment registers
+    mov ds, bx
+    mov es, bx
+
+    mov bx, boot_sector_running_msg  ; essentially move the address of the label
     call print_string
     call print_crlf
 
-    mov bx, loading_2nd_stage    ; this is just too much text!
+    mov bx, loading_2nd_stage_msg    ; this is just too much text!
     call print_string
     call print_crlf
 
@@ -61,7 +71,7 @@
     mov dl, [boot_drive_no]  ; from the same drive where the boot sector was
     call load_sectors
 
-    mov bx, executing_2nd_stage
+    mov bx, executing_2nd_stage_msg
     call print_string
 
     ; our segments have the value of zero,
@@ -71,7 +81,7 @@
     mov dl, [boot_drive_no] 
 
     ; here goes nothing!
-    jmp 0x2000
+    jmp 0x0000:0x2000
 
 
 
@@ -79,9 +89,9 @@ boot_drive_no:
     db 0 ; we will store the boot drive here
 
 ; messages are zero terminated, to easily detect their end
-boot_sector_running:  db 'Boot sector running', 0
-loading_2nd_stage:    db 'Loading 2nd stage...', 0
-executing_2nd_stage:  db 'Executing 2nd stage...', 0
+boot_sector_running_msg:  db 'Boot sector running', 0
+loading_2nd_stage_msg    db 'Loading 2nd stage...', 0
+executing_2nd_stage_msg:  db 'Executing 2nd stage...', 0
 
 
 

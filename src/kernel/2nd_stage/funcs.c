@@ -16,7 +16,7 @@ static void reverse(char *buffer, int len) {
     }
 }
 
-void itoa(word num, char *buffer, int base) {
+void itoa(int num, char *buffer, int base) {
     if (num == 0) {
         buffer[0] = '0';
         buffer[1] = '\0';

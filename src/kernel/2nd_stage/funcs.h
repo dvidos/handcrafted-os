@@ -4,7 +4,7 @@
 #include "types.h"
 
 
-void itoa(word num, char *buffer, int base);
+void itoa(int num, char *buffer, int base);
 void itosize(uint32 value, char *buffer);
 
 uint32 strlen(char *str);
