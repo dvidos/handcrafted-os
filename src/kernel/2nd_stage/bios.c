@@ -1,6 +1,11 @@
 #include "types.h"
 #include "funcs.h"
 
+// for BIOS interrupts information
+// http://www.ctyme.com/intr/int.htm
+
+
+
 
 char num_buff[16+1];
 

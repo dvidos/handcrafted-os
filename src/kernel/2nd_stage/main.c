@@ -21,10 +21,10 @@ unsigned char boot_drive; // passed to us by first boot loader, from BIOS
 
 
 struct mem_map_entry_24 {
-    uint32 address_high;
     uint32 address_low;
-    uint32 size_high;
+    uint32 address_high;
     uint32 size_low;
+    uint32 size_high;
     uint32 type;
     uint32 padding;
 };
@@ -63,7 +63,7 @@ void start_c() {
     } else {
         bios_print_str("Memory map follows:\r\n");
         struct mem_map_entry_24 *mmp = (struct mem_map_entry_24 *)buffer;
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 8; i++) {
             _print_mem_map_entry(mmp);
             mmp++;
         }
@@ -72,7 +72,6 @@ void start_c() {
 
     // query graphics modes
     // select graphics mode, find way to work even through protected mode.
-
 
     // gather memory map
 
@@ -85,7 +84,8 @@ void start_c() {
     // setup mini gdt, enter protected mode
 
     // jump to kernel, pass magic number and multiboot information
-    for (;;) asm("hlt");
+    bios_print_str("Nothing else to do, freezing for now..."); 
+    freeze();
 }
 
 

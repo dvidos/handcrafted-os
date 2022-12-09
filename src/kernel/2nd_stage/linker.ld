@@ -27,8 +27,8 @@ SECTIONS
 		/* initialized data, has to describe values */
 		*(.data)     
 
-		/* uninitialized data, if not included, 
-		   they are mapped to be at the end of the image (e.g. 0x5000+) 
+		/* uninitialized data, 
+		   if not included, they are mapped to be at the end of the image (e.g. 0x5000+)
 		*/
 		/* *(.bss) */
 
