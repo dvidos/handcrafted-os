@@ -8,7 +8,8 @@ OBJECTS = \
 	start.o \
 	main.o \
 	funcs.o \
-	bios.o
+	bios.o \
+	printf.o
 
 # the idea is to put the asm startup code, as well as the C code
 # all into one executable that will be loaded (by the boot sector)
@@ -29,10 +30,11 @@ start.o: start.asm
 
 .c.o:
 	$(CC) -S $< -o $(@:.o=.dis) $(CFLAGS)
+	$(CC) -E $< -o $(@:.o=.pp) $(CFLAGS)
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
-	rm -f *.o *.bin *.l *.dis *.map
+	rm -f *.o *.bin *.l *.dis *.map *.pp
 
 # how to dissassemble something
 dissassembly:

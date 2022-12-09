@@ -5,6 +5,7 @@
 
 
 void itoa(int num, char *buffer, int base);
+void utoa(uint32 num, char *buffer, int base);
 void itosize(uint32 value, char *buffer);
 
 uint32 strlen(char *str);

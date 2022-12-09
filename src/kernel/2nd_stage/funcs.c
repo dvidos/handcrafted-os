@@ -42,6 +42,23 @@ void itoa(int num, char *buffer, int base) {
     reverse(buffer, pos);
 }
 
+void utoa(uint32 num, char *buffer, int base) {
+    if (num == 0) {
+        buffer[0] = '0';
+        buffer[1] = '\0';
+        return;
+    }
+
+    int pos = 0;
+    while (num > 0) {
+        int remainder = num % base;
+        buffer[pos++] = (remainder >= 10) ? ('A' + (remainder - 10)) : ('0' + remainder);
+        num = num / base;
+    }
+    buffer[pos] = '\0';
+    reverse(buffer, pos);
+}
+
 uint32 strlen(char *str) {
     uint32 len = 0;
     while (*str != 0) { len++; str++; }

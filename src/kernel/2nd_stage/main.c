@@ -14,6 +14,7 @@
 #include "types.h"
 #include "funcs.h"
 #include "bios.h"
+#include "printf.h"
 
 
 
@@ -29,7 +30,7 @@ struct mem_map_entry_24 {
     uint32 padding;
 };
 
-void _print_mem_map_entry(struct mem_map_entry_24 *entry);
+void print_mem_map_entry(struct mem_map_entry_24 *entry);
 
 void start_c() {
     char *buffer;
@@ -40,7 +41,7 @@ void start_c() {
     // we have 32k from 0x7E00 up to stack at 0xFFFF
     buffer = (char *)0x8000;
 
-    bios_print_str("Second stage boot loader running...\r\n");
+    bios_print_str("\r\nSecond stage boot loader running...\r\n");
 
     bios_print_str("Boot drive: 0x");
     bios_print_hex(boot_drive);
@@ -51,23 +52,17 @@ void start_c() {
     bios_print_int(low_mem_kb);
     bios_print_str(" KB\r\n");
     
-    bios_print_str("Clearing buffer...");
-    memset(buffer, 0, 512);
-    bios_print_str("ok\r\n");
-
-    bios_print_str("Reading memory map...");
+    bios_print_str("Reading memory map...\r\n");
     int times = 0;
     int err = bios_detect_memory_map_e820(buffer, &times);
     if (err) {
-        bios_print_str("Error getting memory map");
+        bios_print_str("Error getting memory map\r\n");
     } else {
-        bios_print_str("Memory map follows:\r\n");
         struct mem_map_entry_24 *mmp = (struct mem_map_entry_24 *)buffer;
-        for (int i = 0; i < 8; i++) {
-            _print_mem_map_entry(mmp);
+        for (int i = 0; i < times; i++) {
+            print_mem_map_entry(mmp);
             mmp++;
         }
-        bios_print_str("(end of map)\r\n");
     }
 
     // query graphics modes
@@ -92,24 +87,26 @@ void start_c() {
 
 
 
-void _print_mem_map_entry(struct mem_map_entry_24 *entry) {
-    bios_print_str("  Addr 0x");
-    bios_print_hex(entry->address_high);
-    bios_print_str(":");
-    bios_print_hex(entry->address_low);
-    bios_print_str("  ");
+void print_mem_map_entry(struct mem_map_entry_24 *entry) {
+    char addr_buff[16+1];
+    char size_buff[16+1];
+    if (entry->address_high > 0)
+        strcpy(addr_buff, ">4GB");
+    else
+        itosize(entry->address_low, addr_buff);
+    if (entry->size_high > 0)
+        strcpy(size_buff, ">4GB");
+    else
+        itosize(entry->size_low, size_buff);
 
-    bios_print_str("Size 0x");
-    bios_print_hex(entry->size_high);
-    bios_print_str(":");
-    bios_print_hex(entry->size_low);
-    bios_print_str("  ");
-
-    bios_print_str("Type ");
-    bios_print_int(entry->type);
-    bios_print_str("\r\n");
+    printf("  addr %08x %5s   len %08x %5s   type %s\r\n",
+        entry->address_low,
+        addr_buff,
+        entry->size_low,
+        size_buff,
+        entry->type == 1 ? "Usable" : (entry->type == 2 ? "Reserved" : "?")
+    );
 }
-
 
 
 void *heap_start;

@@ -4,8 +4,15 @@
 *.bin
 *.iso
 *.gch
+
+# generated assembly files
 *.dis
+
+# linker map file(s)
 *.map
+
+# generated preprocess output
+*.pp
 
 kernel/*.o
 .vscode/*

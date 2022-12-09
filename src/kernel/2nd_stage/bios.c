@@ -72,7 +72,7 @@ int bios_detect_memory_map_e820(void *buffer, int *times) {
     // - 4 bytes length low 32 bit
     // - 4 bytes length high 32 bits
     // - 4 bytes type (and 4 bytes padding)
-    *times = 0;
+    (*times) = 0;
     while (true) {
         asm(
             "mov $0xE820, %%eax   \n\t"
@@ -105,10 +105,12 @@ int bios_detect_memory_map_e820(void *buffer, int *times) {
             : "%eax", "%ebx", "%ecx", "%edx", "%edi"
         );
 
-        if (error || continuation == 0)
+        if (error)
             break;
-        buffer += 24;
         (*times) += 1;
+        buffer += 24;
+        if (continuation == 0)
+            break;
     }
 
     return error ? ERROR : SUCCESS;

@@ -23,5 +23,6 @@ cat $S1 $S2 > bootable.img
 
 qemu-system-i386 \
     -display gtk,full-screen=on \
+    -m 2G \
     -hda bootable.img
 

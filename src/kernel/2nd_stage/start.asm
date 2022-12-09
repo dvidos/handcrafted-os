@@ -2,8 +2,8 @@
 ; purpose is to save the boot drive number, setup stack, then jump to the C main() function
 [bits 16]
 
-[EXTERN start_c]           ; this is declared in the C code
-
+[extern start_c]           ; this is declared in the C code
+[global start_asm]
 
 start_asm:
     ; just to see if this is working...
