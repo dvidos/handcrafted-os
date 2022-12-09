@@ -2,9 +2,10 @@
 ; purpose is to save the boot drive number, setup stack, then jump to the C main() function
 [bits 16]
 
-[EXTERN start]           ; this is declared in the C code
+[EXTERN start_c]           ; this is declared in the C code
 
 
+start_asm:
     ; just to see if this is working...
     ; mov ah, 0x0e ; bios print function, al has the byte
     ; mov al, ' '
@@ -32,7 +33,7 @@
     mov si, 0
     mov di, 0
 
-    jmp start
+    jmp start_c
 
 ; second_stage_running:  db '2nd stage boot loader running', 0
 

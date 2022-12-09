@@ -5,6 +5,8 @@
 *.iso
 *.gch
 *.dis
+*.map
+
 kernel/*.o
 .vscode/*
 qemu*.log

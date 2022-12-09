@@ -7,7 +7,8 @@ MAPFILE = boot_loader2.map
 OBJECTS = \
 	start.o \
 	main.o \
-	funcs.o
+	funcs.o \
+	bios.o
 
 # the idea is to put the asm startup code, as well as the C code
 # all into one executable that will be loaded (by the boot sector)
@@ -31,11 +32,11 @@ start.o: start.asm
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
-	rm -f *.o *.bin *.l *.dis
+	rm -f *.o *.bin *.l *.dis *.map
 
 # how to dissassemble something
 dissassembly:
-	objdump -b binary -EL -m i8086 -M i8086 -M intel --adjust-vma=0x2000 -D $(BINARY)
+	objdump -b binary -EL -m i8086 -M i8086 -M intel --adjust-vma=0x1000 -D $(BINARY)
 
 # how to see the resulting binary, compare to dissassembled hex
 hexdump:

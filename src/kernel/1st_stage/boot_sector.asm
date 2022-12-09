@@ -66,8 +66,8 @@ entry:
     call print_crlf
 
     ; load the second stage boot loader
-    mov bx, 0x2000           ; where to load the 2nd stage (0x2000 = 8K)
-    mov dh, 4                ; how many sectors to load (see linker script for 2nd stage boot loader)
+    mov bx, 0x1000           ; where to load the 2nd stage (0x1000 = 4K)
+    mov dh, 32               ; how many sectors to load (see linker script for 2nd stage boot loader)
     mov dl, [boot_drive_no]  ; from the same drive where the boot sector was
     call load_sectors
 
@@ -76,12 +76,12 @@ entry:
 
     ; our segments have the value of zero,
     ; our SP points to something like 0xFFF0 (e.g. high enough)
-    ; our code is loaded at 0x2000
+    ; our code is loaded at 0x1000
     ; let's give it the drive number too.
     mov dl, [boot_drive_no] 
 
     ; here goes nothing!
-    jmp 0x0000:0x2000
+    jmp 0x0000:0x1000
 
 
 

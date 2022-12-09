@@ -38,10 +38,10 @@ Memory organization
 | top of stack       |  0xFFF0 (64 KB)
 |   ...              |     (33 kb space)
 | boot sector code   |  0x7C00
-|   ...              |     (23 kb space)
-| 2nd stage          |  0x2000
+|   ...              |     (27 kb space)
+| 2nd stage          |  0x1000
 | boot loader code   |
-|   ...              |     (8 kb space)
+|   ...              |     (4 kb space)
 | interrupts table   |  0x0000
 +--------------------+
 ```
