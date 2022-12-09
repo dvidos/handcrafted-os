@@ -25,6 +25,9 @@ void bios_print_char(unsigned char c) {
 
 void bios_print_str(unsigned char *str) {
     while (*str) {
+        // allow a single "\n" to cause "\r\n", as needed by bios
+        if (*str == '\n')
+            bios_print_char('\r');
         bios_print_char(*str);
         str++;
     }
@@ -63,6 +66,7 @@ word bios_get_low_memory_in_kb() {
 
 int bios_detect_memory_map_e820(void *buffer, int *times) {
     // call INT 0x15, EAX=0xE820 in a loop.
+    // see https://wiki.osdev.org/Detecting_Memory_(x86)#BIOS_Function:_INT_0x15.2C_EAX_.3D_0xE820
     word error = 0;
     dword continuation = 0;
 
@@ -116,6 +120,52 @@ int bios_detect_memory_map_e820(void *buffer, int *times) {
     return error ? ERROR : SUCCESS;
 }
 
+int bios_detect_memory_map_e801(word *kb_above_1mb, word *pg_64kb_above_16mb) {
+    // see https://wiki.osdev.org/Detecting_Memory_(x86)#BIOS_Function:_INT_0x15.2C_AX_.3D_0xE801
+    // CX/AX is contiguous kb above one MB
+    // DX/BX is contiguoys 64KB pages above 16MB
+    word error = 0;
+    word ax = 0;
+    word bx = 0;
+
+    asm(
+        "mov $0, %%cx \n\t"
+        "mov $0, %%dx \n\t"
+        "mov $0xE801, %%ax \n\t"
+        "int $0x15      \n\t"
+
+        // check success
+        "jc 2f \n\t"  // if carry is set, it's an error
+        "cmp $0x86, %%ah \n\t"
+        "je 2f \n\r"  // ah=0x86 => unsupported function
+        "cmp $0x80, %%ah \n\t"
+        "je 2f \n\r"  // ah=0x80 => invalid command
+
+        // if we are here, success
+        "jcxz 1f  \r\n"        // if cx is zero, use the AX/BC set
+        "mov %%cx, %%ax \r\n"  // otherwise copy CX/DX to AX/BX
+        "mov %%dx, %%bx \r\n"
+        "1:   \n\t"
+        "mov %%ax, %1 \n\t" 
+        "mov %%bx, %2 \n\t" 
+        "jmp 3f \n\t"       // skip error handling
+
+        // error handling
+        "2: \n\t"
+        "movw $1, %0 \n\t"   // error flag
+
+        // exit
+        "3: \n\t" 
+
+        : "=g" (error), "=g" (ax), "=g" (bx)  // outputs
+        :  // inputs
+        : "%eax", "%ebx", "%ecx", "%edx"  // clobbered
+    );
+
+    *kb_above_1mb = ax;
+    *pg_64kb_above_16mb = bx;
+    return error ? ERROR : SUCCESS;
+}
 
 /*
 u16 bios_screen_functions(u16 ax) {

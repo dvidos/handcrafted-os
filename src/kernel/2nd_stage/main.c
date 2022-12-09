@@ -34,6 +34,7 @@ void print_mem_map_entry(struct mem_map_entry_24 *entry);
 
 void start_c() {
     char *buffer;
+    int err;
     
     // save the boot drive to a variable
     __asm__("mov %%dl, %0" : "=g" (boot_drive));
@@ -41,27 +42,32 @@ void start_c() {
     // we have 32k from 0x7E00 up to stack at 0xFFFF
     buffer = (char *)0x8000;
 
-    bios_print_str("\r\nSecond stage boot loader running...\r\n");
-
-    bios_print_str("Boot drive: 0x");
-    bios_print_hex(boot_drive);
-    bios_print_str("\r\n");
+    printf("\nSecond stage boot loader running...\n");
+    printf("Boot drive: 0x%x\n", boot_drive);
     
     word low_mem_kb = bios_get_low_memory_in_kb();
-    bios_print_str("Low memory value: ");
-    bios_print_int(low_mem_kb);
-    bios_print_str(" KB\r\n");
+    printf("Low memory: %u KB\n", low_mem_kb);
     
-    bios_print_str("Reading memory map...\r\n");
-    int times = 0;
-    int err = bios_detect_memory_map_e820(buffer, &times);
+    word kb_above_1mb = 0;
+    word pg_64kb_above_16mb = 0;
+    err = bios_detect_memory_map_e801(&kb_above_1mb, &pg_64kb_above_16mb);
     if (err) {
-        bios_print_str("Error getting memory map\r\n");
+        printf("Error getting high memory\n");
     } else {
-        struct mem_map_entry_24 *mmp = (struct mem_map_entry_24 *)buffer;
-        for (int i = 0; i < times; i++) {
-            print_mem_map_entry(mmp);
-            mmp++;
+        printf("Memory above 1MB: %u KB (%u MB)\n", kb_above_1mb, (kb_above_1mb / 1024));
+        printf("Memory above 16MB: %u pages of 64KB (%u MB)\n", pg_64kb_above_16mb, pg_64kb_above_16mb / 16);
+    }
+
+    int memory_map_entries = 0;
+    err = bios_detect_memory_map_e820(buffer, &memory_map_entries);
+    if (err) {
+        bios_print_str("Error getting memory map\n");
+    } else {
+        printf("Memory map from E820:\n");
+        struct mem_map_entry_24 *entry = (struct mem_map_entry_24 *)buffer;
+        for (int i = 0; i < memory_map_entries; i++) {
+            print_mem_map_entry(entry);
+            entry++;
         }
     }
 
@@ -99,7 +105,7 @@ void print_mem_map_entry(struct mem_map_entry_24 *entry) {
     else
         itosize(entry->size_low, size_buff);
 
-    printf("  addr %08x %5s   len %08x %5s   type %s\r\n",
+    printf("  addr %08x %5s   len %08x %5s   type %s\n",
         entry->address_low,
         addr_buff,
         entry->size_low,

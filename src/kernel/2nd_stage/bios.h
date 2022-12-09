@@ -8,6 +8,7 @@ void bios_print_int(int num);
 void bios_print_hex(int num);
 word bios_get_low_memory_in_kb();
 int bios_detect_memory_map_e820(void *buffer, int *times);
+int bios_detect_memory_map_e801(word *kb_above_1mb, word *pg_64kb_above_16mb);
 
 
 word bios_get_keystroke();
