@@ -242,8 +242,84 @@ void shell_launcher() {
 
 
 void print_multiboot_info(multiboot_info_t *info) {
-    // see https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html
+
+    // see https://www.gnu.org/software/grub/manual/multiboot/multiboot.html
 
     // we should print this....
     // to see what GRUB initializes, and do similar stuff
+    klog_info("Multiboot info");
+    klog_info("- flags: 0x%08x  (%032b)", info->flags, info->flags);
+    if (info->flags & MULTIBOOT_INFO_MEMORY) {
+        klog_info("- memory lower 0x%x (%u)", info->mem_lower, info->mem_lower);
+        klog_info("- memory lower 0x%x (%u)", info->mem_upper, info->mem_upper);
+    }
+    if (info->flags & MULTIBOOT_INFO_BOOTDEV) {
+        klog_info("- root partition 0x%x (drive no, p1, p2, p3)", info->boot_device);
+    }
+    if (info->flags & MULTIBOOT_INFO_CMDLINE) {
+        klog_info("- cmdline \"%s\"", info->cmdline);
+    }
+    if (info->flags & MULTIBOOT_INFO_MODS) {
+        klog_info("- mods address 0x%x, count %d", info->mods_addr, info->mods_count);
+    }
+    if (info->flags & MULTIBOOT_INFO_AOUT_SYMS) {
+        klog_info("- aout info provided");
+    } else if (info->flags & MULTIBOOT_INFO_ELF_SHDR) {
+        klog_info("- ELF info provided");
+        klog_info("  elf n %x, s %u, a %x, i %x", 
+            info->u.elf_sec.num,
+            info->u.elf_sec.size,
+            info->u.elf_sec.addr,
+            info->u.elf_sec.shndx
+        );
+        char *ptr = info->u.elf_sec.addr;
+        for (int i = 0; i < info->u.elf_sec.num; i++) {
+            // each entry is a Elf32_Shdr structure
+            // see https://www.man7.org/linux/man-pages/man5/elf.5.html
+            ptr += info->u.elf_sec.size;
+        }
+    }
+    if (info->flags & MULTIBOOT_INFO_MEM_MAP) {
+        klog_info("- mmap address 0x%x, length %d", info->mmap_addr, info->mmap_length);
+        uint32_t len = 0;
+        void *ptr = (char *)info->mmap_addr;
+        while (len < info->mmap_length) {
+            multiboot_memory_map_t *mm = (multiboot_memory_map_t *)ptr;
+            klog_info("  s %d,  a 0x%08x-%08x,  l 0x%08x-%08x,  t %u", 
+                mm->size,
+                HIGH_DWORD(mm->addr), LOW_DWORD(mm->addr),
+                HIGH_DWORD(mm->len), LOW_DWORD(mm->len),
+                mm->type);
+            len += 24; // sizeof(multiboot_memory_map_t);
+            ptr += 24; // sizeof(multiboot_memory_map_t);
+        }
+    }
+    if (info->flags & MULTIBOOT_INFO_DRIVE_INFO) {
+        klog_info("- drives address 0x%x, length %d", info->drives_addr, info->drives_length);
+    }
+    if (info->flags & MULTIBOOT_INFO_CONFIG_TABLE) {
+        klog_info("- rom config table 0x%x", info->config_table);
+    }
+    if (info->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
+        klog_info("- boot loader name \"%s\"", info->boot_loader_name);
+    }
+    if (info->flags & MULTIBOOT_INFO_APM_TABLE) {
+        klog_info("- apm table address 0x%x", info->apm_table);
+    }
+    if (info->flags & MULTIBOOT_INFO_VBE_INFO) {
+        klog_info("- vbe control info  0x%x", info->vbe_control_info);
+        klog_info("- vbe mode info     0x%x", info->vbe_mode_info);
+        klog_info("- vbe mode          0x%x", info->vbe_mode);
+        klog_info("- vbe interface seg 0x%x", info->vbe_interface_seg);
+        klog_info("- vbe interface off 0x%x", info->vbe_interface_off);
+        klog_info("- vbe interface len 0x%x", info->vbe_interface_len);
+    }
+    if (info->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) {
+        klog_info("- framebuffer addr   0x%x-%x", HIGH_DWORD(info->framebuffer_addr), LOW_DWORD(info->framebuffer_addr));
+        klog_info("- framebuffer pitch  %u", info->framebuffer_pitch);
+        klog_info("- framebuffer width  %u", info->framebuffer_width);
+        klog_info("- framebuffer height %u", info->framebuffer_height);
+        klog_info("- framebuffer bpp    %u", info->framebuffer_bpp);
+        klog_info("- framebuffer type   %u", info->framebuffer_type);
+    }
 }

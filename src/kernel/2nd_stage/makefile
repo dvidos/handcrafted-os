@@ -9,7 +9,8 @@ OBJECTS = \
 	main.o \
 	funcs.o \
 	bios.o \
-	memory.o
+	memory.o \
+	disk.o
 
 # the idea is to put the asm startup code, as well as the C code
 # all into one executable that will be loaded (by the boot sector)

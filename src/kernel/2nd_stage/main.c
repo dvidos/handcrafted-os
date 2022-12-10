@@ -15,10 +15,10 @@
 #include "funcs.h"
 #include "bios.h"
 #include "memory.h"
+#include "disk.h"
 
 
 
-void detect_memory();
 
 void start_c() {
     byte boot_drive; // passed to us by first boot loader, from BIOS
@@ -35,18 +35,20 @@ void start_c() {
     init_heap(0x5000, 0xF000);
     printf("Heap initialized, %d KB space available\n", heap_free_space() / 1024);
 
+
+    // gather memory map
     detect_memory();
 
 
     // query graphics modes
     // select graphics mode, find way to work even through protected mode.
 
-    // gather memory map
 
     // gather multiboot2 information
 
     // navigate file system, to find /boot/kernel or something.
     // parse kernel ELF header, load kernel into memory.
+    find_and_load_kernel(boot_drive);
 
     // setup mini gdt, enter protected mode
 
