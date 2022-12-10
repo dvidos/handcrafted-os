@@ -16,5 +16,9 @@ void memset(char *target, char c, uint32 size);
 void memcpy(char *dest, char *source, uint32 size);
 int  memcmp(char *a, char *b, uint32 size);
 
+void vsprintfn(char *buffer, int buffsize, const char *format, va_list args);
+void sprintfn(char *buffer, int buffsize, const char *format, ...);
+void printf(const char *format, ...);
+
 
 #endif

@@ -68,6 +68,8 @@ multiboot_info_t saved_multiboot_info;
 
 void launch_initial_processes();
 void shell_launcher();
+void print_multiboot_info(multiboot_info_t *info);
+
 
 
 // arguments from the multiboot loader, normally left by GRUB
@@ -105,6 +107,7 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
 
     if (boot_magic == 0x2BADB002) {
         klog_info("Bootloader info detected, copying it, size of %d bytes", sizeof(multiboot_info_t));
+        print_multiboot_info(mbi);
         memcpy((char *)&saved_multiboot_info, (char *)mbi, sizeof(multiboot_info_t));
     } else {
         klog_warn("No bootloader info detected");
@@ -236,3 +239,11 @@ void shell_launcher() {
     }
 }
 
+
+
+void print_multiboot_info(multiboot_info_t *info) {
+    // see https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html
+
+    // we should print this....
+    // to see what GRUB initializes, and do similar stuff
+}

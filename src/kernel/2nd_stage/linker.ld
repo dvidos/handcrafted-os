@@ -29,8 +29,10 @@ SECTIONS
 
 		/* uninitialized data, 
 		   if not included, they are mapped to be at the end of the image (e.g. 0x5000+)
+		   let's include for now, grows the bootloader size, 
+		      but allows clear boundaries, so we can initialize the heap
 		*/
-		/* *(.bss) */
+		*(.bss)
 
 		/* mainly strings */
 		*(.rodata)   
