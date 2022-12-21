@@ -6,8 +6,17 @@ FILE_SECTORS=20480   # 20 K sectors -> 10 MB file size
 LOOPBACK_DEV=/dev/loop101   # loop device name must have the same number as minor dev no
 PARTIRION_DEV=${LOOPBACK_DEV}p1
 MOUNT_DIR=/mnt/hcos
+BOOT_SECTOR_BINARY=./src/kernel/1st_stage/boot_sector.bin
+SECOND_LOADER_BINARY=./src/kernel/2nd_stage/boot_loader2.bin
 DIR_TO_COPY=./sysroot
-CMD=$1
+CMD=$1   # first argumeent
+
+# 10 MB disk space
+# 1st sector 512 bytes contains boot sector and partition table
+# 2nd and subsequent sectors contain the 2nd stage loader (e.g. 32KB)
+# fdisk will put the first partition at sector 2048, i.e. 1MB into the disk.
+# this will be a FAT16 file system for now, taking up 9MB
+
 
 
 check_prerequisites() {
@@ -22,6 +31,14 @@ check_prerequisites() {
     fi
     if ! grep -q $MOUNT_DIR /etc/fstab; then
         echo "/etc/fstab has no entry for $MOUNT_DIR. Create so that mount is rw"
+        exit 1
+    fi
+    if [ ! -f $BOOT_SECTOR_BINARY ]; then
+        echo "Boot sector not found: " $BOOT_SECTOR_BINARY
+        exit 1
+    fi
+    if [ ! -f $SECOND_LOADER_BINARY ]; then
+        echo "Second stage boot loader not found: " $SECOND_LOADER_BINARY
         exit 1
     fi
 }
@@ -40,18 +57,27 @@ setup_image_file() {
     # n -- create new partition
     # p -- primary (as opposed to e=extended)
     # 1 -- partition number (e.g. 1-4)
-    # <enter> -- first sector, 1 is proposed
+    # 2048 -- first sector, 2048 is the min, means 1MB into the disk
     # <enter> -- last sector, last is proposed
     # a   toggle a bootable flag
     # w -- write (but it failed)
     (echo o; 
-     echo n; echo p; echo 1; echo ""; echo ""; 
+     echo n; echo p; echo 1; echo "2048"; echo ""; 
      echo "a"; 
      echo "p"; echo "w"
     ) | sudo fdisk $LOOPBACK_DEV > /dev/null
     sudo fdisk -l $LOOPBACK_DEV
-    # echo -e "o\n d\n n\n p\n1\n\n\na\np\nw\n" | sudo fdisk $LOOPBACK_DEV
+
+    # copy boot sector binary, without wiping the file
+    # must be up to 0x1BE in length (446 bytes) to avoid overwriting the partition table
+    echo Copying boot sector into image
+    dd if=$BOOT_SECTOR_BINARY of=$IMG_FILE bs=1 count=446 seek=0 conv=notrunc
     
+    # copy the second stage boot loader, without wiping the file
+    # we have about 1MB of space, we'll copy 32KB (64 sectors)
+    echo Copying second stage boot loader into image
+    dd if=$SECOND_LOADER_BINARY of=$IMG_FILE bs=512 count=64 seek=1 conv=notrunc
+
     echo Re-mounting raw image to detect partitions
     sudo losetup -d $LOOPBACK_DEV
     sudo losetup -P $LOOPBACK_DEV $IMG_FILE 

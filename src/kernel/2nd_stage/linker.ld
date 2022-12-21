@@ -41,7 +41,7 @@ SECTIONS
 		/*  *(.comment)  */
 
 		FILL(0x00);
-		. = 0x1000 + 32 * 512;  /* pad output to specific number of sectors (16k) */
+		. = 0x1000 + 64 * 512; /* pad output to specific number of sectors (32k) */
 	} >first64k
 }
 

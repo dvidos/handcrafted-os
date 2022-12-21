@@ -221,3 +221,23 @@ locking, task switching, idt, gdt, boot info, etc)
 * Kafka pipelines emulation would be easily implementable with shell pipes.
 * Better handling of individual chunks of information, e.g. json objects with headers. Instead of just reading one stream of bytes, read a stream of those objects.
 * If we can have an editor and a compiler, edit, compile and run software on this new os, it will be amazing!
+
+* Could implement setjmp() / longjmp() in my C library, so that I can do
+  exception handling in my C programs!
+
+
+* If I could dream a lot, I would like to have processes that know to do one think well
+(e.g. get a webpage, sort content, keep persistant store etc). The system would 
+make sure to start and stop them, no user intervention would be needed. 
+The user would just write links between them, like pipes or like excel references,
+and have things work out. For example, get the weather and visualize the amount of snow
+over alaska. The user would be able to edit / change them in real time, with immediate
+feedback, without needing to stop / start etc. Essentially, hide all complexity 
+from the user (starting or stopping services, save or load files etc) and 
+allow them a constant tinkering of things to whatever they want to do.
+Not in the Steve Jobs way, but in the Ken Thompson way.
+Maybe we could do the same for the graphical interface. The same way 
+that it is easy for processes to use a text output today, we could
+have gui windows than can choose between text, 2d and 3d surfaces.
+It should then be really easy to draw in a 2D surface, or draw 3D objects
+and have them rendered correctly.
