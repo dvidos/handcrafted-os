@@ -167,84 +167,6 @@ int bios_detect_memory_map_e801(word *kb_above_1mb, word *pg_64kb_above_16mb) {
     return error ? ERROR : SUCCESS;
 }
 
-/*
-u16 bios_screen_functions(u16 ax) {
-    u16 status;
-    asm(
-        "movw %1, %%ax \n\t"
-        "int $0x10 \n\t"
-        "movw %%ax, %0 \n\t"
-        : "=g" (status)
-        : "g" (ax)
-        : "%ax" 
-    );
-    return status;
-}
-
-u16 bios_keyboard_functions(u16 ax) {
-    u16 status;
-    asm(
-        "movw %1, %%ax \n\t"
-        "int $0x16 \n\t"
-        "movw %%ax, %0 \n\t"
-        : "=g" (status)
-        : "g" (ax)
-        : "%ax" 
-    );
-    return status;
-}
-
-u16 bios_memory_functions(u16 ax) {
-    u16 status;
-    asm(
-        "movw %1, %%ax \n\t"
-        "int $0x15 \n\t"
-        "movw %%ax, %0 \n\t"
-        : "=g" (status)
-        : "g" (ax)
-        : "%ax" 
-    );
-    return status;
-}
-u16 bios_disk_functions(u16 ax) {
-    u16 status;
-    asm(
-        "movw %1, %%ax \n\t"
-        "int $0x13 \n\t"
-        "movw %%ax, %0 \n\t"
-        : "=g" (status)
-        : "g" (ax)
-        : "%ax" 
-    );
-    return status;
-}
-
-void do_something(int arg)
-{
-    // Do something with arg, perhaps a syscall, or inline assembly?
-}
-
-void loop_something(int from, int to)
-{
-    int  arg;
-
-    if (from <= to)
-        for (arg = from; arg <= to; arg++)
-            do_something(arg);
-    else
-        for (arg = from; arg <= to; arg--)
-            do_something(arg);
-}
-
-void print_string(char *s) {
-    // print string by calling BIOS interrupts
-    s = NULL;
-}
-
-void load_disk_sector(char *s) {
-    // print string by calling BIOS interrupts
-}
-*/
 
 word bios_get_keystroke() {
     word output;
@@ -254,4 +176,174 @@ word bios_get_keystroke() {
         : "=a" (output) // ax -> output, al=ascii, ah=scan code
     );
 }
+
+
+int bios_get_drive_geometry(byte drive_no, byte *number_of_heads, byte *sectors_per_track) {
+    word error = 0;
+    byte dh;
+    byte cl;
+
+    asm(
+        "mov $0x08, %%ah \n\t"  // get drive geometry
+        "mov %3, %%dl    \n\t"  // drive number
+        "int $0x13      \n\t"
+
+        // check success
+        "jc 2f \n\t"  // if carry is set, it's an error
+
+        // if we are here, success
+        "mov %%dh, %1 \n\t" 
+        "mov %%cl, %2 \n\t" 
+        "jmp 3f \n\t"       // skip error handling
+
+        // error handling
+        "2: \n\t"
+        "movw $1, %0 \n\t"   // error flag
+
+        // exit
+        "3: \n\t" 
+
+        : "=g" (error), "=g" (dh), "=g" (cl)  // outputs
+        : "g" (drive_no)
+        : "%eax", "%ebx", "%ecx", "%edx"  // clobbered
+    );
+
+    *number_of_heads = dh + 1;
+    *sectors_per_track = cl & 0x3F;
+
+    return error ? ERROR : SUCCESS;
+}
+
+
+// Cylinder, Head, Sector to Linear Block Address
+word chs_to_lba(word cyl, byte head, byte sector, byte num_heads, byte sectors_per_track) {
+    // note: sectors are one based, LBA is zero based
+    return (((cyl * num_heads) + head) * sectors_per_track) + sector - 1;
+}
+
+
+// Linear Block Address to Cylinder, Head, Sector
+void lba_to_chs(word lba, byte num_heads, byte sectors_per_track, word *cyl, byte *head, byte *sector) {
+    word temp = lba / sectors_per_track;
+    *sector = (lba % sectors_per_track) + 1;  // sectors are one based, not zero.
+    *cyl = temp / num_heads;
+    *head = temp % num_heads;
+}
+
+
+int bios_load_disk_sectors_lba(byte drive, word lba, byte sectors_count, void *buffer) {
+    // sde https://wiki.osdev.org/ATA_in_x86_RealMode_(BIOS)
+    // see https://stanislavs.org/helppc/int_13-2.html
+
+    byte error = 0;
+    byte status = 0;
+    byte sectors_read = 0;
+
+    asm(
+        "mov $0,    %0     \n\t"  // no error by default
+
+        "mov $0x42, %%ah   \n\t"  // read in CHS mode
+        "mov $1,    %%al   \n\t"  // num of sectors to read (1-128)
+        "mov %3,    %%ch   \n\t"  // track/cyl to read (0-1023)
+        "mov %4,    %%cl   \n\t"  // sector number (1-17)
+        "mov %5,    %%dh   \n\t"  // head number (0-15)
+        "mov %6,    %%dl   \n\t"  // drive number (0x00, 0x01, ..., 0x80, 0x81, ...)
+        "mov %7,    %%bx   \n\t"  // ES:BX points to buffer
+        "int $0x13         \n\t"
+
+        // check success
+        "jnc 1f            \n\t"  // if no carry is set, it's not an error
+        "mov $1,     %0    \n\t"  // otherwise we failed
+        "1:   \n\t"
+
+        // grab output
+        "mov %%ah,   %1    \n\t"  // ah has status
+        "mov %%al,   %2    \n\t"  // al has number of sectors read
+
+        : "=g" (error), "=g" (status), "=g" (sectors_read)  // outputs
+        : "g" (cyl & 0xFF), 
+          "g" (((cyl >> 2) & 0xC0) | (sect & 0x3F)),
+          "g" (head), 
+          "g" (drive), 
+          "g" (buffer) // inputs
+        : "%eax", "%ebx", "%ecx", "%edx"  // clobbered
+    );
+
+    // for status see https://stanislavs.org/helppc/int_13-1.html
+    return error ? status : SUCCESS;
+}
+
+int bios_reset_disk(byte drive) {
+    // see https://stanislavs.org/helppc/int_13-0.html
+
+    byte error;
+    byte status;
+
+    asm(
+        "mov $0,    %0     \n\t"  // no error by default
+
+        "mov $0x00, %%ah   \n\t"  // 00 = reset disk system
+        "mov %2,    %%dl   \n\t"  // drive number (0x00, 0x01, ..., 0x80, 0x81, ...)
+        "int $0x13         \n\t"
+
+        // check success
+        "jnc 1f            \n\t"  // if no carry is set, it's not an error
+        "mov $1,     %0    \n\t"  // otherwise we failed
+        "1:   \n\t"
+
+        // grab output
+        "mov %%ah,   %1    \n\t"  // ah has status
+
+        : "=g" (error), "=g" (status)  // outputs
+        : "g" (drive)                  // inputs
+        : "%eax", "%edx"               // clobbered
+    );
+
+    // for status see https://stanislavs.org/helppc/int_13-1.html
+    return error ? status : SUCCESS;
+}
+
+int bios_load_disk_sector_chs(byte drive, word cyl, byte head, byte sect, void *buffer) {
+    // limitation: total sector count must be up to 127, and cannot cross a cylinder boundary.
+    // workaround is to load one sector at a time, when working on CHS mode
+    // buffer and bytes to read should not cross a 64K boundary
+
+    byte error = 0;
+    byte status = 0;
+    byte sectors_read = 0;
+
+    asm(
+        "mov $0,    %0     \n\t"  // no error by default
+
+        "mov $0x02, %%ah   \n\t"  // read in CHS mode
+        "mov $1,    %%al   \n\t"  // num of sectors to read (1-128)
+        "mov %3,    %%ch   \n\t"  // track/cyl to read (0-1023)
+        "mov %4,    %%cl   \n\t"  // sector number (1-17)
+        "mov %5,    %%dh   \n\t"  // head number (0-15)
+        "mov %6,    %%dl   \n\t"  // drive number (0x00, 0x01, ..., 0x80, 0x81, ...)
+        "mov %7,    %%bx   \n\t"  // ES:BX points to buffer
+        "int $0x13         \n\t"
+
+        // check success
+        "jnc 1f            \n\t"  // if no carry is set, it's not an error
+        "mov $1,     %0    \n\t"  // otherwise we failed
+        "1:   \n\t"
+
+        // grab output
+        "mov %%ah,   %1    \n\t"  // ah has status
+        "mov %%al,   %2    \n\t"  // al has number of sectors read
+
+        : "=g" (error), "=g" (status), "=g" (sectors_read)  // outputs
+        : "g" (cyl & 0xFF), 
+          "g" (((cyl >> 2) & 0xC0) | (sect & 0x3F)),
+          "g" (head), 
+          "g" (drive), 
+          "g" (buffer) // inputs
+        : "%eax", "%ebx", "%ecx", "%edx"  // clobbered
+    );
+
+    // for status see https://stanislavs.org/helppc/int_13-1.html
+    return error ? status : SUCCESS;
+}
+
 

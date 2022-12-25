@@ -20,7 +20,7 @@ OBJECTS = \
 # this link maybe has some interesting ideas
 # https://www.itcodar.com/linux/how-to-get-gcc-to-output-raw-binary.html
 
-# can see the resulting boot loader using:
+
 
 
 $(BINARY): $(OBJECTS) makefile linker.ld

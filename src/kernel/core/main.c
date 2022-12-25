@@ -272,8 +272,8 @@ void print_multiboot_info(multiboot_info_t *info) {
             info->u.elf_sec.addr,
             info->u.elf_sec.shndx
         );
-        char *ptr = info->u.elf_sec.addr;
-        for (int i = 0; i < info->u.elf_sec.num; i++) {
+        char *ptr = (char *)info->u.elf_sec.addr;
+        for (uint32_t i = 0; i < info->u.elf_sec.num; i++) {
             // each entry is a Elf32_Shdr structure
             // see https://www.man7.org/linux/man-pages/man5/elf.5.html
             ptr += info->u.elf_sec.size;

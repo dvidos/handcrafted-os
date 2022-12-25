@@ -48,11 +48,16 @@ void start_c() {
 
     // navigate file system, to find /boot/kernel or something.
     // parse kernel ELF header, load kernel into memory.
-    find_and_load_kernel(boot_drive);
+    find_and_load_kernel(boot_drive, 0x1000);
 
     // setup mini gdt, enter protected mode
 
+    // move kernel from real-mode segment to 0x100000 (1MB)
+
+    
     // jump to kernel, pass magic number and multiboot information
+
+
     bios_print_str("Nothing else to do, freezing for now..."); 
     freeze();
 }
