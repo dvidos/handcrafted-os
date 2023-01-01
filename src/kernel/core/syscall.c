@@ -175,6 +175,10 @@ static int sys_get_clocktime(clocktime_t *ct) {
 
     return SUCCESS;
 }
+int sys_uptime(uint64_t *msecs) {
+    *msecs = timer_get_uptime_msecs();
+    return SUCCESS;
+}
 
 int isr_syscall(struct syscall_stack stack) {
     /* before getting to this function, the assembly isr handler
@@ -303,7 +307,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = (int)sys_sbrk(stack.passed.arg1);
             break;
         case SYS_GET_UPTIME:   // returns msecs since boot (32 bits = 49 days)
-            timer_get_uptime_msecs((uint64_t *)stack.passed.arg1);
+            sys_uptime((uint64_t *)stack.passed.arg1);
             break;
         case SYS_GET_CLOCK:   // arg1 = clocktime pointer
             sys_get_clocktime((clocktime_t *)stack.passed.arg1);

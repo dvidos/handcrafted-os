@@ -34,7 +34,9 @@
 #define DIGIT_16_BIT_BINARY                (0x0)
 #define DIGIT_FOUR_DIGIT_BCD               (0x1)
 
-// this will take thousands of years to overflow
+
+// 32 bits overflow in 49 days
+// 64 bits overflow in... 585 M years
 volatile uint64_t milliseconds_since_boot = 0;
 
 
@@ -57,6 +59,9 @@ void init_timer() {
 
 void timer_interrupt_handler(registers_t *regs) {
     milliseconds_since_boot++;
+    // if (milliseconds_since_boot % 1000 == 0)
+    //     printk("(%u)", milliseconds_since_boot / 1000);
+    
     ((void)regs);
 }
 

@@ -14,6 +14,9 @@
   * See https://wiki.osdev.org/Rolling_Your_Own_Bootloader
 
 
+* Improve the making process, by targeting a disk image that will contain everything.
+The boot sector, the kernel loader, the kernel, the user utilities.
+
 * find a way to have: output of one program can be the input to another.
 that is the unix philosophy. But can also allow us to assemble systems.
 For example we can have filters, routers, distributors, aggregators, etc.
@@ -241,3 +244,16 @@ that it is easy for processes to use a text output today, we could
 have gui windows than can choose between text, 2d and 3d surfaces.
 It should then be really easy to draw in a 2D surface, or draw 3D objects
 and have them rendered correctly.
+
+**Elastic memory management?**
+
+* Visionary memory management: similar to disks,
+instead of specific malloc() and free(), to have the ability 
+to create segments of memory, allow them to grow or shrink at will,
+and have them cleaned up later, maybe based on a bucket system or something.
+* The blocks of memory chunks should be steady, to allow for pointers to work,
+but reading/writing may need to be performed by functions, instead of memcpy(),
+because the blocks will not be sequential.
+* Unless, try to divide the memory into as big blocks as possible everytime,
+to allow room to grow.
+* Such thing would allow for dynamic strings, arrays, lists, collections, etc.
