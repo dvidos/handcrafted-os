@@ -1,5 +1,4 @@
 #include <ctypes.h>
-#include <bits.h>
 #include "data_structs.h"
 
 
@@ -22,7 +21,7 @@ static bool is_empty(heap *h) {
     return ((heap_data *)h->priv_data)->count == 0;
 }
 
-static bool length(heap *h) {
+static int length(heap *h) {
     return ((heap_data *)h->priv_data)->count;
 }
 

@@ -349,8 +349,7 @@ static list *list_map(list *l, mapper *mapper) {
 }
 
 static list *list_sort(list *l, comparer *compare) {
-    list_data *data = (list_data *)l->priv_data;
-    
+
     // create new list, using insertion sort.
     list *sorted = create_list();
     list_data *sorted_data = (list_data *)sorted->priv_data;

@@ -1,5 +1,4 @@
 #include <ctypes.h>
-#include <bits.h>
 #include "data_structs.h"
 
 typedef struct node {

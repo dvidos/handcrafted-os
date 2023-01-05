@@ -48,12 +48,15 @@ typedef signed long long int s64;
 #define true	((_Bool)1)
 #define false	((_Bool)0)
 
-typedef unsigned long int size_t;
-
 #define NULL    ((void *)0)
 
+typedef unsigned long int size_t;
 
+// find member offset. GCC has "__builtin_offsetof(type, member)", others do not.
+#define offsetof(type, member)     ((size_t)((char *)&(((type *)0)->member) - (char *)0))
 
+// get pointer to the parent structure that contains the pointed member, for mixins
+#define container_of(member_ptr, type, member)    (type *)((char *)member_ptr - offsetof(type, member))
 
 
 #endif

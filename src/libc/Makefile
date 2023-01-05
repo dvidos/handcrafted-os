@@ -21,7 +21,7 @@ SOURCE_FILES = \
 	$(wildcard metrics/*.c) \
 	$(wildcard metrics/*.c) \
 	$(wildcard sys/*.c) \
-	# $(wildcard data_structs/try_2/*.c)
+	$(wildcard data_structs/try_2/*.c)
 
 LIBC_OBJ_FILES = $(SOURCE_FILES:.c=.o)
 LIBK_OBJ_FILES = $(SOURCE_FILES:.c=.libk.o)

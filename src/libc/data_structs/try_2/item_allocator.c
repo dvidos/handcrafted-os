@@ -1,6 +1,10 @@
 #include <ctypes.h>
-#include <bits.h>
+#include <string.h>
 #include "data_structs.h"
+
+#define IS_BIT(value, bitno)       ((value) & (1 << (bitno)))
+#define SET_BIT(value, bitno)      ((value) | (1 << (bitno)))
+#define CLEAR_BIT(value, bitno)    ((value) & ~(1 << (bitno)))
 
 
 typedef struct allocation_bucket {
@@ -29,7 +33,7 @@ static allocation_bucket *create_bucket(allocator_data *data) {
     allocation_bucket *bucket = data_structs_malloc(size_to_allocate);
     memset(bucket, 0, size_to_allocate);
 
-    bucket->bitmaps = ((char *)bucket) + sizeof(allocation_bucket);
+    bucket->bitmaps = (uint32_t *)(((char *)bucket) + sizeof(allocation_bucket));
     bucket->data = ((char *)bucket->bitmaps) + bitmaps_bytes;
 
     return bucket;
