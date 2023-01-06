@@ -2,6 +2,7 @@
 #include <syscall.h>
 #include <stdlib.h>
 
+#ifdef __is_libc
 
 /**
  * As at the moment I have no idea how I will exec() any user land process,
@@ -42,3 +43,5 @@ void _start(int argc, char **argv, char **envp) {
     exit(exit_code);
 }
 
+
+#endif // __is_libc
