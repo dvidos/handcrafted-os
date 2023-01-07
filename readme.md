@@ -14,9 +14,11 @@ Early April 2022 I wrote a primitive bootloader in assembly. It would enter prot
 
 Fast forward a few months, a C kernel evolved. It supported screen and keyboard interaction, a basic memory heap, basic multitasking capabilities. 
 
-Support for file systems is what comes next. Focusing on FAT first, ext2 later. This will bring 
-the ability to load and execute user programs.
+Forward a few more months and file system support came next. We chose to implement a FAT as the first file system.
+With it, the ability for `open()`, `read()` from applications came, 
+as well as the ability for shell to load and execute a user program.
 
+The next frontier is either graphics mode (need a BIOS functionality for this) or networking.
 
 ## Goals
 

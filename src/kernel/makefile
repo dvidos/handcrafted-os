@@ -54,8 +54,7 @@ KERNEL_ASM_OBJS = $(KERNEL_GAS_FILES:.S=.o) $(KERNEL_NASM_FILES:.asm=.o)
 KERNEL_OBJ_DEPS = $(KERNEL_C_OBJS:.o=.d)
 
 
-# target to be executed when no arguments to make
-default: $(KERNEL_BIN)
+all: $(KERNEL_BIN)
 
 print:
 	@echo ---- kernel binary -----

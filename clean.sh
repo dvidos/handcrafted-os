@@ -6,8 +6,10 @@ cd src/libc && make clean
 cd ../..
 cd src/user && make clean
 cd ../..
-rm -rf tempdir
-rm -f qemu.log
+cd src/boot_sector && make clean
+cd ../..
+cd src/boot_loader && make clean
+cd ../..
 
 
 

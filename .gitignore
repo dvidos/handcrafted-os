@@ -1,35 +1,24 @@
 
+# editor settings
+.vscode/*
+
+# object files
 *.o
+
+# dependencies for makefiles
 *.d
-*.bin
-*.iso
+
+# precompiled headers
 *.gch
 
-# generated assembly files
+# generated (dis)assembly files
 *.dis
 
-# linker map file(s)
+# generated linker map file(s)
 *.map
 
-# generated preprocess output
+# generated preprocessed files
 *.pp
 
-kernel/*.o
-.vscode/*
-qemu*.log
-*.iso
-
-src/libc/*.a
-src/user/bin/*
-
-sysroot/bin/*
-sysroot/boot/*
-sysroot/usr/include
-sysroot/usr/lib
-
-tempdir
-
-a.out
-hcos.img
-bootable.img
-
+# logs created during execution
+*.log

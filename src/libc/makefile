@@ -37,6 +37,11 @@ SYSROOT_DIR = ../../sysroot
 
 all: libc.a libk.a
 
+print:
+	@echo ---- object files -----
+	@echo $(LIBC_OBJ_FILES)
+
+
 libc.a: $(LIBC_OBJ_FILES)
 	$(AR) rcs $@ $(LIBC_OBJ_FILES)
 
