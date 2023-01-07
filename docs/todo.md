@@ -1,5 +1,9 @@
 # things to do
 
+* fix libc makefile to use automatic dependencies, same as user binaries do
+* implement ability to run "make test" in libc, to run tests on development machine.
+
+
 * If I want to avoid grub and rely on my code 100%,
   * Implement a 2nd stage loader on sectors 2-31 of disk. This allows for 15 KB loader
   * Implement a data area of .. some KB for any information I want to load (e.g. fonts)
@@ -21,7 +25,6 @@ The boot sector, the kernel loader, the kernel, the user utilities.
 that is the unix philosophy. But can also allow us to assemble systems.
 For example we can have filters, routers, distributors, aggregators, etc.
 Not only for ascii data and line-by-line, but also json objects.
-
 
 
 * write learnings from this project, what threads we had open, and close for the season.
