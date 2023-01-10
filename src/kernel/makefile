@@ -13,7 +13,7 @@ LD = i686-elf-ld
 AS = i686-elf-as
 EMU = qemu-system-i386 -m 2G
 CFLAGS = -std=gnu99 -ffreestanding -O3 \
-		-Iinclude  \
+		-I./include  \
 		-I../libc/include \
 		-Wall \
 		-Wextra  \
@@ -66,7 +66,6 @@ print:
 	@echo ---- dependency files -----
 	@echo $(KERNEL_OBJ_DEPS)
 
-
 $(KERNEL_BIN): $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) linker.ld 
 	$(CC) -T linker.ld -o $@ -ffreestanding -O2 -nostdlib $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) -lgcc
 
@@ -79,9 +78,24 @@ $(KERNEL_BIN): $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_LIB) linker.ld
 %.o: %.S
 	$(AS) $< -o $@
 
+
+.PHONY: test
+test: tests/run_tests
+
+tests/run_tests: tests/run_tests.c $(SOURCE_FILES)
+	gcc -o tests/run_tests \
+		-m32 \
+		-I./include  \
+		-I../libc/include \
+		-D__is_libc  -D__is_tests \
+		tests/run_tests.c $(SOURCE_FILES) \
+		-Wno-builtin-declaration-mismatch
+	./tests/run_tests
+
+
 clean:
 	rm -f $(KERNEL_BIN) $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) $(KERNEL_OBJ_DEPS)
-	#rm -f *.bin */*.o */*/*.o  *.gch */*.gch */*/*.gch
+	rm -f tests/run_tests
 
 
 # include depenedencies files, produced by "gcc -MD"

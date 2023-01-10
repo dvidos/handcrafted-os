@@ -1,8 +1,13 @@
 # things to do
 
-* fix libc makefile to use automatic dependencies, same as user binaries do
-* implement ability to run "make test" in libc, to run tests on development machine.
+* Implement a "make test" functionality for kernel as well.
+Move the testing framework to the library and make a few tests
+to ensure usefulness.
 
+* Then derive a way to inject memory and disk dependencies into modules,
+for testing, e.g. for the FAT or ext2 filesystems or the memory allocator.
+Could be something like the global function pointers that data structures have.
+Get to a point where we are thoroughly unit testing the FAT code.
 
 * If I want to avoid grub and rely on my code 100%,
   * Implement a 2nd stage loader on sectors 2-31 of disk. This allows for 15 KB loader
@@ -32,6 +37,8 @@ Not only for ascii data and line-by-line, but also json objects.
 * make malloc uniform, it's bad to have two systems.
   * make it support some initialization, so we can initialize from either _start() or from kernel's main.
   * it will help us discover dependencies, like sbrk(), or log() etc.
+  * We could have malloc depend on initial address and a sbrk() call, where in kernel, 
+  it would call the page allocator, and in user land, it would call sbrk() via syscall.
 
 * validate mkdir, rmdir, touch, unlink work
 * make all fat code to use the sector and cluster of superblock. clean up local files and clusters.

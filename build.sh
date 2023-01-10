@@ -11,6 +11,7 @@ cd ../..
 
 echo Making kernel...
 cd src/kernel
+make test  # makes and runs tests
 make
 cd ../..
 
@@ -34,4 +35,4 @@ cd images
 make
 cd ../..
 
-
+echo Build finished without errors! Run or burn images as needed.

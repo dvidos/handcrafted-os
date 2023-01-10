@@ -87,6 +87,6 @@ $(NATIVE_DISK): $(BOOT_SECTOR_BIN) $(BOOT_LOADER_BIN) $(KERNEL_BIN) $(USER_BINAR
 
 clean:
 	@echo Leaving the images in place
-	# detach and unlink, ignoring error
-	sudo losetup -d $(LOOP_DEV) || true
-	sudo unlink $(LOOP_DEV)     || true
+	# detach and unlink, ignoring errors
+	[ -b $(LOOP_DEV) ] && sudo losetup -d $(LOOP_DEV) || true
+	[ -b $(LOOP_DEV) ] && sudo unlink $(LOOP_DEV)     || true

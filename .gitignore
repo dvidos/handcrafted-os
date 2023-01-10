@@ -22,3 +22,15 @@
 
 # logs created during execution
 *.log
+
+
+# binary files as they are created
+src/libc/libc.a
+src/libc/libk.a
+src/libc/tests/run_tests
+src/kernel/kernel.bin
+src/kernel/tests/run_tests
+src/boot_sector/boot_sector.bin
+src/boot_loader/boot_loader.bin
+src/user/bin/*
+

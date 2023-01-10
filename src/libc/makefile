@@ -55,16 +55,11 @@ libk.a: $(LIBK_OBJ_FILES)
 .c.libk.o:
 	$(CC) -c $< -o $@ $(LIBK_CFLAGS)
 
-clean:
-	rm -f libc.a libk.a *.a
-	rm -f $(LIBC_OBJ_FILES) $(LIBK_OBJ_FILES) *.o */*.o */*/*.o
-	rm -f $(LIBC_OBJ_FILES:.o=.d) $(LIBK_OBJ_FILES:.o=.d) *.d */*.d */*/*.d
-	rm -f $(LIBC_OBJ_DEPS)
-	rm -f tests/run_tests
-
 
 // .PHONY: test
-test: tests/run_tests.c $(SOURCE_FILES)
+test: tests/run_tests
+
+tests/run_tests: tests/run_tests.c $(SOURCE_FILES)
 	gcc -o tests/run_tests \
 		-m32 \
 		-I./include \
@@ -72,6 +67,14 @@ test: tests/run_tests.c $(SOURCE_FILES)
 		tests/run_tests.c $(SOURCE_FILES) \
 		-Wno-builtin-declaration-mismatch
 	./tests/run_tests
+
+clean:
+	rm -f libc.a libk.a *.a
+	rm -f $(LIBC_OBJ_FILES) $(LIBK_OBJ_FILES) *.o */*.o */*/*.o
+	rm -f $(LIBC_OBJ_FILES:.o=.d) $(LIBK_OBJ_FILES:.o=.d) *.d */*.d */*/*.d
+	rm -f $(LIBC_OBJ_DEPS)
+	rm -f tests/run_tests
+
 
 # include depenedencies files, produced by "gcc -MD"
 -include $(LIBC_OBJ_DEPS)
