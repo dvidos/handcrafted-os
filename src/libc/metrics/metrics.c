@@ -8,7 +8,7 @@
 
 
 #define MIN_ITERATIONS              1
-#define MAX_ITERATIONS         262144  // 256K`` times
+#define MAX_ITERATIONS         262144  // 256K times
 #define ITERATIONS_MULTIPLIER       4
 
 #define MAX_TIMING_WINDOW        1024

@@ -3,9 +3,12 @@
 #ifdef __is_libc
 
 
+// for tests we want the host system
+#ifndef __is_tests 
 int puts(char *message) {
     return syscall(SYS_PUTS, (int)message, 0, 0, 0, 0);
 }
+#endif
 
 int putchar(int c) {
     return syscall(SYS_PUTCHAR, c, 0, 0, 0, 0);

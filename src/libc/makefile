@@ -19,7 +19,6 @@ SOURCE_FILES = \
 	$(wildcard string/*.c) \
 	$(wildcard readline/*.c) \
 	$(wildcard metrics/*.c) \
-	$(wildcard metrics/*.c) \
 	$(wildcard sys/*.c) \
 	$(wildcard data_structs/try_2/*.c)
 
@@ -61,7 +60,18 @@ clean:
 	rm -f $(LIBC_OBJ_FILES) $(LIBK_OBJ_FILES) *.o */*.o */*/*.o
 	rm -f $(LIBC_OBJ_FILES:.o=.d) $(LIBK_OBJ_FILES:.o=.d) *.d */*.d */*/*.d
 	rm -f $(LIBC_OBJ_DEPS)
+	rm -f tests/run_tests
 
+
+// .PHONY: test
+test: tests/run_tests.c $(SOURCE_FILES)
+	gcc -o tests/run_tests \
+		-m32 \
+		-I./include \
+		-D__is_libc  -D__is_tests \
+		tests/run_tests.c $(SOURCE_FILES) \
+		-Wno-builtin-declaration-mismatch
+	./tests/run_tests
 
 # include depenedencies files, produced by "gcc -MD"
 -include $(LIBC_OBJ_DEPS)

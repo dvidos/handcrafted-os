@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #ifdef __is_libc
+#ifndef __is_tests  // if we are compiling for tests, we want the host system's crt0
 
 /**
  * As at the moment I have no idea how I will exec() any user land process,
@@ -44,4 +45,5 @@ void _start(int argc, char **argv, char **envp) {
 }
 
 
+#endif // not __is_tests
 #endif // __is_libc

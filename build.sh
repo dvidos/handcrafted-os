@@ -5,6 +5,7 @@ set -e
 
 echo Making libc...
 cd src/libc
+make test  # makes and runs tests
 make
 cd ../..
 
