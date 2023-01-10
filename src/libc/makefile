@@ -25,6 +25,8 @@ SOURCE_FILES = \
 
 LIBC_OBJ_FILES = $(SOURCE_FILES:.c=.o)
 LIBK_OBJ_FILES = $(SOURCE_FILES:.c=.libk.o)
+KERNEL_OBJ_DEPS = $(LIBC_OBJ_FILES:.o=.d)
+
 
 HEADER_FILES = \
 	$(wildcard include/*.h)
@@ -49,7 +51,7 @@ libk.a: $(LIBK_OBJ_FILES)
 	$(AR) rcs $@ $(LIBK_OBJ_FILES)
 
 .c.o:
-	$(CC) -c $< -o $@ $(LIBC_CFLAGS)
+	$(CC) -MD -c $< -o $@ $(LIBC_CFLAGS)
 
 .c.libk.o:
 	$(CC) -c $< -o $@ $(LIBK_CFLAGS)
@@ -58,4 +60,8 @@ clean:
 	rm -f libc.a libk.a *.a
 	rm -f $(LIBC_OBJ_FILES) $(LIBK_OBJ_FILES) *.o */*.o */*/*.o
 	rm -f $(LIBC_OBJ_FILES:.o=.d) $(LIBK_OBJ_FILES:.o=.d) *.d */*.d */*/*.d
+	rm -f $(LIBC_OBJ_DEPS)
 
+
+# include depenedencies files, produced by "gcc -MD"
+-include $(LIBC_OBJ_DEPS)
