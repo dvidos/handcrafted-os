@@ -18,3 +18,5 @@ cd ../..
 cd images && make clean
 cd ..
 
+rm -f qemu*.log
+
