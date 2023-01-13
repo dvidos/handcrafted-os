@@ -12,7 +12,7 @@ OBJ_FILES = $(SOURCE_FILES:.c=.o)
 DEP_FILES = $(OBJ_FILES:.o=.d)
 
 libtest.a: $(OBJ_FILES)
-	$(AR) rcs $@ $(LIBC_OBJ_FILES)
+	$(AR) rcs $@ $(OBJ_FILES)
 
 %.o: %.c
 	$(CC) -MD -c $< -o $@ $(CFLAGS)

@@ -9,7 +9,6 @@
 
 static struct test_suite test_suite;
 
-
 static void before_running_test_suite() {
     if (testing_framework_setup.heap_free != NULL)
         test_suite.free_heap_before = testing_framework_setup.heap_free();
@@ -63,7 +62,8 @@ static void before_running_test_case(test_case_t *tc) {
     test_suite.curr_test_case = tc;
 
     // this measurement after creating the test_case, but before any mock values
-    tc->free_heap_before = kernel_heap_free_size();
+
+    tc->free_heap_before = testing_framework_setup.heap_free == NULL ? 0 : testing_framework_setup.heap_free();
 }
 
 static void after_running_test_case(test_case_t *tc) {
@@ -82,8 +82,10 @@ static void after_running_test_case(test_case_t *tc) {
 
     // now we can clean this info up and verify heap
     tc->ops->free_mock_func_info(tc);
-    if (kernel_heap_free_size() != tc->free_heap_before)
-        fail("Test case memory leak suspected!", tc->unit_test->func_name);
+    if (testing_framework_setup.heap_free != NULL) {
+        if (testing_framework_setup.heap_free() != tc->free_heap_before)
+            fail("Test case memory leak suspected!", tc->unit_test->func_name);
+    }
 
     // we are not cleaning up the test case here, to allow for reporting (and investigating) later.
     test_suite.tests_performed++;

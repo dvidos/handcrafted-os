@@ -25,6 +25,7 @@
 
 
 # binary files as they are created
+src/libtest/libtest.a
 src/libc/libc.a
 src/libc/libk.a
 src/libc/tests/run_tests

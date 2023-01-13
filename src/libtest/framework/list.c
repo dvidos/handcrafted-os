@@ -4,6 +4,7 @@
 #include "setup.h"
 #include "list.h"
 
+
 static bool list_empty(list_node_t *head);
 static void list_add(list_node_t *head, void *key, void *payload);
 static void list_append(list_node_t *head, list_node_t *node);
@@ -14,6 +15,7 @@ static list_node_t *list_extract(list_node_t *head, list_node_t *node);
 static void list_remove(list_node_t *head, list_node_t *node, actor payload_cleaner, void *extra_data);
 static void list_debug(list_node_t *head);
 static void list_free(list_node_t *head, actor payload_cleaner, void *extra_data);
+
 
 struct list_node_ops list_node_ops = {
     .empty = list_empty,
@@ -110,7 +112,7 @@ static void list_debug(list_node_t *head) {
     }
     for_list (node, head) {
         testing_framework_setup.printf("- key  : %s", node->key);
-        log_debug_any_value("  value: ", node->payload);
+        testing_framework_setup.printf_value("  value: ", node->payload);
     }
 }
 

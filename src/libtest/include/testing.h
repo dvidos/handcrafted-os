@@ -1,8 +1,12 @@
 #ifndef _TESTING_H
 #define _TESTING_H
 
+#include <stdbool.h>
 
 // ----- framework functionality ------------------------------
+
+// the largest scalar type we can pass
+typedef unsigned long long scalar;
 
 // initialize the framework
 void testing_framework_init(
@@ -15,9 +19,7 @@ void testing_framework_init(
 void testing_framework_debug_setup();
 
 
-
 // ----- test suite macros & functions -----------------------
-
 
 #define FUNC_TYPE_TEST      1
 #define FUNC_TYPE_SETUP     2
@@ -29,11 +31,12 @@ typedef struct unit_test {
     int type; // see FUNC_TYPE_* defines
 } unit_test_t;
 
+bool run_test_suite(unit_test_t tests[], int num_tests);
 
 
 // used to run a suite of tests
 #define run_tests(tests)   \
-            _testing_framework_run_test_suite(tests, sizeof(tests)/sizeof(tests[0]))
+            run_test_suite(tests, sizeof(tests)/sizeof(tests[0]))
 
 // used to define an entry in the suite of tests
 #define unit_test(test_func)  \
@@ -60,11 +63,11 @@ typedef struct unit_test {
 
 // used in the test case function, to set mocked values for mock functions
 #define mock_value(mock_func_ptr, value)  \
-            _testing_framework_add_mock_value(#mock_func_ptr, value)
+            _testing_framework_add_mock_value(#mock_func_ptr, (scalar)value)
 
 // used in the test case function, to set expectation of argument of the mock function
 #define expect_arg(mock_func_ptr, argument, value)  \
-            _testing_framework_register_expected_value(#mock_func_ptr, #argument, (int)(value))
+            _testing_framework_register_expected_value(#mock_func_ptr, #argument, (scalar)(value))
 
 // used in the test case function, to test assertions
 #define assert(x)   \
@@ -75,8 +78,8 @@ typedef struct unit_test {
             _testing_framework_test_failed(msg, data, __FILE__, __LINE__)
 
 
-void _testing_framework_add_mock_value(const char *func_name, int value);
-void _testing_framework_register_expected_value(char *func_name, char *arg_name, int value);
+void _testing_framework_add_mock_value(const char *func_name, scalar value);
+void _testing_framework_register_expected_value(char *func_name, char *arg_name, scalar value);
 void _testing_framework_assert(int result, char *expression, const char *file, int line);
 void _testing_framework_test_failed(const char *message, const char *data, const char *file, int line);
 
@@ -90,15 +93,15 @@ void _testing_framework_test_failed(const char *message, const char *data, const
 
 // used in the mock function, to perform validation of argument against expectation
 #define check_num_arg(argument)  \
-            _testing_framework_check_numeric_argument(__FUNCTION__, #argument, (int)argument, __FILE__, __LINE__)
+            _testing_framework_check_numeric_argument(__FUNCTION__, #argument, (scalar)argument, __FILE__, __LINE__)
 
 // used in the mock function, to perform validation of argument against expectation
 #define check_str_arg(argument)  \
             _testing_framework_check_str_argument(__FUNCTION__, #argument, (char *)argument, __FILE__, __LINE__)
 
 
-int _testing_framework_pop_mock_value(const char *func_name, const char *file, int line);
-void _testing_framework_check_numeric_argument(char *func_name, char *arg_name, int value, const char *file, int line);
+scalar _testing_framework_pop_mock_value(const char *func_name, const char *file, int line);
+void _testing_framework_check_numeric_argument(char *func_name, char *arg_name, scalar value, const char *file, int line);
 void _testing_framework_check_str_argument(const char *func_name, char *arg_name, char *value, const char *file, int line);
 
 

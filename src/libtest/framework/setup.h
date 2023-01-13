@@ -5,6 +5,7 @@ struct testing_framework_setup {
     void *(*malloc)(unsigned size);
     void (*free)(void *address);
     void (*printf)(char *format, ...);
+    void (*printf_value)(const char *prefix, const void *value);
     unsigned long (*heap_free)();
 };
 
