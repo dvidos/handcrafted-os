@@ -4,6 +4,11 @@
 Move the testing framework to the library and make a few tests
 to ensure usefulness.
 
+* Maybe some very lean stack/queue/list implementations in a macro,
+similar to [this one](https://github.com/huawenyu/Design-Patterns-in-C/blob/master/auto-gen/util/stack.h), for example for use in the testing framework lists.
+
+* Start implementing a String class, to be used widely in many cases.
+
 * Then derive a way to inject memory and disk dependencies into modules,
 for testing, e.g. for the FAT or ext2 filesystems or the memory allocator.
 Could be something like the global function pointers that data structures have.
