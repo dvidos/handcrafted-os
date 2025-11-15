@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# IMPORTANT: If qemu captures the keyboard and mouse, you can get it back with Ctrl+Alt+G
+#            Also, toggle fullscreen with Ctrl+Alt+F
+
+
+
 # for qemu arguments, see qemu man page, or 
 # https://www.qemu.org/docs/master/system/qemu-manpage.html
 # some examples:
@@ -30,7 +35,8 @@ fi
 DISK_IMG="images/hcos.img"          # contains boot sectors, FAT file system and files
 CDROM_IMG="images/hcos-rescue.iso"  # contains boot & kernel only
 
-DISPLAY_OPTIONS="-display gtk,full-screen=on"
+# DISPLAY_OPTIONS="-display gtk,full-screen=on"
+DISPLAY_OPTIONS="-display gtk"
 
 CPU=486
 
