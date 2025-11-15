@@ -2,8 +2,7 @@
 
 #include <stdint.h>
 
-typedef struct sector_device      sector_device;
-
+typedef struct sector_device sector_device;
 
 typedef struct sector_device {
     uint32_t (*get_sector_size)(sector_device *device);  // typically 512 bytes
@@ -14,3 +13,4 @@ typedef struct sector_device {
 
     void *device_data;
 } sector_device;
+
