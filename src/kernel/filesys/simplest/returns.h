@@ -6,4 +6,5 @@
 #define ERR_NOT_SUPPORTED     -2
 #define ERR_OUT_OF_BOUNDS     -3
 #define ERR_NOT_PERMITTED     -4
+#define ERR_NOT_RECOGNIZED    -5
 
