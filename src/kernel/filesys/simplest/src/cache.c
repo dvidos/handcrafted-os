@@ -1,4 +1,4 @@
-#include "returns.h"
+#include "../dependencies/returns.h"
 #include "internal.h"
 #include <string.h>
 
@@ -148,11 +148,11 @@ static int cache_free_memory(cache_layer *cl) {
     cache_layer_data *data = (cache_layer_data *)cl->data;
 
     mem_allocator *mem = data->memory;
-    mem->free(mem, data->big_data_buffer);
-    mem->free(mem, data->slots_array);
-    mem->free(mem, data->used_blocks_bitmap);
-    mem->free(mem, data);
-    mem->free(mem, cl);
+    mem->release(mem, data->big_data_buffer);
+    mem->release(mem, data->slots_array);
+    mem->release(mem, data->used_blocks_bitmap);
+    mem->release(mem, data);
+    mem->release(mem, cl);
 
     return OK;
 }
@@ -184,7 +184,7 @@ cache_layer *new_cache_layer(mem_allocator *memory, sector_device *device, int b
     cl->read = cache_read;
     cl->write = cache_write;
     cl->flush = cache_flush;
-    cl->free_memory = cache_free_memory;
+    cl->release_memory = cache_free_memory;
     cl->data = data;
     return cl;
 }

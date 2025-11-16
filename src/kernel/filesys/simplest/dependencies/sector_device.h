@@ -4,7 +4,7 @@
 
 typedef struct sector_device sector_device;
 
-typedef struct sector_device {
+struct sector_device {
     uint32_t (*get_sector_size)(sector_device *device);  // typically 512 bytes
     uint32_t (*get_sector_count)(sector_device *device); // how many sectors
 
@@ -12,5 +12,5 @@ typedef struct sector_device {
     int (*write_sector)(sector_device *device, uint32_t sector_no, uint8_t *buffer);
 
     void *device_data;
-} sector_device;
+};
 

@@ -1,5 +1,5 @@
-#include "returns.h"
-#include "simplest_filesystem.h"
+#include "../dependencies/returns.h"
+#include "../simplest_filesystem.h"
 #include <stdlib.h>
 #include <string.h>
 #include "internal.h"
@@ -45,6 +45,7 @@
 #define MAX_OPEN_FILES    100   // later we can do this dynamic
 #define RANGES_IN_INODE     6
 #define ceiling_division(x, y)    (((x) + ((y)-1)) / (y))
+#define at_most(a, b)             ((b) < (a) ? (b) : (a))
 
 // -------------------------------------------------------
 
@@ -52,7 +53,7 @@ typedef struct filesys_data filesys_data;
 typedef struct runtime_data runtime_data;
 typedef struct superblock superblock;
 typedef struct block_range block_range;
-typedef struct inode_on_disk inode_on_disk;
+typedef struct inode inode;
 typedef struct inode_in_mem inode_in_mem;
 
 struct block_range { // target size: 8
@@ -60,7 +61,7 @@ struct block_range { // target size: 8
     uint32_t blocks_count;
 };
 
-struct inode_on_disk { // target size: 64
+struct inode { // target size: 64
     uint8_t flags; // 0=unused, 1=file, 2=dir, etc.
     // maybe permissions (e.g. xrwxrwxrw), and owner user/group
     // maybe creation and/or modification date, uint32, secondsfrom epoch
@@ -94,9 +95,6 @@ struct runtime_data {
     uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
     uint8_t *scratch_block_buffer;
     inode_in_mem *opened_inodes_in_mem; // array of structs in place
-
-    inode_on_disk inodes_db_inode;
-    inode_on_disk root_dir_inode;
 };
 
 struct superblock { // must be up to 512 bytes, in order to read from unknown device
@@ -108,11 +106,11 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     uint32_t used_blocks_bitmap_first_block;  // typically block 1 (0 is superblock)
     uint32_t used_blocks_bitmap_blocks_count;       // typically 1 through 16 blocks
 
-    uint8_t padding[512 - 4 - (sizeof(uint32_t) * RANGES_IN_INODE) - (sizeof(inode_on_disk) * 2)];
+    uint8_t padding[512 - 4 - (sizeof(uint32_t) * RANGES_IN_INODE) - (sizeof(inode) * 2)];
 
     // these two 2*64=128 bytes, still 1/4 of a block...
-    inode_on_disk inodes_database; // file with inodes. inode_no is the record number, zero based.
-    inode_on_disk root_directory;  // file with the entries for root directory. 
+    inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
+    inode root_dir_inode;  // file with the entries for root directory. 
 };
 
 // ------------------------------------------------------------------
@@ -121,7 +119,7 @@ struct inode_in_mem {
     // this is needed to avoid inode operations on disk directly.
     uint32_t flags; // is used, is dirty etc
     uint32_t inode_no;
-    inode_on_disk inode; // mirroring what is (or must be) on disk
+    inode inode; // mirroring what is (or must be) on disk
 };
 
 // ------------------------------------------------------------------
@@ -313,31 +311,36 @@ static int mark_block_free(filesys_data *data, uint32_t block_no) {
 
 // ------------------------------------------------------------------
 
-static int find_absolute_block_no(filesys_data *data, inode_on_disk *inode, uint32_t relative_block_no, uint32_t *absolute_block_no) {
+// given an inode, it resolves the relative block index in the file, into the block_no on the disk
+static int file_block_index_to_disk_block_no(filesys_data *data, inode *file_inode, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
     // relative_block_no is zero based here
 
     for (int i = 0; i < RANGES_IN_INODE; i++) {
-        block_range *range = &inode->ranges[i];
+        block_range *range = &file_inode->ranges[i];
 
         if (range->first_block_no == 0) {
             // we reached an empty range, therefore relative_block_no is out of bounds
             return ERR_OUT_OF_BOUNDS;
         }
-        if (relative_block_no < range->blocks_count) {
+        if (block_index_in_file < range->blocks_count) {
             // relative block is within this range
-            *absolute_block_no = range->first_block_no + relative_block_no;
+            *absolute_block_no = range->first_block_no + block_index_in_file;
             return OK;
         }
 
         // this could not go negative, because we just tested for less.
-        relative_block_no -= range->blocks_count;
+        block_index_in_file -= range->blocks_count;
     }
 
-    // we did not find it within the immediate inode ranges, go to the secondary one
-    int err = read_block_range(data, inode->indirect_ranges_block_no, 1, data->runtime->scratch_block_buffer);
+    // we did not find it within the immediate inode ranges, load to the secondary one
+    int err = data->runtime->cache->read(data->runtime->cache,
+        file_inode->indirect_ranges_block_no, 0, 
+        data->runtime->scratch_block_buffer, 
+        data->runtime->superblock->block_size_in_bytes
+    );
     if (err != OK) return err;
 
-    // now do the same
+    // now do the same, for all ranges in the block (e.g. with 512 bytes block, there's 8 more ranges, with 4K, there's 64 ranges)
     int ranges_in_block = data->runtime->superblock->block_size_in_bytes / sizeof(block_range);
     for (int i = 0; i < ranges_in_block; i++) {
         block_range *range = (block_range *)(data->runtime->scratch_block_buffer + i * sizeof(block_range));
@@ -346,18 +349,18 @@ static int find_absolute_block_no(filesys_data *data, inode_on_disk *inode, uint
             // we reached an empty range, therefore relative_block_no is out of bounds
             return ERR_OUT_OF_BOUNDS;
         }
-        if (relative_block_no < range->blocks_count) {
+        if (block_index_in_file < range->blocks_count) {
             // relative block is within this range
-            *absolute_block_no = range->first_block_no + relative_block_no;
+            *absolute_block_no = range->first_block_no + block_index_in_file;
             return OK;
         }
 
         // this could not go negative, because we just tested for less.
-        relative_block_no -= range->blocks_count;
+        block_index_in_file -= range->blocks_count;
     }
 
-    // if here, we also exhausted all ranges, relative_block is outside of them all
-    // it means we need more ranges, or two-step ranges for bigger files.
+    // if here, we have exhausted all ranges, relative_block is outside of them all
+    // it means we need more ranges, or two-step ranges for bigger files. but... for another day.
     return ERR_OUT_OF_BOUNDS;
 }
 
@@ -365,29 +368,30 @@ static int read_inode_from_inodes_database(filesys_data *data, int inode_no, ino
     int err;
 
     // find the block where this inode is stored in
-    uint32_t inodes_per_block = data->runtime->superblock->block_size_in_bytes / sizeof(inode_on_disk);
-    uint32_t relative_block_no = inode_no / inodes_per_block;
-    uint32_t absolute_block_no = 0;
-    err = find_absolute_block_no(data, &data->runtime->inodes_db_inode, relative_block_no, &absolute_block_no);
+    uint32_t inodes_per_block = data->runtime->superblock->block_size_in_bytes / sizeof(inode);
+    uint32_t block_index_in_file = inode_no / inodes_per_block;
+    uint32_t disk_block_no = 0;
+    err = file_block_index_to_disk_block_no(data, &data->runtime->superblock->inodes_db_inode, block_index_in_file, &disk_block_no);
     if (err != OK) return err;
 
     // now we know the absolute block, we can read it
-    err = read_block_range(data, absolute_block_no, 1, data->runtime->scratch_block_buffer);
+    uint32_t offset_in_block = (inode_no % inodes_per_block) * sizeof(inode);
+    err = data->runtime->cache->read(data->runtime->cache, disk_block_no, offset_in_block, &target->inode, sizeof(inode));
     if (err != OK) return err;
-    uint32_t inode_relative_no = inode_no % inodes_per_block;
 
     target->flags = 0; // not dirty
     target->inode_no = inode_no;
-    memcpy(&target->inode, data->runtime->scratch_block_buffer + (inode_relative_no * sizeof(inode_on_disk)), sizeof(inode_on_disk));
     return OK;
 }
 
 static int write_inode_to_inodes_database() {
     return ERR_NOT_IMPLEMENTED;
 }
+
 static int insert_inode_to_inodes_database() {
     return ERR_NOT_IMPLEMENTED;
 }
+
 static int delete_inode_from_inodes_database() {
     return ERR_NOT_IMPLEMENTED;
 }
@@ -415,7 +419,7 @@ static int sfs_mount(simplest_filesystem *sfs, int readonly) {
     superblock *tmpsb = (superblock *)temp_sector;
     int recognized = memcmp(tmpsb->magic, "SFS1", 4) == 0;
     if (!recognized) {
-        free(temp_sector);
+        data->memory->release(data->memory, temp_sector);
         return ERR_NOT_RECOGNIZED;
     }
 
@@ -440,7 +444,7 @@ static int sfs_mount(simplest_filesystem *sfs, int readonly) {
     );
 
     // make sure to free early, before anything else
-    free(temp_sector);
+    data->memory->release(data->memory, temp_sector);
     if (err != OK) return err;
 
     // read used blocks bitmap from disk
@@ -498,13 +502,13 @@ static int sfs_unmount(simplest_filesystem *sfs) {
         if (err != OK) return err;
     }
 
-    data->runtime->cache->free_memory(data->runtime->cache);
+    data->runtime->cache->release_memory(data->runtime->cache);
 
-    free(data->runtime->superblock);
-    free(data->runtime->used_blocks_bitmap);
-    free(data->runtime->scratch_block_buffer);
-    free(data->runtime->opened_inodes_in_mem);
-    free(data->runtime);
+    data->memory->release(data->memory, data->runtime->superblock);
+    data->memory->release(data->memory, data->runtime->used_blocks_bitmap);
+    data->memory->release(data->memory, data->runtime->scratch_block_buffer);
+    data->memory->release(data->memory, data->runtime->opened_inodes_in_mem);
+    data->memory->release(data->memory, data->runtime);
     data->runtime = NULL;
 
     return OK;
@@ -512,16 +516,58 @@ static int sfs_unmount(simplest_filesystem *sfs) {
 
 // ------------------------------------------------------------------
 
-static sfs_handle *sfs_open(char *filename, int options) {
+static sfs_handle *sfs_open(simplest_filesystem *sfs, char *filename, int options) {
+    // need to walk the directories to find the inode
+    // then, need to load the inode into the open_files -> inode_in_memory
+    // then, create a handle to point to this inode_in_memory
     return NULL;
 }
-static int sfs_read(sfs_handle *h, uint32_t size, void *buffer) {
+
+static int sfs_read(simplest_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer) {
+    if (sfs == NULL || sfs->sfs_data == NULL)
+        return ERR_NOT_SUPPORTED;
+    filesys_data *data = (filesys_data *)sfs->sfs_data;
+    if (data->runtime == NULL)
+        return ERR_NOT_SUPPORTED;
+    superblock *sb = data->runtime->superblock;
+
+    uint32_t file_block_index = h->file_position / sb->block_size_in_bytes;
+    uint32_t offset_in_block  = h->file_position % sb->block_size_in_bytes;
+    int bytes_read = 0;
+
+    while (size > 0) {
+        if (h->file_position >= h->inode_in_mem->inode.file_size)
+            break;
+        
+        uint32_t block_on_disk = 0;
+        int err = file_block_index_to_disk_block_no(data, &h->inode_in_mem->inode, file_block_index, &block_on_disk);
+        if (err != OK) return err;
+
+        // read within the file, within the block
+        uint32_t chunk_size = size;
+        chunk_size = at_most(chunk_size, sb->block_size_in_bytes - offset_in_block);
+        chunk_size = at_most(chunk_size, h->inode_in_mem->inode.file_size - h->file_position);
+
+        // read this chunk
+        err = data->runtime->cache->read(data->runtime->cache, block_on_disk, offset_in_block, buffer, chunk_size);
+        if (err != OK) return err;
+
+        size -= chunk_size;
+        buffer += chunk_size;
+        h->file_position += chunk_size;
+        file_block_index += 1;
+        offset_in_block = 0;
+        bytes_read += chunk_size;
+    }
+
+    return bytes_read;
+}
+
+static int sfs_write(simplest_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer) {
     return ERR_NOT_IMPLEMENTED;
 }
-static int sfs_write(sfs_handle *h, uint32_t size, void *buffer) {
-    return ERR_NOT_IMPLEMENTED;
-}
-static int sfs_close(sfs_handle *h) {
+
+static int sfs_close(simplest_filesystem *sfs, sfs_handle *h) {
     return ERR_NOT_IMPLEMENTED;
 }
 
@@ -529,7 +575,7 @@ static int sfs_close(sfs_handle *h) {
 
 simplest_filesystem *new_simplest_filesystem(mem_allocator *memory, sector_device *device) {
 
-    if (sizeof(inode_on_disk) != 64) // written on disk, must be same size
+    if (sizeof(inode) != 64) // written on disk, must be same size
         return NULL;
     if (sizeof(superblock) != 512) // must be able to load in a single 512B sector
         return NULL;
