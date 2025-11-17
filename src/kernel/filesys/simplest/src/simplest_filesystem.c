@@ -4,7 +4,6 @@
 #include <string.h>
 #include "internal.h"
 
-
 /*
     Simplest file system, as a fun exercise.
     - reading/writing in blocks. Each block can be 512, 1K, 2K or 4K.
@@ -36,7 +35,6 @@
         - in memory copy of the inode, along with a "is-dirty" flag, maybe open handles count (cached in filesys)
         - in memory file handle with pointer to file location, open flags, in-mem-inode reference (cached in apps)
 */
-
 
 #define KB   (1024)
 #define MB   (1024*KB)
@@ -324,6 +322,10 @@ static inline int is_range_used(block_range *range) {
     return range->first_block_no != 0;
 }
 
+static inline int is_range_empty(block_range *range) {
+    return range->first_block_no == 0;
+}
+
 static inline uint32_t range_last_block_no(block_range *range) {
     return range->first_block_no + range->blocks_count - 1;
 }
@@ -341,7 +343,7 @@ static inline int check_or_consume_blocks_in_range(block_range *range, uint32_t 
 }
 
 static inline void find_last_used_and_first_free_range(block_range *ranges_array, int ranges_count, int *last_used_idx, int *first_free_idx) {
-    if (!is_range_used(&ranges_array[0])) {
+    if (is_range_empty(&ranges_array[0])) {
         *last_used_idx = -1;
         *first_free_idx = 0;
     } else if (is_range_used(&ranges_array[ranges_count - 1])) {
@@ -349,7 +351,7 @@ static inline void find_last_used_and_first_free_range(block_range *ranges_array
         *first_free_idx = -1;
     } else {
         for (int i = 1; i < ranges_count; i++) {
-            if (is_range_used(&ranges_array[i - 1]) && !is_range_used(&ranges_array[i])) {
+            if (is_range_used(&ranges_array[i - 1]) && is_range_empty(&ranges_array[i])) {
                 *last_used_idx = i - 1;
                 *first_free_idx = i;
                 return;
@@ -395,7 +397,7 @@ static int find_block_no_from_file_block_index(runtime_data *rt, inode *file_ino
 
     // first, try the inline ranges
     for (int i = 0; i < RANGES_IN_INODE; i++) {
-        if (!is_range_used(&file_inode->ranges[i]))
+        if (is_range_empty(&file_inode->ranges[i]))
             return ERR_OUT_OF_BOUNDS;
         if (check_or_consume_blocks_in_range(&file_inode->ranges[i], &block_index_in_file, absolute_block_no))
             return OK;
@@ -411,7 +413,7 @@ static int find_block_no_from_file_block_index(runtime_data *rt, inode *file_ino
         int err = rt->cache->read(rt->cache, file_inode->indirect_ranges_block_no, sizeof(block_range) * i, &range, sizeof(block_range));
         if (err != OK) return err;
 
-        if (!is_range_used(&range))
+        if (is_range_empty(&range))
             return ERR_OUT_OF_BOUNDS;
         if (check_or_consume_blocks_in_range(&range, &block_index_in_file, absolute_block_no))
             return OK;
@@ -422,6 +424,7 @@ static int find_block_no_from_file_block_index(runtime_data *rt, inode *file_ino
     return ERR_OUT_OF_BOUNDS;
 }
 
+// try to extend, allocate new, or fail to fallback
 static int add_block_to_array_of_ranges(runtime_data *rt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no) {
     int last_used_idx;
     int first_free_idx;
