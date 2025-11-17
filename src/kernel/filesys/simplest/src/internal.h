@@ -11,6 +11,7 @@ typedef struct cache_layer cache_layer;
 struct cache_layer {
     int (*read)(cache_layer *cl, uint32_t block_no, int offset_in_block, void *buffer, int length);
     int (*write)(cache_layer *cl, uint32_t block_no, int offset_in_block, void *buffer, int length);
+    int (*wipe)(cache_layer *cl, uint32_t block_no);  // wipes a block with zeros, in prep for writing
     int (*flush)(cache_layer *cl);
     int (*release_memory)(cache_layer *cl);
     void *data;

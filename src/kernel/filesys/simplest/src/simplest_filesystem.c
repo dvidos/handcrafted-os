@@ -46,6 +46,7 @@
 #define RANGES_IN_INODE     6
 #define ceiling_division(x, y)    (((x) + ((y)-1)) / (y))
 #define at_most(a, b)             ((b) < (a) ? (b) : (a))
+#define in_range(value, low, hi)             ((value) < (low) ? (low) : ((value) > (hi) ? (hi) : (value)))
 
 // -------------------------------------------------------
 
@@ -261,107 +262,256 @@ static int copy_block_range(filesys_data *data, uint32_t source_first_block, uin
     return OK;
 }
 
-static int is_block_used(filesys_data *data, uint32_t block_no) {
-    if (data->runtime == NULL)
-        return ERR_NOT_SUPPORTED;
-    superblock *sb = data->runtime->superblock;
-    if (sb == NULL)
-        return ERR_NOT_SUPPORTED;
-    if (block_no >= sb->blocks_in_device)
-        return ERR_OUT_OF_BOUNDS;
-    
-    int byte_no = block_no / 8;
-    int bit_no = block_no % 8;
-    return data->runtime->used_blocks_bitmap[byte_no] & (0x01 << bit_no);
+// ------------------------------------------------------------------
+
+static inline int is_block_used(runtime_data *rt, uint32_t block_no) {
+    register int byte_no = (block_no / 8);
+    register uint8_t mask = 1 << (block_no % 8);
+    return (rt->used_blocks_bitmap[byte_no] & mask) != 0;
 }
 
-static int mark_block_used(filesys_data *data, uint32_t block_no) {
-    if (data->runtime == NULL)
-        return ERR_NOT_SUPPORTED;
-    if (data->runtime->readonly)
-        return ERR_NOT_PERMITTED;
-    superblock *sb = data->runtime->superblock;
-    if (sb == NULL)
-        return ERR_NOT_SUPPORTED;
-    if (block_no >= sb->blocks_in_device)
-        return ERR_OUT_OF_BOUNDS;
-    
-    int byte_no = block_no / 8;
-    int bit_no = block_no % 8;
-    data->runtime->used_blocks_bitmap[byte_no] |= (0x01 << bit_no);
+static inline int is_block_free(runtime_data *rt, uint32_t block_no) {
+    register int byte_no = block_no / 8;
+    register uint8_t mask = 1 << (block_no % 8);
+    return (rt->used_blocks_bitmap[byte_no] & mask) == 0;
+}
+
+static inline void mark_block_used(runtime_data *rt, uint32_t block_no) {
+    register int byte_no = block_no / 8;
+    register uint8_t mask = 1 << (block_no % 8);
+    rt->used_blocks_bitmap[byte_no] |= mask;
+}
+
+static inline void mark_block_free(runtime_data *rt, uint32_t block_no) {
+    register int byte_no = block_no / 8;
+    register uint8_t mask = 1 << (block_no % 8);
+    rt->used_blocks_bitmap[byte_no] &= ~mask;
+}
+
+static int find_any_free_block(runtime_data *rt, uint32_t *block_no) {
+    int bytes_in_bitmap = ceiling_division(rt->superblock->blocks_in_device, 8);
+    int byte_index = 0;
+    int bit_index = 0;
+
+    // first find a non-filled byte
+    for (byte_index = 0; byte_index < bytes_in_bitmap; byte_index++) {
+        if (rt->used_blocks_bitmap[byte_index] != 0xFF)
+            break;
+    }
+
+    // maybe all blocks are used, no more available space
+    if (byte_index >= bytes_in_bitmap)
+        return ERR_RESOURCES_EXHAUSTED; 
+
+    // find the free bit in this byte
+    uint8_t byte_value = rt->used_blocks_bitmap[byte_index];
+    for (bit_index = 0; bit_index < 8; bit_index++) {
+        if ((byte_value & (1 << bit_index)) == 0)
+            break;
+    }
+
+    // should not happen, but...
+    if (bit_index >= 8)
+        return ERR_RESOURCES_EXHAUSTED;
+
+    *block_no = (byte_index * 8) + bit_index;
     return OK;
 }
 
-static int mark_block_free(filesys_data *data, uint32_t block_no) {
-    if (data->runtime == NULL)
+// ------------------------------------------------------------------
+
+static inline int is_range_used(block_range *range) {
+    return range->first_block_no != 0;
+}
+
+static inline uint32_t range_last_block_no(block_range *range) {
+    return range->first_block_no + range->blocks_count - 1;
+}
+
+static inline int check_or_consume_blocks_in_range(block_range *range, uint32_t *relative_block_no, uint32_t *absolute_block_no) {
+    if (*relative_block_no < range->blocks_count) {
+        // we are within range!
+        *absolute_block_no = range->first_block_no + *relative_block_no;
+        return 1;
+    } else {
+        // we are not within range, consume this one
+        *relative_block_no -= range->blocks_count;
+        return 0;
+    }
+}
+
+static inline void find_last_used_and_first_free_range(block_range *ranges_array, int ranges_count, int *last_used_idx, int *first_free_idx) {
+    if (!is_range_used(&ranges_array[0])) {
+        *last_used_idx = -1;
+        *first_free_idx = 0;
+    } else if (is_range_used(&ranges_array[ranges_count - 1])) {
+        *last_used_idx = ranges_count - 1;
+        *first_free_idx = -1;
+    } else {
+        for (int i = 1; i < ranges_count; i++) {
+            if (is_range_used(&ranges_array[i - 1]) && !is_range_used(&ranges_array[i])) {
+                *last_used_idx = i - 1;
+                *first_free_idx = i;
+                return;
+            }
+        }
+
+        // should not happen, but...
+        *last_used_idx = -1;
+        *first_free_idx = -1;
+    }
+}
+
+static inline int initialize_range_by_allocating_block(runtime_data *rt, block_range *range, uint32_t *block_no) {
+    uint32_t new_block_no = 0;
+    int err = find_any_free_block(rt, &new_block_no);
+    if (err != OK) return err;
+
+    mark_block_used(rt, new_block_no);
+    rt->cache->wipe(rt->cache, new_block_no);
+    range->first_block_no = new_block_no;
+    range->blocks_count = 1;
+    *block_no = new_block_no;
+    return OK;
+}
+
+static inline int extend_range_by_allocating_block(runtime_data *rt, block_range *range, uint32_t *block_no) {
+    uint32_t next_block_no = range_last_block_no(range) + 1;
+    if (!is_block_free(rt, next_block_no))
         return ERR_NOT_SUPPORTED;
-    if (data->runtime->readonly)
-        return ERR_NOT_PERMITTED;
-    superblock *sb = data->runtime->superblock;
-    if (sb == NULL)
-        return ERR_NOT_SUPPORTED;
-    if (block_no >= sb->blocks_in_device)
-        return ERR_OUT_OF_BOUNDS;
-    
-    int byte_no = block_no / 8;
-    int bit_no = block_no % 8;
-    data->runtime->used_blocks_bitmap[byte_no] &= ~(0x01 << bit_no);
+
+    // so that block is free, we can use it.
+    mark_block_used(rt, next_block_no);
+    rt->cache->wipe(rt->cache, next_block_no);
+    range->blocks_count++;
+    *block_no = next_block_no;
     return OK;
 }
 
 // ------------------------------------------------------------------
 
 // given an inode, it resolves the relative block index in the file, into the block_no on the disk
-static int file_block_index_to_disk_block_no(filesys_data *data, inode *file_inode, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
-    // relative_block_no is zero based here
+static int find_block_no_from_file_block_index(runtime_data *rt, inode *file_inode, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
 
+    // first, try the inline ranges
     for (int i = 0; i < RANGES_IN_INODE; i++) {
-        block_range *range = &file_inode->ranges[i];
-
-        if (range->first_block_no == 0) {
-            // we reached an empty range, therefore relative_block_no is out of bounds
+        if (!is_range_used(&file_inode->ranges[i]))
             return ERR_OUT_OF_BOUNDS;
-        }
-        if (block_index_in_file < range->blocks_count) {
-            // relative block is within this range
-            *absolute_block_no = range->first_block_no + block_index_in_file;
+        if (check_or_consume_blocks_in_range(&file_inode->ranges[i], &block_index_in_file, absolute_block_no))
             return OK;
-        }
-
-        // this could not go negative, because we just tested for less.
-        block_index_in_file -= range->blocks_count;
     }
 
-    // we did not find it within the immediate inode ranges, load to the secondary one
-    int err = data->runtime->cache->read(data->runtime->cache,
-        file_inode->indirect_ranges_block_no, 0, 
-        data->runtime->scratch_block_buffer, 
-        data->runtime->superblock->block_size_in_bytes
-    );
-    if (err != OK) return err;
-
-    // now do the same, for all ranges in the block (e.g. with 512 bytes block, there's 8 more ranges, with 4K, there's 64 ranges)
-    int ranges_in_block = data->runtime->superblock->block_size_in_bytes / sizeof(block_range);
+    // if there is no extra ranges block, we cannot find it
+    if (file_inode->indirect_ranges_block_no == 0)
+        return ERR_OUT_OF_BOUNDS;
+    
+    int ranges_in_block = rt->superblock->block_size_in_bytes / sizeof(block_range);
+    block_range range;
     for (int i = 0; i < ranges_in_block; i++) {
-        block_range *range = (block_range *)(data->runtime->scratch_block_buffer + i * sizeof(block_range));
+        int err = rt->cache->read(rt->cache, file_inode->indirect_ranges_block_no, sizeof(block_range) * i, &range, sizeof(block_range));
+        if (err != OK) return err;
 
-        if (range->first_block_no == 0) {
-            // we reached an empty range, therefore relative_block_no is out of bounds
+        if (!is_range_used(&range))
             return ERR_OUT_OF_BOUNDS;
-        }
-        if (block_index_in_file < range->blocks_count) {
-            // relative block is within this range
-            *absolute_block_no = range->first_block_no + block_index_in_file;
+        if (check_or_consume_blocks_in_range(&range, &block_index_in_file, absolute_block_no))
             return OK;
-        }
-
-        // this could not go negative, because we just tested for less.
-        block_index_in_file -= range->blocks_count;
     }
 
     // if here, we have exhausted all ranges, relative_block is outside of them all
     // it means we need more ranges, or two-step ranges for bigger files. but... for another day.
     return ERR_OUT_OF_BOUNDS;
+}
+
+static int add_block_to_array_of_ranges(runtime_data *rt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no) {
+    int last_used_idx;
+    int first_free_idx;
+    int err;
+
+    // by default, we won't need to use the fallback.
+    *use_fallback = 0;
+
+    find_last_used_and_first_free_range(ranges_array, ranges_count, &last_used_idx, &first_free_idx);
+    if (first_free_idx >= 0) {
+
+        // if there is one already use, try to extend it.
+        if (last_used_idx >= 0) {
+            err = extend_range_by_allocating_block(rt, &ranges_array[last_used_idx], new_block_no);
+            // if successful, we are good
+            if (err == OK) return OK;
+        }
+
+        // there is nothing to extend, or we failed to extend. allocate the free one
+        err = initialize_range_by_allocating_block(rt, &ranges_array[first_free_idx], new_block_no);
+        if (err != OK) return err;
+
+        return OK;
+    }
+
+    // so, no free ranges are available, we may have an indirect block though
+    // only if there is one last used, and there is no indirect, there is a reason to try to extend
+    if (!fallback_available && last_used_idx >= 0) {
+        err = extend_range_by_allocating_block(rt, &ranges_array[last_used_idx], new_block_no);
+        // if successful, we are good
+        if (err == OK) return OK;
+    }
+
+    // there is no fallback, it's a clear failure
+    if (!fallback_available) {
+        use_fallback = 0;
+        return ERR_RESOURCES_EXHAUSTED;
+    }
+    
+    // in all other cases (including failing to extend), we need the indirect block
+    *use_fallback = 1;
+    return OK;
+}
+
+static int add_data_block_to_file(runtime_data *rt, inode *inode, uint32_t *absolute_block_no) {
+    int err;
+    int use_indirect_block;
+
+    err = add_block_to_array_of_ranges(rt, 
+        inode->ranges, RANGES_IN_INODE, 
+        inode->indirect_ranges_block_no != 0, &use_indirect_block, 
+        absolute_block_no);
+    if (err == OK && !use_indirect_block) return OK;
+    
+    // so either we failed, or we need the indirect block
+    if (!use_indirect_block)
+        return err;
+    
+    // load or create the indirect block?
+    if (inode->indirect_ranges_block_no == 0) {
+        err = find_any_free_block(rt, &inode->indirect_ranges_block_no);
+        if (err != OK) return err;
+        mark_block_used(rt, inode->indirect_ranges_block_no);
+        err = rt->cache->wipe(rt->cache, inode->indirect_ranges_block_no);
+        if (err != OK) return err;
+    } else {
+        err = rt->cache->read(rt->cache, 
+            inode->indirect_ranges_block_no, 0,
+            rt->scratch_block_buffer,
+            rt->superblock->block_size_in_bytes);
+        if (err != OK) return err;
+    }
+
+    err = add_block_to_array_of_ranges(rt, 
+        (block_range *)rt->scratch_block_buffer, 
+        rt->superblock->block_size_in_bytes / sizeof(block_range), 
+        0, // no fallback exists
+        &use_indirect_block, // actualy, we don't care
+        absolute_block_no);
+    if (err != OK) return err;
+
+    // write back the changes
+    err = rt->cache->write(rt->cache, 
+        inode->indirect_ranges_block_no, 0,
+        rt->scratch_block_buffer,
+        rt->superblock->block_size_in_bytes);
+    if (err != OK) return err;
+
+    // finally! this was a lot!
+    return OK;
 }
 
 static int read_inode_from_inodes_database(filesys_data *data, int inode_no, inode_in_mem *target) {
@@ -371,7 +521,7 @@ static int read_inode_from_inodes_database(filesys_data *data, int inode_no, ino
     uint32_t inodes_per_block = data->runtime->superblock->block_size_in_bytes / sizeof(inode);
     uint32_t block_index_in_file = inode_no / inodes_per_block;
     uint32_t disk_block_no = 0;
-    err = file_block_index_to_disk_block_no(data, &data->runtime->superblock->inodes_db_inode, block_index_in_file, &disk_block_no);
+    err = find_block_no_from_file_block_index(data->runtime, &data->runtime->superblock->inodes_db_inode, block_index_in_file, &disk_block_no);
     if (err != OK) return err;
 
     // now we know the absolute block, we can read it
@@ -540,7 +690,7 @@ static int sfs_read(simplest_filesystem *sfs, sfs_handle *h, uint32_t size, void
             break;
         
         uint32_t block_on_disk = 0;
-        int err = file_block_index_to_disk_block_no(data, &h->inode_in_mem->inode, file_block_index, &block_on_disk);
+        int err = find_block_no_from_file_block_index(data->runtime, &h->inode_in_mem->inode, file_block_index, &block_on_disk);
         if (err != OK) return err;
 
         // read within the file, within the block
@@ -548,10 +698,11 @@ static int sfs_read(simplest_filesystem *sfs, sfs_handle *h, uint32_t size, void
         chunk_size = at_most(chunk_size, sb->block_size_in_bytes - offset_in_block);
         chunk_size = at_most(chunk_size, h->inode_in_mem->inode.file_size - h->file_position);
 
-        // read this chunk
+        // read this chunk from this block
         err = data->runtime->cache->read(data->runtime->cache, block_on_disk, offset_in_block, buffer, chunk_size);
         if (err != OK) return err;
 
+        // maybe we blead to subsequent block(s)
         size -= chunk_size;
         buffer += chunk_size;
         h->file_position += chunk_size;
@@ -564,11 +715,99 @@ static int sfs_read(simplest_filesystem *sfs, sfs_handle *h, uint32_t size, void
 }
 
 static int sfs_write(simplest_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer) {
-    return ERR_NOT_IMPLEMENTED;
+    int err;
+
+    if (sfs == NULL || sfs->sfs_data == NULL)
+        return ERR_NOT_SUPPORTED;
+    filesys_data *data = (filesys_data *)sfs->sfs_data;
+    if (data->runtime == NULL)
+        return ERR_NOT_SUPPORTED;
+    if (data->runtime->readonly)
+        return ERR_NOT_PERMITTED;
+    superblock *sb = data->runtime->superblock;
+
+    // we can write at most at end of file.
+    if (h->file_position >= h->inode_in_mem->inode.file_size)
+        h->file_position = h->inode_in_mem->inode.file_size;
+
+    uint32_t file_block_index = h->file_position / sb->block_size_in_bytes;
+    uint32_t offset_in_block  = h->file_position % sb->block_size_in_bytes;
+    int bytes_written = 0;
+
+    // start writing chunks, extend file as needed
+    while (size > 0) {
+        uint32_t block_on_disk = 0;
+
+        // do we need to extend the file?
+        // TODO: we may have more allocated than just the file size (e.g . file_size = 123, block_size = 4096)
+        if (h->file_position >= h->inode_in_mem->inode.file_size) {
+            err = add_data_block_to_file(data->runtime, &h->inode_in_mem->inode, &block_on_disk);
+            if (err != OK) return err;
+        } else {
+            err = find_block_no_from_file_block_index(data->runtime, &h->inode_in_mem->inode, file_block_index, &block_on_disk);
+            if (err != OK) return err;
+        }
+
+        // write within the block only
+        uint32_t chunk_size = at_most(size, sb->block_size_in_bytes - offset_in_block);
+
+        // write this chunk from this block
+        err = data->runtime->cache->write(data->runtime->cache, block_on_disk, offset_in_block, buffer, chunk_size);
+        if (err != OK) return err;
+
+        // we may have subsequent block(s)
+        size -= chunk_size;
+        buffer += chunk_size;
+        h->file_position += chunk_size;
+        file_block_index += 1;
+        offset_in_block = 0;
+        bytes_written += chunk_size;
+    }
+
+    return bytes_written;
 }
 
 static int sfs_close(simplest_filesystem *sfs, sfs_handle *h) {
-    return ERR_NOT_IMPLEMENTED;
+    // we need to flush out all the open cache slots of this file
+    // we need to save inode info to disk
+   return ERR_NOT_IMPLEMENTED;
+}
+
+static int sfs_seek(simplest_filesystem *sfs, sfs_handle *h, int offset, int origin) {
+    if (origin == 0) {  // from start
+
+        if (offset < 0)
+            offset = 0;
+        else if (offset > h->inode_in_mem->inode.file_size)
+            offset = h->inode_in_mem->inode.file_size;
+
+        h->file_position = offset;
+
+    } else if (origin == 1) {  // relative
+
+        if (offset < h->file_position * (-1))
+            offset = h->file_position * (-1);
+        else if (offset > (h->inode_in_mem->inode.file_size - h->file_position))
+            offset = (h->inode_in_mem->inode.file_size - h->file_position);
+
+        h->file_position = h->file_position + offset;
+
+    } else if (origin == 2) {  // from end
+        
+        if (offset > 0)
+            offset = 0;
+        else if (offset < h->inode_in_mem->inode.file_size * (-1))
+            offset = h->inode_in_mem->inode.file_size * (-1);
+
+        h->file_position = h->inode_in_mem->inode.file_size + origin;
+
+    }
+
+    return OK;
+}
+
+static int sfs_tell(simplest_filesystem *sfs, sfs_handle *h) {
+    return (int)h->file_position;
 }
 
 // ------------------------------------------------------------------
@@ -599,6 +838,9 @@ simplest_filesystem *new_simplest_filesystem(mem_allocator *memory, sector_devic
     sfs->sfs_read = sfs_read;
     sfs->sfs_write = sfs_write;
     sfs->sfs_close = sfs_close;
+
+    sfs->sfs_seek = sfs_seek;
+    sfs->sfs_tell = sfs_tell;
 
     return sfs;
 }

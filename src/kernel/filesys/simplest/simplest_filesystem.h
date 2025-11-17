@@ -20,6 +20,9 @@ struct simplest_filesystem {
     int (*sfs_write)(simplest_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer);
     int (*sfs_close)(simplest_filesystem *sfs, sfs_handle *h);
 
+    int (*sfs_seek)(simplest_filesystem *sfs, sfs_handle *h, int offset, int origin);
+    int (*sfs_tell)(simplest_filesystem *sfs, sfs_handle *h);
+
     void *sfs_data;
 };
 
