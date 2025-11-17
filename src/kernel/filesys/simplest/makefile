@@ -1,6 +1,6 @@
 C_OPTIONS = -Wall -Wno-unused-function
 SRC_FILES = \
-	src/simplest_filesystem.c 
+	src/simplest_filesystem.c \
 	src/cache.c
 
 TEST:
