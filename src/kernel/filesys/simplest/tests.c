@@ -21,7 +21,7 @@ void run_tests() {
     assert(err != OK);
 
     // make file system
-    err = fs->mkfs(fs, "TEST");
+    err = fs->mkfs(fs, "TEST", 0);
     assert(err == OK);
     // should also assert disk contents
 

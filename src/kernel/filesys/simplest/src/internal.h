@@ -22,6 +22,30 @@ cache_layer *new_cache_layer(mem_allocator *memory, sector_device *device, int b
 
 // -------------------------------------------
 
+typedef struct block_bitmap_data block_bitmap_data;
+struct block_bitmap_data {
+    mem_allocator *memory;
+    char *buffer; // multiple of block size.
+    uint32_t tracked_blocks_count;
+    uint32_t bitmap_size_in_blocks;
+    uint32_t buffer_size;
+};
+
+typedef struct block_bitmap block_bitmap;
+struct block_bitmap {
+    int (*is_block_used)(block_bitmap *bb, uint32_t block_no);
+    int (*is_block_free)(block_bitmap *bb, uint32_t block_no);
+    void (*mark_block_used)(block_bitmap *bb, uint32_t block_no);
+    void (*mark_block_free)(block_bitmap *bb, uint32_t block_no);
+    int (*find_a_free_block)(block_bitmap *bb, uint32_t *block_no);
+    void (*release_memory)(block_bitmap *bb);
+    block_bitmap_data *data;
+};
+
+block_bitmap *new_bitmap(mem_allocator *memory, uint32_t tracked_blocks_count, uint32_t bitmap_blocks_count, uint32_t block_size);
+
+// -------------------------------------------
+
 #define KB   (1024)
 #define MB   (1024*KB)
 #define GB   (1024*MB)
@@ -76,6 +100,7 @@ struct mounted_data {
     int readonly;
     superblock *superblock;
     cache_layer *cache;
+    block_bitmap *bitmap;
 
     uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
     uint8_t *scratch_block_buffer;
@@ -88,8 +113,8 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     uint32_t sectors_per_block;    // typically 1-8, for a block size of 512..4kB
     uint32_t block_size_in_bytes;  // typically 512, 1024, 2048 or 4096.
     uint32_t blocks_in_device;     // typically 2k..10M
-    uint32_t used_blocks_bitmap_first_block;  // typically block 1 (0 is superblock)
-    uint32_t used_blocks_bitmap_blocks_count;       // typically 1 through 16 blocks
+    uint32_t block_allocation_bitmap_first_block;  // typically block 1 (0 is superblock)
+    uint32_t block_allocation_bitmap_blocks_count;       // typically 1 through 16 blocks
 
     uint8_t padding[512 - 4 - (sizeof(uint32_t) * RANGES_IN_INODE) - (sizeof(inode) * 2)];
 

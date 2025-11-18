@@ -9,7 +9,7 @@ typedef struct simplest_filesystem simplest_filesystem;
 typedef struct sfs_handle sfs_handle;
 
 struct simplest_filesystem {
-    int (*mkfs)(simplest_filesystem *sfs, char *volume_label);
+    int (*mkfs)(simplest_filesystem *sfs, char *volume_label, uint32_t desired_block_size);
     int (*fsck)(simplest_filesystem *sfs, int verbose, int repair);
     int (*mount)(simplest_filesystem *sfs, int readonly);
     int (*sync)(simplest_filesystem *sfs);

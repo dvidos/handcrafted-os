@@ -8,35 +8,42 @@
 
 // ------------------------------------------------------------------
 
-static int populate_superblock(uint32_t sector_size, uint32_t sector_count, superblock *superblock) {
+static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *superblock) {
     superblock->magic[0] = 'S';
     superblock->magic[1] = 'F';
     superblock->magic[2] = 'S';
     superblock->magic[3] = '1';
 
-    uint64_t capacity = (uint64_t)sector_size * (uint64_t)sector_count;
     uint32_t blk_size;
+    uint64_t capacity = (uint64_t)sector_size * (uint64_t)sector_count;
 
-    /*
-        Disk Capacity                     2MB     8MB     32MB    1GB
-        -------------------------------------------------------------
-        Block size (bytes)                512      1K      2K      4K
-        Total blocks                     4096    8192   16384  262144
-        Blocks for used/free bitmaps        1       1       1       8
-        Availability bitmap size (bytes)  512      1K      2K     32K
-    */
+    if (desired_block_size == 0) {
+        // must be a multiple of sector size.
+        if (desired_block_size % sector_size != 0)
+            return ERR_NOT_SUPPORTED;
+        if (desired_block_size < sector_size || desired_block_size >= 4*KB)
+            return ERR_NOT_SUPPORTED;
+        
+        blk_size = desired_block_size;
+    } else {
+        // auto determine
+        /*
+            Disk Capacity                     2MB     8MB     32MB    1GB
+            -------------------------------------------------------------
+            Block size (bytes)                512      1K      2K      4K
+            Total blocks                     4096    8192   16384  262144
+            Blocks for used/free bitmaps        1       1       1       8
+            Availability bitmap size (bytes)  512      1K      2K     32K
+        */
+        if (capacity <=  2*MB)      blk_size = 512;
+        else if (capacity <=  8*MB) blk_size = 1*KB;
+        else if (capacity <= 32*MB) blk_size = 2*KB;
+        else blk_size = 4*KB;
+        if (blk_size < sector_size)
+            blk_size = sector_size;
+    }
 
-    if (capacity <=  2*MB)
-        blk_size = 512;
-    else if (capacity <=  8*MB)
-        blk_size = 1*KB;
-    else if (capacity <= 32*MB)
-        blk_size = 2*KB;
-    else
-        blk_size = 4*KB;
-
-    if (blk_size < sector_size)
-        blk_size = sector_size;
+    // block size must be a multiple of sector size, for performance
     if (blk_size % sector_size != 0)
         return ERR_NOT_SUPPORTED;
     
@@ -47,8 +54,8 @@ static int populate_superblock(uint32_t sector_size, uint32_t sector_count, supe
 
     // blocks needed for bitmaps to track used/free blocks
     uint32_t bitmap_bytes = ceiling_division(superblock->blocks_in_device, 8);
-    superblock->used_blocks_bitmap_blocks_count = ceiling_division(bitmap_bytes, superblock->block_size_in_bytes);
-    superblock->used_blocks_bitmap_first_block = 1;
+    superblock->block_allocation_bitmap_blocks_count = ceiling_division(bitmap_bytes, superblock->block_size_in_bytes);
+    superblock->block_allocation_bitmap_first_block = 1;
 
     return OK;
 }
@@ -245,9 +252,9 @@ static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *abso
     
     // load or create the indirect block?
     if (inode->indirect_ranges_block_no == 0) {
-        err = find_a_free_block(mt, &inode->indirect_ranges_block_no);
+        err = mt->bitmap->find_a_free_block(mt->bitmap, &inode->indirect_ranges_block_no);
         if (err != OK) return err;
-        mark_block_used(mt, inode->indirect_ranges_block_no);
+        mt->bitmap->mark_block_used(mt->bitmap, inode->indirect_ranges_block_no);
         err = mt->cache->wipe(mt->cache, inode->indirect_ranges_block_no);
         if (err != OK) return err;
     } else {
@@ -311,9 +318,45 @@ static int delete_inode_from_inodes_database() {
 
 // ------------------------------------------------------------------
 
-static int sfs_mkfs(simplest_filesystem *sfs, char *volume_label) {
+static int sfs_mkfs(simplest_filesystem *sfs, char *volume_label, uint32_t desired_block_size) {
+    filesys_data *data = (filesys_data *)sfs->sfs_data;
+    if (data->mounted != NULL)
+        return ERR_NOT_SUPPORTED;
+
     // prepare a temp superblock, then save it.
-    return ERR_NOT_IMPLEMENTED;
+    superblock *sb = data->memory->allocate(data->memory, sizeof(superblock));
+    int err = populate_superblock(
+        data->device->get_sector_size(data->device),
+        data->device->get_sector_count(data->device),
+        desired_block_size,
+        sb
+    );
+    if (err != OK) return err;
+
+    // prepare block bitmap, mark SB and bitmap blocks as used
+    block_bitmap *bb = new_bitmap(data->memory, sb->blocks_in_device, sb->block_allocation_bitmap_blocks_count, sb->block_size_in_bytes);
+    bb->mark_block_used(bb, 0);
+    for (int i = 0; i < sb->block_allocation_bitmap_blocks_count; i++)
+        bb->mark_block_used(bb, sb->block_allocation_bitmap_first_block + i);
+
+    // now we know the block size. let's save things.
+    cache_layer *cl = new_cache_layer(data->memory, data->device, sb->block_size_in_bytes, 32);
+
+    cl->write(cl, 0, 0, sb, sizeof(superblock));
+    if (err != OK) return err;
+
+    for (int i = 0; i < bb->data->bitmap_size_in_blocks; i++) {
+        err = cl->write(cl, sb->block_allocation_bitmap_first_block + i, 
+            0,
+            bb->data->buffer + (sb->block_size_in_bytes * i), 
+            sb->block_size_in_bytes);
+        if (err != OK) return err;
+    }
+
+    err = cl->flush(cl);
+    if (err != OK) return err;
+
+    return OK;
 }
 
 static int sfs_fsck(simplest_filesystem *sfs, int verbose, int repair) {
@@ -329,8 +372,8 @@ static int sfs_mount(simplest_filesystem *sfs, int readonly) {
     // hence why the superblock must be at most 512 bytes size.
     uint8_t *temp_sector = data->memory->allocate(data->memory, data->device->get_sector_size(data->device));
     data->device->read_sector(data->device, 0, temp_sector);
-    superblock *tmpsb = (superblock *)temp_sector;
-    int recognized = memcmp(tmpsb->magic, "SFS1", 4) == 0;
+    superblock *sb = (superblock *)temp_sector;
+    int recognized = memcmp(sb->magic, "SFS1", 4) == 0;
     if (!recognized) {
         data->memory->release(data->memory, temp_sector);
         return ERR_NOT_RECOGNIZED;
@@ -339,18 +382,19 @@ static int sfs_mount(simplest_filesystem *sfs, int readonly) {
     // ok, we are safe to load, prepare memory
     mounted_data *mount = data->memory->allocate(data->memory, sizeof(mounted_data));
     mount->readonly = readonly;
-    mount->superblock = data->memory->allocate(data->memory, tmpsb->block_size_in_bytes);
-    mount->used_blocks_bitmap = data->memory->allocate(data->memory, tmpsb->used_blocks_bitmap_blocks_count * tmpsb->block_size_in_bytes);
-    mount->scratch_block_buffer = data->memory->allocate(data->memory, tmpsb->block_size_in_bytes);
+    mount->superblock = data->memory->allocate(data->memory, sb->block_size_in_bytes);
+    mount->used_blocks_bitmap = data->memory->allocate(data->memory, sb->block_allocation_bitmap_blocks_count * sb->block_size_in_bytes);
+    mount->scratch_block_buffer = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     mount->opened_inodes_in_mem = data->memory->allocate(data->memory, sizeof(inode_in_mem) * MAX_OPEN_FILES);
-    mount->cache = new_cache_layer(data->memory, data->device, tmpsb->block_size_in_bytes, 64);
+    mount->cache = new_cache_layer(data->memory, data->device, sb->block_size_in_bytes, 64);
+    mount->bitmap = new_bitmap(data->memory, sb->blocks_in_device, sb->block_allocation_bitmap_blocks_count, sb->block_size_in_bytes);
     data->mounted = mount;
     
     // read superblock, low level, since we are unmounted
     int err = read_block_range_low_level(
         data->device,
-        tmpsb->sector_size,
-        tmpsb->sectors_per_block,
+        sb->sector_size,
+        sb->sectors_per_block,
         0, // first block
         1, // block count
         data->mounted->superblock
@@ -365,8 +409,8 @@ static int sfs_mount(simplest_filesystem *sfs, int readonly) {
         data->device, 
         data->mounted->superblock->sector_size,
         data->mounted->superblock->sectors_per_block,
-        data->mounted->superblock->used_blocks_bitmap_first_block, 
-        data->mounted->superblock->used_blocks_bitmap_blocks_count, 
+        data->mounted->superblock->block_allocation_bitmap_first_block, 
+        data->mounted->superblock->block_allocation_bitmap_blocks_count, 
         data->mounted->used_blocks_bitmap
     );
     if (err != OK) return err;
@@ -389,8 +433,8 @@ static int sfs_sync(simplest_filesystem *sfs) {
 
     // write used blocks bitmap to disk
     err = write_block_range(sfs->sfs_data, 
-        data->mounted->superblock->used_blocks_bitmap_first_block, 
-        data->mounted->superblock->used_blocks_bitmap_blocks_count, 
+        data->mounted->superblock->block_allocation_bitmap_first_block, 
+        data->mounted->superblock->block_allocation_bitmap_blocks_count, 
         data->mounted->used_blocks_bitmap
     );
     if (err != OK) return err;
@@ -416,6 +460,7 @@ static int sfs_unmount(simplest_filesystem *sfs) {
     }
 
     data->mounted->cache->release_memory(data->mounted->cache);
+    data->mounted->bitmap->release_memory(data->mounted->bitmap);
 
     data->memory->release(data->memory, data->mounted->superblock);
     data->memory->release(data->memory, data->mounted->used_blocks_bitmap);
