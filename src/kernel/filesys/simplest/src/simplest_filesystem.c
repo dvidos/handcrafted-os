@@ -245,7 +245,7 @@ static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *abso
     
     // load or create the indirect block?
     if (inode->indirect_ranges_block_no == 0) {
-        err = find_any_free_block(mt, &inode->indirect_ranges_block_no);
+        err = find_a_free_block(mt, &inode->indirect_ranges_block_no);
         if (err != OK) return err;
         mark_block_used(mt, inode->indirect_ranges_block_no);
         err = mt->cache->wipe(mt->cache, inode->indirect_ranges_block_no);
