@@ -14,3 +14,4 @@ struct sector_device {
     void *device_data;
 };
 
+sector_device *new_mem_based_sector_device(int sector_size, uint32_t sector_count);
