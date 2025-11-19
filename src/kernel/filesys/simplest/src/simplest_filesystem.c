@@ -17,7 +17,7 @@ static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint
     uint32_t blk_size;
     uint64_t capacity = (uint64_t)sector_size * (uint64_t)sector_count;
 
-    if (desired_block_size == 0) {
+    if (desired_block_size > 0) {
         // must be a multiple of sector size.
         if (desired_block_size % sector_size != 0)
             return ERR_NOT_SUPPORTED;
@@ -335,7 +335,7 @@ static int sfs_mkfs(simplest_filesystem *sfs, char *volume_label, uint32_t desir
 
     // prepare block bitmap, mark SB and bitmap blocks as used
     block_bitmap *bb = new_bitmap(data->memory, sb->blocks_in_device, sb->block_allocation_bitmap_blocks_count, sb->block_size_in_bytes);
-    bb->mark_block_used(bb, 0);
+    bb->mark_block_used(bb, 0); // for superblock
     for (int i = 0; i < sb->block_allocation_bitmap_blocks_count; i++)
         bb->mark_block_used(bb, sb->block_allocation_bitmap_first_block + i);
 

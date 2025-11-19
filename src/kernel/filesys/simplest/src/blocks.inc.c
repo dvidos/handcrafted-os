@@ -22,7 +22,7 @@ static int bitmap_is_block_free(block_bitmap *bb, uint32_t block_no) {
 
 static void bitmap_mark_block_used(block_bitmap *bb, uint32_t block_no) {
     block_bitmap_data *data = (block_bitmap_data *)bb->data;
-    if (block_no >= data->bitmap_size_in_blocks)
+    if (block_no >= data->tracked_blocks_count)
         return;
 
     register int byte_no = block_no / 8;
@@ -84,6 +84,7 @@ static void bitmap_release_memory(block_bitmap *bb) {
 
 block_bitmap *new_bitmap(mem_allocator *memory, uint32_t tracked_blocks_count, uint32_t bitmap_blocks_count, uint32_t block_size) {
     block_bitmap_data *d = memory->allocate(memory, sizeof(block_bitmap_data));
+    d->memory = memory;
     d->tracked_blocks_count = tracked_blocks_count;
     d->bitmap_size_in_blocks = bitmap_blocks_count;
     d->buffer_size = bitmap_blocks_count * block_size;
