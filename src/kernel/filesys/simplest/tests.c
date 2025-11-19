@@ -25,6 +25,10 @@ void run_tests() {
     assert(err == OK);
     // should also assert disk contents
 
+    err = fs->mount(fs, 0);
+    assert(err == OK);
+    err = fs->unmount(fs);
+    assert(err == OK);
 
     // opendir,
     // readdir

@@ -373,7 +373,7 @@ static int sfs_mount(simplest_filesystem *sfs, int readonly) {
     uint8_t *temp_sector = data->memory->allocate(data->memory, data->device->get_sector_size(data->device));
     data->device->read_sector(data->device, 0, temp_sector);
     superblock *sb = (superblock *)temp_sector;
-    int recognized = memcmp(sb->magic, "SFS1", 4) == 0;
+    int recognized = (memcmp(sb->magic, "SFS1", 4) == 0);
     if (!recognized) {
         data->memory->release(data->memory, temp_sector);
         return ERR_NOT_RECOGNIZED;
@@ -642,13 +642,13 @@ simplest_filesystem *new_simplest_filesystem(mem_allocator *memory, sector_devic
     sfs->sync = sfs_sync;
     sfs->unmount = sfs_unmount;
 
-    sfs->sfs_open = sfs_open;
-    sfs->sfs_read = sfs_read;
-    sfs->sfs_write = sfs_write;
-    sfs->sfs_close = sfs_close;
+    sfs->open = sfs_open;
+    sfs->read = sfs_read;
+    sfs->write = sfs_write;
+    sfs->close = sfs_close;
 
-    sfs->sfs_seek = sfs_seek;
-    sfs->sfs_tell = sfs_tell;
+    sfs->seek = sfs_seek;
+    sfs->tell = sfs_tell;
 
     return sfs;
 }
