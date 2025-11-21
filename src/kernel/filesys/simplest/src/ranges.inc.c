@@ -1,19 +1,19 @@
 #include "internal.h"
 
 
-static inline int is_range_used(block_range *range) {
+static inline int is_range_used(const block_range *range) {
     return range->first_block_no != 0;
 }
 
-static inline int is_range_empty(block_range *range) {
+static inline int is_range_empty(const block_range *range) {
     return range->first_block_no == 0;
 }
 
-static inline uint32_t range_last_block_no(block_range *range) {
+static inline uint32_t range_last_block_no(const block_range *range) {
     return range->first_block_no + range->blocks_count - 1;
 }
 
-static inline int check_or_consume_blocks_in_range(block_range *range, uint32_t *relative_block_no, uint32_t *absolute_block_no) {
+static inline int check_or_consume_blocks_in_range(const block_range *range, uint32_t *relative_block_no, uint32_t *absolute_block_no) {
     if (*relative_block_no < range->blocks_count) {
         // we are within range!
         *absolute_block_no = range->first_block_no + *relative_block_no;
@@ -25,7 +25,7 @@ static inline int check_or_consume_blocks_in_range(block_range *range, uint32_t 
     }
 }
 
-static inline void find_last_used_and_first_free_range(block_range *ranges_array, int ranges_count, int *last_used_idx, int *first_free_idx) {
+static inline void find_last_used_and_first_free_range(const block_range *ranges_array, int ranges_count, int *last_used_idx, int *first_free_idx) {
     if (is_range_empty(&ranges_array[0])) {
         *last_used_idx = -1;
         *first_free_idx = 0;

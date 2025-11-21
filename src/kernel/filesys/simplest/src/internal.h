@@ -74,8 +74,11 @@ struct inode { // target size: 64
     uint8_t flags; // 0=unused, 1=file, 2=dir, etc.
     // maybe permissions (e.g. xrwxrwxrw), and owner user/group
     // maybe creation and/or modification date, uint32, secondsfrom epoch
-    uint8_t padding[7];
+    uint8_t padding[3];
+    
     uint32_t file_size; // 32 bits mean max 4GB file size.
+    uint32_t allocated_blocks; // 24 bits would be enough, we could use the other 8 for flags
+
     block_range ranges[RANGES_IN_INODE]; // size: 48
     // if internal ranges are not enough, this block is full or ranges
     uint32_t indirect_ranges_block_no;
@@ -115,12 +118,13 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     uint32_t blocks_in_device;     // typically 2k..10M
     uint32_t block_allocation_bitmap_first_block;  // typically block 1 (0 is superblock)
     uint32_t block_allocation_bitmap_blocks_count;       // typically 1 through 16 blocks
-
-    uint8_t padding[512 - 4 - (sizeof(uint32_t) * RANGES_IN_INODE) - (sizeof(inode) * 2)];
+    uint32_t max_inode_rec_no_in_db; // how many inodes in inodes_db (does not include cleared ones)
+    char padding1[256 - (7 * sizeof(uint32_t))];
 
     // these two 2*64=128 bytes, still 1/4 of a block...
     inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
     inode root_dir_inode;  // file with the entries for root directory. 
+    char padding2[256 - (2*sizeof(inode)) - (1*sizeof(uint32_t))];
 };
 
 // ------------------------------------------------------------------
@@ -128,7 +132,7 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
 struct inode_in_mem {
     // this is needed to avoid inode operations on disk directly.
     uint32_t flags; // is used, is dirty etc
-    uint32_t inode_no;
+    uint32_t inode_db_rec_no;
     inode inode; // mirroring what is (or must be) on disk
 };
 

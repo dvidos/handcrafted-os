@@ -10,5 +10,3 @@
 #define ERR_NOT_PERMITTED        -4
 #define ERR_NOT_RECOGNIZED       -5
 #define ERR_RESOURCES_EXHAUSTED  -6 
-
-
