@@ -59,8 +59,8 @@ static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint
 
     // some blocks are needed for bitmaps to track used/free blocks
     uint32_t bitmap_bytes = ceiling_division(sb->blocks_in_device, 8);
-    sb->block_allocation_bitmap_blocks_count = ceiling_division(bitmap_bytes, sb->block_size_in_bytes);
-    sb->block_allocation_bitmap_first_block = 1;
+    sb->blocks_bitmap_blocks_count = ceiling_division(bitmap_bytes, sb->block_size_in_bytes);
+    sb->blocks_bitmap_first_block = 1;
 
     // explicitly, though uselessly
     memset(&sb->inodes_db_inode, 0, sizeof(inode));

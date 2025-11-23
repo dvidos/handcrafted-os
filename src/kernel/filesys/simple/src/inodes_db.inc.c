@@ -19,7 +19,7 @@ static int read_inode_from_inodes_database(mounted_data *mt, int rec_no, inode_i
     if (err != OK) return err;
 
     // now we know the absolute block, we can read it
-    err = mt->cache->read(mt->cache, disk_block_no, block_offset, &inmem->inode, sizeof(inode));
+    err = cached_read(mt->cache, disk_block_no, block_offset, &inmem->inode, sizeof(inode));
     if (err != OK) return err;
 
     inmem->flags = 0; // not dirty (so far)
@@ -45,7 +45,7 @@ static int write_inode_to_inodes_database(mounted_data *mt, int rec_no, inode_in
     if (err != OK) return err;
 
     // now we know the absolute block, we can write it
-    err = mt->cache->write(mt->cache, disk_block_no, block_offset, &inmem->inode, sizeof(inode));
+    err = cached_write(mt->cache, disk_block_no, block_offset, &inmem->inode, sizeof(inode));
     if (err != OK) return err;
 
     inmem->flags = 0; // not dirty (any more)

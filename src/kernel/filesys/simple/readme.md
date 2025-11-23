@@ -1,6 +1,6 @@
 # simple file system
 
-## Simplest file system, as a fun exercise.
+## Simple file system, as a fun exercise.
 
 - reading/writing in blocks. Each block can be 512, 1K, 2K or 4K.
     - because it's faster this way, instad of sectors alone

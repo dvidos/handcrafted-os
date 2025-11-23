@@ -1,8 +1,7 @@
 C_OPTIONS = -Wall -Wno-unused-function
 SRC_FILES = \
 	tests.c \
-	src/simplest_filesystem.c \
-	src/cache.c \
+	src/simple_filesystem.c \
 	dependencies/mem_allocator.c \
 	dependencies/sector_device.c 
 

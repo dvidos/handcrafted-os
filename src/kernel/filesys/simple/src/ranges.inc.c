@@ -49,11 +49,11 @@ static inline void find_last_used_and_first_free_range(const block_range *ranges
 
 static inline int initialize_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no) {
     uint32_t new_block_no = 0;
-    int err = mt->bitmap->find_a_free_block(mt->bitmap, &new_block_no);
+    int err = find_a_free_block(mt, &new_block_no);
     if (err != OK) return err;
 
-    mt->bitmap->mark_block_used(mt->bitmap, new_block_no);
-    mt->cache->wipe(mt->cache, new_block_no);
+    mark_block_used(mt, new_block_no);
+    cached_wipe(mt->cache, new_block_no);
     range->first_block_no = new_block_no;
     range->blocks_count = 1;
     *block_no = new_block_no;
@@ -62,12 +62,12 @@ static inline int initialize_range_by_allocating_block(mounted_data *mt, block_r
 
 static inline int extend_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no) {
     uint32_t next_block_no = range_last_block_no(range) + 1;
-    if (!mt->bitmap->is_block_free(mt->bitmap, next_block_no))
+    if (!is_block_free(mt, next_block_no))
         return ERR_NOT_SUPPORTED;
 
     // so that block is free, we can use it.
-    mt->bitmap->mark_block_used(mt->bitmap, next_block_no);
-    mt->cache->wipe(mt->cache, next_block_no);
+    mark_block_used(mt, next_block_no);
+    cached_wipe(mt->cache, next_block_no);
     range->blocks_count++;
     *block_no = next_block_no;
     return OK;

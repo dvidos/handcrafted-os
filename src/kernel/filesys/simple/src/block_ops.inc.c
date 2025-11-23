@@ -84,7 +84,7 @@ static int find_block_no_from_file_block_index(mounted_data *mt, const inode *in
     int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
     block_range range;
     for (int i = 0; i < ranges_in_block; i++) {
-        int err = mt->cache->read(mt->cache, inode->indirect_ranges_block_no, sizeof(block_range) * i, &range, sizeof(block_range));
+        int err = cached_read(mt->cache, inode->indirect_ranges_block_no, sizeof(block_range) * i, (void *)&range, sizeof(block_range));
         if (err != OK) return err;
 
         if (is_range_empty(&range))
@@ -163,16 +163,15 @@ static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *abso
     
     // load or create the indirect block?
     if (inode->indirect_ranges_block_no == 0) {
-        err = mt->bitmap->find_a_free_block(mt->bitmap, &inode->indirect_ranges_block_no);
+        err = find_a_free_block(mt, &inode->indirect_ranges_block_no);
         if (err != OK) return err;
-        mt->bitmap->mark_block_used(mt->bitmap, inode->indirect_ranges_block_no);
-        err = mt->cache->wipe(mt->cache, inode->indirect_ranges_block_no);
+        mark_block_used(mt, inode->indirect_ranges_block_no);
+        err = cached_wipe(mt->cache, inode->indirect_ranges_block_no);
         if (err != OK) return err;
     } else {
-        err = mt->cache->read(mt->cache, 
+        err = cached_read(mt->cache, 
             inode->indirect_ranges_block_no, 0,
-            mt->scratch_block_buffer,
-            mt->superblock->block_size_in_bytes);
+            mt->scratch_block_buffer, mt->superblock->block_size_in_bytes);
         if (err != OK) return err;
     }
 
@@ -185,7 +184,7 @@ static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *abso
     if (err != OK) return err;
 
     // write back the changes
-    err = mt->cache->write(mt->cache, 
+    err = cached_write(mt->cache, 
         inode->indirect_ranges_block_no, 0,
         mt->scratch_block_buffer,
         mt->superblock->block_size_in_bytes);
