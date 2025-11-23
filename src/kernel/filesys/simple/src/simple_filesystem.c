@@ -83,7 +83,7 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
     // now we know the block size. let's save things.
     cache_data *c = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
 
-    cached_write(c, 0, 0, sb, sizeof(superblock));
+    err = cached_write(c, 0, 0, sb, sizeof(superblock));
     if (err != OK) return err;
 
     for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++) {
@@ -105,6 +105,7 @@ static int sfs_fsck(simple_filesystem *sfs, int verbose, int repair) {
 }
 
 static int sfs_mount(simple_filesystem *sfs, int readonly) {
+    int err;
     filesys_data *data = (filesys_data *)sfs->sfs_data;
     if (data->mounted != NULL)
         return ERR_NOT_SUPPORTED;
@@ -112,7 +113,8 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     // first check the first sector to see if we can mount it.
     // hence why the superblock must be at most 512 bytes size.
     uint8_t *temp_sector = data->memory->allocate(data->memory, data->device->get_sector_size(data->device));
-    data->device->read_sector(data->device, 0, temp_sector);
+    err = data->device->read_sector(data->device, 0, temp_sector);
+    if (err != OK) return err;
     superblock *sb = (superblock *)temp_sector;
     int recognized = (memcmp(sb->magic, "SFS1", 4) == 0);
     if (!recognized) {
@@ -131,7 +133,7 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     data->mounted = mount;
     
     // read superblock, low level, since we are unmounted
-    int err = read_block_range_low_level(
+    err = read_block_range_low_level(
         data->device,
         sb->sector_size,
         sb->sectors_per_block,
@@ -164,28 +166,27 @@ static int sfs_sync(simple_filesystem *sfs) {
     filesys_data *data = (filesys_data *)sfs->sfs_data;
     if (data->mounted == NULL)
         return ERR_NOT_SUPPORTED;
-    if (data->mounted->readonly)
+    mounted_data *mt = data->mounted;
+    if (mt->readonly)
         return ERR_NOT_PERMITTED;
 
     // write superblock
-    err = write_block(sfs->sfs_data, 0, data->mounted->superblock);
+    err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(superblock));
     if (err != OK) return err;
 
     // write used blocks bitmap to disk
-    for (int i = 0; i < data->mounted->superblock->blocks_bitmap_blocks_count; i++) {
-        err = write_block(sfs->sfs_data, 
-            data->mounted->superblock->blocks_bitmap_first_block + i, 
-            data->mounted->used_blocks_bitmap + (i * data->mounted->superblock->block_size_in_bytes)
+    for (int i = 0; i < mt->superblock->blocks_bitmap_blocks_count; i++) {
+        err = cached_write(mt->cache, 
+            mt->superblock->blocks_bitmap_first_block + i, 
+            0, mt->used_blocks_bitmap + (i * mt->superblock->block_size_in_bytes),
+            mt->superblock->block_size_in_bytes
         );
         if (err != OK) return err;
     }
 
-    // write the inodes_database and root_directory inodes and handles
-
-    // write all the inodes opened in memory
-
     // flush all caches
-    cache_flush(data->mounted->cache);
+    err = cache_flush(data->mounted->cache);
+    if (err != OK) return err;
 
     return OK;
 }
@@ -201,7 +202,6 @@ static int sfs_unmount(simple_filesystem *sfs) {
     }
 
     cache_release_memory(data->mounted->cache);
-
     data->memory->release(data->memory, data->mounted->superblock);
     data->memory->release(data->memory, data->mounted->used_blocks_bitmap);
     data->memory->release(data->memory, data->mounted->scratch_block_buffer);
@@ -229,7 +229,7 @@ static sfs_handle *sfs_open(simple_filesystem *sfs, char *filename, int options)
     return NULL;
 }
 
-static int sfs_read(simple_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer) {
+static int sfs_read(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size) {
     if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
         return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
@@ -269,7 +269,7 @@ static int sfs_read(simple_filesystem *sfs, sfs_handle *h, uint32_t size, void *
     return bytes_read;
 }
 
-static int sfs_write(simple_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer) {
+static int sfs_write(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size) {
     if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
         return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;

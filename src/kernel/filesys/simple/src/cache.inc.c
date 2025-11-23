@@ -51,7 +51,7 @@ static cache_data *initialize_cache(mem_allocator *memory, sector_device *device
 static inline int cache_load_block_raw(cache_data *data, uint32_t block_no, void *buffer) {
     uint32_t sector_size = data->device->get_sector_size(data->device);
     int remain_size = data->block_size;
-    uint32_t sector_no = block_no * sector_size;
+    uint32_t sector_no = block_no * (data->block_size / sector_size);
     while (remain_size > 0) {
         int err = data->device->read_sector(data->device, sector_no, buffer);
         if (err != OK) return err;
@@ -66,9 +66,9 @@ static inline int cache_load_block_raw(cache_data *data, uint32_t block_no, void
 static inline int cache_save_block_raw(cache_data *data, uint32_t block_no, void *buffer) {
     uint32_t sector_size = data->device->get_sector_size(data->device);
     int remain_size = data->block_size;
-    uint32_t sector_no = block_no * sector_size;
+    uint32_t sector_no = block_no * (data->block_size / sector_size);
     while (remain_size > 0) {
-        int err = data->device->read_sector(data->device, sector_no, buffer);
+        int err = data->device->write_sector(data->device, sector_no, buffer);
         if (err != OK) return err;
 
         remain_size -= sector_size;
@@ -170,7 +170,7 @@ static inline int cache_add_entry_to_lists(cache_data *data, cache_entry *entry)
     entry->hash_next = data->hashtable[index];
     data->hashtable[index] = entry;
 
-    data->next_unused_entry += 1;
+
     return OK;
 }
 
@@ -197,7 +197,8 @@ static int cached_io_operation(cache_data *data, int operation, uint32_t block_n
             err = cache_find_unused_slot(data, &entry);
             if (err != OK) return err;
         }
-        
+
+        entry->block_no = block_no;
         err = cache_load_block_raw(data, block_no, entry->data_ptr);
         if (err != OK) return err;
 

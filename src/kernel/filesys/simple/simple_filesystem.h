@@ -24,8 +24,8 @@ struct simple_filesystem {
     int (*unmount)(simple_filesystem *sfs);
     
     sfs_handle *(*open)(simple_filesystem *sfs, char *path, int options);
-    int (*read)(simple_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer);
-    int (*write)(simple_filesystem *sfs, sfs_handle *h, uint32_t size, void *buffer);
+    int (*read)(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size);
+    int (*write)(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size);
     int (*close)(simple_filesystem *sfs, sfs_handle *h);
     int (*seek)(simple_filesystem *sfs, sfs_handle *h, int offset, int origin);
     int (*tell)(simple_filesystem *sfs, sfs_handle *h);

@@ -3,18 +3,19 @@
 #include "dependencies/sector_device.h"
 #include "simple_filesystem.h"
 #include <assert.h>
+#include <string.h>
 #include <stdio.h>
+
+#define FS()  \
+    new_simple_filesystem( \
+        new_malloc_based_mem_allocator(), \
+        new_mem_based_sector_device(512, 4096) \
+    );
 
 
 static void mkfs_test() {
     int err;
-
-    mem_allocator *m = new_malloc_based_mem_allocator();
-    sector_device *d = new_mem_based_sector_device(512, 4096);
-
-    // we need device and memory allocator
-    simple_filesystem *fs = new_simple_filesystem(m, d);
-
+    simple_filesystem *fs = FS()
 
     // make sure it fails to mount
     err = fs->mount(fs, 0);
@@ -31,6 +32,33 @@ static void mkfs_test() {
     assert(err == OK);
 }
 
+static void simple_file_test() {
+    int err;
+    simple_filesystem *fs = FS()
+
+
+    sfs_handle *h = fs->open(fs, "file.txt", 1);
+    assert(h != NULL);
+
+    err = fs->write(fs, h, "Hello world!\n", 13);
+    assert(err == OK);
+
+    err = fs->close(fs, h);
+    assert(err == OK);
+
+
+    h = fs->open(fs, "file.txt", 1);
+    assert(h != NULL);
+
+    char buffer[64];
+    err = fs->read(fs, h, buffer, sizeof(buffer));
+    assert(err == OK);
+    assert(memcmp(buffer, "Hello world!\n", 13) == 0);
+
+    err = fs->close(fs, h);
+    assert(err == OK);
+}
+
 static void wash_test() {
     // make 500 files, randomly adding blocks to each, till something breaks or file is full?
 }
@@ -38,18 +66,8 @@ static void wash_test() {
 void run_tests() {
     mkfs_test();
     wash_test();
-
-    // opendir,
-    // readdir
-    // closedir
-
-    // create file
-    // write
-    // close 
-
-    // delete
-
-    // etc
+    // simple_file_test();
+    
 }
 
 
