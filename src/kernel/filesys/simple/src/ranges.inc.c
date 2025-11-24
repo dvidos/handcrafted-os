@@ -49,7 +49,7 @@ static inline void find_last_used_and_first_free_range(const block_range *ranges
 
 static inline int initialize_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no) {
     uint32_t new_block_no = 0;
-    int err = find_a_free_block(mt, &new_block_no);
+    int err = find_next_free_block(mt, &new_block_no);
     if (err != OK) return err;
 
     mark_block_used(mt, new_block_no);

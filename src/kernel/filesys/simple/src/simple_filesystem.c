@@ -11,6 +11,7 @@
 #include "cache.inc.c"
 #include "ranges.inc.c"
 #include "block_ops.inc.c"
+#include "inodes.inc.c"
 #include "inodes_db.inc.c"
 
 // ------------------------------------------------------------------

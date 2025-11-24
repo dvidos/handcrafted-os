@@ -148,8 +148,13 @@ static inline int is_block_used(mounted_data *mt, uint32_t block_no);
 static inline int is_block_free(mounted_data *mt, uint32_t block_no);
 static inline void mark_block_used(mounted_data *mt, uint32_t block_no);
 static inline void mark_block_free(mounted_data *mt, uint32_t block_no);
-static inline int find_a_free_block(mounted_data *mt, uint32_t *block_no);
+static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
 
 // high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
-int file_read_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
-int file_write_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
+static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
+static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
+static int inode_read_file_record(mounted_data *mt, inode *n, uint32_t rec_no, void *rec, uint32_t rec_size);
+static int inode_write_file_record(mounted_data *mt, inode *n, uint32_t rec_no, void *rec, uint32_t rec_size);
+
+// ok, now we could implement directories contents and inode manipulation
+// only thing needed is maintaining an array of open files.

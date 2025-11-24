@@ -17,7 +17,7 @@ static inline void mark_block_free(mounted_data *mt, uint32_t block_no) {
     mt->used_blocks_bitmap[block_no / 8] &= ~(1 << (block_no % 8));
 }
 
-static int find_a_free_block(mounted_data *mt, uint32_t *block_no) {
+static int find_next_free_block(mounted_data *mt, uint32_t *block_no) {
     // despite nested, this is quite fast
     int bytes = ceiling_division(mt->superblock->blocks_in_device, 8);
     for (int byte = 0; byte < bytes; byte++) {
