@@ -12,11 +12,18 @@
 #include "ranges.inc.c"
 #include "block_ops.inc.c"
 #include "inodes.inc.c"
-#include "inodes_db.inc.c"
+#include "open.inc.c"
 
 // ------------------------------------------------------------------
 
-static int resolve_path_to_inode(mounted_data *mt, const char *path, inode **inode) {
+static int resolve_path_to_inode(mounted_data *mt, const char *path, inode *target, uint32_t *inode_rec_no) {
+
+    if (strcmp(path, "/") == 0) {
+        memcpy(target, &mt->superblock->root_dir_inode, sizeof(inode));
+        *inode_rec_no = ROOT_DIR_INODE_REC_NO;
+        return OK;
+    }
+
     // int index = 0;
     // char *buffer;
 
@@ -52,7 +59,8 @@ static int resolve_path_to_inode(mounted_data *mt, const char *path, inode **ino
     //     // check that it is a directory
     //     curr_dir = read_inode_from_inodes_database(data, inode_offset)
     // }
-    return ERR_NOT_IMPLEMENTED;
+
+    return ERR_OUT_OF_BOUNDS;
 }
 
 // ------------------------------------------------------------------
@@ -129,8 +137,7 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     mount->superblock = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     mount->used_blocks_bitmap = data->memory->allocate(data->memory, ceiling_division(sb->blocks_in_device, 8));
     mount->cache = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
-    mount->scratch_block_buffer = data->memory->allocate(data->memory, sb->block_size_in_bytes);
-    mount->opened_inodes_in_mem = data->memory->allocate(data->memory, sizeof(inode_in_mem) * MAX_OPEN_FILES);
+    mount->generic_block_buffer = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     data->mounted = mount;
     
     // read superblock, low level, since we are unmounted
@@ -171,6 +178,10 @@ static int sfs_sync(simple_filesystem *sfs) {
     if (mt->readonly)
         return ERR_NOT_PERMITTED;
 
+
+    // before saving the superblock, we should write all the open inodes back to the inodes db
+    // TODO: do this.
+    
     // write superblock
     err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(superblock));
     if (err != OK) return err;
@@ -205,18 +216,24 @@ static int sfs_unmount(simple_filesystem *sfs) {
     cache_release_memory(data->mounted->cache);
     data->memory->release(data->memory, data->mounted->superblock);
     data->memory->release(data->memory, data->mounted->used_blocks_bitmap);
-    data->memory->release(data->memory, data->mounted->scratch_block_buffer);
-    data->memory->release(data->memory, data->mounted->opened_inodes_in_mem);
+    data->memory->release(data->memory, data->mounted->generic_block_buffer);
     data->memory->release(data->memory, data->mounted);
     data->mounted = NULL;
 
     return OK;
 }
 
-static sfs_handle *sfs_open(simple_filesystem *sfs, char *filename, int options) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return NULL;
+static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_handle **handle_ptr) {
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+
+    inode inode;
+    uint32_t inode_rec_no;
+    int err = resolve_path_to_inode(mt, filename, &inode, &inode_rec_no);
+    if (err != OK) return err;
 
     
     // need to walk the directories to find the inode
@@ -224,103 +241,20 @@ static sfs_handle *sfs_open(simple_filesystem *sfs, char *filename, int options)
     // then, create a handle to point to this inode_in_memory
     // mount should have an array of open inodes_in_mem?
     
-    if (data == NULL)
-        return NULL;
 
-    return NULL;
+    return ERR_NOT_IMPLEMENTED;
 }
 
 static int sfs_read(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size) {
     if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
         return ERR_NOT_SUPPORTED;
-    filesys_data *data = sfs->sfs_data;
-    mounted_data *mt = data->mounted;
-    superblock *sb = mt->superblock;
-
-    uint32_t file_block_index = h->file_position / sb->block_size_in_bytes;
-    uint32_t offset_in_block  = h->file_position % sb->block_size_in_bytes;
-    int bytes_read = 0;
-
-    while (size > 0) {
-        if (h->file_position >= h->inode_in_mem->inode.file_size)
-            break;
-        
-        uint32_t block_on_disk = 0;
-        int err = find_block_no_from_file_block_index(data->mounted, &h->inode_in_mem->inode, file_block_index, &block_on_disk);
-        if (err != OK) return err;
-
-        // read within the file, within the block
-        uint32_t chunk_size = size;
-        chunk_size = at_most(chunk_size, sb->block_size_in_bytes - offset_in_block);
-        chunk_size = at_most(chunk_size, h->inode_in_mem->inode.file_size - h->file_position);
-
-        // read this chunk from this block
-        err = cached_read(mt->cache, block_on_disk, offset_in_block, buffer, chunk_size);
-        if (err != OK) return err;
-
-        // maybe we blead to subsequent block(s)
-        size -= chunk_size;
-        buffer += chunk_size;
-        h->file_position += chunk_size;
-        file_block_index += 1;
-        offset_in_block = 0;
-        bytes_read += chunk_size;
-    }
-
-    return bytes_read;
+    return ERR_NOT_IMPLEMENTED;
 }
 
 static int sfs_write(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size) {
     if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
         return ERR_NOT_SUPPORTED;
-    filesys_data *data = sfs->sfs_data;
-    mounted_data *mt = data->mounted;
-    superblock *sb = mt->superblock;
-    if (data->mounted->readonly)
-        return ERR_NOT_PERMITTED;
-
-    int err;
-
-    // we can write at most at end of file.
-    if (h->file_position >= h->inode_in_mem->inode.file_size)
-        h->file_position = h->inode_in_mem->inode.file_size;
-
-    uint32_t file_block_index = h->file_position / sb->block_size_in_bytes;
-    uint32_t offset_in_block  = h->file_position % sb->block_size_in_bytes;
-    int bytes_written = 0;
-
-    // start writing chunks, extend file as needed
-    while (size > 0) {
-        uint32_t block_on_disk = 0;
-
-        // do we need to extend the file?
-        // TODO: we may have more allocated than just the file size (e.g . file_size = 123, block_size = 4096)
-        // TODO: rewrite this for arbitrary sizes, so that it works for any file
-        if (h->file_position >= h->inode_in_mem->inode.file_size) {
-            err = add_data_block_to_file(mt, &h->inode_in_mem->inode, &block_on_disk);
-            if (err != OK) return err;
-        } else {
-            err = find_block_no_from_file_block_index(mt, &h->inode_in_mem->inode, file_block_index, &block_on_disk);
-            if (err != OK) return err;
-        }
-
-        // write within the block only
-        uint32_t chunk_size = at_most(size, sb->block_size_in_bytes - offset_in_block);
-
-        // write this chunk from this block
-        err = cached_write(mt->cache, block_on_disk, offset_in_block, buffer, chunk_size);
-        if (err != OK) return err;
-
-        // we may have subsequent block(s)
-        size -= chunk_size;
-        buffer += chunk_size;
-        h->file_position += chunk_size;
-        file_block_index += 1;
-        offset_in_block = 0;
-        bytes_written += chunk_size;
-    }
-
-    return bytes_written;
+    return ERR_NOT_IMPLEMENTED;
 }
 
 static int sfs_close(simple_filesystem *sfs, sfs_handle *h) {
@@ -337,82 +271,69 @@ static int sfs_close(simple_filesystem *sfs, sfs_handle *h) {
 }
 
 static int sfs_seek(simple_filesystem *sfs, sfs_handle *h, int offset, int origin) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
-    filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
-    if (data == NULL || sb == NULL)
-        return ERR_NOT_SUPPORTED;
-    
-    if (origin == 0) {  // from start
-
-        if (offset < 0)
-            offset = 0;
-        else if (offset > h->inode_in_mem->inode.file_size)
-            offset = h->inode_in_mem->inode.file_size;
-
-        h->file_position = offset;
-
-    } else if (origin == 1) {  // relative
-
-        if (offset < h->file_position * (-1))
-            offset = h->file_position * (-1);
-        else if (offset > (h->inode_in_mem->inode.file_size - h->file_position))
-            offset = (h->inode_in_mem->inode.file_size - h->file_position);
-
-        h->file_position = h->file_position + offset;
-
-    } else if (origin == 2) {  // from end
-        
-        if (offset > 0)
-            offset = 0;
-        else if (offset < h->inode_in_mem->inode.file_size * (-1))
-            offset = h->inode_in_mem->inode.file_size * (-1);
-
-        h->file_position = h->inode_in_mem->inode.file_size + origin;
-
-    }
-
-    return OK;
+    return ERR_NOT_IMPLEMENTED;
 }
 
 static int sfs_tell(simple_filesystem *sfs, sfs_handle *h) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
-    return (int)h->file_position;
+    return ERR_NOT_IMPLEMENTED;
 }
 
-static sfs_handle *sfs_open_dir(simple_filesystem *sfs, char *path) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return NULL;
+static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_ptr) {
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
-    if (data == NULL || sb == NULL)
-        return NULL;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+    int err;
     
-    return NULL;
+    // see if path resolves to inode
+    inode inode;
+    uint32_t inode_rec_no;
+    err = resolve_path_to_inode(mt, path, &inode, &inode_rec_no);
+    if (err != OK) return err;
+    if (!inode.is_dir)
+        return ERR_WRONG_TYPE;
+
+    // reuse or create entry in open inodes array
+    open_inode *oinode;
+    err = open_inodes_allocate(mt, &inode, inode_rec_no, &oinode);
+    if (err != OK) return err;
+
+    // create entry the open files array
+    open_file *ofile;
+    err = open_files_allocate(mt, oinode, &ofile);
+    if (err != OK) return err;
+
+    *handle_ptr = (sfs_handle *)ofile;
+    return OK;
 }
 
 static int sfs_read_dir(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *entry) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
-    if (data == NULL || sb == NULL)
-        return ERR_NOT_SUPPORTED;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+
 
     return ERR_NOT_IMPLEMENTED;
 }
 
 static int sfs_close_dir(simple_filesystem *sfs, sfs_handle *h) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
-    if (data == NULL || sb == NULL)
-        return ERR_NOT_SUPPORTED;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+    
+    open_file *ofile = (open_file *)h;
+    if (ofile == NULL || ofile->inode == NULL || !ofile->is_used)
+        return ERR_INVALID_ARGUMENT;
 
-    return ERR_NOT_IMPLEMENTED;
+    int err = open_files_release(mt, ofile);
+    if (err != OK) return err;
+
+    return OK;
 }
 
 static int sfs_create(simple_filesystem *sfs, char *path, int options) {

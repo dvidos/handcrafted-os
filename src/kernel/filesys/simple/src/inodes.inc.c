@@ -73,10 +73,10 @@ static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, 
     return bytes_written;
 }
 
-static int inode_read_file_record(mounted_data *mt, inode *n, uint32_t rec_no, void *rec, uint32_t rec_size) {
+static int inode_read_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec) {
     return inode_read_file_data(mt, n, rec_no * rec_size, rec, rec_size);
 }
 
-static int inode_write_file_record(mounted_data *mt, inode *n, uint32_t rec_no, void *rec, uint32_t rec_size) {
+static int inode_write_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec) {
     return inode_write_file_data(mt, n, rec_no * rec_size, rec, rec_size);
 }

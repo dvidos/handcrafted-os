@@ -10,3 +10,6 @@
 #define ERR_NOT_PERMITTED        -4
 #define ERR_NOT_RECOGNIZED       -5
 #define ERR_RESOURCES_EXHAUSTED  -6 
+#define ERR_WRONG_TYPE           -7  // e.g. open_dir() on a file
+#define ERR_INVALID_ARGUMENT     -8
+#define ERR_NOT_FOUND            -9

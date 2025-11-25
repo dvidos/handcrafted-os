@@ -171,12 +171,12 @@ static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *abso
     } else {
         err = cached_read(mt->cache, 
             inode->indirect_ranges_block_no, 0,
-            mt->scratch_block_buffer, mt->superblock->block_size_in_bytes);
+            mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
         if (err != OK) return err;
     }
 
     err = add_block_to_array_of_ranges(mt, 
-        (block_range *)mt->scratch_block_buffer, 
+        (block_range *)mt->generic_block_buffer, 
         mt->superblock->block_size_in_bytes / sizeof(block_range), 
         0, // no fallback exists
         &use_indirect_block, // actualy, we don't care
@@ -186,7 +186,7 @@ static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *abso
     // write back the changes
     err = cached_write(mt->cache, 
         inode->indirect_ranges_block_no, 0,
-        mt->scratch_block_buffer,
+        mt->generic_block_buffer,
         mt->superblock->block_size_in_bytes);
     if (err != OK) return err;
 
