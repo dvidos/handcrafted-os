@@ -11,13 +11,14 @@
 #define MB   (1024*KB)
 #define GB   (1024*MB)
 
-#define MAX_OPEN_INODES   100   // later we can do this dynamic
-#define MAX_OPEN_HANDLES    100   // later we can do this dynamic
-#define RANGES_IN_INODE     6
-#define ROOT_DIR_INODE_REC_NO   0xFFFFFFFF
-#define ceiling_division(x, y)    (((x) + ((y)-1)) / (y))
-#define at_most(a, b)             ((b) < (a) ? (b) : (a))
-#define in_range(value, low, hi)             ((value) < (low) ? (low) : ((value) > (hi) ? (hi) : (value)))
+#define MAX_OPEN_INODES                     100  // later we can do this dynamic
+#define MAX_OPEN_HANDLES                    100  // later we can do this dynamic
+#define RANGES_IN_INODE                       6  // 
+#define ROOT_DIR_INODE_REC_NO        0xFFFFFFFF  // masquerades as db rec_no
+
+#define ceiling_division(x, y)       (((x) + ((y)-1)) / (y))
+#define at_most(a, b)                ((b) < (a) ? (b) : (a))
+#define in_range(value, low, hi)     ((value) < (low) ? (low) : ((value) > (hi) ? (hi) : (value)))
 
 // -------------------------------------------------------
 
@@ -30,65 +31,10 @@ typedef struct cache_data cache_data;
 typedef struct open_inode open_inode;
 typedef struct open_handle open_handle;
 
-
-
-struct block_range { // target size: 8
-    uint32_t first_block_no;
-    uint32_t blocks_count;
-};
-
-struct inode { // target size: 64
-    uint8_t is_used: 1;
-    uint8_t is_file: 1;
-    uint8_t is_dir:  1;
-    // maybe permissions (e.g. xrwxrwxrw), and owner user/group
-    // maybe creation and/or modification date, uint32, seconds from epoch
-    uint8_t padding[3];
-    
-    uint32_t file_size; // 32 bits mean max 4GB file size.
-    uint32_t allocated_blocks; // 24 bits would be enough, we could use the other 8 for flags
-
-    block_range ranges[RANGES_IN_INODE]; // size: 48
-    // if internal ranges are not enough, this block is full or ranges
-    uint32_t indirect_ranges_block_no;
-};
-
-struct open_inode { // the in-memory buffer for inodes
-    uint8_t is_used: 1;      
-    uint8_t is_dirty: 1;     // must write this inode to disk
-
-    inode inode_in_mem;              // buffer to load the inode
-    uint32_t inode_db_rec_no; // which record it is (0xFFFFFFFF is the root dir inode)
-    int ref_count;            // how many files have this inode open
-    // could contain locking information (e.g. open exclusive)
-};
-
-struct open_handle { // the per-process open file handle. two or more can point to same open_inode
-    uint8_t is_used: 1;      
-    open_inode *inode;       
-    uint32_t file_position;
-    // could contain open information, e.g. append mode
-};
-
-struct filesys_data {
-    mem_allocator *memory;
-    sector_device *device;
-    mounted_data *mounted; // if non-null, the filesystem is mounted
-};
-
-struct mounted_data {
-    int readonly;
-    superblock *superblock;
-
-    uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
-    cache_data *cache;
-
-    open_inode open_inodes[MAX_OPEN_INODES];
-    open_handle open_handles[MAX_OPEN_HANDLES];
-    
-    uint8_t *generic_block_buffer;
-};
-
+/**
+ * data written in the first sector (512 bytes) and block of the device
+ * kept in memory while mounted
+ */
 struct superblock { // must be up to 512 bytes, in order to read from unknown device
     char magic[4];  // e.g. "SFS1" version can be in here
     uint32_t sector_size;          // typically 512 to 4K, device driven
@@ -106,14 +52,85 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     char padding2[256 - (2*sizeof(inode)) - (1*sizeof(uint32_t))];
 };
 
+/**
+ * the structure that describes a file. fixed struct size.
+ * persisted in the inodes database file
+ */
+struct inode { // target size: 64
+    uint8_t is_used: 1;
+    uint8_t is_file: 1;
+    uint8_t is_dir:  1;
+    // maybe permissions (e.g. xrwxrwxrw), and owner user/group
+    // maybe creation and/or modification date, uint32, seconds from epoch
+    uint8_t padding[3];
+    
+    uint32_t file_size; // 32 bits mean max 4GB file size.
+    uint32_t allocated_blocks; // 24 bits would be enough, we could use the other 8 for flags
+
+    block_range ranges[RANGES_IN_INODE]; // size: 48
+    // if internal ranges are not enough, this block is full or ranges
+    uint32_t indirect_ranges_block_no;
+};
+
+/**
+ * a pair of starting block and blocks count.
+ * used in inodes to define the disk blocks the file occupies
+ */
+struct block_range { // target size: 8
+    uint32_t first_block_no;
+    uint32_t blocks_count;
+};
+
+/**
+ * an in-memory variable for an open inode
+ * one per each open unique inode
+ */
+struct open_inode {
+    uint8_t is_used: 1;      
+    uint8_t is_dirty: 1;     // must write this inode to disk
+
+    inode inode_in_mem;              // buffer to load the inode
+    uint32_t inode_db_rec_no; // which record it is (0xFFFFFFFF is the root dir inode)
+    int ref_count;            // how many files have this inode open
+    // could contain locking information (e.g. open exclusive)
+};
+
+/**
+ * an in-memory variable for an open handle. 
+ * many processes can open a file, each have their handle, pointing to the same inode
+ */
+struct open_handle { // the per-process open file handle. two or more can point to same open_inode
+    uint8_t is_used: 1;      
+    open_inode *inode;       
+    uint32_t file_position;
+    // could contain open information, e.g. append mode
+};
+
+
+struct filesys_data {
+    mem_allocator *memory;
+    sector_device *device;
+    mounted_data *mounted; // if non-null, the filesystem is mounted
+};
+
+/**
+ * runtime structure representing all the information of a mounted filesystem.
+ */
+struct mounted_data {
+    int readonly;
+    superblock *superblock;
+
+    uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
+    cache_data *cache;
+
+    open_inode open_inodes[MAX_OPEN_INODES];
+    open_handle open_handles[MAX_OPEN_HANDLES];
+    
+    uint8_t *generic_block_buffer;
+};
+
+
 // ------------------------------------------------------------------
-
-static int read_through_cache(mounted_data *mt, int block_no, int block_offset, int length, void *buffer);
-static int write_through_cache(mounted_data *mt, int block_no, int block_offset, int length, void *buffer);
-static int flush_cache(mounted_data *mt);
-
-
-// -------------------------------------------------------------------
 
 // superblock
 static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb);
@@ -143,14 +160,14 @@ static inline int cached_wipe(cache_data *data, uint32_t block_no);
 static inline int cache_flush(cache_data *data);
 static inline void cache_release_memory(cache_data *data);
 
-// if we converted bitmap to methods
+// bitmap.inc.c
 static inline int is_block_used(mounted_data *mt, uint32_t block_no);
 static inline int is_block_free(mounted_data *mt, uint32_t block_no);
 static inline void mark_block_used(mounted_data *mt, uint32_t block_no);
 static inline void mark_block_free(mounted_data *mt, uint32_t block_no);
 static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
 
-// high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
+// inodes.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
 static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_read_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
