@@ -31,25 +31,14 @@ typedef struct cache_data cache_data;
 typedef struct open_inode open_inode;
 typedef struct open_handle open_handle;
 
-/**
- * data written in the first sector (512 bytes) and block of the device
- * kept in memory while mounted
- */
-struct superblock { // must be up to 512 bytes, in order to read from unknown device
-    char magic[4];  // e.g. "SFS1" version can be in here
-    uint32_t sector_size;          // typically 512 to 4K, device driven
-    uint32_t sectors_per_block;    // typically 1-8, for a block size of 512..4kB
-    uint32_t block_size_in_bytes;  // typically 512, 1024, 2048 or 4096.
-    uint32_t blocks_in_device;     // typically 2k..10M
-    uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
-    uint32_t blocks_bitmap_blocks_count;  // typically 1 through 16 blocks
-    uint32_t max_inode_rec_no_in_db; // how many inodes in inodes_db (includes cleared ones)
-    char padding1[256 - (7 * sizeof(uint32_t))];
 
-    // these two 2*64=128 bytes, still 1/4 of a block...
-    inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
-    inode root_dir_inode;  // file with the entries for root directory. 
-    char padding2[256 - (2*sizeof(inode)) - (1*sizeof(uint32_t))];
+/**
+ * a pair of starting block and blocks count.
+ * used in inodes to define the disk blocks the file occupies
+ */
+struct block_range { // target size: 8
+    uint32_t first_block_no;
+    uint32_t blocks_count;
 };
 
 /**
@@ -72,14 +61,28 @@ struct inode { // target size: 64
     uint32_t indirect_ranges_block_no;
 };
 
+
 /**
- * a pair of starting block and blocks count.
- * used in inodes to define the disk blocks the file occupies
+ * data written in the first sector (512 bytes) and block of the device
+ * kept in memory while mounted
  */
-struct block_range { // target size: 8
-    uint32_t first_block_no;
-    uint32_t blocks_count;
+struct superblock { // must be up to 512 bytes, in order to read from unknown device
+    char magic[4];  // e.g. "SFS1" version can be in here
+    uint32_t sector_size;          // typically 512 to 4K, device driven
+    uint32_t sectors_per_block;    // typically 1-8, for a block size of 512..4kB
+    uint32_t block_size_in_bytes;  // typically 512, 1024, 2048 or 4096.
+    uint32_t blocks_in_device;     // typically 2k..10M
+    uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
+    uint32_t blocks_bitmap_blocks_count;  // typically 1 through 16 blocks
+    uint32_t max_inode_rec_no_in_db; // how many inodes in inodes_db (includes cleared ones)
+    char padding1[256 - (7 * sizeof(uint32_t))];
+
+    // these two 2*64=128 bytes, still 1/4 of a block...
+    inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
+    inode root_dir_inode;  // file with the entries for root directory. 
+    char padding2[256 - (2*sizeof(inode)) - (1*sizeof(uint32_t))];
 };
+
 
 /**
  * an in-memory variable for an open inode
