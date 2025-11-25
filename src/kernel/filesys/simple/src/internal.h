@@ -12,7 +12,7 @@
 #define GB   (1024*MB)
 
 #define MAX_OPEN_INODES   100   // later we can do this dynamic
-#define MAX_OPEN_FILES    100   // later we can do this dynamic
+#define MAX_OPEN_HANDLES    100   // later we can do this dynamic
 #define RANGES_IN_INODE     6
 #define ROOT_DIR_INODE_REC_NO   0xFFFFFFFF
 #define ceiling_division(x, y)    (((x) + ((y)-1)) / (y))
@@ -28,7 +28,7 @@ typedef struct block_range block_range;
 typedef struct inode inode;
 typedef struct cache_data cache_data;
 typedef struct open_inode open_inode;
-typedef struct open_file open_file;
+typedef struct open_handle open_handle;
 
 
 
@@ -63,7 +63,7 @@ struct open_inode { // the in-memory buffer for inodes
     // could contain locking information (e.g. open exclusive)
 };
 
-struct open_file { // the per-process open file handle. two or more can point to same open_inode
+struct open_handle { // the per-process open file handle. two or more can point to same open_inode
     uint8_t is_used: 1;      
     open_inode *inode;       
     uint32_t file_position;
@@ -84,7 +84,7 @@ struct mounted_data {
     cache_data *cache;
 
     open_inode open_inodes[MAX_OPEN_INODES];
-    open_file open_files[MAX_OPEN_FILES];
+    open_handle open_handles[MAX_OPEN_HANDLES];
     
     uint8_t *generic_block_buffer;
 };
@@ -157,7 +157,8 @@ static int inode_read_file_record(mounted_data *mt, inode *n, uint32_t rec_size,
 static int inode_write_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
 
 // open.inc.c
-static int open_inodes_allocate(mounted_data *mt, inode *inode, uint32_t inode_rec_no, open_inode **open_inode_ptr);
-static int open_inodes_release(mounted_data *mt, open_inode *oinode_ptr);
-static int open_files_allocate(mounted_data *mt, open_inode *oinode, open_file **ofile_ptr);
-static int open_files_release(mounted_data *mt, open_file *ofile);
+static int open_inodes_allocate(mounted_data *mt, inode *node, uint32_t inode_rec_no, open_inode **open_inode_ptr);
+static int open_inodes_release(mounted_data *mt, open_inode *node);
+static int open_inodes_flush_inode(mounted_data *mt, open_inode *node);
+static int open_handles_allocate(mounted_data *mt, open_inode *node, open_handle **handle_ptr);
+static int open_handles_release(mounted_data *mt, open_handle *handle);

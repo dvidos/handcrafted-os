@@ -36,27 +36,33 @@ static int open_inodes_allocate(mounted_data *mt, inode *iptr, uint32_t inode_re
     return OK;
 }
 
-static int open_inodes_release(mounted_data *mt, open_inode *oinode_ptr) {
-    if (oinode_ptr->is_dirty) {
-        if (oinode_ptr->inode_db_rec_no == ROOT_DIR_INODE_REC_NO) {
-            // save in superblock, in memory
-            memcpy(&mt->superblock->root_dir_inode, &oinode_ptr->inode_in_mem, sizeof(inode));
-        } else {
-            // save in inodes database
-            int err = inode_write_file_record(mt, &mt->superblock->inodes_db_inode, sizeof(inode), oinode_ptr->inode_db_rec_no, &oinode_ptr->inode_in_mem);
-            if (err != OK) return err;
-        }
-    }
+static int open_inodes_release(mounted_data *mt, open_inode *node) {
+    if (node->is_dirty)
+        open_inodes_flush_inode(mt, node);
 
-    oinode_ptr->is_used = 0;
+    node->is_used = 0;
     return OK;
 }
 
-static int open_files_allocate(mounted_data *mt, open_inode *oinode, open_file **ofile_ptr) {
+static int open_inodes_flush_inode(mounted_data *mt, open_inode *node) {
+    if (node->inode_db_rec_no == ROOT_DIR_INODE_REC_NO) {
+        // save in superblock, in memory
+        memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
+    } else {
+        // save in inodes database
+        int err = inode_write_file_record(mt, &mt->superblock->inodes_db_inode, sizeof(inode), node->inode_db_rec_no, &node->inode_in_mem);
+        if (err != OK) return err;
+    }
+
+    node->is_dirty = 0;
+    return OK;
+}
+
+static int open_handles_allocate(mounted_data *mt, open_inode *node, open_handle **handle_ptr) {
     // find a free slot
     int index = -1;
-    for (int i = 0; i < MAX_OPEN_FILES; i++) {
-        if (!mt->open_files[i].is_used) {
+    for (int i = 0; i < MAX_OPEN_HANDLES; i++) {
+        if (!mt->open_handles[i].is_used) {
             index = i;
             break;
         }
@@ -64,23 +70,23 @@ static int open_files_allocate(mounted_data *mt, open_inode *oinode, open_file *
     if (index == -1)
         return ERR_RESOURCES_EXHAUSTED;
 
-    mt->open_files[index].is_used = 1;
-    mt->open_files[index].inode = oinode;
-    mt->open_files[index].file_position = 0;
-    mt->open_files[index].inode->ref_count += 1; // one more references
+    mt->open_handles[index].is_used = 1;
+    mt->open_handles[index].inode = node;
+    mt->open_handles[index].file_position = 0;
+    mt->open_handles[index].inode->ref_count += 1; // one more references
     
-    *ofile_ptr = &mt->open_files[index];
+    *handle_ptr = &mt->open_handles[index];
     return OK;
 }
 
-static int open_files_release(mounted_data *mt, open_file *ofile) {
-    ofile->inode->ref_count -= 1;
+static int open_handles_release(mounted_data *mt, open_handle *handle) {
+    handle->inode->ref_count -= 1;
 
-    if (ofile->inode->ref_count == 0) {
-        int err = open_inodes_release(mt, ofile->inode);
+    if (handle->inode->ref_count == 0) {
+        int err = open_inodes_release(mt, handle->inode);
         if (err != OK) return err;
     }
 
-    ofile->is_used = 0;
+    handle->is_used = 0;
     return OK;
 }

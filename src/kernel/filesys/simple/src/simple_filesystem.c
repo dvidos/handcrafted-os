@@ -178,11 +178,16 @@ static int sfs_sync(simple_filesystem *sfs) {
     if (mt->readonly)
         return ERR_NOT_PERMITTED;
 
-
-    // before saving the superblock, we should write all the open inodes back to the inodes db
-    // TODO: do this.
+    // save open inodes to superblock or to inodes db
+    for (int i = 0; i < MAX_OPEN_INODES; i++) {
+        open_inode *node = &mt->open_inodes[i];
+        if (node->is_used && node->is_dirty) {
+            err = open_inodes_flush_inode(mt, node);
+            if (err != OK) return err;
+        }
+    }
     
-    // write superblock
+    // write superblock to cache
     err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(superblock));
     if (err != OK) return err;
 
@@ -229,20 +234,28 @@ static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_han
     if (data == NULL) return ERR_NOT_SUPPORTED;
     mounted_data *mt = data->mounted;
     if (mt == NULL) return ERR_NOT_SUPPORTED;
-
+    int err;
+    
+    // see if path resolves to inode
     inode inode;
     uint32_t inode_rec_no;
-    int err = resolve_path_to_inode(mt, filename, &inode, &inode_rec_no);
+    err = resolve_path_to_inode(mt, filename, &inode, &inode_rec_no);
+    if (err != OK) return err;
+    if (!inode.is_file)
+        return ERR_WRONG_TYPE;
+
+    // reuse or create entry in open inodes array
+    open_inode *oinode;
+    err = open_inodes_allocate(mt, &inode, inode_rec_no, &oinode);
     if (err != OK) return err;
 
-    
-    // need to walk the directories to find the inode
-    // then, need to load the inode into the open_files -> inode_in_memory
-    // then, create a handle to point to this inode_in_memory
-    // mount should have an array of open inodes_in_mem?
-    
+    // create entry the open files array
+    open_handle *ofile;
+    err = open_handles_allocate(mt, oinode, &ofile);
+    if (err != OK) return err;
 
-    return ERR_NOT_IMPLEMENTED;
+    *handle_ptr = (sfs_handle *)ofile;
+    return OK;
 }
 
 static int sfs_read(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size) {
@@ -258,16 +271,20 @@ static int sfs_write(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32
 }
 
 static int sfs_close(simple_filesystem *sfs, sfs_handle *h) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
-    if (data == NULL || sb == NULL)
-        return ERR_NOT_SUPPORTED;
-        
-    // we need to flush out all the open cache slots of this file
-    // we need to save inode info to disk
-   return ERR_NOT_IMPLEMENTED;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+    
+    open_handle *ofile = (open_handle *)h;
+    if (ofile == NULL || ofile->inode == NULL || !ofile->is_used)
+        return ERR_INVALID_ARGUMENT;
+
+    int err = open_handles_release(mt, ofile);
+    if (err != OK) return err;
+
+    return OK;
 }
 
 static int sfs_seek(simple_filesystem *sfs, sfs_handle *h, int offset, int origin) {
@@ -300,8 +317,8 @@ static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_
     if (err != OK) return err;
 
     // create entry the open files array
-    open_file *ofile;
-    err = open_files_allocate(mt, oinode, &ofile);
+    open_handle *ofile;
+    err = open_handles_allocate(mt, oinode, &ofile);
     if (err != OK) return err;
 
     *handle_ptr = (sfs_handle *)ofile;
@@ -326,11 +343,11 @@ static int sfs_close_dir(simple_filesystem *sfs, sfs_handle *h) {
     mounted_data *mt = data->mounted;
     if (mt == NULL) return ERR_NOT_SUPPORTED;
     
-    open_file *ofile = (open_file *)h;
+    open_handle *ofile = (open_handle *)h;
     if (ofile == NULL || ofile->inode == NULL || !ofile->is_used)
         return ERR_INVALID_ARGUMENT;
 
-    int err = open_files_release(mt, ofile);
+    int err = open_handles_release(mt, ofile);
     if (err != OK) return err;
 
     return OK;
