@@ -34,12 +34,13 @@ struct simple_filesystem {
     int (*read_dir)(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *entry);
     int (*close_dir)(simple_filesystem *sfs, sfs_handle *h);
 
-    int (*create)(simple_filesystem *sfs, char *path, int options);
+    int (*create)(simple_filesystem *sfs, char *path, int is_dir);
     int (*unlink)(simple_filesystem *sfs, char *path, int options);
     int (*rename)(simple_filesystem *sfs, char *oldpath, char *newpath);
 
     // future: truncate(), stat()
     
+    void (*dump_debug_info)(simple_filesystem *sfs);
     void *sfs_data;
 };
 

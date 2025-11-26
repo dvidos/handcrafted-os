@@ -1,7 +1,12 @@
 #include "internal.h"
 
+// ----------------------------------------------------------------------------------------
+
 static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
+
+    if (file_pos >= n->file_size)
+        return ERR_END_OF_FILE;
 
     uint32_t block_index = file_pos / mt->superblock->block_size_in_bytes;
     uint32_t block_offset = file_pos % mt->superblock->block_size_in_bytes;
@@ -73,10 +78,71 @@ static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, 
     return bytes_written;
 }
 
-static int inode_read_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec) {
-    return inode_read_file_data(mt, n, rec_no * rec_size, rec, rec_size);
+// -----------------------------------------------------------------------------
+
+static int inode_load(mounted_data *mt, uint32_t inode_rec_no, inode *node) {
+    int bytes = inode_read_file_data(mt, &mt->superblock->inodes_db_inode,
+        inode_rec_no * sizeof(inode), 
+        node,
+        sizeof(inode)
+    );
+    if (bytes < 0) return bytes;
+    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+
+    return OK;
 }
 
-static int inode_write_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec) {
-    return inode_write_file_data(mt, n, rec_no * rec_size, rec, rec_size);
+static int inode_allocate(mounted_data *mt, int is_dir, inode *node, uint32_t *inode_rec_no) {
+    memset(node, 0, sizeof(inode));
+    if (is_dir) {
+        node->is_dir = 1;
+    } else {
+        node->is_file = 1;
+    }
+    node->is_used = 1;
+
+    // this should have a lock somehow
+    *inode_rec_no = mt->superblock->inodes_db_rec_count;
+    int bytes = inode_write_file_data(mt, node, *inode_rec_no * sizeof(inode), node, sizeof(inode));
+    if (bytes < 0) return bytes;
+    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+
+    mt->superblock->inodes_db_rec_count += 1;
+    return OK;
 }
+
+static int inode_persist(mounted_data *mt, uint32_t inode_rec_no, inode *node) {
+    if (inode_rec_no == ROOT_DIR_INODE_REC_NO) {
+        memcpy(&mt->superblock->root_dir_inode, node, sizeof(inode));
+        return OK;
+    }
+
+    int bytes = inode_write_file_data(mt, &mt->superblock->inodes_db_inode, 
+        inode_rec_no * sizeof(inode),
+        node,
+        sizeof(inode)
+    );
+    if (bytes < 0) return bytes;
+    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+
+    return OK;
+}
+
+static int inode_delete(mounted_data *mt, uint32_t inode_rec_no) {
+    if (inode_rec_no == ROOT_DIR_INODE_REC_NO)
+        return ERR_NOT_PERMITTED;
+    
+    inode blank;
+    memset(&blank, 0, sizeof(inode));
+
+    int bytes = inode_write_file_data(mt, &mt->superblock->inodes_db_inode,
+        inode_rec_no * sizeof(inode),
+        &blank,
+        sizeof(inode)
+    );
+    if (bytes < 0) return bytes;
+    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+
+    return OK;
+}
+

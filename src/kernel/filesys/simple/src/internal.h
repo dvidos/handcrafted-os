@@ -11,8 +11,11 @@
 #define MB   (1024*KB)
 #define GB   (1024*MB)
 
-#define MAX_OPEN_INODES                       5  // later we can do this dynamic
-#define MAX_OPEN_HANDLES                      5  // later we can do this dynamic
+        
+        
+#define MAX_FILENAME_LENGTH                  59
+#define MAX_OPEN_INODES                      64  // later we can do this dynamic
+#define MAX_OPEN_HANDLES                     64  // later we can do this dynamic
 #define RANGES_IN_INODE                       6  // 
 #define ROOT_DIR_INODE_REC_NO        0xFFFFFFFF  // masquerades as db rec_no
 
@@ -68,7 +71,7 @@ struct inode { // target size: 64
  * stored on disk. fixed size of 64 bytes.
  */
 struct dir_entry {
-    char name[60];
+    char name[MAX_FILENAME_LENGTH + 1];
     uint32_t inode_rec_no;
 };
 
@@ -84,7 +87,7 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     uint32_t blocks_in_device;     // typically 2k..10M
     uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
     uint32_t blocks_bitmap_blocks_count;  // typically 1 through 16 blocks
-    uint32_t max_inode_rec_no_in_db; // how many inodes in inodes_db (includes cleared ones)
+    uint32_t inodes_db_rec_count; // how many inodes in inodes_db (includes cleared ones)
     char padding1[256 - (7 * sizeof(uint32_t))];
 
     // these two 2*64=128 bytes, still 1/4 of a block...
@@ -182,8 +185,10 @@ static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
 // inodes.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
 static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
-static int inode_read_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
-static int inode_write_file_record(mounted_data *mt, inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
+static int inode_load(mounted_data *mt, uint32_t inode_rec_no, inode *node);
+static int inode_allocate(mounted_data *mt, int is_file, inode *node, uint32_t *inode_rec_no);
+static int inode_persist(mounted_data *mt, uint32_t inode_rec_no, inode *node);
+static int inode_delete(mounted_data *mt, uint32_t inode_rec_no);
 
 // open.inc.c
 static int open_inodes_register(mounted_data *mt, inode *node, uint32_t inode_rec_no, open_inode **open_inode_ptr);
@@ -191,3 +196,8 @@ static int open_inodes_release(mounted_data *mt, open_inode *node);
 static int open_inodes_flush_inode(mounted_data *mt, open_inode *node);
 static int open_handles_register(mounted_data *mt, open_inode *node, open_handle **handle_ptr);
 static int open_handles_release(mounted_data *mt, open_handle *handle);
+
+// dirs.inc.c
+static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_rec_no, int *enrty_rec_no);
+static int dir_entry_update(mounted_data *mt, inode *dir_inode, int enrty_rec_no, const char *name, uint32_t inode_rec_no);
+static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name, uint32_t inode_rec_no);

@@ -37,6 +37,40 @@ static void mkfs_test() {
     assert(err == OK);
 }
 
+static void root_dir_test() {
+    int err;
+    MOUNTED_FS(fs);
+
+    sfs_handle *h;
+    err = fs->open_dir(fs, "/", &h);
+    assert(err == OK);
+
+    sfs_dir_entry entry;
+    while ((err = fs->read_dir(fs, h, &entry)) == OK) {
+        printf("  %s\n", entry.name);
+    }
+
+    err = fs->close_dir(fs, h);
+    assert(err == OK);
+}
+
+static void file_creation_test() {
+    int err;
+    MOUNTED_FS(fs);
+
+    err = fs->create(fs, "/unit_test.c", 0);
+    assert(err == OK);
+
+    err = fs->create(fs, "/bin", 1);
+    assert(err == OK);
+
+    err = fs->create(fs, "/bin", 1); // second time should fail
+    assert(err == ERR_CONFLICT);
+
+    err = fs->create(fs, "/bin/sh.c", 0);
+    assert(err == OK);
+}
+
 static void simple_file_test() {
     int err;
     simple_filesystem *fs = FS()
@@ -45,6 +79,11 @@ static void simple_file_test() {
     assert(err == OK);
 
     err = fs->mount(fs, 0);
+    assert(err == OK);
+
+    err = fs->create(fs, "/file.txt", 0);
+    assert(err == OK);
+    err = fs->create(fs, "/bin", 0);
     assert(err == OK);
 
     sfs_handle *h;
@@ -69,33 +108,16 @@ static void simple_file_test() {
     assert(err == OK);
 }
 
-static void root_dir_test() {
-    int err;
-    MOUNTED_FS(fs);
-
-    sfs_handle *h;
-    err = fs->open_dir(fs, "/", &h);
-    assert(err == OK);
-
-    sfs_dir_entry entry;
-    while ((err = fs->read_dir(fs, h, &entry)) == OK) {
-        printf("  %s\n", entry.name);
-    }
-
-    err = fs->close_dir(fs, h);
-    assert(err == OK);
-}
-
 static void wash_test() {
     // make 500 files, randomly adding blocks to each, till something breaks or file is full?
 }
 
 void run_tests() {
     mkfs_test();
-    wash_test();
-    // simple_file_test();
     root_dir_test();
-    
+    file_creation_test();
+    //simple_file_test();
+    wash_test();
 }
 
 

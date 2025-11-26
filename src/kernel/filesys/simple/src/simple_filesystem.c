@@ -1,5 +1,6 @@
 #include "../dependencies/returns.h"
 #include "../simple_filesystem.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "internal.h"
@@ -13,30 +14,92 @@
 #include "block_ops.inc.c"
 #include "inodes.inc.c"
 #include "open.inc.c"
+#include "dirs.inc.c"
 
 // ------------------------------------------------------------------
 
-static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve_parent_dir_only, inode *target, uint32_t *inode_rec_no) {
+static void path_get_first_part(const char *path, char *filename_buffer) {
+    char *slash = strchr(path, '/');
 
-    if (strcmp(path, "/") == 0) {
+    int length = (slash == NULL) ? strlen(path) : slash - path;
+    if (length > MAX_FILENAME_LENGTH)
+        length = MAX_FILENAME_LENGTH;
+    
+    strncpy(filename_buffer, path, length);
+    filename_buffer[length] = 0;
+}
+
+static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve_parent_dir_only, inode *target, uint32_t *inode_rec_no) {
+    char part_name[MAX_FILENAME_LENGTH + 1];
+    int err;
+    inode curr_dir;
+    uint32_t curr_dir_inode_rec_no;
+    inode entry_inode;
+    uint32_t entry_inode_rec_no;
+
+    // all paths should be absolute
+    if (path[0] != '/')
+        return ERR_INVALID_ARGUMENT;
+    path += 1;
+
+    // path was "/" only.
+    if (*path == '\0') {
+        if (resolve_parent_dir_only)
+            return ERR_INVALID_ARGUMENT;
+
         memcpy(target, &mt->superblock->root_dir_inode, sizeof(inode));
         *inode_rec_no = ROOT_DIR_INODE_REC_NO;
         return OK;
     }
 
-    // // start from root dir
-    // dir = ...
-    // while (true) {
-    //     // get chunk from path
-        
-    //     // if resolve_parent_dir and this is last chunk, we are done
+    // start walking down the directories
+    memcpy(&curr_dir, &mt->superblock->root_dir_inode, sizeof(inode));
+    curr_dir_inode_rec_no = ROOT_DIR_INODE_REC_NO;
+    while (1) {
 
-    //     // find chunk in directory
+        // get first part of the path
+        path_get_first_part(path, part_name);
+        path += strlen(part_name);
+        if (*path == '/')
+            path++;
+        int finished = (*path == '\0');
 
-    //     // if is directory, open it
-    // }
+        // if resolving parent, we don't need to seek the last part
+        if (resolve_parent_dir_only && finished) {
+            memcpy(target, &curr_dir, sizeof(inode));
+            *inode_rec_no = curr_dir_inode_rec_no;
+            return OK;
+        }
 
-    return ERR_NOT_IMPLEMENTED;
+        // look the chunk in the current directory
+        err = dir_entry_find(mt, &curr_dir, part_name, &entry_inode_rec_no, NULL);
+        if (err != OK) return err;
+
+        // load so we can return it, or use it.
+        err = inode_load(mt, entry_inode_rec_no, &entry_inode);
+        if (err != OK) return err;
+
+        if (finished) {
+            memcpy(target, &entry_inode, sizeof(inode));
+            *inode_rec_no = entry_inode_rec_no;
+            return OK;
+        }
+
+        // verify we recurse into a directory that we can search in
+        if (!entry_inode.is_dir)
+            return ERR_WRONG_TYPE;
+        memcpy(&curr_dir, &entry_inode, sizeof(inode));
+        curr_dir_inode_rec_no = entry_inode_rec_no;
+    }
+
+    // should never happen
+    return ERR_NOT_FOUND;
+}
+
+// returns just the last part (e.g. "sh" for "/bin/sh")
+static const char *get_filename_from_path(const char *path) {
+    const char *separator = strrchr(path, '/');
+    return separator == NULL ? path : separator + 1;
 }
 
 // ------------------------------------------------------------------
@@ -385,21 +448,47 @@ static int sfs_close_dir(simple_filesystem *sfs, sfs_handle *h) {
     return OK;
 }
 
-static int sfs_create(simple_filesystem *sfs, char *path, int options) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
+static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
-    if (sb == NULL) return ERR_NOT_IMPLEMENTED;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
     if (data->mounted->readonly)
         return ERR_NOT_PERMITTED;
+    int err;
     
-    // resolve to parent path
-    // check it is a directory
-    // open it, go over names, ensure it does not exist
-    // append to directory file
-    // create inode, flags/options tell us if it's a directory or file, or otherwise
-    return ERR_NOT_IMPLEMENTED;
+    // see if path resolves to inode
+    inode parent_inode;
+    uint32_t parent_inode_rec_no;
+    err = resolve_path_to_inode(mt, path, 1, &parent_inode, &parent_inode_rec_no);
+    if (err != OK) return err;
+
+    // see if name exists in the directory
+    uint32_t new_inode_rec_no;
+    int entry_rec_no; 
+    err = dir_entry_find(mt, &parent_inode, get_filename_from_path(path), &new_inode_rec_no, &entry_rec_no);
+    if (err == OK) return ERR_CONFLICT;
+
+    // now we should be able to create a file / dir
+    inode new_inode;
+    err = inode_allocate(mt, is_dir, &new_inode, &new_inode_rec_no);
+    if (err != OK) return err;
+
+    // add this entry
+    const char *filename = get_filename_from_path(path);
+    err = dir_entry_append(mt, &parent_inode, filename, new_inode_rec_no);
+    if (err != OK) return err;
+
+    // if we added a directory, we need to add the "." and the ".." as well.
+    if (is_dir) {
+        err = dir_entry_append(mt, &new_inode, ".", new_inode_rec_no);
+        if (err != OK) return err;
+        err = dir_entry_append(mt, &new_inode, "..", parent_inode_rec_no);
+        if (err != OK) return err;
+    }
+
+    return OK;
 }
 
 static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
@@ -436,6 +525,23 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     // null out entry in old directory
     // append new entry in new directory
     return ERR_NOT_IMPLEMENTED;
+}
+
+static void sfs_dump_debug_info(simple_filesystem *sfs) {
+    if (sfs == NULL) return;
+    filesys_data *data = sfs->sfs_data;
+    if (data == NULL) return;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return;
+
+    /*
+        Superblock
+        Bitmap
+        Inode DB
+        Root Dir
+    */
+   printf("Superblock  [blksiz=%d]\n", mt->superblock->block_size_in_bytes);
+
 }
 
 // ------------------------------------------------------------------
@@ -478,6 +584,7 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
     sfs->unlink = sfs_unlink;
     sfs->rename = sfs_rename;
 
+    sfs->dump_debug_info = sfs_dump_debug_info;
     return sfs;
 }
 

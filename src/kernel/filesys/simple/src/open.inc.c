@@ -50,7 +50,7 @@ static int open_inodes_flush_inode(mounted_data *mt, open_inode *node) {
         memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
     } else {
         // save in inodes database
-        int err = inode_write_file_record(mt, &mt->superblock->inodes_db_inode, sizeof(inode), node->inode_db_rec_no, &node->inode_in_mem);
+        int err = inode_write_file_data(mt, &mt->superblock->inodes_db_inode, node->inode_db_rec_no * sizeof(inode), &node->inode_in_mem, sizeof(inode));
         if (err != OK) return err;
     }
 
