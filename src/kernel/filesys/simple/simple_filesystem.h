@@ -9,7 +9,7 @@ typedef struct simple_filesystem simple_filesystem;
 typedef struct sfs_handle sfs_handle;
 
 typedef struct sfs_dir_entry {
-    const char name[64];
+    char name[64];
     uint32_t type;
     uint32_t flags;
     uint32_t size;
@@ -38,6 +38,8 @@ struct simple_filesystem {
     int (*unlink)(simple_filesystem *sfs, char *path, int options);
     int (*rename)(simple_filesystem *sfs, char *oldpath, char *newpath);
 
+    // future: truncate(), stat()
+    
     void *sfs_data;
 };
 

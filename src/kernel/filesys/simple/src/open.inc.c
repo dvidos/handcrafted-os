@@ -2,7 +2,7 @@
 #include <string.h>
 
 
-static int open_inodes_allocate(mounted_data *mt, inode *iptr, uint32_t inode_rec_no, open_inode **open_inode_ptr) {
+static int open_inodes_register(mounted_data *mt, inode *iptr, uint32_t inode_rec_no, open_inode **open_inode_ptr) {
     // find if already open
     int index = -1;
     for (int i = 0; i < MAX_OPEN_INODES; i++) {
@@ -15,7 +15,7 @@ static int open_inodes_allocate(mounted_data *mt, inode *iptr, uint32_t inode_re
     // not found, try to find an empty slot
     if (index == -1) {
         for (int i = 0; i < MAX_OPEN_INODES; i++) {
-            if (mt->open_inodes[i].is_used) {
+            if (!mt->open_inodes[i].is_used) {
                 index = i;
                 break;
             }
@@ -58,7 +58,7 @@ static int open_inodes_flush_inode(mounted_data *mt, open_inode *node) {
     return OK;
 }
 
-static int open_handles_allocate(mounted_data *mt, open_inode *node, open_handle **handle_ptr) {
+static int open_handles_register(mounted_data *mt, open_inode *node, open_handle **handle_ptr) {
     // find a free slot
     int index = -1;
     for (int i = 0; i < MAX_OPEN_HANDLES; i++) {

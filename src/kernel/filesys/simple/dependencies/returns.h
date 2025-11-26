@@ -13,3 +13,4 @@
 #define ERR_WRONG_TYPE           -7  // e.g. open_dir() on a file
 #define ERR_INVALID_ARGUMENT     -8
 #define ERR_NOT_FOUND            -9
+#define ERR_END_OF_FILE         -10

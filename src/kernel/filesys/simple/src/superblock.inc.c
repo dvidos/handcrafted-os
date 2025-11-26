@@ -66,6 +66,7 @@ static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint
     memset(&sb->inodes_db_inode, 0, sizeof(inode));
     sb->max_inode_rec_no_in_db = 0;
     memset(&sb->root_dir_inode, 0, sizeof(inode));
+    sb->root_dir_inode.is_dir = 1;
 
     return OK;
 }
