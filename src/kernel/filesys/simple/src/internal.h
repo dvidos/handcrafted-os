@@ -78,10 +78,10 @@ struct direntry {
  */
 struct superblock { // must be up to 512 bytes, in order to read from unknown device
     // offset x000
-    char magic[4];                // e.g. "SFS1" version can be in here
+    char magic[4];                 // e.g. "SFS1" version can be in here
     uint16_t direntry_size;        // currently 64 bytes. to ensure same size when mounting
     uint16_t inode_size;           // currently 64 bytes. to ensure same size when mounting
-    uint32_t inodes_db_rec_count; // how many inodes in inodes_db (includes cleared ones)
+    uint32_t inodes_db_rec_count;  // how many inodes in inodes_db (includes cleared ones)
     uint32_t dummy1;
 
     // offset x010
@@ -100,11 +100,11 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
     // offset 0x070
     inode root_dir_inode;  // file with the entries for root directory. 
-    // offset 0x0A0
+    // offset 0x0b0
     char volume_label[32]; 
 
-    // offset 0x0C0
-    char padding1[512
+    // offset 0x0d0
+    char dummy4[512
         -4
         -2*sizeof(uint16_t)
         -10*sizeof(uint32_t)
