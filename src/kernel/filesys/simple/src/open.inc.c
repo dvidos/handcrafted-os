@@ -2,11 +2,11 @@
 #include <string.h>
 
 
-static int open_inodes_register(mounted_data *mt, inode *iptr, uint32_t inode_rec_no, open_inode **open_inode_ptr) {
+static int open_inodes_register(mounted_data *mt, inode *iptr, uint32_t inode_id, open_inode **open_inode_ptr) {
     // find if already open
     int index = -1;
     for (int i = 0; i < MAX_OPEN_INODES; i++) {
-        if (mt->open_inodes[i].is_used && mt->open_inodes[i].inode_db_rec_no == inode_rec_no) {
+        if (mt->open_inodes[i].is_used && mt->open_inodes[i].inode_id == inode_id) {
             index = i;
             break;
         }
@@ -29,7 +29,7 @@ static int open_inodes_register(mounted_data *mt, inode *iptr, uint32_t inode_re
 
     // initialize runtime info
     memcpy(&mt->open_inodes[index].inode_in_mem, iptr, sizeof(inode));
-    mt->open_inodes[index].inode_db_rec_no = inode_rec_no;
+    mt->open_inodes[index].inode_id = inode_id;
     mt->open_inodes[index].is_dirty = 0;
 
     *open_inode_ptr = &mt->open_inodes[index];
@@ -45,12 +45,12 @@ static int open_inodes_release(mounted_data *mt, open_inode *node) {
 }
 
 static int open_inodes_flush_inode(mounted_data *mt, open_inode *node) {
-    if (node->inode_db_rec_no == ROOT_DIR_INODE_REC_NO) {
+    if (node->inode_id == ROOT_DIR_INODE_ID) {
         // save in superblock, in memory
         memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
     } else {
         // save in inodes database
-        int err = inode_write_file_data(mt, &mt->superblock->inodes_db_inode, node->inode_db_rec_no * sizeof(inode), &node->inode_in_mem, sizeof(inode));
+        int err = inode_write_file_data(mt, &mt->superblock->inodes_db_inode, node->inode_id * sizeof(inode), &node->inode_in_mem, sizeof(inode));
         if (err != OK) return err;
     }
 

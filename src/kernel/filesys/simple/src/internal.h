@@ -10,14 +10,12 @@
 #define KB   (1024)
 #define MB   (1024*KB)
 #define GB   (1024*MB)
-
         
-        
-#define MAX_FILENAME_LENGTH                  59
+#define MAX_FILENAME_LENGTH                  59  // affects directory entry size
 #define MAX_OPEN_INODES                      64  // later we can do this dynamic
 #define MAX_OPEN_HANDLES                     64  // later we can do this dynamic
-#define RANGES_IN_INODE                       6  // 
-#define ROOT_DIR_INODE_REC_NO        0xFFFFFFFF  // masquerades as db rec_no
+#define RANGES_IN_INODE                       6  // affects inode size
+#define ROOT_DIR_INODE_ID            0xFFFFFFFF  // masquerades as inode id
 
 #define ceiling_division(x, y)       (((x) + ((y)-1)) / (y))
 #define at_most(a, b)                ((b) < (a) ? (b) : (a))
@@ -30,7 +28,7 @@ typedef struct mounted_data mounted_data;
 typedef struct superblock superblock;
 typedef struct block_range block_range;
 typedef struct inode inode;
-typedef struct dir_entry dir_entry;
+typedef struct direntry direntry;
 typedef struct cache_data cache_data;
 typedef struct open_inode open_inode;
 typedef struct open_handle open_handle;
@@ -65,14 +63,13 @@ struct inode { // target size: 64
     uint32_t indirect_ranges_block_no;
 };
 
-
 /**
  * each directory is actually a file of records as the below.
  * stored on disk. fixed size of 64 bytes.
  */
-struct dir_entry {
+struct direntry {
     char name[MAX_FILENAME_LENGTH + 1];
-    uint32_t inode_rec_no;
+    uint32_t inode_id;
 };
 
 /**
@@ -106,7 +103,7 @@ struct open_inode {
     uint8_t is_dirty: 1;     // must write this inode to disk
 
     inode inode_in_mem;              // buffer to load the inode
-    uint32_t inode_db_rec_no; // which record it is (0xFFFFFFFF is the root dir inode)
+    uint32_t inode_id; // which record it is (0xFFFFFFFF is the root dir inode)
     int ref_count;            // how many files have this inode open
     // could contain locking information (e.g. open exclusive)
 };
@@ -188,21 +185,21 @@ static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
 // inodes.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
 static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
-static int inode_load(mounted_data *mt, uint32_t inode_rec_no, inode *node);
-static int inode_allocate(mounted_data *mt, int is_file, inode *node, uint32_t *inode_rec_no);
-static int inode_persist(mounted_data *mt, uint32_t inode_rec_no, inode *node);
-static int inode_delete(mounted_data *mt, uint32_t inode_rec_no);
+static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node);
+static int inode_allocate(mounted_data *mt, int is_file, inode *node, uint32_t *inode_id);
+static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node);
+static int inode_delete(mounted_data *mt, uint32_t inode_id);
 static void inode_dump_debug_info(const char *title, inode *n);
 
 // open.inc.c
-static int open_inodes_register(mounted_data *mt, inode *node, uint32_t inode_rec_no, open_inode **open_inode_ptr);
+static int open_inodes_register(mounted_data *mt, inode *node, uint32_t inode_id, open_inode **open_inode_ptr);
 static int open_inodes_release(mounted_data *mt, open_inode *node);
 static int open_inodes_flush_inode(mounted_data *mt, open_inode *node);
 static int open_handles_register(mounted_data *mt, open_inode *node, open_handle **handle_ptr);
 static int open_handles_release(mounted_data *mt, open_handle *handle);
 
 // dirs.inc.c
-static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_rec_no, int *enrty_rec_no);
-static int dir_entry_update(mounted_data *mt, inode *dir_inode, int enrty_rec_no, const char *name, uint32_t inode_rec_no);
-static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name, uint32_t inode_rec_no);
+static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_id, int *entry_rec_no);
+static int dir_entry_update(mounted_data *mt, inode *dir_inode, int entry_rec_no, const char *name, uint32_t inode_id);
+static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name, uint32_t inode_id);
 static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth);

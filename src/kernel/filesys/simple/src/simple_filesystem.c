@@ -29,13 +29,13 @@ static void path_get_first_part(const char *path, char *filename_buffer) {
     filename_buffer[length] = 0;
 }
 
-static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve_parent_dir_only, inode *target, uint32_t *inode_rec_no) {
+static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve_parent_dir_only, inode *target, uint32_t *inode_id) {
     char part_name[MAX_FILENAME_LENGTH + 1];
     int err;
     inode curr_dir;
-    uint32_t curr_dir_inode_rec_no;
+    uint32_t curr_dir_inode_id;
     inode entry_inode;
-    uint32_t entry_inode_rec_no;
+    uint32_t entry_inode_id;
 
     // all paths should be absolute
     if (path[0] != '/')
@@ -48,13 +48,13 @@ static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve
             return ERR_INVALID_ARGUMENT;
 
         memcpy(target, &mt->superblock->root_dir_inode, sizeof(inode));
-        *inode_rec_no = ROOT_DIR_INODE_REC_NO;
+        *inode_id = ROOT_DIR_INODE_ID;
         return OK;
     }
 
     // start walking down the directories
     memcpy(&curr_dir, &mt->superblock->root_dir_inode, sizeof(inode));
-    curr_dir_inode_rec_no = ROOT_DIR_INODE_REC_NO;
+    curr_dir_inode_id = ROOT_DIR_INODE_ID;
     while (1) {
 
         // get first part of the path
@@ -67,21 +67,21 @@ static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve
         // if resolving parent, we don't need to seek the last part
         if (resolve_parent_dir_only && finished) {
             memcpy(target, &curr_dir, sizeof(inode));
-            *inode_rec_no = curr_dir_inode_rec_no;
+            *inode_id = curr_dir_inode_id;
             return OK;
         }
 
         // look the chunk in the current directory
-        err = dir_entry_find(mt, &curr_dir, part_name, &entry_inode_rec_no, NULL);
+        err = dir_entry_find(mt, &curr_dir, part_name, &entry_inode_id, NULL);
         if (err != OK) return err;
 
         // load so we can return it, or use it.
-        err = inode_load(mt, entry_inode_rec_no, &entry_inode);
+        err = inode_load(mt, entry_inode_id, &entry_inode);
         if (err != OK) return err;
 
         if (finished) {
             memcpy(target, &entry_inode, sizeof(inode));
-            *inode_rec_no = entry_inode_rec_no;
+            *inode_id = entry_inode_id;
             return OK;
         }
 
@@ -89,7 +89,7 @@ static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve
         if (!entry_inode.is_dir)
             return ERR_WRONG_TYPE;
         memcpy(&curr_dir, &entry_inode, sizeof(inode));
-        curr_dir_inode_rec_no = entry_inode_rec_no;
+        curr_dir_inode_id = entry_inode_id;
     }
 
     // should never happen
@@ -271,15 +271,15 @@ static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_han
     
     // see if path resolves to inode
     inode inode;
-    uint32_t inode_rec_no;
-    err = resolve_path_to_inode(mt, filename, 0, &inode, &inode_rec_no);
+    uint32_t inode_id;
+    err = resolve_path_to_inode(mt, filename, 0, &inode, &inode_id);
     if (err != OK) return err;
     if (!inode.is_file)
         return ERR_WRONG_TYPE;
 
     // reuse or create entry in open inodes array
     open_inode *oinode;
-    err = open_inodes_register(mt, &inode, inode_rec_no, &oinode);
+    err = open_inodes_register(mt, &inode, inode_id, &oinode);
     if (err != OK) return err;
 
     // create entry the open files array
@@ -375,15 +375,15 @@ static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_
     
     // see if path resolves to inode
     inode inode;
-    uint32_t inode_rec_no;
-    err = resolve_path_to_inode(mt, path, 0, &inode, &inode_rec_no);
+    uint32_t inode_id;
+    err = resolve_path_to_inode(mt, path, 0, &inode, &inode_id);
     if (err != OK) return err;
     if (!inode.is_dir)
         return ERR_WRONG_TYPE;
 
     // reuse or create entry in open inodes array
     open_inode *oinode;
-    err = open_inodes_register(mt, &inode, inode_rec_no, &oinode);
+    err = open_inodes_register(mt, &inode, inode_id, &oinode);
     if (err != OK) return err;
 
     // create entry the open files array
@@ -412,8 +412,8 @@ static int sfs_read_dir(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *en
         return ERR_END_OF_FILE;
 
     // else read, populate, advance file position.
-    dir_entry disk_entry;
-    int bytes = inode_read_file_data(mt, &handle->inode->inode_in_mem, handle->file_position, &disk_entry, sizeof(dir_entry));
+    direntry disk_entry;
+    int bytes = inode_read_file_data(mt, &handle->inode->inode_in_mem, handle->file_position, &disk_entry, sizeof(direntry));
     if (bytes < 0) return bytes;
     handle->file_position += bytes;
 
@@ -454,36 +454,35 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     
     // see if path resolves to inode
     inode parent_inode;
-    uint32_t parent_inode_rec_no;
-    err = resolve_path_to_inode(mt, path, 1, &parent_inode, &parent_inode_rec_no);
+    uint32_t parent_inode_id;
+    err = resolve_path_to_inode(mt, path, 1, &parent_inode, &parent_inode_id);
     if (err != OK) return err;
 
     // see if name exists in the directory
-    uint32_t new_inode_rec_no;
-    int entry_rec_no; 
-    err = dir_entry_find(mt, &parent_inode, get_filename_from_path(path), &new_inode_rec_no, &entry_rec_no);
+    uint32_t new_inode_id;
+    err = dir_entry_find(mt, &parent_inode, get_filename_from_path(path), &new_inode_id, NULL);
     if (err == OK) return ERR_CONFLICT;
 
     // now we should be able to create a file / dir
     inode new_inode;
-    err = inode_allocate(mt, is_dir, &new_inode, &new_inode_rec_no);
+    err = inode_allocate(mt, is_dir, &new_inode, &new_inode_id);
     if (err != OK) return err;
 
     // add this entry
     const char *filename = get_filename_from_path(path);
-    err = dir_entry_append(mt, &parent_inode, filename, new_inode_rec_no);
+    err = dir_entry_append(mt, &parent_inode, filename, new_inode_id);
     if (err != OK) return err;
 
     // if we added a directory, we need to add the "." and the ".." as well.
     if (is_dir) {
-        err = dir_entry_append(mt, &new_inode, ".", new_inode_rec_no);
+        err = dir_entry_append(mt, &new_inode, ".", new_inode_id);
         if (err != OK) return err;
-        err = dir_entry_append(mt, &new_inode, "..", parent_inode_rec_no);
+        err = dir_entry_append(mt, &new_inode, "..", parent_inode_id);
         if (err != OK) return err;
     }
 
     // we must persist the parent inode changes (e.g. entries added)
-    err = inode_persist(mt, parent_inode_rec_no, &parent_inode);
+    err = inode_persist(mt, parent_inode_id, &parent_inode);
     if (err != OK) return err;
 
     return OK;
@@ -562,7 +561,7 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
 
     if (sizeof(inode) != 64) // written on disk, must be same size
         return NULL;
-    if (sizeof(dir_entry) != 64) // written on disk, must be same size
+    if (sizeof(direntry) != 64) // written on disk, must be same size
         return NULL;
     if (sizeof(superblock) != 512) // must be able to load in a single 512B sector
         return NULL;
