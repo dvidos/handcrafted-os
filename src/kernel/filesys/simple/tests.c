@@ -108,8 +108,6 @@ static void simple_file_test() {
     err = fs->create(fs, "/file.txt", 0);
     assert(err == OK);
 
-    fs->dump_debug_info(fs, "After file creation");
-
     sfs_handle *h;
     err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
@@ -123,6 +121,11 @@ static void simple_file_test() {
     err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
 
+
+    // TODO: dump open inodes and files as well
+    // fs->dump_debug_info(fs, "After file creation");
+
+
     char buffer[64];
     err = fs->read(fs, h, buffer, sizeof(buffer));
     assert(err == OK);
@@ -130,6 +133,11 @@ static void simple_file_test() {
 
     err = fs->close(fs, h);
     assert(err == OK);
+
+    err = fs->unmount(fs);
+    assert(err == OK);
+
+    dev->dump_debug_info(dev, "After creating and reading a text file");
 }
 
 static void wash_test() {

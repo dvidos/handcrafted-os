@@ -77,25 +77,40 @@ struct direntry {
  * kept in memory while mounted
  */
 struct superblock { // must be up to 512 bytes, in order to read from unknown device
-    char magic[4];  // e.g. "SFS1" version can be in here
+    // offset x000
+    char magic[4];                // e.g. "SFS1" version can be in here
+    uint16_t direntry_size;        // currently 64 bytes. to ensure same size when mounting
+    uint16_t inode_size;           // currently 64 bytes. to ensure same size when mounting
+    uint32_t inodes_db_rec_count; // how many inodes in inodes_db (includes cleared ones)
+    uint32_t dummy1;
+
+    // offset x010
     uint32_t sector_size;          // typically 512 to 4K, device driven
     uint32_t sectors_per_block;    // typically 1-8, for a block size of 512..4kB
     uint32_t block_size_in_bytes;  // typically 512, 1024, 2048 or 4096.
     uint32_t blocks_in_device;     // typically 2k..10M
+
+    // offset 0x020
     uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
     uint32_t blocks_bitmap_blocks_count;  // typically 1 through 16 blocks
-    uint32_t inodes_db_rec_count; // how many inodes in inodes_db (includes cleared ones)
+    uint32_t dummy2;
+    uint32_t dummy3;
 
-    uint16_t inode_size;   // currently 64 bytes. to ensure same size when mounting
-    uint16_t direntry_size;  // currently 64 bytes. to ensure same size when mounting
-
-    char padding1[256 - 4 - 7*sizeof(uint32_t) - 2*sizeof(uint16_t)];
-
-    // these two 2*64=128 bytes, still 1/4 of a block...
-    char volume_label[32];
+    // offset 0x030
     inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
+    // offset 0x070
     inode root_dir_inode;  // file with the entries for root directory. 
-    char padding2[256 - 32 - 2*sizeof(inode)];
+    // offset 0x0A0
+    char volume_label[32]; 
+
+    // offset 0x0C0
+    char padding1[512
+        -4
+        -2*sizeof(uint16_t)
+        -10*sizeof(uint32_t)
+        -2*sizeof(inode)
+        -32
+    ];
 };
 
 /**
