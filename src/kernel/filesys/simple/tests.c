@@ -70,27 +70,34 @@ static void file_creation_test() {
 
 
     assert(fs->mkfs(fs, "TEST", 0) == OK);
-
     assert(fs->mount(fs, 0) == OK);
 
-    err = fs->create(fs, "/unit_test.c", 0);
-    assert(err == OK);
+    assert(fs->create(fs, "/unit_test.c", 0) == OK);
+    assert(fs->create(fs, "/bin", 1) == OK);
+    assert(fs->create(fs, "/bin", 1) == ERR_CONFLICT);  // second time should fail
+    assert(fs->create(fs, "/bin/sh.c", 0) == OK);
+    assert(fs->create(fs, "/bin/sh.c/file", 0) == ERR_WRONG_TYPE); // cannot create inside a file
+    assert(fs->create(fs, "/something/sh.c", 0) == ERR_NOT_FOUND);  // path was not found
 
-    err = fs->create(fs, "/bin", 1);
-    assert(err == OK);
+    // delete
+    sfs_handle *h;
+    assert(fs->create(fs, "/bin/temp", 0) == OK);
+    assert(fs->open(fs, "/bin/temp", 0, &h) == OK);
+    assert(fs->close(fs, h) == OK);
+    assert(fs->unlink(fs, "/bin/temp", 0) == OK);
+    assert(fs->open(fs, "/bin/temp", 0, &h) == ERR_NOT_FOUND);
 
-    err = fs->create(fs, "/bin", 1);
-    assert(err == ERR_CONFLICT);  // second time should fail
+    // rename / move (unlink + link essentially)
+    assert(fs->create(fs, "/dir1", 1) == OK);
+    assert(fs->create(fs, "/dir2", 1) == OK);
+    assert(fs->create(fs, "/dir1/file1", 0) == OK);
+    assert(fs->rename(fs, "/dir1/file1", "/dir2/file2") == OK);
+    assert(fs->unlink(fs, "/dir1/file1", 0) == ERR_NOT_FOUND);
+    assert(fs->unlink(fs, "/dir2/file2", 0) == OK);
 
-    err = fs->create(fs, "/bin/sh.c", 0);
-    assert(err == OK);
-
-    err = fs->create(fs, "/something/sh.c", 0);
-    assert(err == ERR_NOT_FOUND);  // path was not found
 
     err = fs->sync(fs);
     assert(err == OK);
-
     // fs->dump_debug_info(fs, "After file + dir creation");
     // dev->dump_debug_info(dev, "After files created");
 }

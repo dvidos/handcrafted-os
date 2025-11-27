@@ -1,7 +1,7 @@
 #include "internal.h"
 
 
-static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_id, int *entry_rec_no) {
+static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_id, uint32_t *entry_rec_no) {
     direntry entry;
 
     for (int rec_no = 0; rec_no < 0x7FFFFFFF; rec_no++) {

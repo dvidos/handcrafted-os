@@ -482,9 +482,14 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     err = resolve_path_to_inode(mt, path, 1, &parent_inode, &parent_inode_id);
     if (err != OK) return err;
 
+    // find desired name
+    const char *desired_name = path_get_last_part(path);
+    if (strlen(desired_name) == 0 || strcmp(desired_name, ".") == 0 || strcmp(desired_name, "..") == 0)
+        return ERR_INVALID_ARGUMENT;
+
     // see if name exists in the directory
     uint32_t new_inode_id;
-    err = dir_entry_find(mt, &parent_inode, path_get_last_part(path), &new_inode_id, NULL);
+    err = dir_entry_find(mt, &parent_inode, desired_name, &new_inode_id, NULL);
     if (err == OK) return ERR_CONFLICT;
 
     // now we should be able to create a file / dir
@@ -493,8 +498,7 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     if (err != OK) return err;
 
     // add this entry
-    const char *filename = path_get_last_part(path);
-    err = dir_entry_append(mt, &parent_inode, filename, new_inode_id);
+    err = dir_entry_append(mt, &parent_inode, desired_name, new_inode_id);
     if (err != OK) return err;
 
     // we must persist the parent inode changes (e.g. entries added)
@@ -516,39 +520,53 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
 }
 
 static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
     if (data->mounted->readonly)
         return ERR_NOT_PERMITTED;
-    if (sb == NULL) return ERR_NOT_IMPLEMENTED;
+    int err;
     
-    // resolve to parent path
-    // check if directory
-    // open it, go over entries, find name
-    // if it's a directory, ensure it's not empty
-    // else remove it (null it out)
-    // clear inode as well
-    // release the blocks the inode used to own
-    return ERR_NOT_IMPLEMENTED;
+    // see if path resolves to inode
+    inode parent_inode;
+    uint32_t parent_inode_id;
+    err = resolve_path_to_inode(mt, path, 1, &parent_inode, &parent_inode_id);
+    if (err != OK) return err;
+
+    // see if name exists in the directory
+    uint32_t new_inode_id;
+    uint32_t direntry_rec_no;
+    err = dir_entry_find(mt, &parent_inode, path_get_last_part(path), &new_inode_id, &direntry_rec_no);
+    if (err != OK) return err;
+
+    // TODO: since we don't support multiple links to inodes, we need to remove both the inode, and free all the data blocks...
+
+    // now we can unlink this (e.g. nullify dir entry)
+    direntry entry;
+    memset(&entry, 0, sizeof(direntry));
+    dir_entry_update(mt, &parent_inode, direntry_rec_no, "", 0);
+
+    // we must persist the parent inode changes (but not much changed...)
+    err = inode_persist(mt, parent_inode_id, &parent_inode);
+    if (err != OK) return err;
+
+    return OK;
 }
 
 static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
-    if (sfs == NULL || sfs->sfs_data == NULL || ((filesys_data *)sfs->sfs_data)->mounted == NULL)
-        return ERR_NOT_SUPPORTED;
-    filesys_data *data = sfs->sfs_data;
-    superblock *sb = data->mounted->superblock;
-    if (data->mounted->readonly)
-        return ERR_NOT_PERMITTED;
-    if (sb == NULL) return ERR_NOT_IMPLEMENTED;
+    // we need an unlink that will not remove the inode, nor file blocks,
+    // then link from the new directory.
+    // actually, try creating the new link first, then remove the old one
     
-    // resolve to both parent paths
-    // on old, enumerate, ensure you find entry
-    // on new, enumerate, ensure it does not exist
-    // null out entry in old directory
-    // append new entry in new directory
-    return ERR_NOT_IMPLEMENTED;
+    // actually, this points to the important internal functions of a file system:
+    // - inode manipulation (+range manipulation for finding, extending, releasing)
+    // - blocks manipulation (allocation, freeing)
+    // - directory entries manipulation (resolve, find, add, remove, modify, skip/reuse empty slots)
+    // - cached read/write operations
+    // notes:
+    // - at a later time, instead of copying inodes to work on them, open then in the open_inodes array, so we don't need to save them back.
 }
 
 static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
@@ -557,18 +575,6 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     if (data == NULL) return;
     mounted_data *mt = data->mounted;
     if (mt == NULL) return;
-
-    /*
-        read only
-        cache info
-        open inodes
-        open handles
-
-        Superblock
-        Bitmap
-        Inode DB
-        Root Dir
-     */
 
     if (title != NULL)
         printf("---------------------- %s ----------------------\n", title);
@@ -581,6 +587,8 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     dir_dump_debug_info(mt, &mt->superblock->root_dir_inode, 1);
     open_dump_debug_info(mt);
     // data->device->dump_debug_info(data->device, "");
+
+    // it would be fun, if we discovered where each block is allocated for and print it.
 }
 
 // ------------------------------------------------------------------

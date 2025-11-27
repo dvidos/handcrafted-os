@@ -40,3 +40,12 @@
 - when opening files we need to have:
     - in memory copy of the inode, along with a "is-dirty" flag, maybe open handles count (cached in filesys)
     - in memory file handle with pointer to file location, open flags, in-mem-inode reference (cached in apps)
+
+---
+
+actually, this points to the important internal functions of a file system:
+
+- inode manipulation (+range manipulation for finding, extending, releasing)
+- blocks manipulation (allocation, freeing)
+- directory entries manipulation (resolve, find, add, remove, modify, skip/reuse empty slots)
+- cached read/write operations
