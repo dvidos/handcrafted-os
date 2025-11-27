@@ -64,10 +64,22 @@ static void dump_debug_info(sector_device *device, const char *title) {
         unsigned char *p = sdd->data + offset;
         sprintf(dump_info, "%02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  |%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c|",
             p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15],
-            isalnum(p[ 0]) ? p[ 0] : '.', isalnum(p[ 1]) ? p[ 1] : '.', isalnum(p[ 2]) ? p[ 2] : '.', isalnum(p[ 3]) ? p[ 3] : '.',
-            isalnum(p[ 4]) ? p[ 4] : '.', isalnum(p[ 5]) ? p[ 5] : '.', isalnum(p[ 6]) ? p[ 6] : '.', isalnum(p[ 7]) ? p[ 7] : '.',
-            isalnum(p[ 8]) ? p[ 8] : '.', isalnum(p[ 9]) ? p[ 9] : '.', isalnum(p[10]) ? p[10] : '.', isalnum(p[11]) ? p[11] : '.',
-            isalnum(p[12]) ? p[12] : '.', isalnum(p[13]) ? p[13] : '.', isalnum(p[14]) ? p[14] : '.', isalnum(p[15]) ? p[15] : '.'
+            p[ 0] == 0 ? '.' : (isprint(p[ 0]) ? p[ 0] : '#'),
+            p[ 1] == 0 ? '.' : (isprint(p[ 1]) ? p[ 1] : '#'),
+            p[ 2] == 0 ? '.' : (isprint(p[ 2]) ? p[ 2] : '#'),
+            p[ 3] == 0 ? '.' : (isprint(p[ 3]) ? p[ 3] : '#'),
+            p[ 4] == 0 ? '.' : (isprint(p[ 4]) ? p[ 4] : '#'),
+            p[ 5] == 0 ? '.' : (isprint(p[ 5]) ? p[ 5] : '#'),
+            p[ 6] == 0 ? '.' : (isprint(p[ 6]) ? p[ 6] : '#'),
+            p[ 7] == 0 ? '.' : (isprint(p[ 7]) ? p[ 7] : '#'),
+            p[ 8] == 0 ? '.' : (isprint(p[ 8]) ? p[ 8] : '#'),
+            p[ 9] == 0 ? '.' : (isprint(p[ 9]) ? p[ 9] : '#'),
+            p[10] == 0 ? '.' : (isprint(p[10]) ? p[10] : '#'),
+            p[11] == 0 ? '.' : (isprint(p[11]) ? p[11] : '#'),
+            p[12] == 0 ? '.' : (isprint(p[12]) ? p[12] : '#'),
+            p[13] == 0 ? '.' : (isprint(p[13]) ? p[13] : '#'),
+            p[14] == 0 ? '.' : (isprint(p[14]) ? p[14] : '#'),
+            p[15] == 0 ? '.' : (isprint(p[15]) ? p[15] : '#')
         );
 
         // avoid repetitions

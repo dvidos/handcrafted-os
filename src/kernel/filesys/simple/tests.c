@@ -63,23 +63,15 @@ static void root_dir_test() {
 
 static void file_creation_test() {
     int err;
-    // MOUNTED_FS();
 
     mem_allocator *mem = new_malloc_based_mem_allocator(); \
     sector_device *dev = new_mem_based_sector_device(512, 2048); \
     simple_filesystem *fs = new_simple_filesystem(mem, dev);
 
-    dev->dump_debug_info(dev, "Before mkfs");
 
-    assert(fs->mkfs(fs, "TEST", 0) == OK); \
-
-    dev->dump_debug_info(dev, "After mkfs, before mount");
-    fs->dump_debug_info(fs, "After mkfs, before mount");
+    assert(fs->mkfs(fs, "TEST", 0) == OK);
 
     assert(fs->mount(fs, 0) == OK);
-
-    fs->dump_debug_info(fs, "Before file + dir creation");
-    dev->dump_debug_info(dev, "Before file + dir creation");
 
     err = fs->create(fs, "/unit_test.c", 0);
     assert(err == OK);
@@ -87,13 +79,20 @@ static void file_creation_test() {
     err = fs->create(fs, "/bin", 1);
     assert(err == OK);
 
-    fs->dump_debug_info(fs, "After file + dir creation");
-
-    err = fs->create(fs, "/bin", 1); // second time should fail
-    assert(err == ERR_CONFLICT);
+    err = fs->create(fs, "/bin", 1);
+    assert(err == ERR_CONFLICT);  // second time should fail
 
     err = fs->create(fs, "/bin/sh.c", 0);
     assert(err == OK);
+
+    err = fs->create(fs, "/something/sh.c", 0);
+    assert(err == ERR_NOT_FOUND);  // path was not found
+
+    err = fs->sync(fs);
+    assert(err == OK);
+
+    // fs->dump_debug_info(fs, "After file + dir creation");
+    // dev->dump_debug_info(dev, "After files created");
 }
 
 static void simple_file_test() {

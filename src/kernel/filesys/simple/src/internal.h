@@ -85,13 +85,17 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
     uint32_t blocks_bitmap_blocks_count;  // typically 1 through 16 blocks
     uint32_t inodes_db_rec_count; // how many inodes in inodes_db (includes cleared ones)
-    char padding1[256 - 4 - (7 * sizeof(uint32_t))];
+
+    uint16_t inode_size;   // currently 64 bytes. to ensure same size when mounting
+    uint16_t direntry_size;  // currently 64 bytes. to ensure same size when mounting
+
+    char padding1[256 - 4 - 7*sizeof(uint32_t) - 2*sizeof(uint16_t)];
 
     // these two 2*64=128 bytes, still 1/4 of a block...
     char volume_label[32];
     inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
     inode root_dir_inode;  // file with the entries for root directory. 
-    char padding2[256 - 32 - (2*sizeof(inode))];
+    char padding2[256 - 32 - 2*sizeof(inode)];
 };
 
 /**

@@ -56,11 +56,14 @@ static int populate_superblock(const char *label, uint32_t sector_size, uint32_t
     sb->block_size_in_bytes = blk_size;
     sb->sectors_per_block = blk_size / sector_size;
     sb->blocks_in_device = (uint32_t)(capacity / blk_size);
+    sb->inode_size = sizeof(inode);
+    sb->direntry_size = sizeof(direntry);
 
     // some blocks are needed for bitmaps to track used/free blocks
     uint32_t necessary_bytes = ceiling_division(sb->blocks_in_device, 8);
     sb->blocks_bitmap_blocks_count = ceiling_division(necessary_bytes, sb->block_size_in_bytes);
     sb->blocks_bitmap_first_block = 1;
+    
 
     // volume label
     strncpy(sb->volume_label, label, sizeof(sb->volume_label));

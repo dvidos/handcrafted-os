@@ -55,15 +55,18 @@ static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth) {
     for (rec_no = 0; 0x7FFFFFFF; rec_no++) {
         bytes = inode_read_file_data(mt, dir_inode, rec_no * sizeof(direntry), &entry, sizeof(direntry));
         if (bytes < 0) break;
+        int is_special = (strcmp(entry.name, ".") == 0) || (strcmp(entry.name, "..") == 0);
 
-        err = inode_load(mt, entry.inode_id, &node);
-        if (err != OK) break;
+        printf("%*s%-24s  inode:%u  ", depth * 4, "", entry.name, entry.inode_id);
+        if (is_special) {
+            printf("\n");
+        } else {
+            err = inode_load(mt, entry.inode_id, &node);
+            if (err != OK) break;
 
-        printf("%*s%-24s  inode:%d  ", depth * 4, "", entry.name, entry.inode_id);
-        inode_dump_debug_info("", &node);
-
-        if (node.is_dir) {
-            dir_dump_debug_info(mt, &node, depth + 1);
+            inode_dump_debug_info("", &node);
+            if (node.is_dir)
+                dir_dump_debug_info(mt, &node, depth + 1);
         }
     }
     if (rec_no == 0) {

@@ -166,10 +166,15 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     err = data->device->read_sector(data->device, 0, temp_sector);
     if (err != OK) return err;
     superblock *sb = (superblock *)temp_sector;
-    int recognized = (memcmp(sb->magic, "SFS1", 4) == 0);
-    if (!recognized) {
+
+    // basic verification
+    if (memcmp(sb->magic, "SFS1", 4) != 0) {
         data->memory->release(data->memory, temp_sector);
         return ERR_NOT_RECOGNIZED;
+    }
+    if (sb->inode_size != sizeof(inode) || sb->direntry_size != sizeof(direntry)) {
+        data->memory->release(data->memory, temp_sector);
+        return ERR_NOT_SUPPORTED;
     }
 
     // initialize structures based on superblock's numbers
@@ -473,17 +478,20 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     err = dir_entry_append(mt, &parent_inode, filename, new_inode_id);
     if (err != OK) return err;
 
+    // we must persist the parent inode changes (e.g. entries added)
+    err = inode_persist(mt, parent_inode_id, &parent_inode);
+    if (err != OK) return err;
+
     // if we added a directory, we need to add the "." and the ".." as well.
     if (is_dir) {
         err = dir_entry_append(mt, &new_inode, ".", new_inode_id);
         if (err != OK) return err;
         err = dir_entry_append(mt, &new_inode, "..", parent_inode_id);
         if (err != OK) return err;
-    }
 
-    // we must persist the parent inode changes (e.g. entries added)
-    err = inode_persist(mt, parent_inode_id, &parent_inode);
-    if (err != OK) return err;
+        err = inode_persist(mt, new_inode_id, &new_inode);
+        if (err != OK) return err;
+    }
 
     return OK;
 }
