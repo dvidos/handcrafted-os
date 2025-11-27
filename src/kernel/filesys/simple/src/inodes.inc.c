@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------------------
 
-static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
+static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
 
     if (file_pos >= n->file_size)
@@ -34,7 +34,7 @@ static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, v
     return bytes_read;
 }
 
-static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
+static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
 
     if (file_pos > n->file_size)
@@ -82,7 +82,7 @@ static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, 
 // -----------------------------------------------------------------------------
 
 static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node) {
-    int bytes = inode_read_file_data(mt, &mt->superblock->inodes_db_inode,
+    int bytes = inode_read_file_bytes(mt, &mt->superblock->inodes_db_inode,
         inode_id * sizeof(inode), 
         node,
         sizeof(inode)
@@ -104,7 +104,7 @@ static int inode_allocate(mounted_data *mt, int is_dir, inode *node, uint32_t *i
 
     // this should have a lock somehow
     *inode_id = mt->superblock->inodes_db_rec_count;
-    int bytes = inode_write_file_data(mt, &mt->superblock->inodes_db_inode, *inode_id * sizeof(inode), node, sizeof(inode));
+    int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, *inode_id * sizeof(inode), node, sizeof(inode));
     if (bytes < 0) return bytes;
     if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
 
@@ -118,7 +118,7 @@ static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node) {
         return OK;
     }
 
-    int bytes = inode_write_file_data(mt, &mt->superblock->inodes_db_inode, 
+    int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, 
         inode_id * sizeof(inode),
         node,
         sizeof(inode)
@@ -136,7 +136,7 @@ static int inode_delete(mounted_data *mt, uint32_t inode_id) {
     inode blank;
     memset(&blank, 0, sizeof(inode));
 
-    int bytes = inode_write_file_data(mt, &mt->superblock->inodes_db_inode,
+    int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode,
         inode_id * sizeof(inode),
         &blank,
         sizeof(inode)

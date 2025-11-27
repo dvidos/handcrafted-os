@@ -4,30 +4,26 @@
 
 static int open_inodes_register(mounted_data *mt, inode *iptr, uint32_t inode_id, open_inode **open_inode_ptr) {
     // find if already open
-    int index = -1;
     for (int i = 0; i < MAX_OPEN_INODES; i++) {
         if (mt->open_inodes[i].is_used && mt->open_inodes[i].inode_id == inode_id) {
-            index = i;
-            break;
+            *open_inode_ptr = &mt->open_inodes[i];
+            return OK;
         }
     }
 
     // not found, try to find an empty slot
-    if (index == -1) {
-        for (int i = 0; i < MAX_OPEN_INODES; i++) {
-            if (!mt->open_inodes[i].is_used) {
-                index = i;
-                break;
-            }
+    int index;
+    for (int i = 0; i < MAX_OPEN_INODES; i++) {
+        if (!mt->open_inodes[i].is_used) {
+            index = i;
+            break;
         }
-        if (index == -1)
-            return ERR_RESOURCES_EXHAUSTED; // too many open files
-        
-        mt->open_inodes[index].is_used = 1;
-        mt->open_inodes[index].ref_count = 0;
     }
-
-    // initialize runtime info
+    if (index == -1)
+        return ERR_RESOURCES_EXHAUSTED; // too many open files
+    
+    mt->open_inodes[index].is_used = 1;
+    mt->open_inodes[index].ref_count = 0;
     memcpy(&mt->open_inodes[index].inode_in_mem, iptr, sizeof(inode));
     mt->open_inodes[index].inode_id = inode_id;
     mt->open_inodes[index].is_dirty = 0;
@@ -50,8 +46,9 @@ static int open_inodes_flush_inode(mounted_data *mt, open_inode *node) {
         memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
     } else {
         // save in inodes database
-        int err = inode_write_file_data(mt, &mt->superblock->inodes_db_inode, node->inode_id * sizeof(inode), &node->inode_in_mem, sizeof(inode));
-        if (err != OK) return err;
+        int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, node->inode_id * sizeof(inode), &node->inode_in_mem, sizeof(inode));
+        if (bytes < 0) return bytes;
+        if (bytes != sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
     }
 
     node->is_dirty = 0;
@@ -89,4 +86,31 @@ static int open_handles_release(mounted_data *mt, open_handle *handle) {
 
     handle->is_used = 0;
     return OK;
+}
+
+static void open_dump_debug_info(mounted_data *mt) {
+    int used_inodes = 0;
+    int used_handles = 0;
+    for (int i = 0; i < MAX_OPEN_INODES; i++)
+        if (mt->open_inodes[i].is_used)
+            used_inodes++;
+    for (int i = 0; i < MAX_OPEN_HANDLES; i++)
+        if (mt->open_handles[i].is_used)
+            used_handles++;
+    
+    printf("Open inodes (%d total, %d used)\n", MAX_OPEN_INODES, used_inodes);
+    for (int i = 0; i < MAX_OPEN_INODES; i++) {
+        open_inode *n = &mt->open_inodes[i];
+        if (!n->is_used)
+            continue;;
+        printf("    [%d]  dirty:%d, inode:%u, refs:%u -> ", i, n->is_dirty, n->inode_id, n->ref_count);
+        inode_dump_debug_info("", &n->inode_in_mem);
+    }
+    printf("Open file handles (%d total, %d used)\n", MAX_OPEN_HANDLES, used_handles);
+    for (int i = 0; i < MAX_OPEN_HANDLES; i++) {
+        open_handle *h = &mt->open_handles[i];
+        if (!h->is_used)
+            continue;
+        printf("    [%d]  inode:%u, fpos:%u\n", i, h->inode->inode_id, h->file_position);
+    }
 }

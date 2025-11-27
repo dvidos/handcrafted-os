@@ -12,8 +12,9 @@
 #define GB   (1024*MB)
         
 #define MAX_FILENAME_LENGTH                  59  // affects directory entry size
-#define MAX_OPEN_INODES                      64  // later we can do this dynamic
-#define MAX_OPEN_HANDLES                     64  // later we can do this dynamic
+#define MAX_OPEN_INODES                     128  // later we can do this dynamic
+#define MAX_OPEN_HANDLES                    128  // later we can do this dynamic
+#define CACHE_SLOTS                         128  // blocks to keep in memory
 #define RANGES_IN_INODE                       6  // affects inode size
 #define ROOT_DIR_INODE_ID            0xFFFFFFFF  // masquerades as inode id
 
@@ -202,8 +203,8 @@ static inline void mark_block_free(mounted_data *mt, uint32_t block_no);
 static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
 
 // inodes.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
-static int inode_read_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
-static int inode_write_file_data(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
+static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
+static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node);
 static int inode_allocate(mounted_data *mt, int is_file, inode *node, uint32_t *inode_id);
 static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node);

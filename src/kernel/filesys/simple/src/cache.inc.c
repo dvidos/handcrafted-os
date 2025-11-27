@@ -5,7 +5,6 @@
 typedef struct cache_entry cache_entry;
 typedef struct cache_data cache_data;
 
-#define CACHE_SLOTS          8
 #define CACHE_OP_READ        0
 #define CACHE_OP_WRITE       1
 #define CACHE_OP_WIPE        2
@@ -288,38 +287,54 @@ static inline void cache_release_memory(cache_data *data) {
 static void cache_dump_debug_info(cache_data *data) {
     cache_entry *e;
 
-    printf("Cache info\n");
-    printf("    Block size: %d\n", data->block_size);
-    printf("    Entries used: %d\n", data->entries_used);
-    printf("    Entries array\n");
+    int entries_used = 0;
+    int entries_dirty = 0;
     for (int i = 0; i < CACHE_SLOTS; i++) {
-        e = &data->entries_arr[i];
-        printf("        [%d] [used:%d, dirty:%d, block:%d]\n", i, e->is_used, e->is_dirty, e->block_no);
+        if (data->entries_arr[i].is_used)
+            entries_used++;
+        if (data->entries_arr[i].is_dirty)
+            entries_dirty++;
     }
-    printf("    Hashtable\n");
+    int hash_used_slots = 0;
+    for (int i = 0; i < CACHE_SLOTS; i++)
+        if (data->hashtable[i] != NULL)
+            hash_used_slots++;
+
+    printf("Cache info (BlockSize:%d EntriesUsed:%d)\n", data->block_size, data->entries_used);
+    printf("    Entries array (%d total, %d used, %d dirty)\n", CACHE_SLOTS, entries_used, entries_dirty);
+    // for (int i = 0; i < CACHE_SLOTS; i++) {
+    //     e = &data->entries_arr[i];
+    //     if (!e->is_used) continue;
+    //     printf("        [%d] [block:%d%s]\n", i, e->block_no, e->is_dirty ? "*" : "");
+    // }
+
+    printf("    Hashtable (%d slots, %d used)\n", CACHE_SLOTS, hash_used_slots);
     for (int i = 0; i < CACHE_SLOTS; i++) {
         e = data->hashtable[i];
+        if (e == NULL) continue;
+
         printf("        [%d]", i);
         while (e != NULL) {
-            printf("--> [block:%d]", e->block_no);
+            printf("-->[block:%d%s]", e->block_no, e->is_dirty ? "*" : "");
             e = e->hash_next;
         }
-        printf("--> NULL\n");
+        printf("-->null\n");
     }
+
     printf("    Recently Used List\n");
     printf("        Newest");
     e = data->lru_list_newest;
     while (e != NULL) {
-        printf("--> [block:%d]", e->block_no);
+        printf("-->[block:%d%s]", e->block_no, e->is_dirty ? "*" : "");
         e = e->lru_older;
     }
-    printf("--> NULL\n");
+    printf("-->null\n");
     printf("        Oldest");
     e = data->lru_list_oldest;
     while (e != NULL) {
-        printf("--> [block:%d]", e->block_no);
+        printf("-->[block:%d%s]", e->block_no, e->is_dirty ? "*" : "");
         e = e->lru_newer;
     }
-    printf("--> NULL\n");
+    printf("-->null\n");
 }
 

@@ -30,17 +30,17 @@ static void mkfs_test() {
     err = fs->mkfs(fs, "TEST", 0);
     assert(err == OK);
 
-    fs->dump_debug_info(fs, "After mkfs");
+    // fs->dump_debug_info(fs, "After mkfs");
 
     err = fs->mount(fs, 0);
     assert(err == OK);
 
-    fs->dump_debug_info(fs, "After mount");
+    // fs->dump_debug_info(fs, "After mount");
 
     err = fs->unmount(fs);
     assert(err == OK);
 
-    fs->dump_debug_info(fs, "After Unmount");
+    // fs->dump_debug_info(fs, "After Unmount");
 
 }
 
@@ -107,24 +107,35 @@ static void simple_file_test() {
 
     err = fs->create(fs, "/file.txt", 0);
     assert(err == OK);
+    err = fs->create(fs, "/file2.txt", 0);
+    assert(err == OK);
 
-    sfs_handle *h;
+    sfs_handle *h, *h2, *h3;
+
     err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
+    err = fs->open(fs, "/file2.txt", 1, &h2);
+    assert(err == OK);
+    err = fs->open(fs, "/file.txt", 1, &h3);
+    assert(err == OK);
 
+    // fs->dump_debug_info(fs, "Before writing");
+ 
     err = fs->write(fs, h, "Hello world!\n", 13);
     assert(err == OK);
+
+    // fs->dump_debug_info(fs, "After writing");
 
     err = fs->close(fs, h);
     assert(err == OK);
 
+    // fs->dump_debug_info(fs, "After closing");
+
+
     err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
 
-
-    // TODO: dump open inodes and files as well
     // fs->dump_debug_info(fs, "After file creation");
-
 
     char buffer[64];
     err = fs->read(fs, h, buffer, sizeof(buffer));
@@ -137,7 +148,7 @@ static void simple_file_test() {
     err = fs->unmount(fs);
     assert(err == OK);
 
-    dev->dump_debug_info(dev, "After creating and reading a text file");
+    // dev->dump_debug_info(dev, "After creating and reading a text file");
 }
 
 static void wash_test() {
@@ -145,8 +156,8 @@ static void wash_test() {
 }
 
 void run_tests() {
-    // mkfs_test();
-    // root_dir_test();
+    mkfs_test();
+    root_dir_test();
     file_creation_test();
     simple_file_test();
     // wash_test();

@@ -5,7 +5,7 @@ static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, 
     direntry entry;
 
     for (int rec_no = 0; rec_no < 0x7FFFFFFF; rec_no++) {
-        int bytes = inode_read_file_data(mt, dir_inode, rec_no * sizeof(direntry), &entry, sizeof(direntry));
+        int bytes = inode_read_file_bytes(mt, dir_inode, rec_no * sizeof(direntry), &entry, sizeof(direntry));
         if (bytes == ERR_END_OF_FILE) break;
         if (bytes < 0) return bytes;
 
@@ -27,7 +27,7 @@ static int dir_entry_update(mounted_data *mt, inode *dir_inode, int entry_rec_no
     entry.name[sizeof(entry.name) - 1] = 0;
     entry.inode_id = inode_id;
 
-    int bytes = inode_write_file_data(mt, dir_inode, entry_rec_no * sizeof(direntry), &entry, sizeof(direntry));
+    int bytes = inode_write_file_bytes(mt, dir_inode, entry_rec_no * sizeof(direntry), &entry, sizeof(direntry));
     if (bytes < 0) return bytes;
 
     return OK;
@@ -40,7 +40,7 @@ static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name
     entry.name[sizeof(entry.name) - 1] = 0;
     entry.inode_id = inode_id;
 
-    int bytes = inode_write_file_data(mt, dir_inode, dir_inode->file_size, &entry, sizeof(direntry));
+    int bytes = inode_write_file_bytes(mt, dir_inode, dir_inode->file_size, &entry, sizeof(direntry));
     if (bytes < 0) return bytes;
 
     return OK;
@@ -53,11 +53,11 @@ static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth) {
     int err, bytes;
 
     for (rec_no = 0; 0x7FFFFFFF; rec_no++) {
-        bytes = inode_read_file_data(mt, dir_inode, rec_no * sizeof(direntry), &entry, sizeof(direntry));
+        bytes = inode_read_file_bytes(mt, dir_inode, rec_no * sizeof(direntry), &entry, sizeof(direntry));
         if (bytes < 0) break;
         int is_special = (strcmp(entry.name, ".") == 0) || (strcmp(entry.name, "..") == 0);
 
-        printf("%*s%-24s  inode:%u  ", depth * 4, "", entry.name, entry.inode_id);
+        printf("%*s%-16s  inode:%u  ", depth * 4, "", entry.name, entry.inode_id);
         if (is_special) {
             printf("\n");
         } else {

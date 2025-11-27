@@ -307,7 +307,7 @@ static int sfs_read(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_
     if (handle == NULL || handle->inode == NULL || !handle->is_used)
         return ERR_INVALID_ARGUMENT;
 
-    int bytes_read = inode_read_file_data(mt, &handle->inode->inode_in_mem, handle->file_position, buffer, size);
+    int bytes_read = inode_read_file_bytes(mt, &handle->inode->inode_in_mem, handle->file_position, buffer, size);
     if (bytes_read < 0) return bytes_read; // error
 
     handle->file_position += bytes_read;
@@ -327,7 +327,7 @@ static int sfs_write(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32
         return ERR_INVALID_ARGUMENT;
 
     // this call takes care of file_size as well
-    int bytes_written = inode_write_file_data(mt, &handle->inode->inode_in_mem, handle->file_position, buffer, size);
+    int bytes_written = inode_write_file_bytes(mt, &handle->inode->inode_in_mem, handle->file_position, buffer, size);
     if (bytes_written < 0) return bytes_written; // error
 
     handle->file_position += bytes_written;
@@ -418,7 +418,7 @@ static int sfs_read_dir(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *en
 
     // else read, populate, advance file position.
     direntry disk_entry;
-    int bytes = inode_read_file_data(mt, &handle->inode->inode_in_mem, handle->file_position, &disk_entry, sizeof(direntry));
+    int bytes = inode_read_file_bytes(mt, &handle->inode->inode_in_mem, handle->file_position, &disk_entry, sizeof(direntry));
     if (bytes < 0) return bytes;
     handle->file_position += bytes;
 
@@ -560,6 +560,7 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     bitmap_dump_debug_info(mt);
     printf("Root directory\n");
     dir_dump_debug_info(mt, &mt->superblock->root_dir_inode, 1);
+    open_dump_debug_info(mt);
     // data->device->dump_debug_info(data->device, "");
 }
 
