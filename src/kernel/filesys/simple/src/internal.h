@@ -88,12 +88,13 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
     uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
     uint32_t blocks_bitmap_blocks_count;  // typically 1 through 16 blocks
     uint32_t inodes_db_rec_count; // how many inodes in inodes_db (includes cleared ones)
-    char padding1[256 - (7 * sizeof(uint32_t))];
+    char padding1[256 - 4 - (7 * sizeof(uint32_t))];
 
     // these two 2*64=128 bytes, still 1/4 of a block...
+    char volume_label[32];
     inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
     inode root_dir_inode;  // file with the entries for root directory. 
-    char padding2[256 - (2*sizeof(inode)) - (1*sizeof(uint32_t))];
+    char padding2[256 - 32 - (2*sizeof(inode))];
 };
 
 /**
@@ -148,7 +149,8 @@ struct mounted_data {
 // ------------------------------------------------------------------
 
 // superblock
-static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb);
+static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb);
+static void superblock_dump_debug_info(superblock *sb);
 
 // ranges.inc.c
 static inline int is_range_used(const block_range *range);
@@ -158,6 +160,7 @@ static inline int check_or_consume_blocks_in_range(const block_range *range, uin
 static inline void find_last_used_and_first_free_range(const block_range *ranges_array, int ranges_count, int *last_used_idx, int *first_free_idx);
 static inline int initialize_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
 static inline int extend_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
+static void bitmap_dump_debug_info(mounted_data *mt);
 
 // blocks.inc.c
 static int read_block_range_low_level(sector_device *dev, uint32_t sector_size, uint32_t sectors_per_block, uint32_t first_block, uint32_t block_count, void *buffer);
@@ -189,6 +192,7 @@ static int inode_load(mounted_data *mt, uint32_t inode_rec_no, inode *node);
 static int inode_allocate(mounted_data *mt, int is_file, inode *node, uint32_t *inode_rec_no);
 static int inode_persist(mounted_data *mt, uint32_t inode_rec_no, inode *node);
 static int inode_delete(mounted_data *mt, uint32_t inode_rec_no);
+static void inode_dump_debug_info(const char *title, inode *n);
 
 // open.inc.c
 static int open_inodes_register(mounted_data *mt, inode *node, uint32_t inode_rec_no, open_inode **open_inode_ptr);
@@ -201,3 +205,4 @@ static int open_handles_release(mounted_data *mt, open_handle *handle);
 static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_rec_no, int *enrty_rec_no);
 static int dir_entry_update(mounted_data *mt, inode *dir_inode, int enrty_rec_no, const char *name, uint32_t inode_rec_no);
 static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name, uint32_t inode_rec_no);
+static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth);

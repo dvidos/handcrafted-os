@@ -109,9 +109,10 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
     if (data->mounted != NULL)
         return ERR_NOT_SUPPORTED;
 
-    // prepare a temp superblock, then save it.
+    // prepare superblock for block 0
     superblock *sb = data->memory->allocate(data->memory, sizeof(superblock));
     int err = populate_superblock(
+        volume_label,
         data->device->get_sector_size(data->device),
         data->device->get_sector_count(data->device),
         desired_block_size,
@@ -119,16 +120,16 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
     );
     if (err != OK) return err;
 
+    // for blocks 1+, we need the bitmap
     mounted_data *mt = data->memory->allocate(data->memory, sizeof(mounted_data));
     mt->superblock = sb;
-    mt->used_blocks_bitmap = data->memory->allocate(data->memory, ceiling_division(sb->blocks_in_device, 8));
+    mt->used_blocks_bitmap = data->memory->allocate(data->memory, sb->blocks_bitmap_blocks_count * sb->block_size_in_bytes);
 
-    // reserved blocks
     mark_block_used(mt, 0);
     for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++)
         mark_block_used(mt, sb->blocks_bitmap_first_block + i);
 
-    // now we know the block size. let's save things.
+    // we can start writing
     cache_data *c = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
 
     err = cached_write(c, 0, 0, sb, sizeof(superblock));
@@ -142,6 +143,7 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
         if (err != OK) return err;
     }
 
+    // persist everything and we're done
     err = cache_flush(c);
     if (err != OK) return err;
 
@@ -170,39 +172,31 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
         return ERR_NOT_RECOGNIZED;
     }
 
-    // ok, we are safe to load, prepare memory
+    // initialize structures based on superblock's numbers
     mounted_data *mount = data->memory->allocate(data->memory, sizeof(mounted_data));
     mount->readonly = readonly;
     mount->superblock = data->memory->allocate(data->memory, sb->block_size_in_bytes);
-    mount->used_blocks_bitmap = data->memory->allocate(data->memory, ceiling_division(sb->blocks_in_device, 8));
+    mount->used_blocks_bitmap = data->memory->allocate(data->memory, sb->blocks_bitmap_blocks_count * sb->block_size_in_bytes);
     mount->cache = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
     mount->generic_block_buffer = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     data->mounted = mount;
     
-    // read superblock, low level, since we are unmounted
-    err = read_block_range_low_level(
-        data->device,
-        sb->sector_size,
-        sb->sectors_per_block,
-        0, // first block
-        1, // block count
-        data->mounted->superblock
-    );
-
-    // make sure to free early, before anything else
+    // we can release temp sector now
     data->memory->release(data->memory, temp_sector);
+
+    // cache can now read the blocks
+    err = cached_read(mount->cache, 0, 0, mount->superblock, sizeof(superblock));
     if (err != OK) return err;
 
-    // read used blocks bitmap from disk
-    err = read_block_range_low_level(
-        data->device, 
-        data->mounted->superblock->sector_size,
-        data->mounted->superblock->sectors_per_block,
-        data->mounted->superblock->blocks_bitmap_first_block, 
-        data->mounted->superblock->blocks_bitmap_blocks_count, 
-        data->mounted->used_blocks_bitmap
-    );
-    if (err != OK) return err;
+    // load blocks bitmap
+    for (int i = 0; i < mount->superblock->blocks_bitmap_blocks_count; i++) {
+        err = cached_read(mount->cache,
+            mount->superblock->blocks_bitmap_first_block + i, 
+            0,
+            mount->used_blocks_bitmap + (i * mount->superblock->block_size_in_bytes), 
+            mount->superblock->block_size_in_bytes);
+        if (err != OK) return err;
+    }
 
     return OK;
 }
@@ -488,6 +482,10 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
         if (err != OK) return err;
     }
 
+    // we must persist the parent inode changes (e.g. entries added)
+    err = inode_persist(mt, parent_inode_rec_no, &parent_inode);
+    if (err != OK) return err;
+
     return OK;
 }
 
@@ -527,7 +525,7 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static void sfs_dump_debug_info(simple_filesystem *sfs) {
+static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     if (sfs == NULL) return;
     filesys_data *data = sfs->sfs_data;
     if (data == NULL) return;
@@ -535,13 +533,27 @@ static void sfs_dump_debug_info(simple_filesystem *sfs) {
     if (mt == NULL) return;
 
     /*
+        read only
+        cache info
+        open inodes
+        open handles
+
         Superblock
         Bitmap
         Inode DB
         Root Dir
-    */
-   printf("Superblock  [blksiz=%d]\n", mt->superblock->block_size_in_bytes);
+     */
 
+    if (title != NULL)
+        printf("---------------------- %s ----------------------\n", title);
+    
+    printf("Mounted     [RO:%d]\n", mt->readonly);
+    cache_dump_debug_info(mt->cache);
+    superblock_dump_debug_info(mt->superblock);
+    bitmap_dump_debug_info(mt);
+    printf("Root directory\n");
+    dir_dump_debug_info(mt, &mt->superblock->root_dir_inode, 1);
+    // data->device->dump_debug_info(data->device, "");
 }
 
 // ------------------------------------------------------------------

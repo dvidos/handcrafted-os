@@ -11,6 +11,7 @@ struct sector_device {
     int (*read_sector)(sector_device *device, uint32_t sector_no, uint8_t *buffer);
     int (*write_sector)(sector_device *device, uint32_t sector_no, uint8_t *buffer);
 
+    void (*dump_debug_info)(sector_device *device, const char *title);
     void *device_data;
 };
 

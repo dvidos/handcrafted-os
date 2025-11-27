@@ -40,7 +40,7 @@ struct simple_filesystem {
 
     // future: truncate(), stat()
     
-    void (*dump_debug_info)(simple_filesystem *sfs);
+    void (*dump_debug_info)(simple_filesystem *sfs, const char *title);
     void *sfs_data;
 };
 

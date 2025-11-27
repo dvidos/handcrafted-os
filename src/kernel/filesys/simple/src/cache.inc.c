@@ -5,8 +5,7 @@
 typedef struct cache_entry cache_entry;
 typedef struct cache_data cache_data;
 
-#define CACHE_SLOTS        128
-#define CACHE_HASH_MASK   0x7F
+#define CACHE_SLOTS          8
 #define CACHE_OP_READ        0
 #define CACHE_OP_WRITE       1
 #define CACHE_OP_WIPE        2
@@ -14,9 +13,10 @@ typedef struct cache_data cache_data;
 struct cache_entry {
     uint32_t block_no;
     void *data_ptr; // just pointer, not owner of memory
+    uint8_t is_used: 1;
     uint8_t is_dirty: 1;
-    cache_entry *lru_prev; // prev,next for LRU eviction, next points from head to tail
-    cache_entry *lru_next;
+    cache_entry *lru_older; // prev,next for LRU eviction, next points from head to tail
+    cache_entry *lru_newer; // next points to tail
     cache_entry *hash_next; // for collisions
 };
 
@@ -26,11 +26,11 @@ struct cache_data {
     uint32_t block_size;
     void *big_data_buffer;
     cache_entry entries_arr[CACHE_SLOTS];
-    int next_unused_entry;
+    int entries_used;
 
     cache_entry *hashtable[CACHE_SLOTS];
-    cache_entry *lru_list_head;
-    cache_entry *lru_list_tail;
+    cache_entry *lru_list_newest;
+    cache_entry *lru_list_oldest;
 };
 
 static cache_data *initialize_cache(mem_allocator *memory, sector_device *device, uint32_t block_size) {
@@ -79,90 +79,104 @@ static inline int cache_save_block_raw(cache_data *data, uint32_t block_no, void
 }
 
 static inline int cache_hashkey(uint32_t block_no) {
-    return (int)(block_no & CACHE_HASH_MASK);
+    return (int)(block_no % CACHE_SLOTS);
 }
 
-static inline void cache_promote_entry(cache_data *data, cache_entry *entry) {
-    if (entry == data->lru_list_head) // already at head
+static inline void cache_promote_recently_used_entry(cache_data *data, cache_entry *entry) {
+    if (entry == data->lru_list_newest)
         return;
     
     // remove from current position
-    if (entry == data->lru_list_tail)
-        data->lru_list_tail = entry->lru_prev; // "next" points towards tail
-    if (entry->lru_next != NULL)
-        entry->lru_next->lru_prev = entry->lru_prev;
-    if (entry->lru_prev != NULL)
-        entry->lru_prev->lru_next = entry->lru_next;
+    if (entry == data->lru_list_oldest)
+        data->lru_list_oldest = entry->lru_newer;
+    if (entry->lru_newer != NULL)
+        entry->lru_newer->lru_older = entry->lru_older;
+    if (entry->lru_older != NULL)
+        entry->lru_older->lru_newer = entry->lru_newer;
     
-    // insert into head
-    entry->lru_prev = NULL;
-    entry->lru_next = data->lru_list_head;
-    data->lru_list_head = entry;
+    // insert into newest side
+    if (data->lru_list_newest != NULL)
+        data->lru_list_newest->lru_newer = entry;
+    entry->lru_older = data->lru_list_newest;
+    entry->lru_newer = NULL;
+    data->lru_list_newest = entry;
 }
 
 static inline int cache_evict_least_recently_used(cache_data *data, cache_entry **evicted_ptr) {
-    cache_entry *victim = data->lru_list_tail;
-    if (victim == NULL) // there are no nodes in cache
+    cache_entry *oldest = data->lru_list_oldest;
+    if (oldest == NULL) // there are no nodes in cache
         return OK;
 
-    if (victim->is_dirty) {
+    if (oldest->is_dirty) {
         // save it first, return if error
-        int err = cache_save_block_raw(data, victim->block_no, victim->data_ptr);
+        int err = cache_save_block_raw(data, oldest->block_no, oldest->data_ptr);
         if (err != OK) return err;
-        victim->is_dirty = 0;
+        oldest->is_dirty = 0;
     }
 
     // remove from LRU list
-    if (data->lru_list_head == victim) { // there is only one
-        data->lru_list_head = NULL;
-        data->lru_list_tail = NULL;
+    if (data->lru_list_newest == oldest) {
+        // there is only one node
+        data->lru_list_newest = NULL;
+        data->lru_list_oldest = NULL;
 
-    } else { // there are two or more
-        cache_entry *second = victim->lru_next;
-        second->lru_prev = NULL;
-        data->lru_list_tail = second;
+    } else {
+        // there are two or more nodes
+        cache_entry *second_oldest = oldest->lru_newer;
+        second_oldest->lru_older = NULL;
+        data->lru_list_oldest = second_oldest;
     }
 
     // now, to remove from the (small) hash chain
-    int hash_index = victim->block_no & CACHE_HASH_MASK;
-    if (data->hashtable[hash_index] == victim) {
+    int hash_index = cache_hashkey(oldest->block_no);
+    if (data->hashtable[hash_index] == oldest) {
         data->hashtable[hash_index] = data->hashtable[hash_index]->hash_next;
     } else {
         cache_entry *prev = data->hashtable[hash_index];
         while (prev != NULL) {
-            if (prev->hash_next == victim) {
-                prev->hash_next = victim->hash_next;
+            if (prev->hash_next == oldest) {
+                prev->hash_next = oldest->hash_next;
                 break;
             }
             prev = prev->hash_next;
         }
     }
 
-    // update counters
-    data->next_unused_entry -= 1;
-    *evicted_ptr = victim;
+    data->entries_used -= 1;
+    oldest->is_used = 0;
+    *evicted_ptr = oldest;
     return OK;
 }
 
-static inline cache_entry *cache_find_entry(cache_data *data, uint32_t block_no) {
+static inline cache_entry *cache_find_entry_from_hashtable(cache_data *data, uint32_t block_no) {
     int index = cache_hashkey(block_no);
     cache_entry *entry = data->hashtable[index];
-    while (1) {
-        if (entry == NULL || entry->block_no == block_no)
-            return entry;
+    if (entry == NULL)
+        return NULL; // not found
+
+    while (entry != NULL) {
+        if (entry->block_no == block_no)
+            return entry; // found
         entry = entry->hash_next;
     }
+
+    return NULL; // not found
 }
 
 static inline int cache_add_entry_to_lists(cache_data *data, cache_entry *entry) {
     // add to head of the LRU list
-    if (data->lru_list_head == NULL) { // there are no nodes so far
-        data->lru_list_head = entry;
-        data->lru_list_tail = entry;
+    if (data->lru_list_newest == NULL) {
+        // there are no nodes so far
+        data->lru_list_newest = entry;
+        data->lru_list_oldest = entry;
+        entry->lru_newer = NULL;
+        entry->lru_older = NULL;
     } else {
-        entry->lru_prev = NULL;
-        entry->lru_next = data->lru_list_head;
-        data->lru_list_head = entry;
+        // there is at least one entry in the list, insert at head
+        data->lru_list_newest->lru_newer = entry;
+        entry->lru_older = data->lru_list_newest;
+        entry->lru_newer = NULL;
+        data->lru_list_newest = entry;
     }
 
     // add to the hashtable list head
@@ -170,27 +184,32 @@ static inline int cache_add_entry_to_lists(cache_data *data, cache_entry *entry)
     entry->hash_next = data->hashtable[index];
     data->hashtable[index] = entry;
 
-
     return OK;
 }
 
 static int cache_find_unused_slot(cache_data *data, cache_entry **entry) {
-    if (data->next_unused_entry >= CACHE_SLOTS)
+    if (data->entries_used >= CACHE_SLOTS)
         return ERR_RESOURCES_EXHAUSTED;
+    
+    // maybe later we use a bitmap for faster lookups
+    for (int i = 0; i < CACHE_SLOTS; i++) {
+        if (!data->entries_arr[i].is_used) {
+            *entry = &data->entries_arr[i];
+            return OK;
+        }
+    }
 
-    *entry = &data->entries_arr[data->next_unused_entry];
-    data->next_unused_entry += 1;
-    return OK;
+    return ERR_RESOURCES_EXHAUSTED;
 }
 
 static int cached_io_operation(cache_data *data, int operation, uint32_t block_no, uint32_t block_offset, void *buffer, int length) {
     int err;
 
-    cache_entry *entry = cache_find_entry(data, block_no);
+    cache_entry *entry = cache_find_entry_from_hashtable(data, block_no);
     if (entry != NULL) {
-        cache_promote_entry(data, entry);
+        cache_promote_recently_used_entry(data, entry);
     } else {
-        if (data->next_unused_entry >= CACHE_SLOTS) {
+        if (data->entries_used >= CACHE_SLOTS) {
             err = cache_evict_least_recently_used(data, &entry);
             if (err != OK) return err;
         } else {
@@ -198,9 +217,14 @@ static int cached_io_operation(cache_data *data, int operation, uint32_t block_n
             if (err != OK) return err;
         }
 
-        entry->block_no = block_no;
+        entry->is_used = 1;
+        data->entries_used++;
+        
         err = cache_load_block_raw(data, block_no, entry->data_ptr);
         if (err != OK) return err;
+
+        entry->block_no = block_no;
+        entry->is_dirty = 0;
 
         cache_add_entry_to_lists(data, entry);
     }
@@ -245,7 +269,7 @@ static inline int cache_flush(cache_data *data) {
 
     for (int i = 0; i < CACHE_SLOTS; i++) {
         cache_entry *entry = &data->entries_arr[i];
-        if (!entry->is_dirty)
+        if (!entry->is_used || !entry->is_dirty)
             continue;
 
         err = cache_save_block_raw(data, entry->block_no, entry->data_ptr);
@@ -261,4 +285,41 @@ static inline void cache_release_memory(cache_data *data) {
     data->memory->release(data->memory, data);
 }
 
+static void cache_dump_debug_info(cache_data *data) {
+    cache_entry *e;
+
+    printf("Cache info\n");
+    printf("    Block size: %d\n", data->block_size);
+    printf("    Entries used: %d\n", data->entries_used);
+    printf("    Entries array\n");
+    for (int i = 0; i < CACHE_SLOTS; i++) {
+        e = &data->entries_arr[i];
+        printf("        [%d] [used:%d, dirty:%d, block:%d]\n", i, e->is_used, e->is_dirty, e->block_no);
+    }
+    printf("    Hashtable\n");
+    for (int i = 0; i < CACHE_SLOTS; i++) {
+        e = data->hashtable[i];
+        printf("        [%d]", i);
+        while (e != NULL) {
+            printf("--> [block:%d]", e->block_no);
+            e = e->hash_next;
+        }
+        printf("--> NULL\n");
+    }
+    printf("    Recently Used List\n");
+    printf("        Newest");
+    e = data->lru_list_newest;
+    while (e != NULL) {
+        printf("--> [block:%d]", e->block_no);
+        e = e->lru_older;
+    }
+    printf("--> NULL\n");
+    printf("        Oldest");
+    e = data->lru_list_oldest;
+    while (e != NULL) {
+        printf("--> [block:%d]", e->block_no);
+        e = e->lru_newer;
+    }
+    printf("--> NULL\n");
+}
 

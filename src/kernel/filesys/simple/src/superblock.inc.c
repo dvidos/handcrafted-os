@@ -30,7 +30,7 @@ static int auto_determine_block_size(uint32_t sector_size, uint64_t capacity) {
     return block_size;
 }
 
-static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb) {
+static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb) {
     memset(sb, 0, sizeof(superblock));
 
     sb->magic[0] = 'S';
@@ -58,16 +58,34 @@ static int populate_superblock(uint32_t sector_size, uint32_t sector_count, uint
     sb->blocks_in_device = (uint32_t)(capacity / blk_size);
 
     // some blocks are needed for bitmaps to track used/free blocks
-    uint32_t bitmap_bytes = ceiling_division(sb->blocks_in_device, 8);
-    sb->blocks_bitmap_blocks_count = ceiling_division(bitmap_bytes, sb->block_size_in_bytes);
+    uint32_t necessary_bytes = ceiling_division(sb->blocks_in_device, 8);
+    sb->blocks_bitmap_blocks_count = ceiling_division(necessary_bytes, sb->block_size_in_bytes);
     sb->blocks_bitmap_first_block = 1;
+
+    // volume label
+    strncpy(sb->volume_label, label, sizeof(sb->volume_label));
 
     // explicitly, though uselessly
     memset(&sb->inodes_db_inode, 0, sizeof(inode));
+    sb->inodes_db_inode.is_used = 1;
+    sb->inodes_db_inode.is_file = 1;
     sb->inodes_db_rec_count = 0;
     memset(&sb->root_dir_inode, 0, sizeof(inode));
+    sb->root_dir_inode.is_used = 1;
     sb->root_dir_inode.is_dir = 1;
 
     return OK;
 }
 
+static void superblock_dump_debug_info(superblock *sb) {
+    printf("Superblock  [BlkSiz=%d, Btmp:1st=%d,n=%d, Sct/Blk=%d, TotalBlocks=%d, Label=%s]\n", 
+        sb->block_size_in_bytes,
+        sb->blocks_bitmap_first_block,
+        sb->blocks_bitmap_blocks_count,
+        sb->sectors_per_block,
+        sb->blocks_in_device,
+        sb->volume_label
+    );
+    inode_dump_debug_info("    Inodes DB inode", &sb->inodes_db_inode);
+    inode_dump_debug_info("    Root Dir  inode", &sb->root_dir_inode);
+}

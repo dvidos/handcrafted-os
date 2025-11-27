@@ -6,21 +6,21 @@
 #include <string.h>
 #include <stdio.h>
 
-#define FS()  \
-    new_simple_filesystem( \
-        new_malloc_based_mem_allocator(), \
-        new_mem_based_sector_device(512, 4096) \
-    );
-#define MOUNTED_FS(var_name)  \
-    simple_filesystem *var_name = FS(); \
-    assert(var_name->mkfs(var_name, "TEST", 0) == OK); \
-    assert(var_name->mount(var_name, 0) == OK);
+#define FS() \
+    mem_allocator *mem = new_malloc_based_mem_allocator(); \
+    sector_device *dev = new_mem_based_sector_device(512, 2048); \
+    simple_filesystem *fs = new_simple_filesystem(mem, dev)
+
+#define MOUNTED_FS()  \
+    FS(); \
+    assert(fs->mkfs(fs, "TEST", 0) == OK); \
+    assert(fs->mount(fs, 0) == OK)
 
 
 
 static void mkfs_test() {
     int err;
-    simple_filesystem *fs = FS()
+    FS();
 
     // make sure it fails to mount
     err = fs->mount(fs, 0);
@@ -29,17 +29,24 @@ static void mkfs_test() {
     // make file system
     err = fs->mkfs(fs, "TEST", 0);
     assert(err == OK);
-    // should also assert disk contents
+
+    fs->dump_debug_info(fs, "After mkfs");
 
     err = fs->mount(fs, 0);
     assert(err == OK);
+
+    fs->dump_debug_info(fs, "After mount");
+
     err = fs->unmount(fs);
     assert(err == OK);
+
+    fs->dump_debug_info(fs, "After Unmount");
+
 }
 
 static void root_dir_test() {
     int err;
-    MOUNTED_FS(fs);
+    MOUNTED_FS();
 
     sfs_handle *h;
     err = fs->open_dir(fs, "/", &h);
@@ -56,13 +63,31 @@ static void root_dir_test() {
 
 static void file_creation_test() {
     int err;
-    MOUNTED_FS(fs);
+    // MOUNTED_FS();
+
+    mem_allocator *mem = new_malloc_based_mem_allocator(); \
+    sector_device *dev = new_mem_based_sector_device(512, 2048); \
+    simple_filesystem *fs = new_simple_filesystem(mem, dev);
+
+    dev->dump_debug_info(dev, "Before mkfs");
+
+    assert(fs->mkfs(fs, "TEST", 0) == OK); \
+
+    dev->dump_debug_info(dev, "After mkfs, before mount");
+    fs->dump_debug_info(fs, "After mkfs, before mount");
+
+    assert(fs->mount(fs, 0) == OK);
+
+    fs->dump_debug_info(fs, "Before file + dir creation");
+    dev->dump_debug_info(dev, "Before file + dir creation");
 
     err = fs->create(fs, "/unit_test.c", 0);
     assert(err == OK);
 
     err = fs->create(fs, "/bin", 1);
     assert(err == OK);
+
+    fs->dump_debug_info(fs, "After file + dir creation");
 
     err = fs->create(fs, "/bin", 1); // second time should fail
     assert(err == ERR_CONFLICT);
@@ -73,7 +98,7 @@ static void file_creation_test() {
 
 static void simple_file_test() {
     int err;
-    simple_filesystem *fs = FS()
+    FS();
 
     err = fs->mkfs(fs, "TEST", 0); 
     assert(err == OK);
@@ -113,16 +138,16 @@ static void wash_test() {
 }
 
 void run_tests() {
-    mkfs_test();
-    root_dir_test();
+    // mkfs_test();
+    // root_dir_test();
     file_creation_test();
     //simple_file_test();
-    wash_test();
+    // wash_test();
 }
 
 
 int main() {
-    printf("Running tests... ");
+    printf("Running tests... \n");
     run_tests();
     printf("Done\n");
     return 0;

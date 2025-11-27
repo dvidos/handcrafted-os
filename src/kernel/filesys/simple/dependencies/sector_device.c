@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <ctype.h>
 #include "returns.h"
 #include "sector_device.h"
 
@@ -37,6 +39,53 @@ static int write_sector(sector_device *device, uint32_t sector_no, uint8_t *buff
     return OK;
 }
 
+static void dump_debug_info(sector_device *device, const char *title) {
+    sector_device_data *sdd = (sector_device_data *)device->device_data;
+
+    printf("%s\n", title);
+
+    /*
+        00011700  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+        *
+        00011730  00 00 00 00 00 00 00 00  1b 00 00 00 01 00 00 00  |................|
+        00011e70  00 00 00 00 00 00 00 00  35 01 00 00 01 00 00 00  |........5.......|
+        00011e80  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+        00011e90  36 cc 00 00 00 00 00 00  c8 06 00 00 00 00 00 00  |6...............|  
+    */
+
+    char prev_dump_info[128];
+    char dump_info[128];
+    int rows_count = (sdd->sector_count * sdd->sector_size) / 16;
+    uint32_t offset = 0;
+    int have_asterisk;
+
+    for (int row = 0; row < rows_count; row++) {
+
+        unsigned char *p = sdd->data + offset;
+        sprintf(dump_info, "%02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  |%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c|",
+            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15],
+            isalnum(p[ 0]) ? p[ 0] : '.', isalnum(p[ 1]) ? p[ 1] : '.', isalnum(p[ 2]) ? p[ 2] : '.', isalnum(p[ 3]) ? p[ 3] : '.',
+            isalnum(p[ 4]) ? p[ 4] : '.', isalnum(p[ 5]) ? p[ 5] : '.', isalnum(p[ 6]) ? p[ 6] : '.', isalnum(p[ 7]) ? p[ 7] : '.',
+            isalnum(p[ 8]) ? p[ 8] : '.', isalnum(p[ 9]) ? p[ 9] : '.', isalnum(p[10]) ? p[10] : '.', isalnum(p[11]) ? p[11] : '.',
+            isalnum(p[12]) ? p[12] : '.', isalnum(p[13]) ? p[13] : '.', isalnum(p[14]) ? p[14] : '.', isalnum(p[15]) ? p[15] : '.'
+        );
+
+        // avoid repetitions
+        if (row > 0 && row < rows_count - 1 && strcmp(dump_info, prev_dump_info) == 0) {
+            if (!have_asterisk)
+                printf("                *\n");
+            have_asterisk = 1;
+            offset += 16;
+            continue;
+        }
+
+        printf("%4x  %08x  %s\n", offset / sdd->sector_size, offset, dump_info);
+        strcpy(prev_dump_info, dump_info);
+        have_asterisk = 0;
+        offset += 16;
+    }
+}
+
 sector_device *new_mem_based_sector_device(int sector_size, uint32_t sector_count) {
     sector_device_data *sdd = malloc(sizeof(sector_device_data));
     sdd->sector_size = sector_size;
@@ -49,5 +98,6 @@ sector_device *new_mem_based_sector_device(int sector_size, uint32_t sector_coun
     d->get_sector_size = get_sector_size;
     d->read_sector = read_sector;
     d->write_sector = write_sector;
+    d->dump_debug_info = dump_debug_info;
     return d;
 }
