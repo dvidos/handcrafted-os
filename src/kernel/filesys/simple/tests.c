@@ -107,11 +107,11 @@ static void simple_file_test() {
 
     err = fs->create(fs, "/file.txt", 0);
     assert(err == OK);
-    err = fs->create(fs, "/bin", 0);
-    assert(err == OK);
+
+    fs->dump_debug_info(fs, "After file creation");
 
     sfs_handle *h;
-    err = fs->open(fs, "file.txt", 1, &h);
+    err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
 
     err = fs->write(fs, h, "Hello world!\n", 13);
@@ -120,7 +120,7 @@ static void simple_file_test() {
     err = fs->close(fs, h);
     assert(err == OK);
 
-    err = fs->open(fs, "file.txt", 1, &h);
+    err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
 
     char buffer[64];
@@ -140,7 +140,7 @@ void run_tests() {
     // mkfs_test();
     // root_dir_test();
     file_creation_test();
-    //simple_file_test();
+    simple_file_test();
     // wash_test();
 }
 
