@@ -73,3 +73,14 @@ static inline int extend_range_by_allocating_block(mounted_data *mt, block_range
     return OK;
 }
 
+static inline void range_array_release_blocks(mounted_data *mt, block_range *ranges_array, int ranges_count) {
+    for (int i = ranges_count - 1; i >= 0; i--) {
+        block_range *range = &ranges_array[i];
+
+        for (int i = range->blocks_count - 1; i >= 0; i--)
+            mark_block_free(mt, range->first_block_no + i);
+
+        range->first_block_no = 0;
+        range->blocks_count = 0;
+    }
+}

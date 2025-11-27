@@ -472,8 +472,7 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     if (data == NULL) return ERR_NOT_SUPPORTED;
     mounted_data *mt = data->mounted;
     if (mt == NULL) return ERR_NOT_SUPPORTED;
-    if (data->mounted->readonly)
-        return ERR_NOT_PERMITTED;
+    if (mt->readonly) return ERR_NOT_PERMITTED;
     int err;
     
     // see if path resolves to inode
@@ -519,14 +518,40 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     return OK;
 }
 
+static int sfs_truncate(simple_filesystem *sfs, char *path) {
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
+    filesys_data *data = sfs->sfs_data;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+    if (mt->readonly) return ERR_NOT_PERMITTED;
+    int err;
+    
+    // see if path resolves to inode
+    inode target_inode;
+    uint32_t target_inode_id;
+    err = resolve_path_to_inode(mt, path, 0, &target_inode, &target_inode_id);
+    if (err != OK) return err;
+    if (!target_inode.is_file) return ERR_WRONG_TYPE;
+
+    // load this inode, truncate, remove it
+    err = inode_truncate_file(mt, &target_inode);
+    if (err != OK) return err;
+
+    // we should persist the parent inode changes (maybe change time changed)
+    err = inode_persist(mt, target_inode_id, &target_inode);
+    if (err != OK) return err;
+
+    return OK;
+}
+
 static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
     if (data == NULL) return ERR_NOT_SUPPORTED;
     mounted_data *mt = data->mounted;
     if (mt == NULL) return ERR_NOT_SUPPORTED;
-    if (data->mounted->readonly)
-        return ERR_NOT_PERMITTED;
+    if (mt->readonly) return ERR_NOT_PERMITTED;
     int err;
     
     // see if path resolves to inode
@@ -536,20 +561,26 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     if (err != OK) return err;
 
     // see if name exists in the directory
-    uint32_t new_inode_id;
+    uint32_t doomed_inode_id;
     uint32_t direntry_rec_no;
-    err = dir_entry_find(mt, &parent_inode, path_get_last_part(path), &new_inode_id, &direntry_rec_no);
+    err = dir_entry_find(mt, &parent_inode, path_get_last_part(path), &doomed_inode_id, &direntry_rec_no);
     if (err != OK) return err;
 
-    // TODO: since we don't support multiple links to inodes, we need to remove both the inode, and free all the data blocks...
-
     // now we can unlink this (e.g. nullify dir entry)
-    direntry entry;
-    memset(&entry, 0, sizeof(direntry));
-    dir_entry_update(mt, &parent_inode, direntry_rec_no, "", 0);
+    err = dir_entry_update(mt, &parent_inode, direntry_rec_no, "", 0);
+    if (err != OK) return err;
 
-    // we must persist the parent inode changes (but not much changed...)
+    // we should persist the parent inode changes (maybe change time changed)
     err = inode_persist(mt, parent_inode_id, &parent_inode);
+    if (err != OK) return err;
+
+    // load this inode, truncate, remove it
+    inode doomed;
+    err = inode_load(mt, doomed_inode_id, &doomed);
+    if (err != OK) return err;
+    err = inode_truncate_file(mt, &doomed);
+    if (err != OK) return err;
+    err = inode_delete(mt, doomed_inode_id);
     if (err != OK) return err;
 
     return OK;
@@ -559,14 +590,7 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     // we need an unlink that will not remove the inode, nor file blocks,
     // then link from the new directory.
     // actually, try creating the new link first, then remove the old one
-    
-    // actually, this points to the important internal functions of a file system:
-    // - inode manipulation (+range manipulation for finding, extending, releasing)
-    // - blocks manipulation (allocation, freeing)
-    // - directory entries manipulation (resolve, find, add, remove, modify, skip/reuse empty slots)
-    // - cached read/write operations
-    // notes:
-    // - at a later time, instead of copying inodes to work on them, open then in the open_inodes array, so we don't need to save them back.
+    return ERR_NOT_IMPLEMENTED;
 }
 
 static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
@@ -595,6 +619,8 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
 
 simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *device) {
 
+    if (sizeof(block_range) != 8) // written on disk, in the indirect blocks
+        return NULL;
     if (sizeof(inode) != 64) // written on disk, must be same size
         return NULL;
     if (sizeof(direntry) != 64) // written on disk, must be same size
@@ -627,7 +653,9 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
     sfs->open_dir = sfs_open_dir;
     sfs->read_dir = sfs_read_dir;
     sfs->close_dir = sfs_close_dir;
+
     sfs->create = sfs_create;
+    sfs->truncate = sfs_truncate;
     sfs->unlink = sfs_unlink;
     sfs->rename = sfs_rename;
 

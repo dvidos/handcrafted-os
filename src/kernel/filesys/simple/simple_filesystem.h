@@ -35,6 +35,7 @@ struct simple_filesystem {
     int (*close_dir)(simple_filesystem *sfs, sfs_handle *h);
 
     int (*create)(simple_filesystem *sfs, char *path, int is_dir);
+    int (*truncate)(simple_filesystem *sfs, char *path);
     int (*unlink)(simple_filesystem *sfs, char *path, int options);
     int (*rename)(simple_filesystem *sfs, char *oldpath, char *newpath);
 

@@ -183,6 +183,7 @@ static inline void find_last_used_and_first_free_range(const block_range *ranges
 static inline int initialize_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
 static inline int extend_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
 static void bitmap_dump_debug_info(mounted_data *mt);
+static inline void range_array_release_blocks(mounted_data *mt, block_range *ranges_array, int ranges_count);
 
 // blocks.inc.c
 static int read_block_range_low_level(sector_device *dev, uint32_t sector_size, uint32_t sectors_per_block, uint32_t first_block, uint32_t block_count, void *buffer);
@@ -210,6 +211,7 @@ static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
 // inodes.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
 static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
+static int inode_truncate_file(mounted_data *mt, inode *n);
 static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node);
 static int inode_allocate(mounted_data *mt, int is_file, inode *node, uint32_t *inode_id);
 static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node);

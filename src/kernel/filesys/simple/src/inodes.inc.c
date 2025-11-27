@@ -79,6 +79,32 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
     return bytes_written;
 }
 
+static int inode_truncate_file(mounted_data *mt, inode *n) {
+    // release all blocks, reset ranges to zero.
+    int err;
+
+    if (n->indirect_ranges_block_no != 0) {
+        err = cached_read(mt->cache, n->indirect_ranges_block_no, 0, mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
+        if (err != OK) return err;
+
+        // release all pointed blocks
+        int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
+        range_array_release_blocks(mt, (block_range *)mt->generic_block_buffer, ranges_in_block);
+
+        // release indirect as well
+        mark_block_free(mt, n->indirect_ranges_block_no);
+        n->indirect_ranges_block_no = 0;
+    }
+
+    // then the internal ranges
+    range_array_release_blocks(mt, n->ranges, RANGES_IN_INODE);
+
+    // finally, reset inode file size to zero
+    n->allocated_blocks = 0;
+    n->file_size = 0;
+    return OK;
+}
+
 // -----------------------------------------------------------------------------
 
 static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node) {
@@ -164,3 +190,4 @@ static void inode_dump_debug_info(const char *title, inode *n) {
         n->indirect_ranges_block_no
     );
 }
+
