@@ -7,6 +7,7 @@
 
 // ------------------------------------------------------------------
 
+#include "path.inc.c"
 #include "superblock.inc.c"
 #include "bitmap.inc.c"
 #include "cache.inc.c"
@@ -17,17 +18,6 @@
 #include "dirs.inc.c"
 
 // ------------------------------------------------------------------
-
-static void path_get_first_part(const char *path, char *filename_buffer) {
-    char *slash = strchr(path, '/');
-
-    int length = (slash == NULL) ? strlen(path) : slash - path;
-    if (length > MAX_FILENAME_LENGTH)
-        length = MAX_FILENAME_LENGTH;
-    
-    strncpy(filename_buffer, path, length);
-    filename_buffer[length] = 0;
-}
 
 static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve_parent_dir_only, inode *target, uint32_t *inode_id) {
     char part_name[MAX_FILENAME_LENGTH + 1];
@@ -52,26 +42,26 @@ static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve
         return OK;
     }
 
-    // start walking down the directories
+    // start walking down the directories from root dir
     memcpy(&curr_dir, &mt->superblock->root_dir_inode, sizeof(inode));
     curr_dir_inode_id = ROOT_DIR_INODE_ID;
     while (1) {
 
         // get first part of the path
-        path_get_first_part(path, part_name);
+        path_get_first_part(path, part_name, sizeof(part_name));
         path += strlen(part_name);
         if (*path == '/')
             path++;
         int finished = (*path == '\0');
 
-        // if resolving parent, we don't need to seek the last part
+        // if we are resolving parent, we don't need to seek the last part
         if (resolve_parent_dir_only && finished) {
             memcpy(target, &curr_dir, sizeof(inode));
             *inode_id = curr_dir_inode_id;
             return OK;
         }
 
-        // look the chunk in the current directory
+        // look up the chunk in the current directory
         err = dir_entry_find(mt, &curr_dir, part_name, &entry_inode_id, NULL);
         if (err != OK) return err;
 
@@ -94,12 +84,6 @@ static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve
 
     // should never happen
     return ERR_NOT_FOUND;
-}
-
-// returns just the last part (e.g. "sh" for "/bin/sh")
-static const char *get_filename_from_path(const char *path) {
-    const char *separator = strrchr(path, '/');
-    return separator == NULL ? path : separator + 1;
 }
 
 // ------------------------------------------------------------------
@@ -353,7 +337,42 @@ static int sfs_close(simple_filesystem *sfs, sfs_handle *h) {
 }
 
 static int sfs_seek(simple_filesystem *sfs, sfs_handle *h, int offset, int origin) {
-    return ERR_NOT_IMPLEMENTED;
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
+    filesys_data *data = sfs->sfs_data;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+    
+    open_handle *handle = (open_handle *)h;
+    if (handle == NULL || handle->inode == NULL || !handle->is_used)
+        return ERR_INVALID_ARGUMENT;
+
+    // if sizes are more than what ints can support, this function is erroneous / dangerous / useless
+    if (handle->file_position >= 0x7FFFFFFF || handle->inode->inode_in_mem.file_size >= 0x7FFFFFFF)
+        return ERR_NOT_SUPPORTED;
+    
+    int pos = (int)handle->file_position;
+    int size = (int)handle->inode->inode_in_mem.file_size;
+    int remain = size - pos;
+
+    if (origin == 0) {
+        // from start
+        pos = in_range(offset, 0, size);
+
+    } else if (origin == 1) {
+        // from curr position
+        pos = pos + in_range(offset, pos*-1, remain);
+
+    } else if (origin == 2) {
+        // from end
+        pos = size + in_range(offset, size*-1, 0);
+
+    } else {
+        return ERR_INVALID_ARGUMENT;
+    }
+
+    handle->file_position = pos;
+    return OK;
 }
 
 static int sfs_tell(simple_filesystem *sfs, sfs_handle *h) {
@@ -465,7 +484,7 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
 
     // see if name exists in the directory
     uint32_t new_inode_id;
-    err = dir_entry_find(mt, &parent_inode, get_filename_from_path(path), &new_inode_id, NULL);
+    err = dir_entry_find(mt, &parent_inode, path_get_last_part(path), &new_inode_id, NULL);
     if (err == OK) return ERR_CONFLICT;
 
     // now we should be able to create a file / dir
@@ -474,7 +493,7 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     if (err != OK) return err;
 
     // add this entry
-    const char *filename = get_filename_from_path(path);
+    const char *filename = path_get_last_part(path);
     err = dir_entry_append(mt, &parent_inode, filename, new_inode_id);
     if (err != OK) return err;
 

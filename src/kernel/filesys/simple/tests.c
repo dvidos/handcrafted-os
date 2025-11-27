@@ -151,7 +151,7 @@ static void simple_file_test() {
     // dev->dump_debug_info(dev, "After creating and reading a text file");
 }
 
-static void wash_test() {
+static void wash_test(int seed) {
     // make 500 files, randomly adding blocks to each, till something breaks or file is full?
 }
 

@@ -165,7 +165,12 @@ struct mounted_data {
 
 // ------------------------------------------------------------------
 
-// superblock
+// path.inc.c
+static void path_get_first_part(const char *path, char *filename_buffer, int filename_buffer_size);
+static const char *path_get_last_part(const char *path);
+
+
+// superblock.inc.c
 static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb);
 static void superblock_dump_debug_info(superblock *sb);
 
