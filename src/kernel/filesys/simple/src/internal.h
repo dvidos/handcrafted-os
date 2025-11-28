@@ -230,3 +230,5 @@ static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, 
 static int dir_entry_update(mounted_data *mt, inode *dir_inode, int entry_rec_no, const char *name, uint32_t inode_id);
 static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name, uint32_t inode_id);
 static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth);
+static int dir_entry_ensure_missing(mounted_data *mt, inode *dir_inode, const char *name);
+static int dir_entry_delete(mounted_data *mt, inode *dir_inode, int entry_rec_no);

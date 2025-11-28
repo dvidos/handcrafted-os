@@ -1,10 +1,11 @@
 #include "internal.h"
 
+#define DIR_ENTRY_MAX_REC_NO     0x7FFFFFFF
 
 static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_id, uint32_t *entry_rec_no) {
     direntry entry;
 
-    for (int rec_no = 0; rec_no < 0x7FFFFFFF; rec_no++) {
+    for (int rec_no = 0; rec_no < DIR_ENTRY_MAX_REC_NO; rec_no++) {
         int bytes = inode_read_file_bytes(mt, dir_inode, rec_no * sizeof(direntry), &entry, sizeof(direntry));
         if (bytes == ERR_END_OF_FILE) break;
         if (bytes < 0) return bytes;
@@ -46,6 +47,32 @@ static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name
     return OK;
 }
 
+static int dir_entry_ensure_missing(mounted_data *mt, inode *dir_inode, const char *name) {
+    direntry entry;
+
+    for (int rec_no = 0; rec_no < DIR_ENTRY_MAX_REC_NO; rec_no++) {
+        int bytes = inode_read_file_bytes(mt, dir_inode, rec_no * sizeof(direntry), &entry, sizeof(direntry));
+        if (bytes == ERR_END_OF_FILE) break;
+        if (bytes < 0) return bytes;
+
+        if (strcmp(entry.name, name) == 0)
+            return ERR_ALREADY_EXISTS;
+    }
+
+    return OK;
+}
+
+static int dir_entry_delete(mounted_data *mt, inode *dir_inode, int entry_rec_no) {
+    int recs_in_file = dir_inode->file_size / sizeof(direntry);
+    if (entry_rec_no == recs_in_file - 1) {
+        // shorten the file, but keep blocks for simplicity
+        dir_inode->file_size = (recs_in_file - 1) * sizeof(direntry);
+        return OK;
+    } else {
+        return dir_entry_update(mt, dir_inode, entry_rec_no, "", 0); // remove in place
+    }
+}
+
 static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth) {
     struct direntry entry;
     inode node;
@@ -73,4 +100,5 @@ static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth) {
         printf("%*s(no entries)\n", depth * 4, "");
     }
 }
+
 

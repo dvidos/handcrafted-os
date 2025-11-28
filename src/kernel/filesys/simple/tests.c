@@ -74,7 +74,7 @@ static void file_creation_test() {
 
     assert(fs->create(fs, "/unit_test.c", 0) == OK);
     assert(fs->create(fs, "/bin", 1) == OK);
-    assert(fs->create(fs, "/bin", 1) == ERR_CONFLICT);  // second time should fail
+    assert(fs->create(fs, "/bin", 1) == ERR_ALREADY_EXISTS);  // second time should fail
     assert(fs->create(fs, "/bin/sh.c", 0) == OK);
     assert(fs->create(fs, "/bin/sh.c/file", 0) == ERR_WRONG_TYPE); // cannot create inside a file
     assert(fs->create(fs, "/something/sh.c", 0) == ERR_NOT_FOUND);  // path was not found

@@ -487,12 +487,12 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
         return ERR_INVALID_ARGUMENT;
 
     // see if name exists in the directory
-    uint32_t new_inode_id;
-    err = dir_entry_find(mt, &parent_inode, desired_name, &new_inode_id, NULL);
-    if (err == OK) return ERR_CONFLICT;
+    err = dir_entry_ensure_missing(mt, &parent_inode, desired_name);
+    if (err != OK) return err;
 
     // now we should be able to create a file / dir
     inode new_inode;
+    uint32_t new_inode_id;
     err = inode_allocate(mt, is_dir, &new_inode, &new_inode_id);
     if (err != OK) return err;
 
@@ -510,7 +510,6 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
         if (err != OK) return err;
         err = dir_entry_append(mt, &new_inode, "..", parent_inode_id);
         if (err != OK) return err;
-
         err = inode_persist(mt, new_inode_id, &new_inode);
         if (err != OK) return err;
     }
@@ -567,7 +566,7 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     if (err != OK) return err;
 
     // now we can unlink this (e.g. nullify dir entry)
-    err = dir_entry_update(mt, &parent_inode, direntry_rec_no, "", 0);
+    err = dir_entry_delete(mt, &parent_inode, direntry_rec_no);
     if (err != OK) return err;
 
     // we should persist the parent inode changes (maybe change time changed)
@@ -587,10 +586,55 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
 }
 
 static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
-    // we need an unlink that will not remove the inode, nor file blocks,
-    // then link from the new directory.
-    // actually, try creating the new link first, then remove the old one
-    return ERR_NOT_IMPLEMENTED;
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
+    filesys_data *data = sfs->sfs_data;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+    if (mt->readonly) return ERR_NOT_PERMITTED;
+    int err;
+    
+    // fild old containing dir
+    inode old_parent_inode;
+    uint32_t old_parent_inode_id;
+    err = resolve_path_to_inode(mt, oldpath, 1, &old_parent_inode, &old_parent_inode_id);
+    if (err != OK) return err;
+
+    // see if name exists in the directory
+    uint32_t target_inode_id;
+    uint32_t old_entry_no;
+    err = dir_entry_find(mt, &old_parent_inode, path_get_last_part(oldpath), &target_inode_id, &old_entry_no);
+    if (err != OK) return err;
+
+    // now we can unlink this (e.g. nullify dir entry)
+    err = dir_entry_delete(mt, &old_parent_inode, old_entry_no);
+    if (err != OK) return err;
+
+    // find new containing dir
+    inode new_parent_inode;
+    uint32_t new_parent_inode_id;
+    err = resolve_path_to_inode(mt, newpath, 1, &new_parent_inode, &new_parent_inode_id);
+    if (err != OK) return err;
+
+    const char *new_filename = path_get_last_part(newpath);
+
+    // see if name exists in the directory
+    err = dir_entry_ensure_missing(mt, &new_parent_inode, new_filename);
+    if (err != OK) return err;
+
+    // create entry in the new directory, save inode
+    err = dir_entry_append(mt, &new_parent_inode, new_filename, target_inode_id);
+    if (err != OK) return err;
+    err = inode_persist(mt, new_parent_inode_id, &new_parent_inode);
+    if (err != OK) return err;
+
+    // remove from old, save inode
+    err = dir_entry_delete(mt, &old_parent_inode, old_entry_no);
+    if (err != OK) return err;
+    err = inode_persist(mt, old_parent_inode_id, &old_parent_inode);
+    if (err != OK) return err;
+
+    return OK;
 }
 
 static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
