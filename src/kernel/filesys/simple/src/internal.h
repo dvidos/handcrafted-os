@@ -12,10 +12,9 @@
 
     - maintain open inodes and handles (e.g. file handles in mounted_data)
       for the two in-built files: inodes db and root dir.
-    - merge open inodes and open handles methods, into a single set.
     - make indirect blocks chain from last entry of each one.
     - lower the ranges to use 1 byte for range, test failure of expansion.
-    - add created_time and modified_time uint32_t in inode
+    - make the wash test system. we need it.
 
 */
 
@@ -47,7 +46,6 @@ typedef struct direntry direntry;
 typedef struct cache_data cache_data;
 typedef struct open_inode open_inode;
 typedef struct open_handle open_handle;
-
 
 /**
  * a pair of starting block and blocks count.
@@ -251,3 +249,7 @@ static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth);
 static int dir_entry_ensure_missing(mounted_data *mt, inode *dir_inode, const char *name);
 static int dir_entry_delete(mounted_data *mt, inode *dir_inode, int entry_rec_no);
 static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth);
+
+// resolution.inc.c
+static int resolve_path_to_inode(mounted_data *mt, const char *path, inode *target, uint32_t *inode_id);
+static int resolve_path_parent_to_inode(mounted_data *mt, const char *path, inode *target, uint32_t *inode_id);

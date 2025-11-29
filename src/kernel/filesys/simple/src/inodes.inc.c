@@ -1,6 +1,5 @@
 #include "internal.h"
 
-// ----------------------------------------------------------------------------------------
 
 static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;

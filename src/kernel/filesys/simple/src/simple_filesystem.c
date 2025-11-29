@@ -16,75 +16,7 @@
 #include "inodes.inc.c"
 #include "open.inc.c"
 #include "dirs.inc.c"
-
-// ------------------------------------------------------------------
-
-static int resolve_path_to_inode(mounted_data *mt, const char *path, int resolve_parent_dir_only, inode *target, uint32_t *inode_id) {
-    char part_name[MAX_FILENAME_LENGTH + 1];
-    int err;
-    inode curr_dir;
-    uint32_t curr_dir_inode_id;
-    inode entry_inode;
-    uint32_t entry_inode_id;
-
-    // all paths should be absolute
-    if (path[0] != '/')
-        return ERR_INVALID_ARGUMENT;
-    path += 1;
-
-    // path was "/" only.
-    if (*path == '\0') {
-        if (resolve_parent_dir_only)
-            return ERR_INVALID_ARGUMENT;
-
-        memcpy(target, &mt->superblock->root_dir_inode, sizeof(inode));
-        *inode_id = ROOT_DIR_INODE_ID;
-        return OK;
-    }
-
-    // start walking down the directories from root dir
-    memcpy(&curr_dir, &mt->superblock->root_dir_inode, sizeof(inode));
-    curr_dir_inode_id = ROOT_DIR_INODE_ID;
-    while (1) {
-
-        // get first part of the path
-        path_get_first_part(path, part_name, sizeof(part_name));
-        path += strlen(part_name);
-        if (*path == '/')
-            path++;
-        int finished = (*path == '\0');
-
-        // if we are resolving parent, we don't need to seek the last part
-        if (resolve_parent_dir_only && finished) {
-            memcpy(target, &curr_dir, sizeof(inode));
-            *inode_id = curr_dir_inode_id;
-            return OK;
-        }
-
-        // look up the chunk in the current directory
-        err = dir_entry_find(mt, &curr_dir, part_name, &entry_inode_id, NULL);
-        if (err != OK) return err;
-
-        // load so we can return it, or use it.
-        err = inode_load(mt, entry_inode_id, &entry_inode);
-        if (err != OK) return err;
-
-        if (finished) {
-            memcpy(target, &entry_inode, sizeof(inode));
-            *inode_id = entry_inode_id;
-            return OK;
-        }
-
-        // verify we recurse into a directory that we can search in
-        if (!entry_inode.is_dir)
-            return ERR_WRONG_TYPE;
-        memcpy(&curr_dir, &entry_inode, sizeof(inode));
-        curr_dir_inode_id = entry_inode_id;
-    }
-
-    // should never happen
-    return ERR_NOT_FOUND;
-}
+#include "resolution.inc.c"
 
 // ------------------------------------------------------------------
 
@@ -234,7 +166,7 @@ static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_han
     // see if path resolves to inode
     inode inode;
     uint32_t inode_id;
-    err = resolve_path_to_inode(mt, filename, 0, &inode, &inode_id);
+    err = resolve_path_to_inode(mt, filename, &inode, &inode_id);
     if (err != OK) return err;
     if (!inode.is_file)
         return ERR_WRONG_TYPE;
@@ -368,7 +300,7 @@ static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_
     // see if path resolves to inode
     inode inode;
     uint32_t inode_id;
-    err = resolve_path_to_inode(mt, path, 0, &inode, &inode_id);
+    err = resolve_path_to_inode(mt, path, &inode, &inode_id);
     if (err != OK) return err;
     if (!inode.is_dir)
         return ERR_WRONG_TYPE;
@@ -441,7 +373,7 @@ static int sfs_stat(simple_filesystem *sfs, char *path, sfs_stat_info *info) {
     // see if path resolves to inode
     inode target_inode;
     uint32_t target_inode_id;
-    err = resolve_path_to_inode(mt, path, 0, &target_inode, &target_inode_id);
+    err = resolve_path_to_inode(mt, path, &target_inode, &target_inode_id);
     if (err != OK) return err;
     if (!target_inode.is_file) return ERR_WRONG_TYPE;
 
@@ -466,7 +398,7 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     // see if path resolves to inode
     inode parent_inode;
     uint32_t parent_inode_id;
-    err = resolve_path_to_inode(mt, path, 1, &parent_inode, &parent_inode_id);
+    err = resolve_path_parent_to_inode(mt, path, &parent_inode, &parent_inode_id);
     if (err != OK) return err;
 
     // find desired name
@@ -517,7 +449,7 @@ static int sfs_truncate(simple_filesystem *sfs, char *path) {
     // see if path resolves to inode
     inode target_inode;
     uint32_t target_inode_id;
-    err = resolve_path_to_inode(mt, path, 0, &target_inode, &target_inode_id);
+    err = resolve_path_to_inode(mt, path, &target_inode, &target_inode_id);
     if (err != OK) return err;
     if (!target_inode.is_file) return ERR_WRONG_TYPE;
 
@@ -547,7 +479,7 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     // see if path resolves to inode
     inode parent_inode;
     uint32_t parent_inode_id;
-    err = resolve_path_to_inode(mt, path, 1, &parent_inode, &parent_inode_id);
+    err = resolve_path_parent_to_inode(mt, path, &parent_inode, &parent_inode_id);
     if (err != OK) return err;
 
     // see if name exists in the directory
@@ -588,7 +520,7 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     // fild old containing dir
     inode old_parent_inode;
     uint32_t old_parent_inode_id;
-    err = resolve_path_to_inode(mt, oldpath, 1, &old_parent_inode, &old_parent_inode_id);
+    err = resolve_path_parent_to_inode(mt, oldpath, &old_parent_inode, &old_parent_inode_id);
     if (err != OK) return err;
 
     // see if name exists in the directory
@@ -604,7 +536,7 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     // find new containing dir
     inode new_parent_inode;
     uint32_t new_parent_inode_id;
-    err = resolve_path_to_inode(mt, newpath, 1, &new_parent_inode, &new_parent_inode_id);
+    err = resolve_path_parent_to_inode(mt, newpath, &new_parent_inode, &new_parent_inode_id);
     if (err != OK) return err;
 
     const char *new_filename = path_get_last_part(newpath);
