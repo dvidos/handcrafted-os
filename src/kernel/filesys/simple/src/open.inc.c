@@ -2,7 +2,7 @@
 #include <string.h>
 
 
-static int open_inodes_flush_inode(mounted_data *mt, open_inode *node) {
+static int open_inode_flush(mounted_data *mt, open_inode *node) {
     if (node->inode_id == ROOT_DIR_INODE_ID) {
         // save in superblock, in memory
         memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
@@ -14,22 +14,6 @@ static int open_inodes_flush_inode(mounted_data *mt, open_inode *node) {
     }
 
     node->is_dirty = 0;
-    return OK;
-}
-
-static int open_handles_release(mounted_data *mt, open_handle *handle) {
-    handle->inode->ref_count -= 1;
-
-    if (handle->inode->ref_count == 0) {
-        if (handle->inode->is_dirty) {
-            int err = open_inodes_flush_inode(mt, handle->inode);
-            if (err != OK) return err;
-        }
-
-        handle->inode->is_used = 0;
-    }
-
-    handle->is_used = 0;
     return OK;
 }
 
@@ -95,21 +79,30 @@ static int open_files_register(mounted_data *mt, inode *node, uint32_t inode_id,
     return OK;
 }
 
+static int open_handles_release(mounted_data *mt, open_handle *handle) {
+
+    // close inode as well, if no other references
+    handle->inode->ref_count -= 1;
+    if (handle->inode->ref_count == 0) {
+        if (handle->inode->is_dirty) {
+            int err = open_inode_flush(mt, handle->inode);
+            if (err != OK) return err;
+        }
+        handle->inode->is_used = 0;
+    }
+
+    // close the handle now
+    handle->is_used = 0;
+    return OK;
+}
+
 static int open_files_flush_dirty_inodes(mounted_data *mt) {
     for (int i = 0; i < MAX_OPEN_INODES; i++) {
         open_inode *node = &mt->open_inodes[i];
         if (!node->is_used || !node->is_dirty)
             continue;
         
-        if (node->inode_id == ROOT_DIR_INODE_ID) {
-            // save in superblock, in memory
-            memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
-        } else {
-            // save in inodes database
-            int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, node->inode_id * sizeof(inode), &node->inode_in_mem, sizeof(inode));
-            if (bytes < 0) return bytes;
-            if (bytes != sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
-        }
+        open_inode_flush(mt, node);
         node->is_dirty = 0;
     }
 

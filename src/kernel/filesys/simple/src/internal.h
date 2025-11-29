@@ -236,10 +236,11 @@ static int inode_delete(mounted_data *mt, uint32_t inode_id);
 static void inode_dump_debug_info(const char *title, inode *n);
 
 // open.inc.c
-static int open_inodes_flush_inode(mounted_data *mt, open_inode *node);
 static int open_handles_release(mounted_data *mt, open_handle *handle);
 static int open_files_register(mounted_data *mt, inode *node, uint32_t inode_id, open_handle **handle_ptr);
+static int open_files_flush_dirty_inodes(mounted_data *mt);
 static void open_dump_debug_info(mounted_data *mt);
+
 
 // dirs.inc.c
 static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_id, uint32_t *entry_rec_no);
