@@ -185,10 +185,19 @@ struct mounted_data {
 static void path_get_first_part(const char *path, char *filename_buffer, int filename_buffer_size);
 static const char *path_get_last_part(const char *path);
 
-
 // superblock.inc.c
 static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb);
 static void superblock_dump_debug_info(superblock *sb);
+
+// bitmap.inc.c
+static int used_blocks_bitmap_load(mounted_data *mt);
+static int used_blocks_bitmap_save(mounted_data *mt);
+static inline int is_block_used(mounted_data *mt, uint32_t block_no);
+static inline int is_block_free(mounted_data *mt, uint32_t block_no);
+static inline void mark_block_used(mounted_data *mt, uint32_t block_no);
+static inline void mark_block_free(mounted_data *mt, uint32_t block_no);
+static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
+static void bitmap_dump_debug_info(mounted_data *mt);
 
 // ranges.inc.c
 static inline int is_range_used(const block_range *range);
@@ -201,14 +210,6 @@ static inline int extend_range_by_allocating_block(mounted_data *mt, block_range
 static void bitmap_dump_debug_info(mounted_data *mt);
 static inline void range_array_release_blocks(mounted_data *mt, block_range *ranges_array, int ranges_count);
 
-// blocks.inc.c
-static int read_block_range_low_level(sector_device *dev, uint32_t sector_size, uint32_t sectors_per_block, uint32_t first_block, uint32_t block_count, void *buffer);
-static int read_block(filesys_data *data, uint32_t block_no, void *buffer);
-static int write_block(filesys_data *data, uint32_t block_no, void *buffer);
-static int find_block_no_from_file_block_index(mounted_data *mt, const inode *inode, uint32_t block_index_in_file, uint32_t *absolute_block_no);
-static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no);
-static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *absolute_block_no);
-
 // cache.inc.c
 static inline cache_data *initialize_cache(mem_allocator *memory, sector_device *device, uint32_t block_size);
 static inline int cached_read(cache_data *data, uint32_t block_no, uint32_t block_offset, void *buffer, int length);
@@ -216,13 +217,15 @@ static inline int cached_write(cache_data *data, uint32_t block_no, uint32_t blo
 static inline int cached_wipe(cache_data *data, uint32_t block_no);
 static inline int cache_flush(cache_data *data);
 static inline void cache_release_memory(cache_data *data);
+static void cache_dump_debug_info(cache_data *data);
 
-// bitmap.inc.c
-static inline int is_block_used(mounted_data *mt, uint32_t block_no);
-static inline int is_block_free(mounted_data *mt, uint32_t block_no);
-static inline void mark_block_used(mounted_data *mt, uint32_t block_no);
-static inline void mark_block_free(mounted_data *mt, uint32_t block_no);
-static inline int find_next_free_block(mounted_data *mt, uint32_t *block_no);
+// block_ops.inc.c
+static int read_block_range_low_level(sector_device *dev, uint32_t sector_size, uint32_t sectors_per_block, uint32_t first_block, uint32_t block_count, void *buffer);
+static int read_block(filesys_data *data, uint32_t block_no, void *buffer);
+static int write_block(filesys_data *data, uint32_t block_no, void *buffer);
+static int find_block_no_from_file_block_index(mounted_data *mt, const inode *inode, uint32_t block_index_in_file, uint32_t *absolute_block_no);
+static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no);
+static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *absolute_block_no);
 
 // inodes.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
 static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
@@ -235,11 +238,10 @@ static int inode_delete(mounted_data *mt, uint32_t inode_id);
 static void inode_dump_debug_info(const char *title, inode *n);
 
 // open.inc.c
-static int open_inodes_register(mounted_data *mt, inode *node, uint32_t inode_id, open_inode **open_inode_ptr);
-static int open_inodes_release(mounted_data *mt, open_inode *node);
 static int open_inodes_flush_inode(mounted_data *mt, open_inode *node);
-static int open_handles_register(mounted_data *mt, open_inode *node, open_handle **handle_ptr);
 static int open_handles_release(mounted_data *mt, open_handle *handle);
+static int open_files_register(mounted_data *mt, inode *node, uint32_t inode_id, open_handle **handle_ptr);
+static void open_dump_debug_info(mounted_data *mt);
 
 // dirs.inc.c
 static int dir_entry_find(mounted_data *mt, inode *dir_inode, const char *name, uint32_t *inode_id, uint32_t *entry_rec_no);
@@ -248,3 +250,4 @@ static int dir_entry_append(mounted_data *mt, inode *dir_inode, const char *name
 static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth);
 static int dir_entry_ensure_missing(mounted_data *mt, inode *dir_inode, const char *name);
 static int dir_entry_delete(mounted_data *mt, inode *dir_inode, int entry_rec_no);
+static void dir_dump_debug_info(mounted_data *mt, inode *dir_inode, int depth);
