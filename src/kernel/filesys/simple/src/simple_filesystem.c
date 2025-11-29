@@ -134,10 +134,6 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
     return OK;
 }
 
-static int sfs_fsck(simple_filesystem *sfs, int verbose, int repair) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
 static int sfs_mount(simple_filesystem *sfs, int readonly) {
     int err;
     filesys_data *data = (filesys_data *)sfs->sfs_data;
@@ -466,6 +462,31 @@ static int sfs_close_dir(simple_filesystem *sfs, sfs_handle *h) {
     return OK;
 }
 
+static int sfs_stat(simple_filesystem *sfs, char *path, sfs_stat_info *info) {
+    if (sfs == NULL) return ERR_NOT_SUPPORTED;
+    filesys_data *data = sfs->sfs_data;
+    if (data == NULL) return ERR_NOT_SUPPORTED;
+    mounted_data *mt = data->mounted;
+    if (mt == NULL) return ERR_NOT_SUPPORTED;
+    if (mt->readonly) return ERR_NOT_PERMITTED;
+    int err;
+
+    // see if path resolves to inode
+    inode target_inode;
+    uint32_t target_inode_id;
+    err = resolve_path_to_inode(mt, path, 0, &target_inode, &target_inode_id);
+    if (err != OK) return err;
+    if (!target_inode.is_file) return ERR_WRONG_TYPE;
+
+    info->inode_id = target_inode_id;
+    info->file_size = target_inode.file_size;
+    info->type = target_inode.is_file ? 1 : target_inode.is_dir ? 2 : 0;
+    info->blocks = target_inode.allocated_blocks;
+    info->created_at = 0;
+    info->modified_at = 0;
+    return OK;
+}
+
 static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
@@ -681,8 +702,6 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
     sfs->sfs_data = sfs_data;
 
     sfs->mkfs = sfs_mkfs;
-    sfs->fsck = sfs_fsck;
-
     sfs->mount = sfs_mount;
     sfs->sync = sfs_sync;
     sfs->unmount = sfs_unmount;
@@ -698,6 +717,7 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
     sfs->read_dir = sfs_read_dir;
     sfs->close_dir = sfs_close_dir;
 
+    sfs->stat = sfs_stat;
     sfs->create = sfs_create;
     sfs->truncate = sfs_truncate;
     sfs->unlink = sfs_unlink;

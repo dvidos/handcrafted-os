@@ -7,10 +7,24 @@
 
 // -------------------------------------------
 
+/*
+    TODO:
+
+    - maintain open inodes and handles (e.g. file handles in mounted_data)
+      for the two in-built files: inodes db and root dir.
+    - merge open inodes and open handles methods, into a single set.
+    - make indirect blocks chain from last entry of each one.
+    - lower the ranges to use 1 byte for range, test failure of expansion.
+    - add created_time and modified_time uint32_t in inode
+
+*/
+
+// -------------------------------------------
+
 #define KB   (1024)
 #define MB   (1024*KB)
 #define GB   (1024*MB)
-        
+
 #define MAX_FILENAME_LENGTH                  59  // affects directory entry size
 #define MAX_OPEN_INODES                     128  // later we can do this dynamic
 #define MAX_OPEN_HANDLES                    128  // later we can do this dynamic
@@ -62,6 +76,8 @@ struct inode { // target size: 64
     block_range ranges[RANGES_IN_INODE]; // size: 48
     // if internal ranges are not enough, this block is full or ranges
     uint32_t indirect_ranges_block_no;
+
+    // permissions? gid/uid?
 };
 
 /**
