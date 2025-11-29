@@ -1,6 +1,7 @@
 #include "dependencies/returns.h"
 #include "dependencies/mem_allocator.h"
 #include "dependencies/sector_device.h"
+#include "dependencies/clock_device.h"
 #include "simple_filesystem.h"
 #include <assert.h>
 #include <string.h>
@@ -9,7 +10,8 @@
 #define FS() \
     mem_allocator *mem = new_malloc_based_mem_allocator(); \
     sector_device *dev = new_mem_based_sector_device(512, 2048); \
-    simple_filesystem *fs = new_simple_filesystem(mem, dev)
+    clock_device *clock = new_fixed_clock_device(123456); \
+    simple_filesystem *fs = new_simple_filesystem(mem, dev, clock)
 
 #define MOUNTED_FS()  \
     FS(); \
@@ -66,7 +68,8 @@ static void file_creation_test() {
 
     mem_allocator *mem = new_malloc_based_mem_allocator(); \
     sector_device *dev = new_mem_based_sector_device(512, 2048); \
-    simple_filesystem *fs = new_simple_filesystem(mem, dev);
+    clock_device *clock = new_fixed_clock_device(123456);
+    simple_filesystem *fs = new_simple_filesystem(mem, dev, clock);
 
 
     assert(fs->mkfs(fs, "TEST", 0) == OK);

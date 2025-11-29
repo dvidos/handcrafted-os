@@ -76,6 +76,9 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
             n->file_size += chunk_length;
     }
 
+    if (bytes_written > 0)
+        n->modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
+
     return bytes_written;
 }
 
@@ -100,6 +103,7 @@ static int inode_truncate_file(mounted_data *mt, inode *n) {
     range_array_release_blocks(mt, n->ranges, RANGES_IN_INODE);
 
     // finally, reset inode file size to zero
+    n->modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
     n->allocated_blocks = 0;
     n->file_size = 0;
     return OK;
@@ -127,6 +131,7 @@ static int inode_allocate(mounted_data *mt, int is_dir, inode *node, uint32_t *i
         node->is_file = 1;
     }
     node->is_used = 1;
+    node->modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
 
     // this should have a lock somehow
     *inode_id = mt->superblock->inodes_db_rec_count;

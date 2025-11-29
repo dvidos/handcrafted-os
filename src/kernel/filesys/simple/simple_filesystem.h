@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "dependencies/sector_device.h"
 #include "dependencies/mem_allocator.h"
+#include "dependencies/clock_device.h"
 
 
 typedef struct simple_filesystem simple_filesystem;
@@ -52,4 +53,4 @@ struct simple_filesystem {
     void *sfs_data;
 };
 
-simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *device);
+simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *device, clock_device *clock);

@@ -164,6 +164,7 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     mount->used_blocks_bitmap = data->memory->allocate(data->memory, sb->blocks_bitmap_blocks_count * sb->block_size_in_bytes);
     mount->cache = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
     mount->generic_block_buffer = data->memory->allocate(data->memory, sb->block_size_in_bytes);
+    mount->clock = data->clock;
     data->mounted = mount;
     
     // we can release temp sector now
@@ -554,6 +555,9 @@ static int sfs_truncate(simple_filesystem *sfs, char *path) {
     if (err != OK) return err;
     if (!target_inode.is_file) return ERR_WRONG_TYPE;
 
+    if (target_inode.file_size == 0)
+        return OK;
+    
     // load this inode, truncate, remove it
     err = inode_truncate_file(mt, &target_inode);
     if (err != OK) return err;
@@ -682,20 +686,29 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
 
 // ------------------------------------------------------------------
 
-simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *device) {
+simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *device, clock_device *clock) {
 
-    if (sizeof(block_range) != 8) // written on disk, in the indirect blocks
-        return NULL;
-    if (sizeof(inode) != 64) // written on disk, must be same size
-        return NULL;
-    if (sizeof(direntry) != 64) // written on disk, must be same size
-        return NULL;
-    if (sizeof(superblock) != 512) // must be able to load in a single 512B sector
-        return NULL;
+    if (sizeof(block_range) != 6) { // written on disk, in the indirect blocks
+        printf("sizeof(block_range): %ld\n", sizeof(block_range));
+        exit(1);
+    }
+    if (sizeof(inode) != 64) { // written on disk, must be same size
+        printf("sizeof(inode): %ld\n", sizeof(inode));
+        exit(1);
+    }
+    if (sizeof(direntry) != 64) { // written on disk, must be same size
+        printf("sizeof(direntry): %ld\n", sizeof(direntry));
+        exit(1);
+    }
+    if (sizeof(superblock) != 512) { // must be able to load in a single 512B sector
+        printf("sizeof(superblock): %ld\n", sizeof(superblock));
+        exit(1);
+    }
 
     filesys_data *sfs_data = memory->allocate(memory, sizeof(filesys_data));
     sfs_data->memory = memory;
     sfs_data->device = device;
+    sfs_data->clock = clock;
     sfs_data->mounted = NULL; // we are not mounted, for now
 
     simple_filesystem *sfs = memory->allocate(memory, sizeof(simple_filesystem));
@@ -728,4 +741,3 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
 }
 
 // ------------------------------------------------------------------
-

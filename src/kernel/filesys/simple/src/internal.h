@@ -53,9 +53,9 @@ typedef struct open_handle open_handle;
  * a pair of starting block and blocks count.
  * used in inodes to define the disk blocks the file occupies
  */
-struct block_range { // target size: 8
+struct __attribute__((packed)) block_range { // target size: 6
     uint32_t first_block_no;
-    uint32_t blocks_count;
+    uint16_t blocks_count;  // 65k blocks, when 512->32mb file, when 4k->256mb file.
 };
 
 /**
@@ -66,25 +66,23 @@ struct inode { // target size: 64
     uint8_t is_used: 1;
     uint8_t is_file: 1;
     uint8_t is_dir:  1;
-    // maybe permissions (e.g. xrwxrwxrw), and owner user/group
-    // maybe creation and/or modification date, uint32, seconds from epoch
-    uint8_t padding[3];
+    uint8_t padding1[3];
     
-    uint32_t file_size; // 32 bits mean max 4GB file size.
+    uint32_t file_size;     // 32 bits mean max 4GB file size.
     uint32_t allocated_blocks; // 24 bits would be enough, we could use the other 8 for flags
+    uint32_t modified_at;  // seconds since epoch, when data was modified.
+    // maybe permissions (e.g. xrwxrwxrw), and owner user/group
 
-    block_range ranges[RANGES_IN_INODE]; // size: 48
-    // if internal ranges are not enough, this block is full or ranges
-    uint32_t indirect_ranges_block_no;
-
-    // permissions? gid/uid?
+    uint8_t padding2[8];
+    block_range ranges[RANGES_IN_INODE]; // size: 6 * 6 = 36
+    uint32_t indirect_ranges_block_no; // this should be aligned to 4 bytes...
 };
 
 /**
  * each directory is actually a file of records as the below.
  * stored on disk. fixed size of 64 bytes.
  */
-struct direntry {
+struct __attribute__((packed)) direntry {
     char name[MAX_FILENAME_LENGTH + 1];
     uint32_t inode_id;
 };
@@ -159,6 +157,7 @@ struct open_handle { // the per-process open file handle. two or more can point 
 struct filesys_data {
     mem_allocator *memory;
     sector_device *device;
+    clock_device *clock;
     mounted_data *mounted; // if non-null, the filesystem is mounted
 };
 
@@ -168,6 +167,7 @@ struct filesys_data {
 struct mounted_data {
     int readonly;
     superblock *superblock;
+    clock_device *clock;
 
     uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
     cache_data *cache;
