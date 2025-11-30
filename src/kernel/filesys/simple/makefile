@@ -1,10 +1,19 @@
-C_OPTIONS = -Wall -Wno-unused-function
+GCC_OPTIONS = \
+	-g \
+	-Wall \
+	-Wno-unused-function
+
 SRC_FILES = \
-	tests.c \
 	src/simple_filesystem.c \
 	dependencies/mem_allocator.c \
 	dependencies/sector_device.c \
 	dependencies/clock_device.c
 
-TESTS:
-	gcc -g -o tests $(C_OPTIONS) $(SRC_FILES)
+all_test: bbtest washtest
+
+
+bbtest: black_box_tests.c $(SRC_FILES)
+	gcc $(GCC_OPTIONS) -o bbtest black_box_tests.c $(SRC_FILES)
+
+washtest: wash_tests.c $(SRC_FILES)
+	gcc $(GCC_OPTIONS) -o washtest wash_tests.c $(SRC_FILES)

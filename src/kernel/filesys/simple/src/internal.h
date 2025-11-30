@@ -12,10 +12,9 @@
 
     - maintain open inodes and handles (e.g. file handles in mounted_data)
       for the two in-built files: inodes db and root dir.
+    - lower the ranges to use 2 byte for range, test failure of expansion.
     - make indirect blocks chain from last entry of each one.
-    - lower the ranges to use 1 byte for range, test failure of expansion.
     - make the wash test system. we need it.
-
 */
 
 // -------------------------------------------
