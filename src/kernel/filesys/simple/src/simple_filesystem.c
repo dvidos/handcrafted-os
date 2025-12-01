@@ -367,7 +367,6 @@ static int sfs_stat(simple_filesystem *sfs, char *path, sfs_stat_info *info) {
     if (data == NULL) return ERR_NOT_SUPPORTED;
     mounted_data *mt = data->mounted;
     if (mt == NULL) return ERR_NOT_SUPPORTED;
-    if (mt->readonly) return ERR_NOT_PERMITTED;
     int err;
 
     // see if path resolves to inode

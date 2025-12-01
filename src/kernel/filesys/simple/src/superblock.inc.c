@@ -43,7 +43,7 @@ static int populate_superblock(const char *label, uint32_t sector_size, uint32_t
 
     if (desired_block_size > 0) {
         if (desired_block_size < sector_size 
-            || desired_block_size >= 4096 
+            || desired_block_size > 4096 
             || desired_block_size % sector_size != 0)
             return ERR_NOT_SUPPORTED;
         blk_size = desired_block_size;

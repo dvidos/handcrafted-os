@@ -363,7 +363,10 @@ static void verify_all_files(test_scenario *ts) {
 
 // this runs the scenario
 void run_scenario(unsigned int seed, int steps, int desired_block_size) {
-    printf("Running scenario %d, %d steps\n", seed, steps);
+    printf("Running scenario %d, %d steps, desired block_size %d\n", seed, steps, desired_block_size);
+    initialize_log();
+
+
     mem_allocator *mem = new_malloc_based_mem_allocator();
     sector_device *dev = new_mem_based_sector_device(512, 65536); // 32 MB disk
     clock_device *clk = new_fixed_clock_device(123);
@@ -376,7 +379,6 @@ void run_scenario(unsigned int seed, int steps, int desired_block_size) {
     test_scenario scenario = { .seed = seed, .file_count = 0, .fs = fs };
     test_scenario *ts = &scenario;
 
-    initialize_log();
 
     for (int i = 0; i < steps; i++) {
         test_operation op = random_operation(ts);
@@ -401,7 +403,17 @@ void run_scenario(unsigned int seed, int steps, int desired_block_size) {
 
 int main() {
     // we'll run random numbers, later in a loop
-    run_scenario(1234567, 1000, 512);
+
+    run_scenario(1234567, 10000, 512);
+    run_scenario(1234567, 10000, 1024);
+    run_scenario(1234567, 10000, 2048);
+    run_scenario(1234567, 10000, 4096);
+
+    // int seed = 1234567;
+    // for (int i = 0; i < 10; i++) {
+    //     int scenario_seed = rand_r(&seed);
+    //     run_scenario(1234567, 1000, 512);
+    // }
     return 0;
 }
 
