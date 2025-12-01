@@ -43,10 +43,14 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
     uint32_t block_offset = file_pos % mt->superblock->block_size_in_bytes;
     uint32_t disk_block_no = 0;
     int bytes_written = 0;
-    int writing_at_eof;
+    int writing_at_eof = 0;
+    uint32_t chunk_length = 0;
+    uint32_t max_chunk_len = 0;
 
     // now we know the absolute block, we can read it
     while (length > 0) {
+        writing_at_eof = (file_pos >= n->file_size);
+        
         // there may be space enough in the allocated blocks or we need to add a block
         if (block_index >= n->allocated_blocks) {
             err = add_data_block_to_file(mt, n, &disk_block_no);
@@ -56,23 +60,36 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
             if (err != OK) return err;
         }
 
-        // write this chunk
-        writing_at_eof = (file_pos >= n->file_size);
-        uint32_t max_length = mt->superblock->block_size_in_bytes - block_offset;
-        uint32_t chunk_length = length > max_length ? max_length : length;
+        // we need to break the chunk either at (1) block boundary, or at (2) file boundary
+        uint32_t bytes_till_block_end = mt->superblock->block_size_in_bytes - block_offset;
+        uint32_t bytes_till_file_end = n->file_size - file_pos;
+        if (writing_at_eof) {
+            max_chunk_len = bytes_till_block_end;
+        } else {
+            // write till whatever finished first, so we have correct length housekeeping
+            max_chunk_len = min(bytes_till_block_end, bytes_till_file_end);
+        }
+        chunk_length = at_most(length, max_chunk_len);
+
         err = cached_write(mt->cache, disk_block_no, block_offset, data, chunk_length);
         if (err != OK) return err;
 
         // prepare for next block
-        block_index += 1;
-        block_offset = 0;
         data += chunk_length;
         length -= chunk_length;
         bytes_written += chunk_length;
         file_pos += chunk_length;
+        block_offset += chunk_length;
 
-        if (writing_at_eof)
+        if (bytes_till_block_end > 0 && chunk_length == bytes_till_block_end) {
+            // we moved past end of block
+            block_index += 1;
+            block_offset = 0;
+        }
+        if (writing_at_eof) {
+            // we extended the file
             n->file_size += chunk_length;
+        }
     }
 
     if (bytes_written > 0)

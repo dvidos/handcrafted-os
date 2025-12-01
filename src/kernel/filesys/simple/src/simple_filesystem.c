@@ -195,7 +195,7 @@ static int sfs_read(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_
     if (bytes_read < 0) return bytes_read; // error
 
     handle->file_position += bytes_read;
-    return OK;
+    return bytes_read;
 }
 
 static int sfs_write(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size) {
@@ -216,7 +216,7 @@ static int sfs_write(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32
 
     handle->file_position += bytes_written;
     handle->inode->is_dirty = 1;
-    return OK;
+    return bytes_written;
 }
 
 static int sfs_close(simple_filesystem *sfs, sfs_handle *h) {
@@ -524,13 +524,9 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     if (err != OK) return err;
 
     // see if name exists in the directory
-    uint32_t target_inode_id;
+    uint32_t file_inode_id;
     uint32_t old_entry_no;
-    err = dir_entry_find(mt, &old_parent_inode, path_get_last_part(oldpath), &target_inode_id, &old_entry_no);
-    if (err != OK) return err;
-
-    // now we can unlink this (e.g. nullify dir entry)
-    err = dir_entry_delete(mt, &old_parent_inode, old_entry_no);
+    err = dir_entry_find(mt, &old_parent_inode, path_get_last_part(oldpath), &file_inode_id, &old_entry_no);
     if (err != OK) return err;
 
     // find new containing dir
@@ -545,17 +541,27 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     err = dir_entry_ensure_missing(mt, &new_parent_inode, new_filename);
     if (err != OK) return err;
 
-    // create entry in the new directory, save inode
-    err = dir_entry_append(mt, &new_parent_inode, new_filename, target_inode_id);
-    if (err != OK) return err;
-    err = inode_persist(mt, new_parent_inode_id, &new_parent_inode);
-    if (err != OK) return err;
+    // if same directory, avoid keeping two copies of the inode in memory
+    if (old_parent_inode_id == new_parent_inode_id) {
+        // we'll update the entry in place
+        err = dir_entry_update(mt, &old_parent_inode, old_entry_no, new_filename, file_inode_id);
+        if (err != OK) return err;
+        err = inode_persist(mt, old_parent_inode_id, &old_parent_inode);
+        if (err != OK) return err;
 
-    // remove from old, save inode
-    err = dir_entry_delete(mt, &old_parent_inode, old_entry_no);
-    if (err != OK) return err;
-    err = inode_persist(mt, old_parent_inode_id, &old_parent_inode);
-    if (err != OK) return err;
+    } else {
+        // create entry in the new directory, save inode
+        err = dir_entry_append(mt, &new_parent_inode, new_filename, file_inode_id);
+        if (err != OK) return err;
+        err = inode_persist(mt, new_parent_inode_id, &new_parent_inode);
+        if (err != OK) return err;
+
+        // remove from old, save old inode
+        err = dir_entry_delete(mt, &old_parent_inode, old_entry_no);
+        if (err != OK) return err;
+        err = inode_persist(mt, old_parent_inode_id, &old_parent_inode);
+        if (err != OK) return err;
+    }
 
     return OK;
 }

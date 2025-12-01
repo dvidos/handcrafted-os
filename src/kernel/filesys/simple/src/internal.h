@@ -31,6 +31,7 @@
 #define ROOT_DIR_INODE_ID            0xFFFFFFFF  // masquerades as inode id
 
 #define ceiling_division(x, y)       (((x) + ((y)-1)) / (y))
+#define min(a, b)                    ((b) < (a) ? (b) : (a))
 #define at_most(a, b)                ((b) < (a) ? (b) : (a))
 #define in_range(value, low, hi)     ((value) < (low) ? (low) : ((value) > (hi) ? (hi) : (value)))
 

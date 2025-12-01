@@ -148,32 +148,36 @@ static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *abso
     int err;
     int use_indirect_block;
 
-    err = add_block_to_array_of_ranges(mt, 
-        inode->ranges, RANGES_IN_INODE, 
-        inode->indirect_ranges_block_no != 0, &use_indirect_block, 
-        absolute_block_no);
-    if (err == OK && !use_indirect_block) {
-        inode->allocated_blocks++;
-        return OK;
+    // if there is indirect block, no point in extending the ranges
+    if (inode->indirect_ranges_block_no == 0) {
+        err = add_block_to_array_of_ranges(mt, 
+            inode->ranges, RANGES_IN_INODE, 
+            1, &use_indirect_block, 
+            absolute_block_no);
+        if (err == OK && !use_indirect_block) {
+            inode->allocated_blocks++;
+            return OK;
+        }
     }
     
     // so either we failed, or we need the indirect block
     if (!use_indirect_block)
-        return err;
+        return ERR_RESOURCES_EXHAUSTED;
     
-    // load or create the indirect block?
+    // if block not available, allocate one
     if (inode->indirect_ranges_block_no == 0) {
         err = find_next_free_block(mt, &inode->indirect_ranges_block_no);
         if (err != OK) return err;
         mark_block_used(mt, inode->indirect_ranges_block_no);
         err = cached_wipe(mt->cache, inode->indirect_ranges_block_no);
         if (err != OK) return err;
-    } else {
-        err = cached_read(mt->cache, 
-            inode->indirect_ranges_block_no, 0,
-            mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
-        if (err != OK) return err;
     }
+
+    // read, so we can iterate on it.
+    err = cached_read(mt->cache, 
+        inode->indirect_ranges_block_no, 0,
+        mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
+    if (err != OK) return err;
 
     err = add_block_to_array_of_ranges(mt, 
         (block_range *)mt->generic_block_buffer, 

@@ -1,10 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+#include <signal.h>
 #include "simple_filesystem.h"
 #include "dependencies/returns.h"
 
+#define assert(x)  if (!(x)) { print_log(); printf("Assertion failed: %s\n", #x); exit(1); }
+#define assert_no_err(err)   if (err != OK) { print_log(); printf("Returned status %d, at %s:%d\n", err, __FILE__, __LINE__); exit(1); }
+#define assert_size(expected, actual)   if (expected != actual) { print_log(); printf("Expected size %d, but file has %d, at %s:%d\n", expected, actual, __FILE__, __LINE__); exit(1); }
 
 #define MAX_FILEPATH_LEN      256
 #define MAX_DATA_SIZE         (10*1024)
@@ -28,6 +31,7 @@ struct test_scenario {
     int       file_count;
     uint32_t  seed;
     simple_filesystem *fs;
+    uint32_t  step_no; // for setting specific breakpoints
 };
 
 enum test_operation {
@@ -42,13 +46,28 @@ enum test_operation {
     NUM_OPERATIONS // actually counts size
 };
 
+const char *test_operation_name(test_operation op) {
+    switch (op) {
+        case OP_CREATE: return "CREATE";
+        case OP_WRITE: return "WRITE";
+        case OP_READ: return "READ";
+        case OP_DELETE: return "DELETE";
+        case OP_RENAME: return "RENAME";
+        case OP_STAT: return "STAT";
+        case OP_TRUNC: return "TRUNC";
+        case OP_LISTDIR: return "LISTDIR";
+        default: return "(unknown operation)";
+    }
+}
+
 // -----------------------------------------------
 
 uint8_t random_byte(test_scenario *scenario) {
     return (uint8_t)(rand_r(&scenario->seed) & 0xff);
 }
 void random_name(test_scenario *scenario, char *buffer, int maxlen) {
-    int len = rand_r(&scenario->seed) % maxlen;
+    //int len = 3 + rand_r(&scenario->seed) % (maxlen - 3);
+    int len = 3 + rand_r(&scenario->seed) % 10;
     for (int i = 0; i < len; i++)
         buffer[i] = 'a' + (rand_r(&scenario->seed) % 26);
     buffer[len] = 0;
@@ -67,6 +86,52 @@ test_operation random_operation(test_scenario *scenario) {
     return (enum test_operation)(rand_r(&scenario->seed) % NUM_OPERATIONS);
 }
 
+// -----------------------------------------------
+
+typedef struct log_entry log_entry;
+struct log_entry {
+    uint32_t step_no;
+    test_operation op;
+    char *fname;
+    char *fname2;
+    uint32_t offset;
+    uint32_t len;
+};
+log_entry *log_entries;
+uint32_t log_entries_allocated;
+uint32_t log_entries_count;
+
+void initialize_log() {
+    log_entries_allocated = 256;
+    log_entries_count = 0;
+    log_entries = malloc(log_entries_allocated * sizeof(log_entry));
+}
+void log_action(test_scenario *ts, test_operation op, char *fname, char *fname2, uint32_t offset, uint32_t len) {
+    if (log_entries_count >= log_entries_allocated) {
+        log_entries_allocated *= 2;
+        log_entries = realloc(log_entries, log_entries_allocated * sizeof(log_entry));
+    }
+    log_entry *e = &log_entries[log_entries_count];
+    e->op = op;
+    e->fname = strdup(fname);
+    e->fname2 = fname2 == NULL ? NULL : strdup(fname2);
+    e->offset = offset;
+    e->len = len;
+    e->step_no = ts->step_no;
+    log_entries_count++;
+}
+void print_log() {
+    for (int i = 0; i < log_entries_count; i++) {
+        log_entry *e = &log_entries[i];
+        printf("step:%d:  %s '%s'", e->step_no, test_operation_name(e->op), e->fname);
+        if (e->fname2 != NULL) printf(" '%s'", e->fname2);
+        if (e->offset != -1) printf(" off=%d", e->offset);
+        if (e->len != -1) printf(" len=%d", e->len);
+        if (e->offset != -1 && e->len != -1)
+            printf(" (off+len=%d)", e->offset + e->len);
+        printf("\n");
+    }
+}
 
 // -----------------------------------------------
 
@@ -80,14 +145,16 @@ static void test_create(test_scenario *ts) {
     new_name[0] = '/';
     random_name(ts, new_name + 1, sizeof(new_name) - 1);
 
+    log_action(ts, OP_CREATE, new_name, NULL, -1, -1);
+
     // action-under-test
     err = ts->fs->create(ts->fs, new_name, 0);
-    assert(err == OK);
+    assert_no_err(err);
 
     // ensure it exists
     sfs_stat_info info;
     err = ts->fs->stat(ts->fs, new_name, &info);
-    assert(err == OK);
+    assert_no_err(err);
 
     // update our view
     for (int i = 0; i < MAX_TRACKED_FILES; i++) {
@@ -103,28 +170,29 @@ static void test_create(test_scenario *ts) {
     }
 }
 
-
 static void test_write(test_scenario *ts) {
     test_file *f = pick_random_file(ts);
     if (f == NULL) return;
     if (!f->exists) return;
 
     uint32_t offset = (rand_r(&ts->seed) % (f->size + 1));
-    uint32_t len    = 1 + rand_r(&ts->seed) % 100;
+    uint32_t len    = 1 + rand_r(&ts->seed) % 1024;
 
     char *buffer = malloc(len);
     for (int i = 0; i < len; i++)
         buffer[i] = (char)(rand_r(&ts->seed) & 0xFF);
 
+    log_action(ts, OP_WRITE, f->name, NULL, offset, len);
+
     // perform operation
     sfs_handle *h = NULL;
     int err;
     err = ts->fs->open(ts->fs, f->name, 0, &h);
-    assert(err == OK);
+    assert_no_err(err);
     assert(h != NULL);
 
     err = ts->fs->seek(ts->fs, h, offset, 0);
-    assert(err == OK);
+    assert_no_err(err);
 
     err = ts->fs->write(ts->fs, h, buffer, len);
     assert(err == len);
@@ -138,7 +206,7 @@ static void test_write(test_scenario *ts) {
 
     // verify
     err = ts->fs->seek(ts->fs, h, offset, 0);
-    assert(err == OK);
+    assert_no_err(err);
 
     char *check = malloc(len);
     err = ts->fs->read(ts->fs, h, check, len);
@@ -147,7 +215,7 @@ static void test_write(test_scenario *ts) {
     assert(memcmp(check, buffer, len) == 0);
 
     err = ts->fs->close(ts->fs, h);
-    assert(err == OK);
+    assert_no_err(err);
 
     free(buffer);
     free(check);
@@ -157,29 +225,29 @@ static void test_read_verify(test_scenario *ts) {
     test_file *f = pick_random_file(ts);
     if (f == NULL) return;
     if (!f->exists) return;
+    if (f->size == 0) return;
 
-    uint32_t len    = 1 + rand_r(&ts->seed) % 100;
+    uint32_t len    = 1 + (rand_r(&ts->seed) % f->size);
     uint32_t offset = (rand_r(&ts->seed) % (f->size - len));
-
     char *buffer = malloc(len);
-    for (int i = 0; i < len; i++)
-        buffer[i] = (char)(rand_r(&ts->seed) & 0xFF);
+
+    log_action(ts, OP_READ, f->name, NULL, offset, len);
 
     // perform operation
     sfs_handle *h = NULL;
     int err;
     err = ts->fs->open(ts->fs, f->name, 0, &h);
-    assert(err == OK);
+    assert_no_err(err);
     assert(h != NULL);
 
     err = ts->fs->seek(ts->fs, h, offset, 0);
-    assert(err == OK);
+    assert_no_err(err);
 
     err = ts->fs->read(ts->fs, h, buffer, len);
     assert(err == len);
 
     err = ts->fs->close(ts->fs, h);
-    assert(err == OK);
+    assert_no_err(err);
 
     assert(memcmp(buffer, f->data + offset, len) == 0);
 
@@ -193,9 +261,11 @@ static void test_delete(test_scenario *ts) {
     sfs_stat_info info;
     int err;
 
+    log_action(ts, OP_DELETE, f->name, NULL, -1, -1);
+
     // verify behavior
     err = ts->fs->unlink(ts->fs, f->name, 0);
-    assert(err == OK);
+    assert_no_err(err);
 
     err = ts->fs->stat(ts->fs, f->name, &info);
     assert(err == ERR_NOT_FOUND);
@@ -213,8 +283,10 @@ static void test_rename(test_scenario *ts) {
     new_name[0] = '/';
     random_name(ts, new_name + 1, sizeof(new_name) - 1);
 
+    log_action(ts, OP_RENAME, f->name, new_name, -1, -1);
+
     int err = ts->fs->rename(ts->fs, f->name, new_name);
-    assert(err == OK);
+    assert_no_err(err);
 
     // udpate our view
     strncpy(f->name, new_name, sizeof(f->name));
@@ -226,10 +298,12 @@ static void test_stat_verify(test_scenario *ts) {
     sfs_stat_info info;
     int err;
 
+    log_action(ts, OP_STAT, f->name, NULL, -1, -1);
+
     if (f->exists) {
         err = ts->fs->stat(ts->fs, f->name, &info);
-        assert(err == OK);
-        assert(info.file_size == f->size);
+        assert_no_err(err);
+        assert_size(f->size, info.file_size);
     } else {
         err = ts->fs->stat(ts->fs, f->name, &info);
         assert(err == ERR_NOT_FOUND);
@@ -242,14 +316,16 @@ static void test_truncate(test_scenario *ts) {
     if (!f->exists) return;
     if (f->size == 0) return;
 
+    log_action(ts, OP_TRUNC, f->name, NULL, -1, -1);
+
     int err = ts->fs->truncate(ts->fs, f->name);
-    assert(err == OK);
+    assert_no_err(err);
 
     // verify
     sfs_stat_info info;
     err = ts->fs->stat(ts->fs, f->name, &info);
-    assert(err == OK);
-    assert(info.file_size == 0);
+    assert_no_err(err);
+    assert_size(0, info.file_size);
 
     // update our view
     f->size = 0;
@@ -261,6 +337,7 @@ static void test_list_verify(test_scenario *ts) {
 // ------------------------------------------------------------
 
 static void verify_all_files(test_scenario *ts) {
+    printf("Verifying all files\n");
     sfs_stat_info info;
     int err;
 
@@ -271,8 +348,8 @@ static void verify_all_files(test_scenario *ts) {
         if (f->exists) {
             // verify it exists, check length, contents
             err = ts->fs->stat(ts->fs, f->name, &info);
-            assert(err == OK);
-            assert(info.file_size == f->size);
+            assert_no_err(err);
+            assert_size(f->size, info.file_size);
 
         } else {
             // verify it does not exist
@@ -285,18 +362,25 @@ static void verify_all_files(test_scenario *ts) {
 // ------------------------------------------------------------
 
 // this runs the scenario
-void run_scenario(unsigned int seed, int steps) {
+void run_scenario(unsigned int seed, int steps, int desired_block_size) {
     printf("Running scenario %d, %d steps\n", seed, steps);
     mem_allocator *mem = new_malloc_based_mem_allocator();
     sector_device *dev = new_mem_based_sector_device(512, 65536); // 32 MB disk
     clock_device *clk = new_fixed_clock_device(123);
     simple_filesystem *fs = new_simple_filesystem(mem, dev, clk);
+    int err;
+    err = fs->mkfs(fs, "TEST", desired_block_size);
+    assert_no_err(err);
+    fs->mount(fs, 0);
 
     test_scenario scenario = { .seed = seed, .file_count = 0, .fs = fs };
     test_scenario *ts = &scenario;
 
+    initialize_log();
+
     for (int i = 0; i < steps; i++) {
         test_operation op = random_operation(ts);
+        ts->step_no = i;
         switch (op) {
             case OP_CREATE:   test_create(ts);      break;
             case OP_WRITE:    test_write(ts);       break;
@@ -317,7 +401,7 @@ void run_scenario(unsigned int seed, int steps) {
 
 int main() {
     // we'll run random numbers, later in a loop
-    run_scenario(1234567, 100);
+    run_scenario(1234567, 1000, 512);
     return 0;
 }
 
