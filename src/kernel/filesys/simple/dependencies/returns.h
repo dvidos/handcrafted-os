@@ -14,5 +14,5 @@
 #define ERR_INVALID_ARGUMENT     -8
 #define ERR_NOT_FOUND            -9
 #define ERR_END_OF_FILE         -10
-#define ERR_ALREADY_EXISTS            -11  // e.g. resource already exists
+#define ERR_ALREADY_EXISTS      -11  // e.g. resource already exists
 
