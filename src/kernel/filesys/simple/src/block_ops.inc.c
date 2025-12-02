@@ -22,7 +22,7 @@ static int read_block_range_low_level(sector_device *dev, uint32_t sector_size, 
 static int read_block(filesys_data *data, uint32_t block_no, void *buffer) {
     if (data->mounted == NULL || data->mounted->superblock == NULL)
         return ERR_NOT_SUPPORTED;
-    saved_superblock *sb = data->mounted->superblock;
+    stored_superblock *sb = data->mounted->superblock;
     if (sb == NULL)
         return ERR_NOT_SUPPORTED;
     if (block_no >= sb->blocks_in_device)
@@ -45,7 +45,7 @@ static int write_block(filesys_data *data, uint32_t block_no, void *buffer) {
         return ERR_NOT_SUPPORTED;
     if (data->mounted->readonly)
         return ERR_NOT_PERMITTED;
-    saved_superblock *sb = data->mounted->superblock;
+    stored_superblock *sb = data->mounted->superblock;
     if (sb == NULL)
         return ERR_NOT_SUPPORTED;
     if (block_no >= sb->blocks_in_device)

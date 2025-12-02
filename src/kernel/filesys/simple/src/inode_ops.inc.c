@@ -1,7 +1,7 @@
 #include "internal.h"
 
 
-static int inode_recalculate_allocated_blocks(mounted_data *mt, saved_inode *node, uint32_t *block_count) {
+static int inode_recalculate_allocated_blocks(mounted_data *mt, stored_inode *node, uint32_t *block_count) {
     uint32_t count = 0;
 
     if (node->indirect_ranges_block_no != 0) {
@@ -162,36 +162,28 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
 
 // -----------------------------------------------------------------------------
 
-static int inode_load(mounted_data *mt, uint32_t inode_id, saved_inode *node) {
+static int inode_load(mounted_data *mt, uint32_t inode_id, stored_inode *node) {
     if (inode_id == INODE_DB_INODE_ID) {
-        memcpy(node, &mt->superblock->inodes_db_inode, sizeof(saved_inode));
+        memcpy(node, &mt->superblock->inodes_db_inode, sizeof(stored_inode));
         return OK;
     } else if (inode_id == ROOT_DIR_INODE_ID) {
-        memcpy(node, &mt->superblock->root_dir_inode, sizeof(saved_inode));
+        memcpy(node, &mt->superblock->root_dir_inode, sizeof(stored_inode));
         return OK;
     }
 
-    cached_inode *inodes_db;
-    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
-    if (err != OK) return err;
-
-    int bytes = inode_read_file_bytes(mt, inodes_db,
-        inode_id * sizeof(saved_inode), 
+    int bytes = inode_read_file_bytes(mt, mt->cached_inodes_db_inode,
+        inode_id * sizeof(stored_inode), 
         node,
-        sizeof(saved_inode)
+        sizeof(stored_inode)
     );
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
+    if (bytes < sizeof(stored_inode)) return ERR_CORRUPTION_DETECTED;
 
     return OK;
 }
 
-static int inode_allocate(mounted_data *mt, int is_dir, saved_inode *node, uint32_t *inode_id) {
-    cached_inode *inodes_db;
-    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
-    if (err != OK) return err;
-
-    memset(node, 0, sizeof(saved_inode));
+static int inode_allocate(mounted_data *mt, int is_dir, stored_inode *node, uint32_t *inode_id) {
+    memset(node, 0, sizeof(stored_inode));
     if (is_dir) {
         node->is_dir = 1;
     } else {
@@ -202,34 +194,34 @@ static int inode_allocate(mounted_data *mt, int is_dir, saved_inode *node, uint3
 
     // this should have a lock somehow
     *inode_id = mt->superblock->inodes_db_rec_count;
-    int bytes = inode_write_file_bytes(mt, inodes_db, *inode_id * sizeof(saved_inode), node, sizeof(saved_inode));
+    int bytes = inode_write_file_bytes(mt, mt->cached_inodes_db_inode,
+        (*inode_id) * sizeof(stored_inode),
+        node,
+        sizeof(stored_inode)
+    );
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
+    if (bytes < sizeof(stored_inode)) return ERR_CORRUPTION_DETECTED;
 
     mt->superblock->inodes_db_rec_count += 1;
     return OK;
 }
 
-static int inode_persist(mounted_data *mt, uint32_t inode_id, saved_inode *node) {
+static int inode_persist(mounted_data *mt, uint32_t inode_id, stored_inode *node) {
     if (inode_id == INODE_DB_INODE_ID) {
-        memcpy(&mt->superblock->inodes_db_inode, node, sizeof(saved_inode));
+        memcpy(&mt->superblock->inodes_db_inode, node, sizeof(stored_inode));
         return OK;
     } else if (inode_id == ROOT_DIR_INODE_ID) {
-        memcpy(&mt->superblock->root_dir_inode, node, sizeof(saved_inode));
+        memcpy(&mt->superblock->root_dir_inode, node, sizeof(stored_inode));
         return OK;
     }
 
-    cached_inode *inodes_db;
-    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
-    if (err != OK) return err;
-
-    int bytes = inode_write_file_bytes(mt, inodes_db,
-        inode_id * sizeof(saved_inode),
+    int bytes = inode_write_file_bytes(mt, mt->cached_inodes_db_inode,
+        inode_id * sizeof(stored_inode),
         node,
-        sizeof(saved_inode)
+        sizeof(stored_inode)
     );
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
+    if (bytes < sizeof(stored_inode)) return ERR_CORRUPTION_DETECTED;
 
     return OK;
 }
@@ -238,25 +230,21 @@ static int inode_delete(mounted_data *mt, uint32_t inode_id) {
     if (inode_id == INODE_DB_INODE_ID || inode_id == ROOT_DIR_INODE_ID)
         return ERR_NOT_PERMITTED;
     
-    cached_inode *inodes_db;
-    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
-    if (err != OK) return err;
+    stored_inode blank;
+    memset(&blank, 0, sizeof(stored_inode));
 
-    saved_inode blank;
-    memset(&blank, 0, sizeof(saved_inode));
-
-    int bytes = inode_write_file_bytes(mt, inodes_db,
-        inode_id * sizeof(saved_inode),
+    int bytes = inode_write_file_bytes(mt, mt->cached_inodes_db_inode,
+        inode_id * sizeof(stored_inode),
         &blank,
-        sizeof(saved_inode)
+        sizeof(stored_inode)
     );
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
+    if (bytes < sizeof(stored_inode)) return ERR_CORRUPTION_DETECTED;
 
     return OK;
 }
 
-static void inode_dump_debug_info(const char *title, saved_inode *n) {
+static void inode_dump_debug_info(const char *title, stored_inode *n) {
     printf("%s [U:%d, F:%d, D:%d, FileSz=%d, AlocBlks=%d, Ranges=(%d:%d,%d:%d,%d:%d,%d:%d,%d:%d,%d:%d), Indirect=%d]\n", 
         title,
         n->is_used,

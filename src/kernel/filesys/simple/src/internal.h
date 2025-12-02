@@ -10,12 +10,8 @@
 
 /*
     TODO:
-
-    - maintain open inodes and handles (e.g. file handles in mounted_data)
-      for the two in-built files: inodes db and root dir.
     - lower the ranges to use 2 byte for range, test failure of expansion.
     - make indirect blocks chain from last entry of each one.
-    - make the wash test system. we need it.
 */
 
 // -------------------------------------------
@@ -43,10 +39,10 @@
 
 typedef struct filesys_data filesys_data;
 typedef struct mounted_data mounted_data;
-typedef struct saved_superblock saved_superblock;
+typedef struct stored_superblock stored_superblock;
 typedef struct block_range block_range;
-typedef struct saved_inode saved_inode;
-typedef struct saved_dir_entry saved_dir_entry;
+typedef struct stored_inode stored_inode;
+typedef struct stored_dir_entry stored_dir_entry;
 typedef struct cache_data cache_data;
 typedef struct cached_inode cached_inode;
 typedef struct open_handle open_handle;
@@ -64,7 +60,7 @@ struct __attribute__((packed)) block_range { // target size: 6
  * the structure that describes a file. fixed struct size.
  * persisted in the inodes database file
  */
-struct saved_inode { // target size: 64
+struct stored_inode { // target size: 64
     uint8_t is_used: 1;
     uint8_t is_file: 1;
     uint8_t is_dir:  1;
@@ -84,7 +80,7 @@ struct saved_inode { // target size: 64
  * each directory is actually a file of records as the below.
  * stored on disk. fixed size of 64 bytes.
  */
-struct __attribute__((packed)) saved_dir_entry {
+struct __attribute__((packed)) stored_dir_entry {
     char name[MAX_FILENAME_LENGTH + 1];
     uint32_t inode_id;
 };
@@ -93,7 +89,7 @@ struct __attribute__((packed)) saved_dir_entry {
  * data written in the first sector (512 bytes) and block of the device
  * kept in memory while mounted
  */
-struct saved_superblock { // must be up to 512 bytes, in order to read from unknown device
+struct stored_superblock { // must be up to 512 bytes, in order to read from unknown device
     // offset x000
     char magic[4];                 // e.g. "SFS1" version can be in here
     uint16_t direntry_size;        // currently 64 bytes. to ensure same size when mounting
@@ -114,9 +110,9 @@ struct saved_superblock { // must be up to 512 bytes, in order to read from unkn
     uint32_t dummy3;
 
     // offset 0x030
-    saved_inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
+    stored_inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
     // offset 0x070
-    saved_inode root_dir_inode;  // file with the entries for root directory. 
+    stored_inode root_dir_inode;  // file with the entries for root directory. 
     // offset 0x0b0
     char volume_label[32]; 
 
@@ -125,7 +121,7 @@ struct saved_superblock { // must be up to 512 bytes, in order to read from unkn
         -4
         -2*sizeof(uint16_t)
         -10*sizeof(uint32_t)
-        -2*sizeof(saved_inode)
+        -2*sizeof(stored_inode)
         -32
     ];
 };
@@ -138,7 +134,7 @@ struct cached_inode {
     uint8_t is_used: 1;      
     uint8_t is_dirty: 1;     // must write this inode to disk
 
-    saved_inode inode_in_mem;              // buffer to load the inode
+    stored_inode inode_in_mem;              // buffer to load the inode
     uint32_t inode_id; // which record it is (0xFFFFFFFF is the root dir inode)
     int ref_count;            // how many files have this inode open
     // could contain locking information (e.g. open exclusive)
@@ -168,7 +164,7 @@ struct filesys_data {
  */
 struct mounted_data {
     int readonly;
-    saved_superblock *superblock;
+    stored_superblock *superblock;
     clock_device *clock;
 
     uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
@@ -176,8 +172,8 @@ struct mounted_data {
     cache_data *cache;
 
     cached_inode cached_inodes[MAX_OPEN_INODES];
-    cached_inode *inodes_db_inode;
-    cached_inode *root_dir_inode;
+    cached_inode *cached_inodes_db_inode;
+    cached_inode *cached_root_dir_inode;
     int cached_inode_next_eviction; // for round-robin eviction
     
     open_handle open_handles[MAX_OPEN_HANDLES];
@@ -193,8 +189,8 @@ static void path_get_first_part(const char *path, char *filename_buffer, int fil
 static const char *path_get_last_part(const char *path);
 
 // superblock.inc.c
-static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, saved_superblock *sb);
-static void superblock_dump_debug_info(saved_superblock *sb);
+static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, stored_superblock *sb);
+static void superblock_dump_debug_info(stored_superblock *sb);
 
 // bitmap.inc.c
 static int used_blocks_bitmap_load(mounted_data *mt);
@@ -238,16 +234,17 @@ static int add_data_block_to_file(mounted_data *mt, cached_inode *node, uint32_t
 static int inode_read_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_write_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n);
-static int inode_load(mounted_data *mt, uint32_t inode_id, saved_inode *node);
-static int inode_allocate(mounted_data *mt, int is_file, saved_inode *node, uint32_t *inode_id);
-static int inode_persist(mounted_data *mt, uint32_t inode_id, saved_inode *node);
+static int inode_load(mounted_data *mt, uint32_t inode_id, stored_inode *node);
+static int inode_allocate(mounted_data *mt, int is_file, stored_inode *node, uint32_t *inode_id);
+static int inode_persist(mounted_data *mt, uint32_t inode_id, stored_inode *node);
 static int inode_delete(mounted_data *mt, uint32_t inode_id);
-static void inode_dump_debug_info(const char *title, saved_inode *n);
+static void inode_dump_debug_info(const char *title, stored_inode *n);
 
 // inode_cache.inc.c
 static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr);
 static int inode_cache_invalidate_inode(mounted_data *mt, int inode_id);
 static int inode_cache_flush_all(mounted_data *mt);
+static int is_inode_cached(mounted_data *mt, int inode_id); // for debugging purposes
 static void inode_cache_dump_debug_info(mounted_data *mt);
 
 // open.inc.c

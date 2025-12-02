@@ -81,6 +81,13 @@ static int inode_cache_flush_all(mounted_data *mt) {
     return OK;
 }
 
+static int is_inode_cached(mounted_data *mt, int inode_id) { // for debugging purposes
+    for (int i = 0; i < MAX_OPEN_INODES; i++)
+        if (mt->cached_inodes[i].is_used && mt->cached_inodes[i].inode_id == inode_id)
+            return 1;
+    return 0;
+}
+
 static void inode_cache_dump_debug_info(mounted_data *mt) {
     char node_name[32];
 
@@ -106,3 +113,4 @@ static void inode_cache_dump_debug_info(mounted_data *mt) {
         inode_dump_debug_info("", &n->inode_in_mem);
     }
 }
+

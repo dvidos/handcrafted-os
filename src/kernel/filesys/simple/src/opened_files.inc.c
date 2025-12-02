@@ -5,22 +5,21 @@
 static int opened_inode_flush(mounted_data *mt, cached_inode *node) {
     if (node->inode_id == INODE_DB_INODE_ID) {
         // save in superblock, in memory
-        memcpy(&mt->superblock->inodes_db_inode, &node->inode_in_mem, sizeof(saved_inode));
+        memcpy(&mt->superblock->inodes_db_inode, &node->inode_in_mem, sizeof(stored_inode));
 
     } else if (node->inode_id == ROOT_DIR_INODE_ID) {
         // save in superblock, in memory
-        memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(saved_inode));
+        memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(stored_inode));
 
     } else {
-        // TODO: improve the speed of this
-        cached_inode *inodes_db;
-        int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
-        if (err != OK) return err;
-
         // save in inodes database
-        int bytes = inode_write_file_bytes(mt, inodes_db, node->inode_id * sizeof(saved_inode), &node->inode_in_mem, sizeof(saved_inode));
+        int bytes = inode_write_file_bytes(mt, mt->cached_inodes_db_inode,
+            node->inode_id * sizeof(stored_inode),
+            &node->inode_in_mem,
+            sizeof(stored_inode)
+        );
         if (bytes < 0) return bytes;
-        if (bytes != sizeof(saved_inode)) return ERR_RESOURCES_EXHAUSTED;
+        if (bytes != sizeof(stored_inode)) return ERR_RESOURCES_EXHAUSTED;
     }
 
     node->is_dirty = 0;

@@ -27,7 +27,7 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
         return ERR_NOT_SUPPORTED;
 
     // prepare superblock for block 0
-    saved_superblock *sb = data->memory->allocate(data->memory, sizeof(saved_superblock));
+    stored_superblock *sb = data->memory->allocate(data->memory, sizeof(stored_superblock));
     int err = populate_superblock(
         volume_label,
         data->device->get_sector_size(data->device),
@@ -50,7 +50,7 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
     // we can start writing, let's grab a cache
     mt->cache = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
 
-    err = cached_write(mt->cache, 0, 0, sb, sizeof(saved_superblock));
+    err = cached_write(mt->cache, 0, 0, sb, sizeof(stored_superblock));
     if (err != OK) return err;
     err = used_blocks_bitmap_save(mt);
     if (err != OK) return err;
@@ -73,14 +73,14 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     uint8_t *temp_sector = data->memory->allocate(data->memory, data->device->get_sector_size(data->device));
     err = data->device->read_sector(data->device, 0, temp_sector);
     if (err != OK) return err;
-    saved_superblock *sb = (saved_superblock *)temp_sector;
+    stored_superblock *sb = (stored_superblock *)temp_sector;
 
     // basic verification
     if (memcmp(sb->magic, "SFS1", 4) != 0) {
         data->memory->release(data->memory, temp_sector);
         return ERR_NOT_RECOGNIZED;
     }
-    if (sb->inode_size != sizeof(saved_inode) || sb->direntry_size != sizeof(saved_dir_entry)) {
+    if (sb->inode_size != sizeof(stored_inode) || sb->direntry_size != sizeof(stored_dir_entry)) {
         data->memory->release(data->memory, temp_sector);
         return ERR_NOT_SUPPORTED;
     }
@@ -100,15 +100,15 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     data->memory->release(data->memory, temp_sector);
 
     // cache can now read the main blocks
-    err = cached_read(mt->cache, 0, 0, mt->superblock, sizeof(saved_superblock));
+    err = cached_read(mt->cache, 0, 0, mt->superblock, sizeof(stored_superblock));
     if (err != OK) return err;
     err = used_blocks_bitmap_load(mt);
     if (err != OK) return err;
 
     // we should force open the two special inodes (offset 0 and 1)
-    err = get_cached_inode(mt, INODE_DB_INODE_ID, &mt->inodes_db_inode);
+    err = get_cached_inode(mt, INODE_DB_INODE_ID, &mt->cached_inodes_db_inode);
     if (err != OK) return err;
-    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &mt->root_dir_inode);
+    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &mt->cached_root_dir_inode);
     if (err != OK) return err;
     return OK;
 }
@@ -128,7 +128,7 @@ static int sfs_sync(simple_filesystem *sfs) {
     if (err != OK) return err;
 
     // write superblock to cache
-    err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(saved_superblock));
+    err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(stored_superblock));
     if (err != OK) return err;
 
     // write used blocks bitmap to disk (blocks 1+)
@@ -336,8 +336,8 @@ static int sfs_read_dir(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *en
         return ERR_END_OF_FILE;
 
     // else read, populate, advance file position.
-    saved_dir_entry disk_entry;
-    int bytes = inode_read_file_bytes(mt, handle->inode, handle->file_position, &disk_entry, sizeof(saved_dir_entry));
+    stored_dir_entry disk_entry;
+    int bytes = inode_read_file_bytes(mt, handle->inode, handle->file_position, &disk_entry, sizeof(stored_dir_entry));
     if (bytes < 0) return bytes;
     handle->file_position += bytes;
 
@@ -411,7 +411,7 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     if (err != OK) return err;
 
     // now we should be able to create a file / dir
-    saved_inode new_inode;
+    stored_inode new_inode;
     uint32_t new_inode_id;
     err = inode_allocate(mt, is_dir, &new_inode, &new_inode_id);
     if (err != OK) return err;
@@ -581,16 +581,16 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
         printf("sizeof(block_range): %ld\n", sizeof(block_range));
         exit(1);
     }
-    if (sizeof(saved_inode) != 64) { // written on disk, must be same size
-        printf("sizeof(inode): %ld\n", sizeof(saved_inode));
+    if (sizeof(stored_inode) != 64) { // written on disk, must be same size
+        printf("sizeof(inode): %ld\n", sizeof(stored_inode));
         exit(1);
     }
-    if (sizeof(saved_dir_entry) != 64) { // written on disk, must be same size
-        printf("sizeof(direntry): %ld\n", sizeof(saved_dir_entry));
+    if (sizeof(stored_dir_entry) != 64) { // written on disk, must be same size
+        printf("sizeof(direntry): %ld\n", sizeof(stored_dir_entry));
         exit(1);
     }
-    if (sizeof(saved_superblock) != 512) { // must be able to load in a single 512B sector
-        printf("sizeof(superblock): %ld\n", sizeof(saved_superblock));
+    if (sizeof(stored_superblock) != 512) { // must be able to load in a single 512B sector
+        printf("sizeof(superblock): %ld\n", sizeof(stored_superblock));
         exit(1);
     }
 
