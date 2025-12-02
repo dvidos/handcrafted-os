@@ -1,5 +1,4 @@
 #include "internal.h"
-#include <assert.h>
 
 
 static int inode_recalculate_allocated_blocks(mounted_data *mt, inode *node, uint32_t *block_count) {

@@ -232,7 +232,7 @@ static void test_read_verify(test_scenario *ts) {
     if (f->size == 0) return;
 
     uint32_t len    = 1 + (rand_r(&ts->seed) % f->size);
-    uint32_t offset = (rand_r(&ts->seed) % (f->size - len));
+    uint32_t offset = (len == f->size) ? 0 : (rand_r(&ts->seed) % (f->size - len));
     char *buffer = malloc(len);
 
     log_action(ts, OP_READ, f->name, NULL, offset, len);
@@ -341,7 +341,6 @@ static void test_list_verify(test_scenario *ts) {
 // ------------------------------------------------------------
 
 static void verify_all_files(test_scenario *ts) {
-    printf("Verifying all files\n");
     sfs_stat_info info;
     int err;
 
@@ -407,17 +406,19 @@ void run_scenario(unsigned int seed, int steps, int desired_block_size) {
 
 int main() {
     // we'll run random numbers, later in a loop
+    uint32_t rand = 0;
+    int steps = 10000;
 
-    run_scenario(1234567, 10000, 512);
-    run_scenario(1234567, 10000, 1024);
-    run_scenario(1234567, 10000, 2048);
-    run_scenario(1234567, 10000, 4096);
+    for (int times = 0; times < 100; times++) {
+        int scenario = rand_r(&rand);
 
-    // int seed = 1234567;
-    // for (int i = 0; i < 10; i++) {
-    //     int scenario_seed = rand_r(&seed);
-    //     run_scenario(1234567, 1000, 512);
-    // }
+        run_scenario(scenario, steps, 512);
+        run_scenario(scenario, steps, 1024);
+        run_scenario(scenario, steps, 2048);
+        run_scenario(scenario, steps, 4096);
+
+    }
+
     return 0;
 }
 
