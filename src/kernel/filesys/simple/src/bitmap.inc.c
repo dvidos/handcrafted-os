@@ -53,6 +53,8 @@ static inline void mark_block_free(mounted_data *mt, uint32_t block_no) {
 
 static int find_next_free_block(mounted_data *mt, uint32_t *block_no) {
     // despite nested, this is quite fast
+    // TODO: implement the mt->next_free_block_test, in a roll-over fashion, to avoid starting always from zero.
+
     int bytes = ceiling_division(mt->superblock->blocks_in_device, 8);
     for (int byte = 0; byte < bytes; byte++) {
         if (mt->used_blocks_bitmap[byte] == 0xFF)
@@ -61,6 +63,8 @@ static int find_next_free_block(mounted_data *mt, uint32_t *block_no) {
         // we found a byte not completely allocated
         uint8_t byte_value = mt->used_blocks_bitmap[byte];
         for (int bit = 0; bit < 8; bit++) {
+            if ((byte == bytes - 1) && (byte * 8 + bit) >= mt->superblock->blocks_in_device)
+                break;
             if (byte_value & (1 << bit))
                 continue;
             

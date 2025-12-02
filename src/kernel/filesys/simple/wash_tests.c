@@ -85,6 +85,12 @@ test_file *pick_random_file(test_scenario *scenario) {
 test_operation random_operation(test_scenario *scenario) {
     return (enum test_operation)(rand_r(&scenario->seed) % NUM_OPERATIONS);
 }
+char *random_buffer(test_scenario *scenario, int len) {
+    char *buffer = malloc(len);
+    for (int i = 0; i < len; i++)
+        buffer[i] = (char)(rand_r(&scenario->seed) & 0xFF);
+    return buffer;
+}
 
 // -----------------------------------------------
 
@@ -178,9 +184,7 @@ static void test_write(test_scenario *ts) {
     uint32_t offset = (rand_r(&ts->seed) % (f->size + 1));
     uint32_t len    = 1 + rand_r(&ts->seed) % 1024;
 
-    char *buffer = malloc(len);
-    for (int i = 0; i < len; i++)
-        buffer[i] = (char)(rand_r(&ts->seed) & 0xFF);
+    char *buffer = random_buffer(ts, len);
 
     log_action(ts, OP_WRITE, f->name, NULL, offset, len);
 

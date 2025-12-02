@@ -4,6 +4,7 @@
 #include "../dependencies/returns.h"
 #include "../dependencies/mem_allocator.h"
 #include "../dependencies/sector_device.h"
+#include "../dependencies/clock_device.h"
 
 // -------------------------------------------
 
@@ -168,6 +169,7 @@ struct mounted_data {
     clock_device *clock;
 
     uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
+    uint32_t next_free_block_check;
     cache_data *cache;
 
     open_inode open_inodes[MAX_OPEN_INODES];

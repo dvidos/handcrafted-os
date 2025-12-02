@@ -1,5 +1,27 @@
 #include "internal.h"
+#include <assert.h>
 
+
+static int inode_recalculate_allocated_blocks(mounted_data *mt, inode *node, uint32_t *block_count) {
+    uint32_t count = 0;
+
+    if (node->indirect_ranges_block_no != 0) {
+        int err = cached_read(mt->cache, node->indirect_ranges_block_no, 0, mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
+        if (err != OK) return err;
+
+        int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
+        for (int i = 0; i < ranges_in_block; i++)
+            count += ((block_range *)(mt->generic_block_buffer + i * sizeof(block_range)))->blocks_count;
+    }
+
+    for (int i = 0; i < RANGES_IN_INODE; i++)
+        count += node->ranges[i].blocks_count;
+
+    *block_count = count;
+    return OK;
+}
+
+// -----------------------------------------------------------------------------
 
 static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
@@ -122,6 +144,7 @@ static int inode_truncate_file(mounted_data *mt, inode *n) {
     n->modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
     n->allocated_blocks = 0;
     n->file_size = 0;
+
     return OK;
 }
 

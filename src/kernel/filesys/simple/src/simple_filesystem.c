@@ -86,6 +86,7 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
 
     // initialize structures based on superblock's numbers
     mounted_data *mt = data->memory->allocate(data->memory, sizeof(mounted_data));
+    memset(mt, 0, sizeof(mounted_data));
     mt->readonly = readonly;
     mt->superblock = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     mt->used_blocks_bitmap = data->memory->allocate(data->memory, sb->blocks_bitmap_blocks_count * sb->block_size_in_bytes);
