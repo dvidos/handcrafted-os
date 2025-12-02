@@ -141,7 +141,6 @@ static void simple_file_test() {
 
     // fs->dump_debug_info(fs, "After closing");
 
-
     err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
 
