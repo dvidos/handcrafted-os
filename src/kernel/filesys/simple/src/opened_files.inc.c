@@ -5,37 +5,26 @@
 static int opened_inode_flush(mounted_data *mt, cached_inode *node) {
     if (node->inode_id == INODE_DB_INODE_ID) {
         // save in superblock, in memory
-        memcpy(&mt->superblock->inodes_db_inode, &node->inode_in_mem, sizeof(inode));
+        memcpy(&mt->superblock->inodes_db_inode, &node->inode_in_mem, sizeof(saved_inode));
 
     } else if (node->inode_id == ROOT_DIR_INODE_ID) {
         // save in superblock, in memory
-        memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
+        memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(saved_inode));
 
     } else {
+        // TODO: improve the speed of this
+        cached_inode *inodes_db;
+        int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
+        if (err != OK) return err;
+
         // save in inodes database
-        int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, node->inode_id * sizeof(inode), &node->inode_in_mem, sizeof(inode));
+        int bytes = inode_write_file_bytes(mt, inodes_db, node->inode_id * sizeof(saved_inode), &node->inode_in_mem, sizeof(saved_inode));
         if (bytes < 0) return bytes;
-        if (bytes != sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+        if (bytes != sizeof(saved_inode)) return ERR_RESOURCES_EXHAUSTED;
     }
 
     node->is_dirty = 0;
     return OK;
-}
-
-static cached_inode *opened_files_find_specific_inode_slot(mounted_data *mt, uint32_t inode_id) {
-    for (int i = 0; i < MAX_OPEN_INODES; i++) {
-        if (mt->cached_inodes[i].is_used && mt->cached_inodes[i].inode_id == inode_id)
-            return &mt->cached_inodes[i];
-    }
-    return NULL;
-}
-
-static cached_inode *opened_files_find_unused_inode_slot(mounted_data *mt) {
-    for (int i = 0; i < MAX_OPEN_INODES; i++) {
-        if (!mt->cached_inodes[i].is_used)
-            return &mt->cached_inodes[i];
-    }
-    return NULL;
 }
 
 static open_handle *opened_files_find_unused_handle_slot(mounted_data *mt) {
@@ -46,45 +35,19 @@ static open_handle *opened_files_find_unused_handle_slot(mounted_data *mt) {
     return NULL;
 }
 
-static int opened_files_register(mounted_data *mt, inode *node, uint32_t inode_id, open_handle **handle_ptr) {
-    cached_inode *onode;
-    open_handle *ohandle;
+static int opened_files_register(mounted_data *mt, cached_inode *cinode, open_handle **handle_ptr) {
 
-    // find if inode is already open
-    onode = opened_files_find_specific_inode_slot(mt, inode_id);
-    if (onode == NULL) {
-        // find slot top open it on
-        onode = opened_files_find_unused_inode_slot(mt);
-        if (onode == NULL) return ERR_RESOURCES_EXHAUSTED;
+    // now find a slot top open the handle on
+    open_handle *ohandle = opened_files_find_unused_handle_slot(mt);
+    if (ohandle == NULL) return ERR_RESOURCES_EXHAUSTED;
 
-        // reset this recycled slot
-        onode->is_used = 1;
-        onode->ref_count = 0;
-        memcpy(&onode->inode_in_mem, node, sizeof(inode));
-        onode->inode_id = inode_id;
-        onode->is_dirty = 0;
-    }
-    
-    // two special inodes do not need handles
-    if (handle_ptr != NULL) {
-        // now find a slot top open the handle on
-        ohandle = opened_files_find_unused_handle_slot(mt);
-        if (ohandle == NULL) {
-            // release cached_inode as well, if not used
-            if (onode->ref_count == 0) 
-                onode->is_used = 0;
-            return ERR_RESOURCES_EXHAUSTED;
-        }
+    // initialize this handle
+    ohandle->is_used = 1;
+    ohandle->file_position = 0;
+    ohandle->inode = cinode;
+    ohandle->inode->ref_count += 1; // one more references
 
-        // initialize this handle
-        ohandle->is_used = 1;
-        ohandle->file_position = 0;
-        ohandle->inode = onode;
-        ohandle->inode->ref_count += 1; // one more references
-    
-        *handle_ptr = ohandle;
-    }
-
+    *handle_ptr = ohandle;
     return OK;
 }
 

@@ -1,7 +1,7 @@
 #include "internal.h"
 
 static int used_blocks_bitmap_load(mounted_data *mt) {
-    superblock *sb = mt->superblock;
+    saved_superblock *sb = mt->superblock;
 
     for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++) {
         int err = cached_read(mt->cache, sb->blocks_bitmap_first_block + i, 
@@ -16,7 +16,7 @@ static int used_blocks_bitmap_load(mounted_data *mt) {
 }
 
 static int used_blocks_bitmap_save(mounted_data *mt) {
-    superblock *sb = mt->superblock;
+    saved_superblock *sb = mt->superblock;
 
     for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++) {
         int err = cached_write(mt->cache, sb->blocks_bitmap_first_block + i, 

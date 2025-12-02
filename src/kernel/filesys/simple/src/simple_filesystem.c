@@ -27,7 +27,7 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
         return ERR_NOT_SUPPORTED;
 
     // prepare superblock for block 0
-    superblock *sb = data->memory->allocate(data->memory, sizeof(superblock));
+    saved_superblock *sb = data->memory->allocate(data->memory, sizeof(saved_superblock));
     int err = populate_superblock(
         volume_label,
         data->device->get_sector_size(data->device),
@@ -50,7 +50,7 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
     // we can start writing, let's grab a cache
     mt->cache = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
 
-    err = cached_write(mt->cache, 0, 0, sb, sizeof(superblock));
+    err = cached_write(mt->cache, 0, 0, sb, sizeof(saved_superblock));
     if (err != OK) return err;
     err = used_blocks_bitmap_save(mt);
     if (err != OK) return err;
@@ -73,14 +73,14 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     uint8_t *temp_sector = data->memory->allocate(data->memory, data->device->get_sector_size(data->device));
     err = data->device->read_sector(data->device, 0, temp_sector);
     if (err != OK) return err;
-    superblock *sb = (superblock *)temp_sector;
+    saved_superblock *sb = (saved_superblock *)temp_sector;
 
     // basic verification
     if (memcmp(sb->magic, "SFS1", 4) != 0) {
         data->memory->release(data->memory, temp_sector);
         return ERR_NOT_RECOGNIZED;
     }
-    if (sb->inode_size != sizeof(inode) || sb->direntry_size != sizeof(direntry)) {
+    if (sb->inode_size != sizeof(saved_inode) || sb->direntry_size != sizeof(saved_dir_entry)) {
         data->memory->release(data->memory, temp_sector);
         return ERR_NOT_SUPPORTED;
     }
@@ -100,15 +100,15 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     data->memory->release(data->memory, temp_sector);
 
     // cache can now read the main blocks
-    err = cached_read(mt->cache, 0, 0, mt->superblock, sizeof(superblock));
+    err = cached_read(mt->cache, 0, 0, mt->superblock, sizeof(saved_superblock));
     if (err != OK) return err;
     err = used_blocks_bitmap_load(mt);
     if (err != OK) return err;
 
     // we should force open the two special inodes (offset 0 and 1)
-    err = get_cached_inode(mt, INODE_DB_INODE_ID, NULL);
+    err = get_cached_inode(mt, INODE_DB_INODE_ID, &mt->inodes_db_inode);
     if (err != OK) return err;
-    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, NULL);
+    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &mt->root_dir_inode);
     if (err != OK) return err;
     return OK;
 }
@@ -128,7 +128,7 @@ static int sfs_sync(simple_filesystem *sfs) {
     if (err != OK) return err;
 
     // write superblock to cache
-    err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(superblock));
+    err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(saved_superblock));
     if (err != OK) return err;
 
     // write used blocks bitmap to disk (blocks 1+)
@@ -171,16 +171,15 @@ static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_han
     int err;
     
     // see if path resolves to inode
-    inode inode;
-    uint32_t inode_id;
-    err = resolve_path_to_inode(mt, filename, &inode, &inode_id);
+    cached_inode *node;
+    err = resolve_path_to_inode(mt, filename, &node);
     if (err != OK) return err;
-    if (!inode.is_file)
+    if (!node->inode_in_mem.is_file)
         return ERR_WRONG_TYPE;
 
     // get open file handle, open inode if needed
     open_handle *handle;
-    err = opened_files_register(mt, &inode, inode_id, &handle);
+    err = opened_files_register(mt, node, &handle);
     if (err != OK) return err;
 
     *handle_ptr = (sfs_handle *)handle;
@@ -198,7 +197,7 @@ static int sfs_read(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_
     if (handle == NULL || handle->inode == NULL || !handle->is_used)
         return ERR_INVALID_ARGUMENT;
 
-    int bytes_read = inode_read_file_bytes(mt, &handle->inode->inode_in_mem, handle->file_position, buffer, size);
+    int bytes_read = inode_read_file_bytes(mt, handle->inode, handle->file_position, buffer, size);
     if (bytes_read < 0) return bytes_read; // error
 
     handle->file_position += bytes_read;
@@ -218,7 +217,7 @@ static int sfs_write(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32
         return ERR_INVALID_ARGUMENT;
 
     // this call takes care of file_size as well
-    int bytes_written = inode_write_file_bytes(mt, &handle->inode->inode_in_mem, handle->file_position, buffer, size);
+    int bytes_written = inode_write_file_bytes(mt, handle->inode, handle->file_position, buffer, size);
     if (bytes_written < 0) return bytes_written; // error
 
     handle->file_position += bytes_written;
@@ -305,16 +304,15 @@ static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_
     int err;
     
     // see if path resolves to inode
-    inode inode;
-    uint32_t inode_id;
-    err = resolve_path_to_inode(mt, path, &inode, &inode_id);
+    cached_inode *node;
+    err = resolve_path_to_inode(mt, path, &node);
     if (err != OK) return err;
-    if (!inode.is_dir)
+    if (!node->inode_in_mem.is_dir)
         return ERR_WRONG_TYPE;
 
     // get open file handle, open inode if needed
     open_handle *handle;
-    err = opened_files_register(mt, &inode, inode_id, &handle);
+    err = opened_files_register(mt, node, &handle);
     if (err != OK) return err;
 
     *handle_ptr = (sfs_handle *)handle;
@@ -338,8 +336,8 @@ static int sfs_read_dir(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *en
         return ERR_END_OF_FILE;
 
     // else read, populate, advance file position.
-    direntry disk_entry;
-    int bytes = inode_read_file_bytes(mt, &handle->inode->inode_in_mem, handle->file_position, &disk_entry, sizeof(direntry));
+    saved_dir_entry disk_entry;
+    int bytes = inode_read_file_bytes(mt, handle->inode, handle->file_position, &disk_entry, sizeof(saved_dir_entry));
     if (bytes < 0) return bytes;
     handle->file_position += bytes;
 
@@ -377,18 +375,15 @@ static int sfs_stat(simple_filesystem *sfs, char *path, sfs_stat_info *info) {
     int err;
 
     // see if path resolves to inode
-    inode target_inode;
-    uint32_t target_inode_id;
-    err = resolve_path_to_inode(mt, path, &target_inode, &target_inode_id);
+    cached_inode *node;
+    err = resolve_path_to_inode(mt, path, &node);
     if (err != OK) return err;
-    if (!target_inode.is_file) return ERR_WRONG_TYPE;
 
-    info->inode_id = target_inode_id;
-    info->file_size = target_inode.file_size;
-    info->type = target_inode.is_file ? 1 : target_inode.is_dir ? 2 : 0;
-    info->blocks = target_inode.allocated_blocks;
-    info->created_at = 0;
-    info->modified_at = 0;
+    info->inode_id = node->inode_id;
+    info->file_size = node->inode_in_mem.file_size;
+    info->type = node->inode_in_mem.is_file ? 1 : node->inode_in_mem.is_dir ? 2 : 0;
+    info->blocks = node->inode_in_mem.allocated_blocks;
+    info->modified_at = node->inode_in_mem.modified_at;
     return OK;
 }
 
@@ -402,9 +397,8 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     int err;
     
     // see if path resolves to inode
-    inode parent_inode;
-    uint32_t parent_inode_id;
-    err = resolve_path_parent_to_inode(mt, path, &parent_inode, &parent_inode_id);
+    cached_inode *parent;
+    err = resolve_path_parent_to_inode(mt, path, &parent);
     if (err != OK) return err;
 
     // find desired name
@@ -413,30 +407,27 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
         return ERR_INVALID_ARGUMENT;
 
     // see if name exists in the directory
-    err = dir_entry_ensure_missing(mt, &parent_inode, desired_name);
+    err = dir_entry_ensure_missing(mt, parent, desired_name);
     if (err != OK) return err;
 
     // now we should be able to create a file / dir
-    inode new_inode;
+    saved_inode new_inode;
     uint32_t new_inode_id;
     err = inode_allocate(mt, is_dir, &new_inode, &new_inode_id);
     if (err != OK) return err;
 
     // add this entry
-    err = dir_entry_append(mt, &parent_inode, desired_name, new_inode_id);
-    if (err != OK) return err;
-
-    // we must persist the parent inode changes (e.g. entries added)
-    err = inode_persist(mt, parent_inode_id, &parent_inode);
+    err = dir_entry_append(mt, parent, desired_name, new_inode_id);
     if (err != OK) return err;
 
     // if we added a directory, we need to add the "." and the ".." as well.
     if (is_dir) {
-        err = dir_entry_append(mt, &new_inode, ".", new_inode_id);
+        cached_inode *new_dir;
+        err = get_cached_inode(mt, new_inode_id, &new_dir);
         if (err != OK) return err;
-        err = dir_entry_append(mt, &new_inode, "..", parent_inode_id);
+        err = dir_entry_append(mt, new_dir, ".", new_inode_id);
         if (err != OK) return err;
-        err = inode_persist(mt, new_inode_id, &new_inode);
+        err = dir_entry_append(mt, new_dir, "..", parent->inode_id);
         if (err != OK) return err;
     }
 
@@ -453,21 +444,16 @@ static int sfs_truncate(simple_filesystem *sfs, char *path) {
     int err;
     
     // see if path resolves to inode
-    inode target_inode;
-    uint32_t target_inode_id;
-    err = resolve_path_to_inode(mt, path, &target_inode, &target_inode_id);
+    cached_inode *node;
+    err = resolve_path_to_inode(mt, path, &node);
     if (err != OK) return err;
-    if (!target_inode.is_file) return ERR_WRONG_TYPE;
+    if (!node->inode_in_mem.is_file) return ERR_WRONG_TYPE;
 
-    if (target_inode.file_size == 0)
+    if (node->inode_in_mem.file_size == 0)
         return OK;
     
     // load this inode, truncate, remove it
-    err = inode_truncate_file_bytes(mt, &target_inode);
-    if (err != OK) return err;
-
-    // we should persist the parent inode changes (maybe change time changed)
-    err = inode_persist(mt, target_inode_id, &target_inode);
+    err = inode_truncate_file_bytes(mt, node);
     if (err != OK) return err;
 
     return OK;
@@ -483,32 +469,29 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     int err;
     
     // see if path resolves to inode
-    inode parent_inode;
-    uint32_t parent_inode_id;
-    err = resolve_path_parent_to_inode(mt, path, &parent_inode, &parent_inode_id);
+    cached_inode *node;
+    err = resolve_path_parent_to_inode(mt, path, &node);
     if (err != OK) return err;
 
     // see if name exists in the directory
     uint32_t doomed_inode_id;
     uint32_t direntry_rec_no;
-    err = dir_entry_find(mt, &parent_inode, path_get_last_part(path), &doomed_inode_id, &direntry_rec_no);
+    err = dir_entry_find(mt, node, path_get_last_part(path), &doomed_inode_id, &direntry_rec_no);
     if (err != OK) return err;
 
     // now we can unlink this (e.g. nullify dir entry)
-    err = dir_entry_delete(mt, &parent_inode, direntry_rec_no);
+    err = dir_entry_delete(mt, node, direntry_rec_no);
     if (err != OK) return err;
 
-    // we should persist the parent inode changes (maybe change time changed)
-    err = inode_persist(mt, parent_inode_id, &parent_inode);
+    // load this inode, truncate, remove it, invalidate cache
+    cached_inode *doomed;
+    err = get_cached_inode(mt, doomed_inode_id, &doomed);
     if (err != OK) return err;
-
-    // load this inode, truncate, remove it
-    inode doomed;
-    err = inode_load(mt, doomed_inode_id, &doomed);
-    if (err != OK) return err;
-    err = inode_truncate_file_bytes(mt, &doomed);
+    err = inode_truncate_file_bytes(mt, doomed);
     if (err != OK) return err;
     err = inode_delete(mt, doomed_inode_id);
+    if (err != OK) return err;
+    err = inode_cache_invalidate_inode(mt, doomed_inode_id);
     if (err != OK) return err;
 
     return OK;
@@ -524,48 +507,38 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     int err;
     
     // fild old containing dir
-    inode old_parent_inode;
-    uint32_t old_parent_inode_id;
-    err = resolve_path_parent_to_inode(mt, oldpath, &old_parent_inode, &old_parent_inode_id);
+    cached_inode *old_parent;
+    err = resolve_path_parent_to_inode(mt, oldpath, &old_parent);
     if (err != OK) return err;
 
     // see if name exists in the directory
     uint32_t file_inode_id;
     uint32_t old_entry_no;
-    err = dir_entry_find(mt, &old_parent_inode, path_get_last_part(oldpath), &file_inode_id, &old_entry_no);
+    err = dir_entry_find(mt, old_parent, path_get_last_part(oldpath), &file_inode_id, &old_entry_no);
     if (err != OK) return err;
 
     // find new containing dir
-    inode new_parent_inode;
-    uint32_t new_parent_inode_id;
-    err = resolve_path_parent_to_inode(mt, newpath, &new_parent_inode, &new_parent_inode_id);
+    cached_inode *new_parent;
+    err = resolve_path_parent_to_inode(mt, newpath, &new_parent);
     if (err != OK) return err;
 
     const char *new_filename = path_get_last_part(newpath);
 
     // see if name exists in the directory
-    err = dir_entry_ensure_missing(mt, &new_parent_inode, new_filename);
+    err = dir_entry_ensure_missing(mt, new_parent, new_filename);
     if (err != OK) return err;
 
     // if same directory, avoid keeping two copies of the inode in memory
-    if (old_parent_inode_id == new_parent_inode_id) {
+    if (old_parent->inode_id == new_parent->inode_id) {
         // we'll update the entry in place
-        err = dir_entry_update(mt, &old_parent_inode, old_entry_no, new_filename, file_inode_id);
-        if (err != OK) return err;
-        err = inode_persist(mt, old_parent_inode_id, &old_parent_inode);
+        err = dir_entry_update(mt, old_parent, old_entry_no, new_filename, file_inode_id);
         if (err != OK) return err;
 
     } else {
-        // create entry in the new directory, save inode
-        err = dir_entry_append(mt, &new_parent_inode, new_filename, file_inode_id);
+        // create entry in the new directory, remove from old
+        err = dir_entry_append(mt, new_parent, new_filename, file_inode_id);
         if (err != OK) return err;
-        err = inode_persist(mt, new_parent_inode_id, &new_parent_inode);
-        if (err != OK) return err;
-
-        // remove from old, save old inode
-        err = dir_entry_delete(mt, &old_parent_inode, old_entry_no);
-        if (err != OK) return err;
-        err = inode_persist(mt, old_parent_inode_id, &old_parent_inode);
+        err = dir_entry_delete(mt, old_parent, old_entry_no);
         if (err != OK) return err;
     }
 
@@ -587,7 +560,12 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     superblock_dump_debug_info(mt->superblock);
     bitmap_dump_debug_info(mt);
     printf("Root directory\n");
-    dir_dump_debug_info(mt, &mt->superblock->root_dir_inode, 1);
+
+    cached_inode *root;
+    int err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &root);
+    if (err != OK) return;
+
+    dir_dump_debug_info(mt, root, 1);
     inode_cache_dump_debug_info(mt);
     opened_files_dump_debug_info(mt);
 
@@ -603,16 +581,16 @@ simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *d
         printf("sizeof(block_range): %ld\n", sizeof(block_range));
         exit(1);
     }
-    if (sizeof(inode) != 64) { // written on disk, must be same size
-        printf("sizeof(inode): %ld\n", sizeof(inode));
+    if (sizeof(saved_inode) != 64) { // written on disk, must be same size
+        printf("sizeof(inode): %ld\n", sizeof(saved_inode));
         exit(1);
     }
-    if (sizeof(direntry) != 64) { // written on disk, must be same size
-        printf("sizeof(direntry): %ld\n", sizeof(direntry));
+    if (sizeof(saved_dir_entry) != 64) { // written on disk, must be same size
+        printf("sizeof(direntry): %ld\n", sizeof(saved_dir_entry));
         exit(1);
     }
-    if (sizeof(superblock) != 512) { // must be able to load in a single 512B sector
-        printf("sizeof(superblock): %ld\n", sizeof(superblock));
+    if (sizeof(saved_superblock) != 512) { // must be able to load in a single 512B sector
+        printf("sizeof(superblock): %ld\n", sizeof(saved_superblock));
         exit(1);
     }
 

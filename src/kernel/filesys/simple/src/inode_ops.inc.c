@@ -1,7 +1,7 @@
 #include "internal.h"
 
 
-static int inode_recalculate_allocated_blocks(mounted_data *mt, inode *node, uint32_t *block_count) {
+static int inode_recalculate_allocated_blocks(mounted_data *mt, saved_inode *node, uint32_t *block_count) {
     uint32_t count = 0;
 
     if (node->indirect_ranges_block_no != 0) {
@@ -22,10 +22,10 @@ static int inode_recalculate_allocated_blocks(mounted_data *mt, inode *node, uin
 
 // -----------------------------------------------------------------------------
 
-static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
+static int inode_read_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
 
-    if (file_pos >= n->file_size)
+    if (file_pos >= n->inode_in_mem.file_size)
         return ERR_END_OF_FILE;
 
     uint32_t block_index = file_pos / mt->superblock->block_size_in_bytes;
@@ -36,12 +36,12 @@ static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, 
     int bytes_read = 0;
 
     // now we know the absolute block, we can read it (at most till EOF)
-    while (length > 0 && file_pos < n->file_size) {
+    while (length > 0 && file_pos < n->inode_in_mem.file_size) {
         err = find_block_no_from_file_block_index(mt, n, block_index, &disk_block_no);
         if (err != OK) return err;
         
         uint32_t bytes_till_block_end = mt->superblock->block_size_in_bytes - block_offset;
-        uint32_t bytes_till_file_end = n->file_size - file_pos;
+        uint32_t bytes_till_file_end = n->inode_in_mem.file_size - file_pos;
         max_chunk_len = min(bytes_till_block_end, bytes_till_file_end);
         chunk_length = at_most(length, max_chunk_len);
 
@@ -64,11 +64,11 @@ static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, 
     return bytes_read;
 }
 
-static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length) {
+static int inode_write_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
 
-    if (file_pos > n->file_size)
-        file_pos = n->file_size;
+    if (file_pos > n->inode_in_mem.file_size)
+        file_pos = n->inode_in_mem.file_size;
 
     uint32_t block_index = file_pos / mt->superblock->block_size_in_bytes;
     uint32_t block_offset = file_pos % mt->superblock->block_size_in_bytes;
@@ -80,10 +80,10 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
 
     // now we know the absolute block, we can read it
     while (length > 0) {
-        writing_at_eof = (file_pos >= n->file_size);
+        writing_at_eof = (file_pos >= n->inode_in_mem.file_size);
         
         // there may be space enough in the allocated blocks or we need to add a block
-        if (block_index >= n->allocated_blocks) {
+        if (block_index >= n->inode_in_mem.allocated_blocks) {
             err = add_data_block_to_file(mt, n, &disk_block_no);
             if (err != OK) return err;
         } else {
@@ -93,7 +93,7 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
 
         // we need to break the chunk either at (1) block boundary, or at (2) file boundary
         uint32_t bytes_till_block_end = mt->superblock->block_size_in_bytes - block_offset;
-        uint32_t bytes_till_file_end = n->file_size - file_pos;
+        uint32_t bytes_till_file_end = n->inode_in_mem.file_size - file_pos;
         if (writing_at_eof) {
             max_chunk_len = bytes_till_block_end;
         } else {
@@ -119,22 +119,24 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
         }
         if (writing_at_eof) {
             // we extended the file
-            n->file_size += chunk_length;
+            n->inode_in_mem.file_size += chunk_length;
         }
     }
 
-    if (bytes_written > 0)
-        n->modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
+    if (bytes_written > 0) {
+        n->inode_in_mem.modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
+        n->is_dirty = 1;
+    }
 
     return bytes_written;
 }
 
-static int inode_truncate_file_bytes(mounted_data *mt, inode *n) {
+static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
     // release all blocks, reset ranges to zero.
     int err;
 
-    if (n->indirect_ranges_block_no != 0) {
-        err = cached_read(mt->cache, n->indirect_ranges_block_no, 0, mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
+    if (n->inode_in_mem.indirect_ranges_block_no != 0) {
+        err = cached_read(mt->cache, n->inode_in_mem.indirect_ranges_block_no, 0, mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
         if (err != OK) return err;
 
         // release all pointed blocks
@@ -142,45 +144,54 @@ static int inode_truncate_file_bytes(mounted_data *mt, inode *n) {
         range_array_release_blocks(mt, (block_range *)mt->generic_block_buffer, ranges_in_block);
 
         // release indirect as well
-        mark_block_free(mt, n->indirect_ranges_block_no);
-        n->indirect_ranges_block_no = 0;
+        mark_block_free(mt, n->inode_in_mem.indirect_ranges_block_no);
+        n->inode_in_mem.indirect_ranges_block_no = 0;
     }
 
     // then the internal ranges
-    range_array_release_blocks(mt, n->ranges, RANGES_IN_INODE);
+    range_array_release_blocks(mt, n->inode_in_mem.ranges, RANGES_IN_INODE);
 
     // finally, reset inode file size to zero
-    n->modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
-    n->allocated_blocks = 0;
-    n->file_size = 0;
+    n->inode_in_mem.modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
+    n->inode_in_mem.allocated_blocks = 0;
+    n->inode_in_mem.file_size = 0;
+    n->is_dirty = 1;
 
     return OK;
 }
 
 // -----------------------------------------------------------------------------
 
-static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node) {
+static int inode_load(mounted_data *mt, uint32_t inode_id, saved_inode *node) {
     if (inode_id == INODE_DB_INODE_ID) {
-        memcpy(node, &mt->superblock->inodes_db_inode, sizeof(inode));
+        memcpy(node, &mt->superblock->inodes_db_inode, sizeof(saved_inode));
         return OK;
     } else if (inode_id == ROOT_DIR_INODE_ID) {
-        memcpy(node, &mt->superblock->root_dir_inode, sizeof(inode));
+        memcpy(node, &mt->superblock->root_dir_inode, sizeof(saved_inode));
         return OK;
     }
 
-    int bytes = inode_read_file_bytes(mt, &mt->superblock->inodes_db_inode,
-        inode_id * sizeof(inode), 
+    cached_inode *inodes_db;
+    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
+    if (err != OK) return err;
+
+    int bytes = inode_read_file_bytes(mt, inodes_db,
+        inode_id * sizeof(saved_inode), 
         node,
-        sizeof(inode)
+        sizeof(saved_inode)
     );
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
 
     return OK;
 }
 
-static int inode_allocate(mounted_data *mt, int is_dir, inode *node, uint32_t *inode_id) {
-    memset(node, 0, sizeof(inode));
+static int inode_allocate(mounted_data *mt, int is_dir, saved_inode *node, uint32_t *inode_id) {
+    cached_inode *inodes_db;
+    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
+    if (err != OK) return err;
+
+    memset(node, 0, sizeof(saved_inode));
     if (is_dir) {
         node->is_dir = 1;
     } else {
@@ -191,30 +202,34 @@ static int inode_allocate(mounted_data *mt, int is_dir, inode *node, uint32_t *i
 
     // this should have a lock somehow
     *inode_id = mt->superblock->inodes_db_rec_count;
-    int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, *inode_id * sizeof(inode), node, sizeof(inode));
+    int bytes = inode_write_file_bytes(mt, inodes_db, *inode_id * sizeof(saved_inode), node, sizeof(saved_inode));
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
 
     mt->superblock->inodes_db_rec_count += 1;
     return OK;
 }
 
-static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node) {
+static int inode_persist(mounted_data *mt, uint32_t inode_id, saved_inode *node) {
     if (inode_id == INODE_DB_INODE_ID) {
-        memcpy(&mt->superblock->inodes_db_inode, node, sizeof(inode));
+        memcpy(&mt->superblock->inodes_db_inode, node, sizeof(saved_inode));
         return OK;
     } else if (inode_id == ROOT_DIR_INODE_ID) {
-        memcpy(&mt->superblock->root_dir_inode, node, sizeof(inode));
+        memcpy(&mt->superblock->root_dir_inode, node, sizeof(saved_inode));
         return OK;
     }
 
-    int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, 
-        inode_id * sizeof(inode),
+    cached_inode *inodes_db;
+    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
+    if (err != OK) return err;
+
+    int bytes = inode_write_file_bytes(mt, inodes_db,
+        inode_id * sizeof(saved_inode),
         node,
-        sizeof(inode)
+        sizeof(saved_inode)
     );
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
 
     return OK;
 }
@@ -223,21 +238,25 @@ static int inode_delete(mounted_data *mt, uint32_t inode_id) {
     if (inode_id == INODE_DB_INODE_ID || inode_id == ROOT_DIR_INODE_ID)
         return ERR_NOT_PERMITTED;
     
-    inode blank;
-    memset(&blank, 0, sizeof(inode));
+    cached_inode *inodes_db;
+    int err = get_cached_inode(mt, INODE_DB_INODE_ID, &inodes_db);
+    if (err != OK) return err;
 
-    int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode,
-        inode_id * sizeof(inode),
+    saved_inode blank;
+    memset(&blank, 0, sizeof(saved_inode));
+
+    int bytes = inode_write_file_bytes(mt, inodes_db,
+        inode_id * sizeof(saved_inode),
         &blank,
-        sizeof(inode)
+        sizeof(saved_inode)
     );
     if (bytes < 0) return bytes;
-    if (bytes < sizeof(inode)) return ERR_RESOURCES_EXHAUSTED;
+    if (bytes < sizeof(saved_inode)) return ERR_CORRUPTION_DETECTED;
 
     return OK;
 }
 
-static void inode_dump_debug_info(const char *title, inode *n) {
+static void inode_dump_debug_info(const char *title, saved_inode *n) {
     printf("%s [U:%d, F:%d, D:%d, FileSz=%d, AlocBlks=%d, Ranges=(%d:%d,%d:%d,%d:%d,%d:%d,%d:%d,%d:%d), Indirect=%d]\n", 
         title,
         n->is_used,

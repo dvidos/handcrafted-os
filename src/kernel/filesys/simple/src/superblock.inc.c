@@ -30,8 +30,8 @@ static int auto_determine_block_size(uint32_t sector_size, uint64_t capacity) {
     return block_size;
 }
 
-static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, superblock *sb) {
-    memset(sb, 0, sizeof(superblock));
+static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, saved_superblock *sb) {
+    memset(sb, 0, sizeof(saved_superblock));
 
     sb->magic[0] = 'S';
     sb->magic[1] = 'F';
@@ -56,8 +56,8 @@ static int populate_superblock(const char *label, uint32_t sector_size, uint32_t
     sb->block_size_in_bytes = blk_size;
     sb->sectors_per_block = blk_size / sector_size;
     sb->blocks_in_device = (uint32_t)(capacity / blk_size);
-    sb->inode_size = sizeof(inode);
-    sb->direntry_size = sizeof(direntry);
+    sb->inode_size = sizeof(saved_inode);
+    sb->direntry_size = sizeof(saved_dir_entry);
 
     // some blocks are needed for bitmaps to track used/free blocks
     uint32_t necessary_bytes = ceiling_division(sb->blocks_in_device, 8);
@@ -69,18 +69,18 @@ static int populate_superblock(const char *label, uint32_t sector_size, uint32_t
     strncpy(sb->volume_label, label, sizeof(sb->volume_label));
 
     // explicitly, though uselessly
-    memset(&sb->inodes_db_inode, 0, sizeof(inode));
+    memset(&sb->inodes_db_inode, 0, sizeof(saved_inode));
     sb->inodes_db_inode.is_used = 1;
     sb->inodes_db_inode.is_file = 1;
     sb->inodes_db_rec_count = 0;
-    memset(&sb->root_dir_inode, 0, sizeof(inode));
+    memset(&sb->root_dir_inode, 0, sizeof(saved_inode));
     sb->root_dir_inode.is_used = 1;
     sb->root_dir_inode.is_dir = 1;
 
     return OK;
 }
 
-static void superblock_dump_debug_info(superblock *sb) {
+static void superblock_dump_debug_info(saved_superblock *sb) {
     printf("Superblock  [BlkSiz=%d, Btmp:1st=%d,n=%d, Sct/Blk=%d, TotalBlocks=%d, Label=%s]\n", 
         sb->block_size_in_bytes,
         sb->blocks_bitmap_first_block,

@@ -22,7 +22,6 @@ typedef struct sfs_stat_info {
     uint32_t file_size;
     uint32_t type; // file, dir
     uint32_t blocks;
-    uint32_t created_at;
     uint32_t modified_at;
 } sfs_stat_info;
 

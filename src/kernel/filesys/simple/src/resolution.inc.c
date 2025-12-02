@@ -2,14 +2,12 @@
 
 
 
-static int flexible_path_resolution(mounted_data *mt, const char *path, int resolve_parent_dir_only, inode *target, uint32_t *inode_id) {
+static int flexible_path_resolution(mounted_data *mt, const char *path, int resolve_parent_dir_only, cached_inode **cached_inode_ptr) {
     char part_name[MAX_FILENAME_LENGTH + 1];
     int err;
-    inode curr_dir;
-    uint32_t curr_dir_inode_id;
-    inode entry_inode;
-    uint32_t entry_inode_id;
-    // cached_inode *cached = NULL;
+    
+    cached_inode *cached_dir = NULL;
+    cached_inode *cached_entry = NULL;
 
     // all paths should be absolute
     if (path[0] != '/')
@@ -21,16 +19,11 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
         if (resolve_parent_dir_only)
             return ERR_INVALID_ARGUMENT;
 
-        // TODO: open the cached inode here, don't memcpy() -- eliminate all memcpy() here
-        // err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &cached);
-        memcpy(target, &mt->superblock->root_dir_inode, sizeof(inode));
-        *inode_id = ROOT_DIR_INODE_ID;
-        return OK;
+        return get_cached_inode(mt, ROOT_DIR_INODE_ID, cached_inode_ptr);
     }
 
     // start walking down the directories from root dir
-    memcpy(&curr_dir, &mt->superblock->root_dir_inode, sizeof(inode));
-    curr_dir_inode_id = ROOT_DIR_INODE_ID;
+    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &cached_dir);
     while (1) {
 
         // get first part of the path
@@ -38,45 +31,42 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
         path += strlen(part_name);
         if (*path == '/')
             path++;
-        int finished = (*path == '\0');
+        int path_finished = (*path == '\0');
 
         // if we are resolving parent, we don't need to seek the last part
-        if (resolve_parent_dir_only && finished) {
-            memcpy(target, &curr_dir, sizeof(inode));
-            *inode_id = curr_dir_inode_id;
+        if (resolve_parent_dir_only && path_finished) {
+            *cached_inode_ptr = cached_dir;
             return OK;
         }
 
         // look up the chunk in the current directory
-        err = dir_entry_find(mt, &curr_dir, part_name, &entry_inode_id, NULL);
+        uint32_t entry_inode_id;
+        err = dir_entry_find(mt, cached_dir, part_name, &entry_inode_id, NULL);
         if (err != OK) return err;
 
         // load so we can return it, or use it.
-        err = inode_load(mt, entry_inode_id, &entry_inode);
+        err = get_cached_inode(mt, entry_inode_id, &cached_entry);
         if (err != OK) return err;
 
-        if (finished) {
-            memcpy(target, &entry_inode, sizeof(inode));
-            *inode_id = entry_inode_id;
+        if (path_finished) {
+            *cached_inode_ptr = cached_entry;
             return OK;
         }
 
-        // verify we recurse into a directory that we can search in
-        if (!entry_inode.is_dir)
+        // otherwise, recurse into this directory -- ensure it's a directory
+        if (!cached_entry->inode_in_mem.is_dir)
             return ERR_WRONG_TYPE;
-        memcpy(&curr_dir, &entry_inode, sizeof(inode));
-        curr_dir_inode_id = entry_inode_id;
+        cached_dir = cached_entry;
     }
 
     // should never happen
     return ERR_NOT_FOUND;
 }
 
-
-static int resolve_path_to_inode(mounted_data *mt, const char *path, inode *target, uint32_t *inode_id) {
-    return flexible_path_resolution(mt, path, 0, target, inode_id);
+static int resolve_path_to_inode(mounted_data *mt, const char *path, cached_inode **cached_inode_ptr) {
+    return flexible_path_resolution(mt, path, 0, cached_inode_ptr);
 }
 
-static int resolve_path_parent_to_inode(mounted_data *mt, const char *path, inode *target, uint32_t *inode_id) {
-    return flexible_path_resolution(mt, path, 1, target, inode_id);
+static int resolve_path_parent_to_inode(mounted_data *mt, const char *path, cached_inode **cached_inode_ptr) {
+    return flexible_path_resolution(mt, path, 1, cached_inode_ptr);
 }
