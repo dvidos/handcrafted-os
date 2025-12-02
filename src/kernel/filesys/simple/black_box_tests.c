@@ -144,7 +144,7 @@ static void simple_file_test() {
     err = fs->open(fs, "/file.txt", 1, &h);
     assert(err == OK);
 
-    // fs->dump_debug_info(fs, "After file creation");
+    fs->dump_debug_info(fs, "After file creation");
 
     char buffer[64];
     err = fs->read(fs, h, buffer, sizeof(buffer));

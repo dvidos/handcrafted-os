@@ -129,7 +129,7 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
     return bytes_written;
 }
 
-static int inode_truncate_file(mounted_data *mt, inode *n) {
+static int inode_truncate_file_bytes(mounted_data *mt, inode *n) {
     // release all blocks, reset ranges to zero.
     int err;
 
@@ -160,6 +160,14 @@ static int inode_truncate_file(mounted_data *mt, inode *n) {
 // -----------------------------------------------------------------------------
 
 static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node) {
+    if (inode_id == INODE_DB_INODE_ID) {
+        memcpy(node, &mt->superblock->inodes_db_inode, sizeof(inode));
+        return OK;
+    } else if (inode_id == ROOT_DIR_INODE_ID) {
+        memcpy(node, &mt->superblock->root_dir_inode, sizeof(inode));
+        return OK;
+    }
+
     int bytes = inode_read_file_bytes(mt, &mt->superblock->inodes_db_inode,
         inode_id * sizeof(inode), 
         node,
@@ -192,7 +200,10 @@ static int inode_allocate(mounted_data *mt, int is_dir, inode *node, uint32_t *i
 }
 
 static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node) {
-    if (inode_id == ROOT_DIR_INODE_ID) {
+    if (inode_id == INODE_DB_INODE_ID) {
+        memcpy(&mt->superblock->inodes_db_inode, node, sizeof(inode));
+        return OK;
+    } else if (inode_id == ROOT_DIR_INODE_ID) {
         memcpy(&mt->superblock->root_dir_inode, node, sizeof(inode));
         return OK;
     }
@@ -209,7 +220,7 @@ static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node) {
 }
 
 static int inode_delete(mounted_data *mt, uint32_t inode_id) {
-    if (inode_id == ROOT_DIR_INODE_ID)
+    if (inode_id == INODE_DB_INODE_ID || inode_id == ROOT_DIR_INODE_ID)
         return ERR_NOT_PERMITTED;
     
     inode blank;

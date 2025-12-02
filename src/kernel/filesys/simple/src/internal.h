@@ -30,12 +30,13 @@
 #define CACHE_SLOTS                         128  // blocks to keep in memory
 #define RANGES_IN_INODE                       6  // affects inode size
 
-#define INODE_DB_INDDE_ID            0xFFFFFFFE  // masquerades as inode id
-#define ROOT_DIR_INODE_ID            0xFFFFFFFF  // masquerades as inode id
+#define INODE_DB_INODE_ID            0xFFFFFFFe  // masquerades as inode id
+#define ROOT_DIR_INODE_ID            0xFFFFFFFf  // masquerades as inode id
 
 #define ceiling_division(x, y)       (((x) + ((y)-1)) / (y))
 #define min(a, b)                    ((b) < (a) ? (b) : (a))
 #define at_most(a, b)                ((b) < (a) ? (b) : (a))
+#define at_least(a, b)               ((b) > (a) ? (b) : (a))
 #define in_range(value, low, hi)     ((value) < (low) ? (low) : ((value) > (hi) ? (hi) : (value)))
 
 // -------------------------------------------------------
@@ -47,7 +48,7 @@ typedef struct block_range block_range;
 typedef struct inode inode;
 typedef struct direntry direntry;
 typedef struct cache_data cache_data;
-typedef struct open_inode open_inode;
+typedef struct cached_inode cached_inode;
 typedef struct open_handle open_handle;
 
 /**
@@ -133,7 +134,7 @@ struct superblock { // must be up to 512 bytes, in order to read from unknown de
  * an in-memory variable for an open inode
  * one per each open unique inode
  */
-struct open_inode {
+struct cached_inode {
     uint8_t is_used: 1;      
     uint8_t is_dirty: 1;     // must write this inode to disk
 
@@ -147,9 +148,9 @@ struct open_inode {
  * an in-memory variable for an open handle. 
  * many processes can open a file, each have their handle, pointing to the same inode
  */
-struct open_handle { // the per-process open file handle. two or more can point to same open_inode
+struct open_handle { // the per-process open file handle. two or more can point to same cached_inode
     uint8_t is_used: 1;      
-    open_inode *inode;       
+    cached_inode *inode;       
     uint32_t file_position;
     // could contain open information, e.g. append mode
 };
@@ -171,10 +172,12 @@ struct mounted_data {
     clock_device *clock;
 
     uint8_t *used_blocks_bitmap; // bitmap of used block, mirrored in memory
-    uint32_t next_free_block_check;
+    uint32_t next_free_block_check; // for round-robin discovery
     cache_data *cache;
 
-    open_inode open_inodes[MAX_OPEN_INODES];
+    cached_inode cached_inodes[MAX_OPEN_INODES];
+    int cached_inode_next_eviction; // for round-robin eviction
+    
     open_handle open_handles[MAX_OPEN_HANDLES];
     
     uint8_t *generic_block_buffer;
@@ -229,21 +232,26 @@ static int find_block_no_from_file_block_index(mounted_data *mt, const inode *in
 static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no);
 static int add_data_block_to_file(mounted_data *mt, inode *inode, uint32_t *absolute_block_no);
 
-// inodes.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
+// inode_ops.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
 static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, void *data, uint32_t length);
-static int inode_truncate_file(mounted_data *mt, inode *n);
+static int inode_truncate_file_bytes(mounted_data *mt, inode *n);
 static int inode_load(mounted_data *mt, uint32_t inode_id, inode *node);
 static int inode_allocate(mounted_data *mt, int is_file, inode *node, uint32_t *inode_id);
 static int inode_persist(mounted_data *mt, uint32_t inode_id, inode *node);
 static int inode_delete(mounted_data *mt, uint32_t inode_id);
 static void inode_dump_debug_info(const char *title, inode *n);
 
+// inode_cache.inc.c
+static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr);
+static int inode_cache_invalidate_inode(mounted_data *mt, int inode_id);
+static int inode_cache_flush_all(mounted_data *mt);
+static void inode_cache_dump_debug_info(mounted_data *mt);
+
 // open.inc.c
-static int open_handles_release(mounted_data *mt, open_handle *handle);
-static int open_files_register(mounted_data *mt, inode *node, uint32_t inode_id, open_handle **handle_ptr);
-static int open_files_flush_dirty_inodes(mounted_data *mt);
-static void open_dump_debug_info(mounted_data *mt);
+static int opened_handles_release(mounted_data *mt, open_handle *handle);
+static int opened_files_register(mounted_data *mt, inode *node, uint32_t inode_id, open_handle **handle_ptr);
+static void opened_files_dump_debug_info(mounted_data *mt);
 
 
 // dirs.inc.c

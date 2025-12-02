@@ -9,6 +9,7 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
     uint32_t curr_dir_inode_id;
     inode entry_inode;
     uint32_t entry_inode_id;
+    // cached_inode *cached = NULL;
 
     // all paths should be absolute
     if (path[0] != '/')
@@ -20,6 +21,8 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
         if (resolve_parent_dir_only)
             return ERR_INVALID_ARGUMENT;
 
+        // TODO: open the cached inode here, don't memcpy() -- eliminate all memcpy() here
+        // err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &cached);
         memcpy(target, &mt->superblock->root_dir_inode, sizeof(inode));
         *inode_id = ROOT_DIR_INODE_ID;
         return OK;

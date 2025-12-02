@@ -13,8 +13,9 @@
 #include "cache.inc.c"
 #include "ranges.inc.c"
 #include "block_ops.inc.c"
-#include "inodes.inc.c"
-#include "open.inc.c"
+#include "inode_ops.inc.c"
+#include "inode_cache.inc.c"
+#include "opened_files.inc.c"
 #include "dirs.inc.c"
 #include "resolution.inc.c"
 
@@ -104,12 +105,11 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     err = used_blocks_bitmap_load(mt);
     if (err != OK) return err;
 
-    // we should make open the two special inodes (offset 0 and 1)
-    err = open_files_register(mt, &mt->superblock->inodes_db_inode, INODE_DB_INDDE_ID, NULL);
+    // we should force open the two special inodes (offset 0 and 1)
+    err = get_cached_inode(mt, INODE_DB_INODE_ID, NULL);
     if (err != OK) return err;
-    err = open_files_register(mt, &mt->superblock->root_dir_inode, ROOT_DIR_INODE_ID, NULL);
+    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, NULL);
     if (err != OK) return err;
-
     return OK;
 }
 
@@ -124,9 +124,9 @@ static int sfs_sync(simple_filesystem *sfs) {
         return ERR_NOT_PERMITTED;
 
     // save open inodes to superblock or to inodes db
-    err = open_files_flush_dirty_inodes(mt);
+    err = inode_cache_flush_all(mt);
     if (err != OK) return err;
-    
+
     // write superblock to cache
     err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(superblock));
     if (err != OK) return err;
@@ -180,7 +180,7 @@ static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_han
 
     // get open file handle, open inode if needed
     open_handle *handle;
-    err = open_files_register(mt, &inode, inode_id, &handle);
+    err = opened_files_register(mt, &inode, inode_id, &handle);
     if (err != OK) return err;
 
     *handle_ptr = (sfs_handle *)handle;
@@ -237,7 +237,7 @@ static int sfs_close(simple_filesystem *sfs, sfs_handle *h) {
     if (handle == NULL || handle->inode == NULL || !handle->is_used)
         return ERR_INVALID_ARGUMENT;
 
-    int err = open_handles_release(mt, handle);
+    int err = opened_handles_release(mt, handle);
     if (err != OK) return err;
 
     return OK;
@@ -314,7 +314,7 @@ static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_
 
     // get open file handle, open inode if needed
     open_handle *handle;
-    err = open_files_register(mt, &inode, inode_id, &handle);
+    err = opened_files_register(mt, &inode, inode_id, &handle);
     if (err != OK) return err;
 
     *handle_ptr = (sfs_handle *)handle;
@@ -362,7 +362,7 @@ static int sfs_close_dir(simple_filesystem *sfs, sfs_handle *h) {
     if (handle == NULL || handle->inode == NULL || !handle->is_used)
         return ERR_INVALID_ARGUMENT;
 
-    int err = open_handles_release(mt, handle);
+    int err = opened_handles_release(mt, handle);
     if (err != OK) return err;
 
     return OK;
@@ -463,7 +463,7 @@ static int sfs_truncate(simple_filesystem *sfs, char *path) {
         return OK;
     
     // load this inode, truncate, remove it
-    err = inode_truncate_file(mt, &target_inode);
+    err = inode_truncate_file_bytes(mt, &target_inode);
     if (err != OK) return err;
 
     // we should persist the parent inode changes (maybe change time changed)
@@ -506,7 +506,7 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     inode doomed;
     err = inode_load(mt, doomed_inode_id, &doomed);
     if (err != OK) return err;
-    err = inode_truncate_file(mt, &doomed);
+    err = inode_truncate_file_bytes(mt, &doomed);
     if (err != OK) return err;
     err = inode_delete(mt, doomed_inode_id);
     if (err != OK) return err;
@@ -588,10 +588,11 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     bitmap_dump_debug_info(mt);
     printf("Root directory\n");
     dir_dump_debug_info(mt, &mt->superblock->root_dir_inode, 1);
-    open_dump_debug_info(mt);
-    // data->device->dump_debug_info(data->device, "");
+    inode_cache_dump_debug_info(mt);
+    opened_files_dump_debug_info(mt);
 
-    // it would be fun, if we discovered where each block is allocated for and print it.
+    // data->device->dump_debug_info(data->device, "");
+    // it would be fun, if we discovered where each block is allocated to, and print it.
 }
 
 // ------------------------------------------------------------------
