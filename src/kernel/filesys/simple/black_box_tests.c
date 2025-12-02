@@ -132,7 +132,7 @@ static void simple_file_test() {
     // fs->dump_debug_info(fs, "Before writing");
  
     err = fs->write(fs, h, "Hello world!\n", 13);
-    assert(err == OK);
+    assert(err == 13);
 
     // fs->dump_debug_info(fs, "After writing");
 
@@ -149,7 +149,7 @@ static void simple_file_test() {
 
     char buffer[64];
     err = fs->read(fs, h, buffer, sizeof(buffer));
-    assert(err == OK);
+    assert(err == 13);
     assert(memcmp(buffer, "Hello world!\n", 13) == 0);
 
     err = fs->close(fs, h);
@@ -161,16 +161,11 @@ static void simple_file_test() {
     // dev->dump_debug_info(dev, "After creating and reading a text file");
 }
 
-static void wash_test(int seed) {
-    // make 500 files, randomly adding blocks to each, till something breaks or file is full?
-}
-
 void run_tests() {
     mkfs_test();
     root_dir_test();
     file_creation_test();
     simple_file_test();
-    // wash_test();
 }
 
 

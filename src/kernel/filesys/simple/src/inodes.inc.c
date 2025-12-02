@@ -31,24 +31,34 @@ static int inode_read_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos, 
     uint32_t block_index = file_pos / mt->superblock->block_size_in_bytes;
     uint32_t block_offset = file_pos % mt->superblock->block_size_in_bytes;
     uint32_t disk_block_no = 0;
+    uint32_t max_chunk_len = 0;
+    uint32_t chunk_length = 0;
     int bytes_read = 0;
 
-    // now we know the absolute block, we can read it
-    while (length > 0) {
+    // now we know the absolute block, we can read it (at most till EOF)
+    while (length > 0 && file_pos < n->file_size) {
         err = find_block_no_from_file_block_index(mt, n, block_index, &disk_block_no);
         if (err != OK) return err;
         
-        uint32_t max_length = mt->superblock->block_size_in_bytes - block_offset;
-        uint32_t chunk_length = length > max_length ? max_length : length;
+        uint32_t bytes_till_block_end = mt->superblock->block_size_in_bytes - block_offset;
+        uint32_t bytes_till_file_end = n->file_size - file_pos;
+        max_chunk_len = min(bytes_till_block_end, bytes_till_file_end);
+        chunk_length = at_most(length, max_chunk_len);
+
         err = cached_read(mt->cache, disk_block_no, block_offset, data, chunk_length);
         if (err != OK) return err;
 
         // prepare for next block
-        block_index += 1;
-        block_offset = 0;
         data += chunk_length;
         length -= chunk_length;
         bytes_read += chunk_length;
+        file_pos += chunk_length;
+        block_offset += chunk_length;
+
+        if (bytes_till_block_end > 0 && chunk_length == bytes_till_block_end) {
+            block_index += 1;
+            block_offset = 0;
+        }
     }
 
     return bytes_read;
@@ -63,10 +73,10 @@ static int inode_write_file_bytes(mounted_data *mt, inode *n, uint32_t file_pos,
     uint32_t block_index = file_pos / mt->superblock->block_size_in_bytes;
     uint32_t block_offset = file_pos % mt->superblock->block_size_in_bytes;
     uint32_t disk_block_no = 0;
+    uint32_t max_chunk_len = 0;
+    uint32_t chunk_length = 0;
     int bytes_written = 0;
     int writing_at_eof = 0;
-    uint32_t chunk_length = 0;
-    uint32_t max_chunk_len = 0;
 
     // now we know the absolute block, we can read it
     while (length > 0) {

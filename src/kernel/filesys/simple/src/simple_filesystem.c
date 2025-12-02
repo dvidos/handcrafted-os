@@ -104,6 +104,12 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     err = used_blocks_bitmap_load(mt);
     if (err != OK) return err;
 
+    // we should make open the two special inodes (offset 0 and 1)
+    err = open_files_register(mt, &mt->superblock->inodes_db_inode, INODE_DB_INDDE_ID, NULL);
+    if (err != OK) return err;
+    err = open_files_register(mt, &mt->superblock->root_dir_inode, ROOT_DIR_INODE_ID, NULL);
+    if (err != OK) return err;
+
     return OK;
 }
 

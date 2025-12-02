@@ -3,9 +3,14 @@
 
 
 static int open_inode_flush(mounted_data *mt, open_inode *node) {
-    if (node->inode_id == ROOT_DIR_INODE_ID) {
+    if (node->inode_id == INODE_DB_INDDE_ID) {
+        // save in superblock, in memory
+        memcpy(&mt->superblock->inodes_db_inode, &node->inode_in_mem, sizeof(inode));
+
+    } else if (node->inode_id == ROOT_DIR_INODE_ID) {
         // save in superblock, in memory
         memcpy(&mt->superblock->root_dir_inode, &node->inode_in_mem, sizeof(inode));
+        
     } else {
         // save in inodes database
         int bytes = inode_write_file_bytes(mt, &mt->superblock->inodes_db_inode, node->inode_id * sizeof(inode), &node->inode_in_mem, sizeof(inode));
@@ -60,22 +65,26 @@ static int open_files_register(mounted_data *mt, inode *node, uint32_t inode_id,
         onode->is_dirty = 0;
     }
     
-    // now find a slot top open the handle on
-    ohandle = open_files_find_unused_handle_slot(mt);
-    if (ohandle == NULL) {
-        // release open_inode as well, if not used
-        if (onode->ref_count == 0) 
-            onode->is_used = 0;
-        return ERR_RESOURCES_EXHAUSTED;
+    // two special inodes do not need handles
+    if (handle_ptr != NULL) {
+        // now find a slot top open the handle on
+        ohandle = open_files_find_unused_handle_slot(mt);
+        if (ohandle == NULL) {
+            // release open_inode as well, if not used
+            if (onode->ref_count == 0) 
+                onode->is_used = 0;
+            return ERR_RESOURCES_EXHAUSTED;
+        }
+
+        // initialize this handle
+        ohandle->is_used = 1;
+        ohandle->file_position = 0;
+        ohandle->inode = onode;
+        ohandle->inode->ref_count += 1; // one more references
+    
+        *handle_ptr = ohandle;
     }
 
-    // initialize this handle
-    ohandle->is_used = 1;
-    ohandle->file_position = 0;
-    ohandle->inode = onode;
-    ohandle->inode->ref_count += 1; // one more references
-    
-    *handle_ptr = ohandle;
     return OK;
 }
 

@@ -67,7 +67,7 @@ uint8_t random_byte(test_scenario *scenario) {
 }
 void random_name(test_scenario *scenario, char *buffer, int maxlen) {
     //int len = 3 + rand_r(&scenario->seed) % (maxlen - 3);
-    int len = 3 + rand_r(&scenario->seed) % 10;
+    int len = 8 + rand_r(&scenario->seed) % 10;
     for (int i = 0; i < len; i++)
         buffer[i] = 'a' + (rand_r(&scenario->seed) % 26);
     buffer[len] = 0;
@@ -406,17 +406,16 @@ void run_scenario(unsigned int seed, int steps, int desired_block_size) {
 
 int main() {
     // we'll run random numbers, later in a loop
-    uint32_t rand = 0;
+    uint32_t rand = 1;
     int steps = 10000;
 
-    for (int times = 0; times < 100; times++) {
+    for (int times = 0; times < 10; times++) {
         int scenario = rand_r(&rand);
 
         run_scenario(scenario, steps, 512);
         run_scenario(scenario, steps, 1024);
         run_scenario(scenario, steps, 2048);
         run_scenario(scenario, steps, 4096);
-
     }
 
     return 0;

@@ -29,6 +29,8 @@
 #define MAX_OPEN_HANDLES                    128  // later we can do this dynamic
 #define CACHE_SLOTS                         128  // blocks to keep in memory
 #define RANGES_IN_INODE                       6  // affects inode size
+
+#define INODE_DB_INDDE_ID            0xFFFFFFFE  // masquerades as inode id
 #define ROOT_DIR_INODE_ID            0xFFFFFFFF  // masquerades as inode id
 
 #define ceiling_division(x, y)       (((x) + ((y)-1)) / (y))
