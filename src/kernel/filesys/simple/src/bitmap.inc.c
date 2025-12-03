@@ -4,7 +4,7 @@ static int used_blocks_bitmap_load(mounted_data *mt) {
     stored_superblock *sb = mt->superblock;
 
     for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++) {
-        int err = cached_read(mt->cache, sb->blocks_bitmap_first_block + i, 
+        int err = bcache_read(mt->cache, sb->blocks_bitmap_first_block + i, 
             0,
             mt->used_blocks_bitmap + (sb->block_size_in_bytes * i), 
             sb->block_size_in_bytes
@@ -19,7 +19,7 @@ static int used_blocks_bitmap_save(mounted_data *mt) {
     stored_superblock *sb = mt->superblock;
 
     for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++) {
-        int err = cached_write(mt->cache, sb->blocks_bitmap_first_block + i, 
+        int err = bcache_write(mt->cache, sb->blocks_bitmap_first_block + i, 
             0,
             mt->used_blocks_bitmap + (sb->block_size_in_bytes * i), 
             sb->block_size_in_bytes

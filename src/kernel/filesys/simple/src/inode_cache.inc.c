@@ -32,7 +32,7 @@ static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr) 
         int slot = at_least(INODE_CACHE_PINNED_ENTRIES, mt->cached_inode_next_eviction); // first two slots not recycled
         cached = &mt->cached_inodes[slot];
         if (cached->is_dirty) {
-            err = inode_persist(mt, cached->inode_id, &cached->inode_in_mem);
+            err = inode_db_update(mt, cached->inode_id, &cached->inode);
             if (err != OK) return err;
         }
         mt->cached_inode_next_eviction = (slot + 1) % MAX_OPEN_INODES;
@@ -40,7 +40,7 @@ static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr) 
 
     // now we can load
     memset(cached, 0, sizeof(cached_inode));
-    err = inode_load(mt, inode_id, &cached->inode_in_mem);
+    err = inode_db_load(mt, inode_id, &cached->inode);
     if (err != OK) return err;
     cached->inode_id = inode_id;
     cached->is_used = 1;
@@ -53,7 +53,7 @@ static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr) 
 }
 
 // for usage after inode deletion
-static int inode_cache_invalidate_inode(mounted_data *mt, int inode_id) {
+static int icache_invalidate_inode(mounted_data *mt, int inode_id) {
     for (int i = 0; i < MAX_OPEN_INODES; i++) {
         cached_inode *cached = &mt->cached_inodes[i];
         if (!cached->is_used) continue;
@@ -66,13 +66,13 @@ static int inode_cache_invalidate_inode(mounted_data *mt, int inode_id) {
     return OK; // it's not a failure to not find it.
 }
 
-static int inode_cache_flush_all(mounted_data *mt) {
+static int icache_flush_all(mounted_data *mt) {
     for (int i = 0; i < MAX_OPEN_INODES; i++) {
         cached_inode *cached = &mt->cached_inodes[i];
         if (!cached->is_used) continue;
         if (!cached->is_dirty) continue;
 
-        int err = inode_persist(mt, cached->inode_id, &cached->inode_in_mem);
+        int err = inode_db_update(mt, cached->inode_id, &cached->inode);
         if (err != OK) return err;
 
         cached->is_dirty = 0;
@@ -81,14 +81,14 @@ static int inode_cache_flush_all(mounted_data *mt) {
     return OK;
 }
 
-static int is_inode_cached(mounted_data *mt, int inode_id) { // for debugging purposes
+static int icache_is_inode_cached(mounted_data *mt, int inode_id) { // for debugging purposes
     for (int i = 0; i < MAX_OPEN_INODES; i++)
         if (mt->cached_inodes[i].is_used && mt->cached_inodes[i].inode_id == inode_id)
             return 1;
     return 0;
 }
 
-static void inode_cache_dump_debug_info(mounted_data *mt) {
+static void icache_dump_debug_info(mounted_data *mt) {
     char node_name[32];
 
     int used_inodes = 0;
@@ -110,7 +110,7 @@ static void inode_cache_dump_debug_info(mounted_data *mt) {
             sprintf(node_name, "%u", n->inode_id);
         
         printf("    [%d]  id:%-10s  dirty:%d  refs:%u -> ", i, node_name, n->is_dirty, n->ref_count);
-        inode_dump_debug_info("", &n->inode_in_mem);
+        inode_dump_debug_info("", &n->inode);
     }
 }
 

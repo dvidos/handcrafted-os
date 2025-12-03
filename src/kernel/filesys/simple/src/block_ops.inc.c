@@ -65,26 +65,26 @@ static int write_block(filesys_data *data, uint32_t block_no, void *buffer) {
 
 
 // given an inode, it resolves the relative block index in the file, into the block_no on the disk
-static int find_block_no_from_file_block_index(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
-    if (block_index_in_file >= node->inode_in_mem.allocated_blocks)
+static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
+    if (block_index_in_file >= node->inode.allocated_blocks)
         return ERR_OUT_OF_BOUNDS;
 
     // first, try the inline ranges
     for (int i = 0; i < RANGES_IN_INODE; i++) {
-        if (is_range_empty(&node->inode_in_mem.ranges[i]))
+        if (is_range_empty(&node->inode.ranges[i]))
             return ERR_OUT_OF_BOUNDS;
-        if (check_or_consume_blocks_in_range(&node->inode_in_mem.ranges[i], &block_index_in_file, absolute_block_no))
+        if (check_or_consume_blocks_in_range(&node->inode.ranges[i], &block_index_in_file, absolute_block_no))
             return OK;
     }
 
     // if there is no extra ranges block, we cannot find it
-    if (node->inode_in_mem.indirect_ranges_block_no == 0)
+    if (node->inode.indirect_ranges_block_no == 0)
         return ERR_OUT_OF_BOUNDS;
     
     int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
     block_range range;
     for (int i = 0; i < ranges_in_block; i++) {
-        int err = cached_read(mt->cache, node->inode_in_mem.indirect_ranges_block_no, sizeof(block_range) * i, (void *)&range, sizeof(block_range));
+        int err = bcache_read(mt->cache, node->inode.indirect_ranges_block_no, sizeof(block_range) * i, (void *)&range, sizeof(block_range));
         if (err != OK) return err;
 
         if (is_range_empty(&range))
@@ -144,18 +144,18 @@ static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_ar
 }
 
 // allocate and add a data block at the end of a file, upate the ranges
-static int add_data_block_to_file(mounted_data *mt, cached_inode *node, uint32_t *absolute_block_no) {
+static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *absolute_block_no) {
     int err;
     int use_indirect_block;
 
     // if there is indirect block, no point in extending the ranges
-    if (node->inode_in_mem.indirect_ranges_block_no == 0) {
+    if (node->inode.indirect_ranges_block_no == 0) {
         err = add_block_to_array_of_ranges(mt, 
-            node->inode_in_mem.ranges, RANGES_IN_INODE, 
+            node->inode.ranges, RANGES_IN_INODE, 
             1, &use_indirect_block, 
             absolute_block_no);
         if (err == OK && !use_indirect_block) {
-            node->inode_in_mem.allocated_blocks++;
+            node->inode.allocated_blocks++;
             return OK;
         }
     }
@@ -165,17 +165,17 @@ static int add_data_block_to_file(mounted_data *mt, cached_inode *node, uint32_t
         return ERR_RESOURCES_EXHAUSTED;
     
     // if block not available, allocate one
-    if (node->inode_in_mem.indirect_ranges_block_no == 0) {
-        err = find_next_free_block(mt, &node->inode_in_mem.indirect_ranges_block_no);
+    if (node->inode.indirect_ranges_block_no == 0) {
+        err = find_next_free_block(mt, &node->inode.indirect_ranges_block_no);
         if (err != OK) return err;
-        mark_block_used(mt, node->inode_in_mem.indirect_ranges_block_no);
-        err = cached_wipe(mt->cache, node->inode_in_mem.indirect_ranges_block_no);
+        mark_block_used(mt, node->inode.indirect_ranges_block_no);
+        err = bcache_wipe(mt->cache, node->inode.indirect_ranges_block_no);
         if (err != OK) return err;
     }
 
     // read, so we can iterate on it.
-    err = cached_read(mt->cache, 
-        node->inode_in_mem.indirect_ranges_block_no, 0,
+    err = bcache_read(mt->cache, 
+        node->inode.indirect_ranges_block_no, 0,
         mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
     if (err != OK) return err;
 
@@ -188,14 +188,14 @@ static int add_data_block_to_file(mounted_data *mt, cached_inode *node, uint32_t
     if (err != OK) return err;
 
     // write back the changes
-    err = cached_write(mt->cache, 
-        node->inode_in_mem.indirect_ranges_block_no, 0,
+    err = bcache_write(mt->cache, 
+        node->inode.indirect_ranges_block_no, 0,
         mt->generic_block_buffer,
         mt->superblock->block_size_in_bytes);
     if (err != OK) return err;
 
     // finally! this was a lot!
-    node->inode_in_mem.allocated_blocks++;
+    node->inode.allocated_blocks++;
     node->is_dirty = 1;
     return OK;
 }

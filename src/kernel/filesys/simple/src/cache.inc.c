@@ -2,40 +2,40 @@
 #include "internal.h"
 #include <string.h>
 
-typedef struct cache_entry cache_entry;
-typedef struct cache_data cache_data;
+typedef struct bcache_entry bcache_entry;
+typedef struct bcache_data bcache_data;
 
 #define CACHE_OP_READ        0
 #define CACHE_OP_WRITE       1
 #define CACHE_OP_WIPE        2
 
-struct cache_entry {
+struct bcache_entry {
     uint32_t block_no;
     void *data_ptr; // just pointer, not owner of memory
     uint8_t is_used: 1;
     uint8_t is_dirty: 1;
-    cache_entry *lru_older; // prev,next for LRU eviction, next points from head to tail
-    cache_entry *lru_newer; // next points to tail
-    cache_entry *hash_next; // for collisions
+    bcache_entry *lru_older; // prev,next for LRU eviction, next points from head to tail
+    bcache_entry *lru_newer; // next points to tail
+    bcache_entry *hash_next; // for collisions
 };
 
-struct cache_data {
+struct bcache_data {
     sector_device *device;
     mem_allocator *memory;
     uint32_t block_size;
     void *big_data_buffer;
-    cache_entry entries_arr[CACHE_SLOTS];
+    bcache_entry entries_arr[CACHE_SLOTS];
     int entries_used;
 
-    cache_entry *hashtable[CACHE_SLOTS];
-    cache_entry *lru_list_newest;
-    cache_entry *lru_list_oldest;
+    bcache_entry *hashtable[CACHE_SLOTS];
+    bcache_entry *lru_list_newest;
+    bcache_entry *lru_list_oldest;
 };
 
-static cache_data *initialize_cache(mem_allocator *memory, sector_device *device, uint32_t block_size) {
-    cache_data *data = memory->allocate(memory, sizeof(cache_data));
+static bcache_data *initialize_block_cache(mem_allocator *memory, sector_device *device, uint32_t block_size) {
+    bcache_data *data = memory->allocate(memory, sizeof(bcache_data));
 
-    memset(data, 0, sizeof(cache_data));
+    memset(data, 0, sizeof(bcache_data));
     data->memory = memory;
     data->device = device;
     data->block_size = block_size;
@@ -47,7 +47,7 @@ static cache_data *initialize_cache(mem_allocator *memory, sector_device *device
     return data;
 }
 
-static inline int cache_load_block_raw(cache_data *data, uint32_t block_no, void *buffer) {
+static inline int bcache_load_block_raw(bcache_data *data, uint32_t block_no, void *buffer) {
     uint32_t sector_size = data->device->get_sector_size(data->device);
     int remain_size = data->block_size;
     uint32_t sector_no = block_no * (data->block_size / sector_size);
@@ -62,7 +62,7 @@ static inline int cache_load_block_raw(cache_data *data, uint32_t block_no, void
     return OK;
 }
 
-static inline int cache_save_block_raw(cache_data *data, uint32_t block_no, void *buffer) {
+static inline int bcache_save_block_raw(bcache_data *data, uint32_t block_no, void *buffer) {
     uint32_t sector_size = data->device->get_sector_size(data->device);
     int remain_size = data->block_size;
     uint32_t sector_no = block_no * (data->block_size / sector_size);
@@ -77,11 +77,11 @@ static inline int cache_save_block_raw(cache_data *data, uint32_t block_no, void
     return OK;
 }
 
-static inline int cache_hashkey(uint32_t block_no) {
+static inline int bcache_hashkey(uint32_t block_no) {
     return (int)(block_no % CACHE_SLOTS);
 }
 
-static inline void cache_promote_recently_used_entry(cache_data *data, cache_entry *entry) {
+static inline void bcache_promote_recently_used_entry(bcache_data *data, bcache_entry *entry) {
     if (entry == data->lru_list_newest)
         return;
     
@@ -101,14 +101,14 @@ static inline void cache_promote_recently_used_entry(cache_data *data, cache_ent
     data->lru_list_newest = entry;
 }
 
-static inline int cache_evict_least_recently_used(cache_data *data, cache_entry **evicted_ptr) {
-    cache_entry *oldest = data->lru_list_oldest;
+static inline int bcache_evict_least_recently_used(bcache_data *data, bcache_entry **evicted_ptr) {
+    bcache_entry *oldest = data->lru_list_oldest;
     if (oldest == NULL) // there are no nodes in cache
         return OK;
 
     if (oldest->is_dirty) {
         // save it first, return if error
-        int err = cache_save_block_raw(data, oldest->block_no, oldest->data_ptr);
+        int err = bcache_save_block_raw(data, oldest->block_no, oldest->data_ptr);
         if (err != OK) return err;
         oldest->is_dirty = 0;
     }
@@ -121,17 +121,17 @@ static inline int cache_evict_least_recently_used(cache_data *data, cache_entry 
 
     } else {
         // there are two or more nodes
-        cache_entry *second_oldest = oldest->lru_newer;
+        bcache_entry *second_oldest = oldest->lru_newer;
         second_oldest->lru_older = NULL;
         data->lru_list_oldest = second_oldest;
     }
 
     // now, to remove from the (small) hash chain
-    int hash_index = cache_hashkey(oldest->block_no);
+    int hash_index = bcache_hashkey(oldest->block_no);
     if (data->hashtable[hash_index] == oldest) {
         data->hashtable[hash_index] = data->hashtable[hash_index]->hash_next;
     } else {
-        cache_entry *prev = data->hashtable[hash_index];
+        bcache_entry *prev = data->hashtable[hash_index];
         while (prev != NULL) {
             if (prev->hash_next == oldest) {
                 prev->hash_next = oldest->hash_next;
@@ -147,9 +147,9 @@ static inline int cache_evict_least_recently_used(cache_data *data, cache_entry 
     return OK;
 }
 
-static inline cache_entry *cache_find_entry_from_hashtable(cache_data *data, uint32_t block_no) {
-    int index = cache_hashkey(block_no);
-    cache_entry *entry = data->hashtable[index];
+static inline bcache_entry *bcache_find_entry_from_hashtable(bcache_data *data, uint32_t block_no) {
+    int index = bcache_hashkey(block_no);
+    bcache_entry *entry = data->hashtable[index];
     if (entry == NULL)
         return NULL; // not found
 
@@ -162,7 +162,7 @@ static inline cache_entry *cache_find_entry_from_hashtable(cache_data *data, uin
     return NULL; // not found
 }
 
-static inline int cache_add_entry_to_lists(cache_data *data, cache_entry *entry) {
+static inline int bcache_add_entry_to_lists(bcache_data *data, bcache_entry *entry) {
     // add to head of the LRU list
     if (data->lru_list_newest == NULL) {
         // there are no nodes so far
@@ -179,14 +179,14 @@ static inline int cache_add_entry_to_lists(cache_data *data, cache_entry *entry)
     }
 
     // add to the hashtable list head
-    int index = cache_hashkey(entry->block_no);
+    int index = bcache_hashkey(entry->block_no);
     entry->hash_next = data->hashtable[index];
     data->hashtable[index] = entry;
 
     return OK;
 }
 
-static int cache_find_unused_slot(cache_data *data, cache_entry **entry) {
+static int bcache_find_unused_slot(bcache_data *data, bcache_entry **entry) {
     if (data->entries_used >= CACHE_SLOTS)
         return ERR_RESOURCES_EXHAUSTED;
     
@@ -201,31 +201,31 @@ static int cache_find_unused_slot(cache_data *data, cache_entry **entry) {
     return ERR_RESOURCES_EXHAUSTED;
 }
 
-static int cached_io_operation(cache_data *data, int operation, uint32_t block_no, uint32_t block_offset, void *buffer, int length) {
+static int bcached_io_operation(bcache_data *data, int operation, uint32_t block_no, uint32_t block_offset, void *buffer, int length) {
     int err;
 
-    cache_entry *entry = cache_find_entry_from_hashtable(data, block_no);
+    bcache_entry *entry = bcache_find_entry_from_hashtable(data, block_no);
     if (entry != NULL) {
-        cache_promote_recently_used_entry(data, entry);
+        bcache_promote_recently_used_entry(data, entry);
     } else {
         if (data->entries_used >= CACHE_SLOTS) {
-            err = cache_evict_least_recently_used(data, &entry);
+            err = bcache_evict_least_recently_used(data, &entry);
             if (err != OK) return err;
         } else {
-            err = cache_find_unused_slot(data, &entry);
+            err = bcache_find_unused_slot(data, &entry);
             if (err != OK) return err;
         }
 
         entry->is_used = 1;
         data->entries_used++;
         
-        err = cache_load_block_raw(data, block_no, entry->data_ptr);
+        err = bcache_load_block_raw(data, block_no, entry->data_ptr);
         if (err != OK) return err;
 
         entry->block_no = block_no;
         entry->is_dirty = 0;
 
-        cache_add_entry_to_lists(data, entry);
+        bcache_add_entry_to_lists(data, entry);
     }
 
     // stay within bounds
@@ -251,27 +251,27 @@ static int cached_io_operation(cache_data *data, int operation, uint32_t block_n
     return OK;
 }
 
-static inline int cached_read(cache_data *data, uint32_t block_no, uint32_t block_offset, void *buffer, int length) {
-    return cached_io_operation(data, CACHE_OP_READ, block_no, block_offset, buffer, length);
+static inline int bcache_read(bcache_data *data, uint32_t block_no, uint32_t block_offset, void *buffer, int length) {
+    return bcached_io_operation(data, CACHE_OP_READ, block_no, block_offset, buffer, length);
 }
 
-static inline int cached_write(cache_data *data, uint32_t block_no, uint32_t block_offset, void *buffer, int length) {
-    return cached_io_operation(data, CACHE_OP_WRITE, block_no, block_offset, buffer, length);
+static inline int bcache_write(bcache_data *data, uint32_t block_no, uint32_t block_offset, void *buffer, int length) {
+    return bcached_io_operation(data, CACHE_OP_WRITE, block_no, block_offset, buffer, length);
 }
 
-static inline int cached_wipe(cache_data *data, uint32_t block_no) {
-    return cached_io_operation(data, CACHE_OP_WIPE, block_no, 0, NULL, data->block_size);
+static inline int bcache_wipe(bcache_data *data, uint32_t block_no) {
+    return bcached_io_operation(data, CACHE_OP_WIPE, block_no, 0, NULL, data->block_size);
 }
 
-static inline int cache_flush(cache_data *data) {
+static inline int bcache_flush(bcache_data *data) {
     int err;
 
     for (int i = 0; i < CACHE_SLOTS; i++) {
-        cache_entry *entry = &data->entries_arr[i];
+        bcache_entry *entry = &data->entries_arr[i];
         if (!entry->is_used || !entry->is_dirty)
             continue;
 
-        err = cache_save_block_raw(data, entry->block_no, entry->data_ptr);
+        err = bcache_save_block_raw(data, entry->block_no, entry->data_ptr);
         if (err != OK) return err;
         entry->is_dirty = 0;
     }
@@ -279,13 +279,13 @@ static inline int cache_flush(cache_data *data) {
     return OK;
 }
 
-static inline void cache_release_memory(cache_data *data) {
+static inline void bcache_release_memory(bcache_data *data) {
     data->memory->release(data->memory, data->big_data_buffer);
     data->memory->release(data->memory, data);
 }
 
-static void cache_dump_debug_info(cache_data *data) {
-    cache_entry *e;
+static void bcache_dump_debug_info(bcache_data *data) {
+    bcache_entry *e;
 
     int entries_used = 0;
     int entries_dirty = 0;

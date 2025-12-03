@@ -53,7 +53,7 @@ static inline int initialize_range_by_allocating_block(mounted_data *mt, block_r
     if (err != OK) return err;
 
     mark_block_used(mt, new_block_no);
-    cached_wipe(mt->cache, new_block_no);
+    bcache_wipe(mt->cache, new_block_no);
     range->first_block_no = new_block_no;
     range->blocks_count = 1;
     *block_no = new_block_no;
@@ -67,7 +67,7 @@ static inline int extend_range_by_allocating_block(mounted_data *mt, block_range
 
     // so that block is free, we can use it.
     mark_block_used(mt, next_block_no);
-    cached_wipe(mt->cache, next_block_no);
+    bcache_wipe(mt->cache, next_block_no);
     range->blocks_count++;
     *block_no = next_block_no;
     return OK;

@@ -48,15 +48,15 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
         mark_block_used(mt, sb->blocks_bitmap_first_block + i);
 
     // we can start writing, let's grab a cache
-    mt->cache = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
+    mt->cache = initialize_block_cache(data->memory, data->device, sb->block_size_in_bytes);
 
-    err = cached_write(mt->cache, 0, 0, sb, sizeof(stored_superblock));
+    err = bcache_write(mt->cache, 0, 0, sb, sizeof(stored_superblock));
     if (err != OK) return err;
     err = used_blocks_bitmap_save(mt);
     if (err != OK) return err;
 
     // persist everything and we're done
-    err = cache_flush(mt->cache);
+    err = bcache_flush(mt->cache);
     if (err != OK) return err;
 
     return OK;
@@ -91,7 +91,7 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     mt->readonly = readonly;
     mt->superblock = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     mt->used_blocks_bitmap = data->memory->allocate(data->memory, sb->blocks_bitmap_blocks_count * sb->block_size_in_bytes);
-    mt->cache = initialize_cache(data->memory, data->device, sb->block_size_in_bytes);
+    mt->cache = initialize_block_cache(data->memory, data->device, sb->block_size_in_bytes);
     mt->generic_block_buffer = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     mt->clock = data->clock;
     data->mounted = mt;
@@ -100,7 +100,7 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     data->memory->release(data->memory, temp_sector);
 
     // cache can now read the main blocks
-    err = cached_read(mt->cache, 0, 0, mt->superblock, sizeof(stored_superblock));
+    err = bcache_read(mt->cache, 0, 0, mt->superblock, sizeof(stored_superblock));
     if (err != OK) return err;
     err = used_blocks_bitmap_load(mt);
     if (err != OK) return err;
@@ -124,11 +124,11 @@ static int sfs_sync(simple_filesystem *sfs) {
         return ERR_NOT_PERMITTED;
 
     // save open inodes to superblock or to inodes db
-    err = inode_cache_flush_all(mt);
+    err = icache_flush_all(mt);
     if (err != OK) return err;
 
     // write superblock to cache
-    err = cached_write(mt->cache, 0, 0, mt->superblock, sizeof(stored_superblock));
+    err = bcache_write(mt->cache, 0, 0, mt->superblock, sizeof(stored_superblock));
     if (err != OK) return err;
 
     // write used blocks bitmap to disk (blocks 1+)
@@ -136,7 +136,7 @@ static int sfs_sync(simple_filesystem *sfs) {
     if (err != OK) return err;
 
     // flush all caches (includes SB, bitmap, inodesdb, root dir, file blocks)
-    err = cache_flush(data->mounted->cache);
+    err = bcache_flush(data->mounted->cache);
     if (err != OK) return err;
 
     return OK;
@@ -152,7 +152,7 @@ static int sfs_unmount(simple_filesystem *sfs) {
         if (err != OK) return err;
     }
 
-    cache_release_memory(data->mounted->cache);
+    bcache_release_memory(data->mounted->cache);
     data->memory->release(data->memory, data->mounted->superblock);
     data->memory->release(data->memory, data->mounted->used_blocks_bitmap);
     data->memory->release(data->memory, data->mounted->generic_block_buffer);
@@ -174,7 +174,7 @@ static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_han
     cached_inode *node;
     err = resolve_path_to_inode(mt, filename, &node);
     if (err != OK) return err;
-    if (!node->inode_in_mem.is_file)
+    if (!node->inode.is_file)
         return ERR_WRONG_TYPE;
 
     // get open file handle, open inode if needed
@@ -253,12 +253,12 @@ static int sfs_seek(simple_filesystem *sfs, sfs_handle *h, int offset, int origi
     if (handle == NULL || handle->inode == NULL || !handle->is_used)
         return ERR_INVALID_ARGUMENT;
 
-    // if sizes are more than what ints can support, this function is erroneous / dangerous / useless
-    if (handle->file_position >= 0x7FFFFFFF || handle->inode->inode_in_mem.file_size >= 0x7FFFFFFF)
+    // if sizes are more than what signed "int"s can support, this function is erroneous / dangerous / useless
+    if (handle->file_position >= 0x7FFFFFFF || handle->inode->inode.file_size >= 0x7FFFFFFF)
         return ERR_NOT_SUPPORTED;
     
     int pos = (int)handle->file_position;
-    int size = (int)handle->inode->inode_in_mem.file_size;
+    int size = (int)handle->inode->inode.file_size;
     int remain = size - pos;
 
     if (origin == 0) {
@@ -307,7 +307,7 @@ static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_
     cached_inode *node;
     err = resolve_path_to_inode(mt, path, &node);
     if (err != OK) return err;
-    if (!node->inode_in_mem.is_dir)
+    if (!node->inode.is_dir)
         return ERR_WRONG_TYPE;
 
     // get open file handle, open inode if needed
@@ -329,10 +329,10 @@ static int sfs_read_dir(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *en
     // we have the handle->curr_position, let's make it read dir entries
     // that's it.
     open_handle *handle = (open_handle *)h;
-    if (handle == NULL || handle->inode == NULL || !handle->is_used || !handle->inode->inode_in_mem.is_dir)
+    if (handle == NULL || handle->inode == NULL || !handle->is_used || !handle->inode->inode.is_dir)
         return ERR_INVALID_ARGUMENT;
     
-    if (handle->file_position >= handle->inode->inode_in_mem.file_size)
+    if (handle->file_position >= handle->inode->inode.file_size)
         return ERR_END_OF_FILE;
 
     // else read, populate, advance file position.
@@ -380,10 +380,10 @@ static int sfs_stat(simple_filesystem *sfs, char *path, sfs_stat_info *info) {
     if (err != OK) return err;
 
     info->inode_id = node->inode_id;
-    info->file_size = node->inode_in_mem.file_size;
-    info->type = node->inode_in_mem.is_file ? 1 : node->inode_in_mem.is_dir ? 2 : 0;
-    info->blocks = node->inode_in_mem.allocated_blocks;
-    info->modified_at = node->inode_in_mem.modified_at;
+    info->file_size = node->inode.file_size;
+    info->type = node->inode.is_file ? 1 : node->inode.is_dir ? 2 : 0;
+    info->blocks = node->inode.allocated_blocks;
+    info->modified_at = node->inode.modified_at;
     return OK;
 }
 
@@ -407,17 +407,17 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
         return ERR_INVALID_ARGUMENT;
 
     // see if name exists in the directory
-    err = dir_entry_ensure_missing(mt, parent, desired_name);
+    err = dir_ensure_entry_is_missing(mt, parent, desired_name);
     if (err != OK) return err;
 
     // now we should be able to create a file / dir
-    stored_inode new_inode;
+    stored_inode new_inode = inode_prepare(mt->clock, is_dir);
     uint32_t new_inode_id;
-    err = inode_allocate(mt, is_dir, &new_inode, &new_inode_id);
+    err = inode_db_append(mt, &new_inode, &new_inode_id);
     if (err != OK) return err;
 
     // add this entry
-    err = dir_entry_append(mt, parent, desired_name, new_inode_id);
+    err = dir_append_entry(mt, parent, desired_name, new_inode_id);
     if (err != OK) return err;
 
     // if we added a directory, we need to add the "." and the ".." as well.
@@ -425,9 +425,9 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
         cached_inode *new_dir;
         err = get_cached_inode(mt, new_inode_id, &new_dir);
         if (err != OK) return err;
-        err = dir_entry_append(mt, new_dir, ".", new_inode_id);
+        err = dir_append_entry(mt, new_dir, ".", new_inode_id);
         if (err != OK) return err;
-        err = dir_entry_append(mt, new_dir, "..", parent->inode_id);
+        err = dir_append_entry(mt, new_dir, "..", parent->inode_id);
         if (err != OK) return err;
     }
 
@@ -447,9 +447,9 @@ static int sfs_truncate(simple_filesystem *sfs, char *path) {
     cached_inode *node;
     err = resolve_path_to_inode(mt, path, &node);
     if (err != OK) return err;
-    if (!node->inode_in_mem.is_file) return ERR_WRONG_TYPE;
+    if (!node->inode.is_file) return ERR_WRONG_TYPE;
 
-    if (node->inode_in_mem.file_size == 0)
+    if (node->inode.file_size == 0)
         return OK;
     
     // load this inode, truncate, remove it
@@ -476,11 +476,11 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     // see if name exists in the directory
     uint32_t doomed_inode_id;
     uint32_t direntry_rec_no;
-    err = dir_entry_find(mt, node, path_get_last_part(path), &doomed_inode_id, &direntry_rec_no);
+    err = dir_find_entry_by_name(mt, node, path_get_last_part(path), &doomed_inode_id, &direntry_rec_no);
     if (err != OK) return err;
 
     // now we can unlink this (e.g. nullify dir entry)
-    err = dir_entry_delete(mt, node, direntry_rec_no);
+    err = dir_delete_entry(mt, node, direntry_rec_no);
     if (err != OK) return err;
 
     // load this inode, truncate, remove it, invalidate cache
@@ -489,9 +489,9 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
     if (err != OK) return err;
     err = inode_truncate_file_bytes(mt, doomed);
     if (err != OK) return err;
-    err = inode_delete(mt, doomed_inode_id);
+    err = inode_db_delete(mt, doomed_inode_id);
     if (err != OK) return err;
-    err = inode_cache_invalidate_inode(mt, doomed_inode_id);
+    err = icache_invalidate_inode(mt, doomed_inode_id);
     if (err != OK) return err;
 
     return OK;
@@ -514,7 +514,7 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     // see if name exists in the directory
     uint32_t file_inode_id;
     uint32_t old_entry_no;
-    err = dir_entry_find(mt, old_parent, path_get_last_part(oldpath), &file_inode_id, &old_entry_no);
+    err = dir_find_entry_by_name(mt, old_parent, path_get_last_part(oldpath), &file_inode_id, &old_entry_no);
     if (err != OK) return err;
 
     // find new containing dir
@@ -525,20 +525,20 @@ static int sfs_rename(simple_filesystem *sfs, char *oldpath, char *newpath) {
     const char *new_filename = path_get_last_part(newpath);
 
     // see if name exists in the directory
-    err = dir_entry_ensure_missing(mt, new_parent, new_filename);
+    err = dir_ensure_entry_is_missing(mt, new_parent, new_filename);
     if (err != OK) return err;
 
     // if same directory, avoid keeping two copies of the inode in memory
     if (old_parent->inode_id == new_parent->inode_id) {
         // we'll update the entry in place
-        err = dir_entry_update(mt, old_parent, old_entry_no, new_filename, file_inode_id);
+        err = dir_update_entry(mt, old_parent, old_entry_no, new_filename, file_inode_id);
         if (err != OK) return err;
 
     } else {
         // create entry in the new directory, remove from old
-        err = dir_entry_append(mt, new_parent, new_filename, file_inode_id);
+        err = dir_append_entry(mt, new_parent, new_filename, file_inode_id);
         if (err != OK) return err;
-        err = dir_entry_delete(mt, old_parent, old_entry_no);
+        err = dir_delete_entry(mt, old_parent, old_entry_no);
         if (err != OK) return err;
     }
 
@@ -556,7 +556,7 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
         printf("---------------------- %s ----------------------\n", title);
     
     printf("Mounted     [RO:%d]\n", mt->readonly);
-    cache_dump_debug_info(mt->cache);
+    bcache_dump_debug_info(mt->cache);
     superblock_dump_debug_info(mt->superblock);
     bitmap_dump_debug_info(mt);
     printf("Root directory\n");
@@ -566,7 +566,7 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     if (err != OK) return;
 
     dir_dump_debug_info(mt, root, 1);
-    inode_cache_dump_debug_info(mt);
+    icache_dump_debug_info(mt);
     opened_files_dump_debug_info(mt);
 
     // data->device->dump_debug_info(data->device, "");
@@ -576,23 +576,6 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
 // ------------------------------------------------------------------
 
 simple_filesystem *new_simple_filesystem(mem_allocator *memory, sector_device *device, clock_device *clock) {
-
-    if (sizeof(block_range) != 6) { // written on disk, in the indirect blocks
-        printf("sizeof(block_range): %ld\n", sizeof(block_range));
-        exit(1);
-    }
-    if (sizeof(stored_inode) != 64) { // written on disk, must be same size
-        printf("sizeof(inode): %ld\n", sizeof(stored_inode));
-        exit(1);
-    }
-    if (sizeof(stored_dir_entry) != 64) { // written on disk, must be same size
-        printf("sizeof(direntry): %ld\n", sizeof(stored_dir_entry));
-        exit(1);
-    }
-    if (sizeof(stored_superblock) != 512) { // must be able to load in a single 512B sector
-        printf("sizeof(superblock): %ld\n", sizeof(stored_superblock));
-        exit(1);
-    }
 
     filesys_data *sfs_data = memory->allocate(memory, sizeof(filesys_data));
     sfs_data->memory = memory;

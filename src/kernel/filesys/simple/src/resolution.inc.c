@@ -41,7 +41,7 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
 
         // look up the chunk in the current directory
         uint32_t entry_inode_id;
-        err = dir_entry_find(mt, cached_dir, part_name, &entry_inode_id, NULL);
+        err = dir_find_entry_by_name(mt, cached_dir, part_name, &entry_inode_id, NULL);
         if (err != OK) return err;
 
         // load so we can return it, or use it.
@@ -54,7 +54,7 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
         }
 
         // otherwise, recurse into this directory -- ensure it's a directory
-        if (!cached_entry->inode_in_mem.is_dir)
+        if (!cached_entry->inode.is_dir)
             return ERR_WRONG_TYPE;
         cached_dir = cached_entry;
     }
