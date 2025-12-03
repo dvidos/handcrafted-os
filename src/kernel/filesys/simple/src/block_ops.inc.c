@@ -155,14 +155,15 @@ static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32
             1, &use_indirect_block, 
             absolute_block_no);
         if (err == OK && !use_indirect_block) {
+            // we managed to allocate
             node->inode.allocated_blocks++;
             return OK;
         }
+        
+        // so either we failed, or we need the indirect block
+        if (!use_indirect_block)
+            return ERR_RESOURCES_EXHAUSTED;
     }
-    
-    // so either we failed, or we need the indirect block
-    if (!use_indirect_block)
-        return ERR_RESOURCES_EXHAUSTED;
     
     // if block not available, allocate one
     if (node->inode.indirect_ranges_block_no == 0) {

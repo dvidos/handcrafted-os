@@ -53,7 +53,9 @@ static inline int initialize_range_by_allocating_block(mounted_data *mt, block_r
     if (err != OK) return err;
 
     mark_block_used(mt, new_block_no);
-    bcache_wipe(mt->cache, new_block_no);
+    err = bcache_wipe(mt->cache, new_block_no);
+    if (err != OK) return err;
+
     range->first_block_no = new_block_no;
     range->blocks_count = 1;
     *block_no = new_block_no;
@@ -62,12 +64,17 @@ static inline int initialize_range_by_allocating_block(mounted_data *mt, block_r
 
 static inline int extend_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no) {
     uint32_t next_block_no = range_last_block_no(range) + 1;
+    if (next_block_no >= mt->superblock->blocks_in_device)
+        return ERR_RESOURCES_EXHAUSTED;
+
     if (!is_block_free(mt, next_block_no))
         return ERR_NOT_SUPPORTED;
 
     // so that block is free, we can use it.
     mark_block_used(mt, next_block_no);
-    bcache_wipe(mt->cache, next_block_no);
+    int err = bcache_wipe(mt->cache, next_block_no);
+    if (err != OK) return err;
+
     range->blocks_count++;
     *block_no = next_block_no;
     return OK;

@@ -267,8 +267,8 @@ static int inode_db_delete(mounted_data *mt, uint32_t inode_id) {
     return OK;
 }
 
-static void inode_dump_debug_info(const char *title, stored_inode *n) {
-    printf("%s [U:%d, F:%d, D:%d, FileSz=%d, AlocBlks=%d, Ranges=(%d:%d,%d:%d,%d:%d,%d:%d,%d:%d,%d:%d), Indirect=%d]\n", 
+static void inode_dump_debug_info(mounted_data *mt, const char *title, stored_inode *n) {
+    printf("%s [U:%d, F:%d, D:%d, FileSz=%d, AlocBlks=%d, Ranges=(%d:%d,%d:%d,%d:%d,%d:%d,%d:%d,%d:%d), Indirect=%d", 
         title,
         n->is_used,
         n->is_file,
@@ -283,5 +283,21 @@ static void inode_dump_debug_info(const char *title, stored_inode *n) {
         n->ranges[5].first_block_no, n->ranges[5].blocks_count,
         n->indirect_ranges_block_no
     );
+
+    if (n->indirect_ranges_block_no != 0) {
+        printf("=(");
+        int err = bcache_read(mt->cache, n->indirect_ranges_block_no, 0, mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
+        if (err == OK) {
+            int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
+            for (int i = 0; i < ranges_in_block; i++) {
+                block_range *r = (block_range *)(mt->generic_block_buffer + i * sizeof(block_range));
+                printf("%d:%d, ", r->first_block_no, r->blocks_count);
+                if (i % 20 == 0) printf("\n%*s", 30, "");
+            }
+        }
+        printf(")");
+    }
+
+    printf("]\n");
 }
 

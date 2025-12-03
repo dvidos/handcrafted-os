@@ -249,7 +249,7 @@ static int inode_db_load(mounted_data *mt, uint32_t inode_id, stored_inode *node
 static int inode_db_append(mounted_data *mt, stored_inode *node, uint32_t *inode_id);
 static int inode_db_update(mounted_data *mt, uint32_t inode_id, stored_inode *node);
 static int inode_db_delete(mounted_data *mt, uint32_t inode_id);
-static void inode_dump_debug_info(const char *title, stored_inode *n);
+static void inode_dump_debug_info(mounted_data *mt, const char *title, stored_inode *n);
 
 // inode_cache.inc.c
 static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr);

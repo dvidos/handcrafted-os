@@ -105,13 +105,13 @@ static void dir_dump_debug_info(mounted_data *mt, cached_inode *dir_inode, int d
             cached_inode *cached;
             err = get_cached_inode(mt, entry.inode_id, &cached);
             if (err != OK) break;
-            inode_dump_debug_info("", &cached->inode);
+            inode_dump_debug_info(mt, "", &cached->inode);
 
         } else {
             stored_inode stored_node;
             err = inode_db_load(mt, entry.inode_id, &stored_node);
             if (err != OK) break;
-            inode_dump_debug_info("", &stored_node);
+            inode_dump_debug_info(mt, "", &stored_node);
         }
 
     }

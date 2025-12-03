@@ -96,7 +96,7 @@ static void icache_dump_debug_info(mounted_data *mt) {
         if (mt->cached_inodes[i].is_used)
             used_inodes++;
     
-    printf("Open inodes (%d total, %d used)\n", MAX_OPEN_INODES, used_inodes);
+    printf("inodes cache (%d total slots, %d used)\n", MAX_OPEN_INODES, used_inodes);
     for (int i = 0; i < MAX_OPEN_INODES; i++) {
         cached_inode *n = &mt->cached_inodes[i];
         if (!n->is_used)
@@ -110,7 +110,7 @@ static void icache_dump_debug_info(mounted_data *mt) {
             sprintf(node_name, "%u", n->inode_id);
         
         printf("    [%d]  id:%-10s  dirty:%d  refs:%u -> ", i, node_name, n->is_dirty, n->ref_count);
-        inode_dump_debug_info("", &n->inode);
+        inode_dump_debug_info(mt, "", &n->inode);
     }
 }
 

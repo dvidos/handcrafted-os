@@ -89,6 +89,4 @@ static void superblock_dump_debug_info(stored_superblock *sb) {
         sb->blocks_in_device,
         sb->volume_label
     );
-    inode_dump_debug_info("    Inodes DB inode", &sb->inodes_db_inode);
-    inode_dump_debug_info("    Root Dir  inode", &sb->root_dir_inode);
 }
