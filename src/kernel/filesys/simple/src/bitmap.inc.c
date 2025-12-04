@@ -1,95 +1,121 @@
 #include "internal.h"
 
-static int used_blocks_bitmap_load(mounted_data *mt) {
-    stored_superblock *sb = mt->superblock;
+typedef struct block_bitmap block_bitmap;
 
-    for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++) {
-        int err = bcache_read(mt->cache, sb->blocks_bitmap_first_block + i, 
-            0,
-            mt->used_blocks_bitmap + (sb->block_size_in_bytes * i), 
-            sb->block_size_in_bytes
-        );
+
+struct block_bitmap {
+    uint32_t blocks_in_device;
+    uint32_t block_size;
+    uint32_t storage_first_block_no;
+    uint32_t size_in_blocks;
+    uint32_t size_in_bytes;
+    uint32_t next_free_block_hint;
+    uint8_t *buffer;
+
+};
+
+static block_bitmap *initialize_block_bitmap(mem_allocator *mem, uint32_t storage_first_block, uint32_t bitmap_size_in_blocks, uint32_t blocks_in_device, uint32_t block_size) {
+    // we have to be able to fit the bitmap in the dictated space
+    if (ceiling_division(blocks_in_device, 8) > (bitmap_size_in_blocks * block_size))
+        return NULL;
+
+    block_bitmap *bitmap = mem->allocate(mem, sizeof(block_bitmap));
+    memset(bitmap, 0, sizeof(block_bitmap));
+
+    bitmap->blocks_in_device = blocks_in_device;
+    bitmap->block_size = block_size;
+    bitmap->storage_first_block_no = storage_first_block;
+    bitmap->size_in_blocks = bitmap_size_in_blocks;
+    bitmap->size_in_bytes = bitmap_size_in_blocks * block_size; // to cover full blocks, not to cover needed bits only
+    bitmap->next_free_block_hint = 0;
+    bitmap->buffer = mem->allocate(mem, bitmap->size_in_bytes);
+    memset(bitmap->buffer, 0, bitmap->size_in_bytes);
+
+    return bitmap;
+}
+
+static int bitmap_load(block_bitmap *bitmap, block_cache *cache) {
+    for (int i = 0; i < bitmap->size_in_blocks; i++) {
+        int err = bcache_read(cache, bitmap->storage_first_block_no + i, 0, bitmap->buffer + (bitmap->block_size * i), bitmap->block_size);
         if (err != OK) return err;
     }
-
     return OK;
 }
 
-static int used_blocks_bitmap_save(mounted_data *mt) {
-    stored_superblock *sb = mt->superblock;
-
-    for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++) {
-        int err = bcache_write(mt->cache, sb->blocks_bitmap_first_block + i, 
-            0,
-            mt->used_blocks_bitmap + (sb->block_size_in_bytes * i), 
-            sb->block_size_in_bytes
-        );
+static int bitmap_save(block_bitmap *bitmap, block_cache *cache) {
+    for (int i = 0; i < bitmap->size_in_blocks; i++) {
+        int err = bcache_write(cache, bitmap->storage_first_block_no + i, 0, bitmap->buffer + (bitmap->block_size * i), bitmap->block_size);
         if (err != OK) return err;
     }
-
     return OK;
 }
 
-static inline int is_block_used(mounted_data *mt, uint32_t block_no) {
-    return (mt->used_blocks_bitmap[block_no / 8] & (1 << (block_no % 8))) != 0;
+static int bitmap_is_block_used(block_bitmap *bitmap, uint32_t block_no) {
+    if (block_no >= bitmap->blocks_in_device) return 0;
+    return (bitmap->buffer[block_no / 8] & (1 << (block_no % 8))) != 0;
 }
 
-static inline int is_block_free(mounted_data *mt, uint32_t block_no) {
-    return (mt->used_blocks_bitmap[block_no / 8] & (1 << (block_no % 8))) == 0;
+static int bitmap_is_block_free(block_bitmap *bitmap, uint32_t block_no) {
+    if (block_no >= bitmap->blocks_in_device) return 0;
+    return (bitmap->buffer[block_no / 8] & (1 << (block_no % 8))) == 0;
 }
 
-static inline void mark_block_used(mounted_data *mt, uint32_t block_no) {
-    mt->used_blocks_bitmap[block_no / 8] |= (1 << (block_no % 8));
+static inline void bitmap_mark_block_used(block_bitmap *bitmap, uint32_t block_no) {
+    if (block_no >= bitmap->blocks_in_device) return;
+    bitmap->buffer[block_no / 8] |= (1 << (block_no % 8));
 }
 
-static inline void mark_all_blocks_free(mounted_data *mt) {
-    int bytes = mt->superblock->blocks_bitmap_blocks_count * mt->superblock->block_size_in_bytes;
-    memset(mt->used_blocks_bitmap, 0, bytes);
+static inline void bitmap_mark_block_free(block_bitmap *bitmap, uint32_t block_no) {
+    if (block_no >= bitmap->blocks_in_device) return;
+    bitmap->buffer[block_no / 8] &= ~(1 << (block_no % 8));
 }
 
-static inline void mark_block_free(mounted_data *mt, uint32_t block_no) {
-    mt->used_blocks_bitmap[block_no / 8] &= ~(1 << (block_no % 8));
-}
+static int bitmap_find_free_block(block_bitmap *bitmap, uint32_t *block_no) {
+    int meaningful_bytes = ceiling_division(bitmap->blocks_in_device, 8);
+    int byte_no = bitmap->next_free_block_hint / 8;
 
-static int find_next_free_block(mounted_data *mt, uint32_t *block_no) {
-    // despite nested, this is quite fast
-    int total_bytes = ceiling_division(mt->superblock->blocks_in_device, 8);
-    int byte = (mt->next_free_block_check / 8) % total_bytes;
-
-    for (int i = 0; i < total_bytes; i++) {
-        uint8_t byte_value = mt->used_blocks_bitmap[byte];
-        if (byte_value != 0xFF) {
-
-            for (int bit = 0; bit < 8; bit++) {
-                uint32_t candidate = (byte * 8) + bit;
-                if (candidate >= mt->superblock->blocks_in_device)
-                    break; // no more bits in this byte
-                if (byte_value & (1 << bit))
-                    continue;
-                
-                // we found a free bit
-                *block_no = candidate;
-                mt->next_free_block_check = candidate + 1;
-                return OK;
-            }
+    for (int attempt = 0; attempt < meaningful_bytes; attempt++) {
+        uint8_t byte_value = bitmap->buffer[byte_no];
+        if (byte_value == 0xFF) {
+            byte_no = (byte_no + 1) % meaningful_bytes;
+            continue;
         }
 
-        // continue, or wrap around
-        byte = (byte + 1) % total_bytes;
+        // we found a byte that is not all used
+        for (int bit_no = 0; bit_no < 8; bit_no++) {
+            uint32_t candidate = byte_no * 8 + bit_no;
+
+            if (candidate >= bitmap->blocks_in_device)
+                break; // last byte may have less than 8 bits, continue from start
+            if (byte_value & (1 << bit_no))
+                continue; // this bit is allocated
+
+            // we found a free bit, within the block count
+            *block_no = candidate;
+            bitmap->next_free_block_hint = (candidate + 1) % bitmap->blocks_in_device;
+            return OK;
+        }
+
+        // maybe the inner bits loop was unsuccesful
+        byte_no = (byte_no + 1) % meaningful_bytes;
     }
 
     return ERR_RESOURCES_EXHAUSTED;
 }
 
-static void bitmap_dump_debug_info(mounted_data *mt) {
-    char bmp[100];
-    memset(bmp, 0, sizeof(bmp));
+static void bitmap_release_memory(block_bitmap *bitmap, mem_allocator *mem) {
+    mem->release(mem, bitmap->buffer);
+    mem->release(mem, bitmap);
+}
+static void bitmap_dump_debug_info(block_bitmap *bitmap) {
+    char buff[100];
+    memset(buff, 0, sizeof(buff));
 
     for (int i = 0; i < 64; i++)
-        bmp[i] = is_block_used(mt, i) ? '1' : '.';
-    strcpy(bmp + 64, "...");
+        buff[i] = bitmap_is_block_used(bitmap, i) ? '1' : '.';
+    strcpy(buff + 64, "...");
 
     printf("Used blocks btmp           1         2         3         4         5         6   \n");
     printf("                 0123456789012345678901234567890123456789012345678901234567890123...\n");
-    printf("                 %s\n", bmp);
+    printf("                 %s\n", buff);
 }

@@ -103,6 +103,7 @@ sector_device *new_mem_based_sector_device(int sector_size, uint32_t sector_coun
     sdd->sector_size = sector_size;
     sdd->sector_count = sector_count;
     sdd->data = malloc(sector_size * sector_count);
+    memset(sdd->data, 0xFF, sector_size * sector_count);
 
     sector_device *d = malloc(sizeof(sector_device));
     d->device_data = sdd;

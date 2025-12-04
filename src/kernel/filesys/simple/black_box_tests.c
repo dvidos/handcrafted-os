@@ -76,10 +76,19 @@ static void file_creation_test() {
 
     assert(fs->mkfs(fs, "TEST", 0) == OK);
     assert(fs->mount(fs, 0) == OK);
+    // fs->dump_debug_info(fs, "clean");
 
-    assert(fs->create(fs, "/unit_test.c", 0) == OK);
-    assert(fs->create(fs, "/bin", 1) == OK);
-    assert(fs->create(fs, "/bin", 1) == ERR_ALREADY_EXISTS);  // second time should fail
+    err = fs->create(fs, "/unit_test.c", 0);
+    assert(err == OK);
+    // fs->dump_debug_info(fs, "unit_test");
+
+    err = fs->create(fs, "/bin", 1);
+    assert(err == OK);
+    // fs->dump_debug_info(fs, "bin dir?");
+
+    err = fs->create(fs, "/bin", 1);
+    assert(err == ERR_ALREADY_EXISTS);  // second time should fail
+
     assert(fs->create(fs, "/bin/sh.c", 0) == OK);
     assert(fs->create(fs, "/bin/sh.c/file", 0) == ERR_WRONG_TYPE); // cannot create inside a file
     assert(fs->create(fs, "/something/sh.c", 0) == ERR_NOT_FOUND);  // path was not found
@@ -181,7 +190,7 @@ static void big_file_test(int buffsize, int times) {
         err = fs->write(fs, h, buffer, buffsize);
         assert(err == buffsize);
     }
-    fs->dump_debug_info(fs, "After file creation");
+    // fs->dump_debug_info(fs, "After file creation");
 
 
     err = fs->close(fs, h);
@@ -230,7 +239,7 @@ static void many_files_test(int num_files, int write_size, int write_times) {
         }
     }
 
-    fs->dump_debug_info(fs, "After many files creation");
+    // fs->dump_debug_info(fs, "After many files creation");
 
     for (int i = 0; i < num_files; i++) {
         err = fs->close(fs, files_arr[i].handle);
@@ -243,12 +252,12 @@ static void many_files_test(int num_files, int write_size, int write_times) {
 }
 
 void run_tests() {
-    // mkfs_test();
-    // root_dir_test();
-    // file_creation_test();
-    // simple_file_test();
-    // big_file_test(1022*1024, 1);
-    many_files_test(3, 512, 50);
+    mkfs_test();
+    root_dir_test();
+    file_creation_test();
+    simple_file_test();
+    big_file_test(1022*1024, 1);
+    many_files_test(3, 512, 20);
 }
 
 

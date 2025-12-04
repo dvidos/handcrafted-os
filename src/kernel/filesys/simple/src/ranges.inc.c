@@ -49,10 +49,10 @@ static inline void find_last_used_and_first_free_range(const block_range *ranges
 
 static inline int initialize_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no) {
     uint32_t new_block_no = 0;
-    int err = find_next_free_block(mt, &new_block_no);
+    int err = bitmap_find_free_block(mt->bitmap, &new_block_no);
     if (err != OK) return err;
 
-    mark_block_used(mt, new_block_no);
+    bitmap_mark_block_used(mt->bitmap, new_block_no);
     err = bcache_wipe(mt->cache, new_block_no);
     if (err != OK) return err;
 
@@ -67,11 +67,11 @@ static inline int extend_range_by_allocating_block(mounted_data *mt, block_range
     if (next_block_no >= mt->superblock->blocks_in_device)
         return ERR_RESOURCES_EXHAUSTED;
 
-    if (!is_block_free(mt, next_block_no))
+    if (!bitmap_is_block_free(mt->bitmap, next_block_no))
         return ERR_NOT_SUPPORTED;
 
     // so that block is free, we can use it.
-    mark_block_used(mt, next_block_no);
+    bitmap_mark_block_used(mt->bitmap, next_block_no);
     int err = bcache_wipe(mt->cache, next_block_no);
     if (err != OK) return err;
 
@@ -85,7 +85,7 @@ static inline void range_array_release_blocks(mounted_data *mt, block_range *ran
         block_range *range = &ranges_array[r];
 
         for (int i = range->blocks_count - 1; i >= 0; i--)
-            mark_block_free(mt, range->first_block_no + i);
+            bitmap_mark_block_free(mt->bitmap, range->first_block_no + i);
 
         range->first_block_no = 0;
         range->blocks_count = 0;

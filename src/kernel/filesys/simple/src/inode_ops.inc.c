@@ -166,7 +166,7 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
         range_array_release_blocks(mt, (block_range *)mt->generic_block_buffer, ranges_in_block);
 
         // release indirect as well
-        mark_block_free(mt, n->inode.indirect_ranges_block_no);
+        bitmap_mark_block_free(mt->bitmap, n->inode.indirect_ranges_block_no);
         n->inode.indirect_ranges_block_no = 0;
     }
 
@@ -179,6 +179,143 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
     n->inode.file_size = 0;
     n->is_dirty = 1;
 
+    return OK;
+}
+
+// given an inode, it resolves the relative block index in the file, into the block_no on the disk
+static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
+    if (block_index_in_file >= node->inode.allocated_blocks)
+        return ERR_OUT_OF_BOUNDS;
+
+    // first, try the inline ranges
+    for (int i = 0; i < RANGES_IN_INODE; i++) {
+        if (is_range_empty(&node->inode.ranges[i]))
+            return ERR_OUT_OF_BOUNDS;
+        if (check_or_consume_blocks_in_range(&node->inode.ranges[i], &block_index_in_file, absolute_block_no))
+            return OK;
+    }
+
+    // if there is no extra ranges block, we cannot find it
+    if (node->inode.indirect_ranges_block_no == 0)
+        return ERR_OUT_OF_BOUNDS;
+    
+    int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
+    block_range range;
+    for (int i = 0; i < ranges_in_block; i++) {
+        int err = bcache_read(mt->cache, node->inode.indirect_ranges_block_no, sizeof(block_range) * i, (void *)&range, sizeof(block_range));
+        if (err != OK) return err;
+
+        if (is_range_empty(&range))
+            return ERR_OUT_OF_BOUNDS;
+        if (check_or_consume_blocks_in_range(&range, &block_index_in_file, absolute_block_no))
+            return OK;
+    }
+
+    // if here, we have exhausted all ranges, relative_block is outside of them all
+    // it means we need more ranges, or two-step ranges for bigger files. but... for another day.
+    return ERR_OUT_OF_BOUNDS;
+}
+
+// try to extend, allocate new, or fail to fallback
+static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no) {
+    int last_used_idx;
+    int first_free_idx;
+    int err;
+
+    // by default, we won't need to use the fallback.
+    *use_fallback = 0;
+
+    find_last_used_and_first_free_range(ranges_array, ranges_count, &last_used_idx, &first_free_idx);
+    if (first_free_idx >= 0) {
+
+        // if there is one already use, try to extend it.
+        if (last_used_idx >= 0) {
+            err = extend_range_by_allocating_block(mt, &ranges_array[last_used_idx], new_block_no);
+            // if successful, we are good
+            if (err == OK) return OK;
+        }
+
+        // there is nothing to extend, or we failed to extend. allocate the free one
+        err = initialize_range_by_allocating_block(mt, &ranges_array[first_free_idx], new_block_no);
+        if (err != OK) return err;
+
+        return OK;
+    }
+
+    // so, no free ranges are available, we may have an indirect block though
+    // only if there is one last used, and there is no indirect, there is a reason to try to extend
+    if (!fallback_available && last_used_idx >= 0) {
+        err = extend_range_by_allocating_block(mt, &ranges_array[last_used_idx], new_block_no);
+        // if successful, we are good
+        if (err == OK) return OK;
+    }
+
+    // there is no fallback, it's a clear failure
+    if (!fallback_available) {
+        use_fallback = 0;
+        return ERR_RESOURCES_EXHAUSTED;
+    }
+    
+    // in all other cases (including failing to extend), we need the indirect block
+    *use_fallback = 1;
+    return OK;
+}
+
+// allocate and add a data block at the end of a file, upate the ranges
+static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *absolute_block_no) {
+    int err;
+    int use_indirect_block;
+
+    // if there is indirect block, no point in extending the ranges
+    if (node->inode.indirect_ranges_block_no == 0) {
+        err = add_block_to_array_of_ranges(mt, 
+            node->inode.ranges, RANGES_IN_INODE, 
+            1, &use_indirect_block, 
+            absolute_block_no);
+        if (err == OK && !use_indirect_block) {
+            // we managed to allocate
+            node->inode.allocated_blocks++;
+            return OK;
+        }
+        
+        // so either we failed, or we need the indirect block
+        if (!use_indirect_block)
+            return ERR_RESOURCES_EXHAUSTED;
+    }
+    
+    // if block not available, allocate one
+    if (node->inode.indirect_ranges_block_no == 0) {
+        err = bitmap_find_free_block(mt->bitmap, &node->inode.indirect_ranges_block_no);
+        if (err != OK) return err;
+        bitmap_mark_block_used(mt->bitmap, node->inode.indirect_ranges_block_no);
+        err = bcache_wipe(mt->cache, node->inode.indirect_ranges_block_no);
+        if (err != OK) return err;
+    }
+
+    // read, so we can iterate on it.
+    err = bcache_read(mt->cache, 
+        node->inode.indirect_ranges_block_no, 0,
+        mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
+    if (err != OK) return err;
+
+    err = add_block_to_array_of_ranges(mt, 
+        (block_range *)mt->generic_block_buffer, 
+        mt->superblock->block_size_in_bytes / sizeof(block_range), 
+        0, // no fallback exists
+        &use_indirect_block, // actualy, we don't care
+        absolute_block_no);
+    if (err != OK) return err;
+
+    // write back the changes
+    err = bcache_write(mt->cache, 
+        node->inode.indirect_ranges_block_no, 0,
+        mt->generic_block_buffer,
+        mt->superblock->block_size_in_bytes);
+    if (err != OK) return err;
+
+    // finally! this was a lot!
+    node->inode.allocated_blocks++;
+    node->is_dirty = 1;
     return OK;
 }
 

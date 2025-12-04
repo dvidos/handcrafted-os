@@ -7,12 +7,12 @@
 
 // ------------------------------------------------------------------
 
+#include "block_ops.inc.c"
+#include "bitmap.inc.c"
 #include "path.inc.c"
 #include "superblock.inc.c"
-#include "bitmap.inc.c"
-#include "cache.inc.c"
+#include "block_cache.inc.c"
 #include "ranges.inc.c"
-#include "block_ops.inc.c"
 #include "inode_ops.inc.c"
 #include "inode_cache.inc.c"
 #include "opened_files.inc.c"
@@ -40,19 +40,25 @@ static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired
     // for blocks 1+, we need the bitmap
     mounted_data *mt = data->memory->allocate(data->memory, sizeof(mounted_data));
     mt->superblock = sb;
-    mt->used_blocks_bitmap = data->memory->allocate(data->memory, sb->blocks_bitmap_blocks_count * sb->block_size_in_bytes);
 
-    mark_all_blocks_free(mt);
-    mark_block_used(mt, 0);
+    // prepare a bitmap to mark the first few blocks as used
+    mt->bitmap = initialize_block_bitmap(data->memory,
+        sb->blocks_bitmap_first_block, 
+        sb->blocks_bitmap_blocks_count,
+        sb->blocks_in_device, 
+        sb->block_size_in_bytes
+    );
+    bitmap_mark_block_used(mt->bitmap, 0); // superblock
     for (int i = 0; i < sb->blocks_bitmap_blocks_count; i++)
-        mark_block_used(mt, sb->blocks_bitmap_first_block + i);
+        bitmap_mark_block_used(mt->bitmap, sb->blocks_bitmap_first_block + i);
 
     // we can start writing, let's grab a cache
     mt->cache = initialize_block_cache(data->memory, data->device, sb->block_size_in_bytes);
 
     err = bcache_write(mt->cache, 0, 0, sb, sizeof(stored_superblock));
     if (err != OK) return err;
-    err = used_blocks_bitmap_save(mt);
+    
+    err = bitmap_save(mt->bitmap, mt->cache);
     if (err != OK) return err;
 
     // persist everything and we're done
@@ -90,8 +96,8 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     memset(mt, 0, sizeof(mounted_data));
     mt->readonly = readonly;
     mt->superblock = data->memory->allocate(data->memory, sb->block_size_in_bytes);
-    mt->used_blocks_bitmap = data->memory->allocate(data->memory, sb->blocks_bitmap_blocks_count * sb->block_size_in_bytes);
     mt->cache = initialize_block_cache(data->memory, data->device, sb->block_size_in_bytes);
+    mt->bitmap = initialize_block_bitmap(data->memory, sb->blocks_bitmap_first_block, sb->blocks_bitmap_blocks_count, sb->blocks_in_device, sb->block_size_in_bytes);
     mt->generic_block_buffer = data->memory->allocate(data->memory, sb->block_size_in_bytes);
     mt->clock = data->clock;
     data->mounted = mt;
@@ -102,7 +108,7 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     // cache can now read the main blocks
     err = bcache_read(mt->cache, 0, 0, mt->superblock, sizeof(stored_superblock));
     if (err != OK) return err;
-    err = used_blocks_bitmap_load(mt);
+    err = bitmap_load(mt->bitmap, mt->cache);
     if (err != OK) return err;
 
     // we should force open the two special inodes (offset 0 and 1)
@@ -132,7 +138,7 @@ static int sfs_sync(simple_filesystem *sfs) {
     if (err != OK) return err;
 
     // write used blocks bitmap to disk (blocks 1+)
-    err = used_blocks_bitmap_save(mt);
+    err = bitmap_save(mt->bitmap, mt->cache);
     if (err != OK) return err;
 
     // flush all caches (includes SB, bitmap, inodesdb, root dir, file blocks)
@@ -152,9 +158,9 @@ static int sfs_unmount(simple_filesystem *sfs) {
         if (err != OK) return err;
     }
 
-    bcache_release_memory(data->mounted->cache);
+    bcache_release_memory(data->mounted->cache, data->memory);
+    bitmap_release_memory(data->mounted->bitmap, data->memory);
     data->memory->release(data->memory, data->mounted->superblock);
-    data->memory->release(data->memory, data->mounted->used_blocks_bitmap);
     data->memory->release(data->memory, data->mounted->generic_block_buffer);
     data->memory->release(data->memory, data->mounted);
     data->mounted = NULL;
@@ -558,7 +564,7 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     printf("Mounted     [RO:%d]\n", mt->readonly);
     bcache_dump_debug_info(mt->cache);
     superblock_dump_debug_info(mt->superblock);
-    bitmap_dump_debug_info(mt);
+    bitmap_dump_debug_info(mt->bitmap);
     printf("Root directory\n");
 
     cached_inode *root;
