@@ -37,12 +37,14 @@ static int range_array_expand(block_range *arr, int items, block_bitmap *bitmap,
     }
 
     // we found a range, we if we can expand
-    *new_block_no = arr[last_used].first_block_no + arr[last_used].blocks_count;
-    if (bitmap_is_block_free(bitmap, *new_block_no)) {
-        bitmap_mark_block_used(bitmap, *new_block_no);
-        arr[last_used].blocks_count += 1;
-        *overflown = 0;
-        return OK;
+    if (arr[last_used].blocks_count < 0xFFFF - 2) {
+        *new_block_no = arr[last_used].first_block_no + arr[last_used].blocks_count;
+        if (bitmap_is_block_free(bitmap, *new_block_no)) {
+            bitmap_mark_block_used(bitmap, *new_block_no);
+            arr[last_used].blocks_count += 1;
+            *overflown = 0;
+            return OK;
+        }
     }
 
     // we cannot expand, let's try to allocate a new range, if one exists

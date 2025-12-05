@@ -178,6 +178,7 @@ struct mounted_data {
     block_cache *cache;
     block_bitmap *bitmap;
 
+    // TODO: convert this next.
     cached_inode cached_inodes[MAX_OPEN_INODES];
     cached_inode *cached_inodes_db_inode;
     cached_inode *cached_root_dir_inode;
