@@ -21,7 +21,6 @@
     assert(fs->mount(fs, 0) == OK)
 
 
-
 static void mkfs_test() {
     int err;
     FS();
@@ -249,6 +248,8 @@ static void many_files_test(int num_files, int write_size, int write_times) {
     assert_ok(err);
 
     // dev->dump_debug_info(dev, "After many files");
+
+
 }
 
 void run_tests() {

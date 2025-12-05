@@ -1,25 +1,6 @@
 #include "internal.h"
 
 
-static int inode_recalculate_allocated_blocks(mounted_data *mt, stored_inode *node, uint32_t *block_count) {
-    uint32_t count = 0;
-
-    if (node->indirect_ranges_block_no != 0) {
-        int err = bcache_read(mt->cache, node->indirect_ranges_block_no, 0, mt->generic_block_buffer, mt->superblock->block_size_in_bytes);
-        if (err != OK) return err;
-
-        int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
-        for (int i = 0; i < ranges_in_block; i++)
-            count += ((block_range *)(mt->generic_block_buffer + i * sizeof(block_range)))->blocks_count;
-    }
-
-    for (int i = 0; i < RANGES_IN_INODE; i++)
-        count += node->ranges[i].blocks_count;
-
-    *block_count = count;
-    return OK;
-}
-
 static int inode_read_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
 
@@ -82,7 +63,7 @@ static int inode_write_file_bytes(mounted_data *mt, cached_inode *n, uint32_t fi
         
         // there may be space enough in the allocated blocks or we need to add a block
         if (block_index >= n->inode.allocated_blocks) {
-            err = inode_extend_file_blocks_v2(mt, n, &disk_block_no);
+            err = inode_extend_file_blocks(mt, n, &disk_block_no);
             if (err != OK) return err;
         } else {
             err = inode_resolve_block(mt, n, block_index, &disk_block_no);
@@ -161,7 +142,7 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
 
         // release all pointed blocks
         int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
-        v2_range_array_release_blocks((block_range *)mt->generic_block_buffer, ranges_in_block, mt->bitmap);
+        range_array_release_blocks((block_range *)mt->generic_block_buffer, ranges_in_block, mt->bitmap);
 
         // release indirect as well
         bitmap_mark_block_free(mt->bitmap, n->inode.indirect_ranges_block_no);
@@ -169,7 +150,7 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
     }
 
     // then the internal ranges
-    v2_range_array_release_blocks(n->inode.ranges, RANGES_IN_INODE, mt->bitmap);
+    range_array_release_blocks(n->inode.ranges, RANGES_IN_INODE, mt->bitmap);
 
     // finally, reset inode file size to zero
     n->inode.modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
@@ -185,41 +166,30 @@ static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t bl
     if (block_index_in_file >= node->inode.allocated_blocks)
         return ERR_OUT_OF_BOUNDS;
 
-    // first, try the inline ranges
-    for (int i = 0; i < RANGES_IN_INODE; i++) {
-        if (is_range_empty(&node->inode.ranges[i]))
-            return ERR_OUT_OF_BOUNDS;
-        if (check_or_consume_blocks_in_range(&node->inode.ranges[i], &block_index_in_file, absolute_block_no))
-            return OK;
-    }
+    // notice that ERR_NOT_FOUND here means we continue to next level of indirection...
+    int err = range_array_resolve_index(node->inode.ranges, RANGES_IN_INODE, &block_index_in_file, absolute_block_no);
+    if (err == OK) return OK;
+    if (err != ERR_NOT_FOUND) return err;
 
-    // if there is no extra ranges block, we cannot find it
+    // fall to next level
     if (node->inode.indirect_ranges_block_no == 0)
         return ERR_OUT_OF_BOUNDS;
+    err = range_block_resolve_indirect_index(mt, node->inode.indirect_ranges_block_no, &block_index_in_file, absolute_block_no);
+    if (err == OK) return OK;
+    if (err != ERR_NOT_FOUND) return err;
     
-    int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
-    block_range range;
-    for (int i = 0; i < ranges_in_block; i++) {
-        int err = bcache_read(mt->cache, node->inode.indirect_ranges_block_no, sizeof(block_range) * i, (void *)&range, sizeof(block_range));
-        if (err != OK) return err;
+    // fall to next level
+    if (node->inode.double_indirect_block_no == 0)
+        return ERR_OUT_OF_BOUNDS;
+    err = range_block_resolve_dbl_indirect_index(mt, node->inode.double_indirect_block_no, &block_index_in_file, absolute_block_no);
+    if (err == OK) return OK;
+    if (err != ERR_NOT_FOUND) return err;
 
-        if (is_range_empty(&range))
-            return ERR_OUT_OF_BOUNDS;
-        if (check_or_consume_blocks_in_range(&range, &block_index_in_file, absolute_block_no))
-            return OK;
-    }
-
-    if (node->inode.double_indirect_block_no != 0)
-        return ERR_NOT_IMPLEMENTED;
-    
-        
-    // if here, we have exhausted all ranges, relative_block is outside of them all
-    // it means we need more ranges, or two-step ranges for bigger files. but... for another day.
     return ERR_OUT_OF_BOUNDS;
 }
 
 // allocate and add a data block at the end of a file, upate the ranges
-static int inode_extend_file_blocks_v2(mounted_data *mt, cached_inode *node, uint32_t *new_block_no) {
+static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *new_block_no) {
 
     uint32_t dbl_indirect_block_no;
     uint32_t indirect_block_no;
@@ -262,7 +232,7 @@ static int inode_extend_file_blocks_v2(mounted_data *mt, cached_inode *node, uin
 
     } else {
         // no double or single indirect, try expanding inline ranges
-        err = v2_range_array_expand(node->inode.ranges, RANGES_IN_INODE, mt->bitmap, new_block_no, &overflown);
+        err = range_array_expand(node->inode.ranges, RANGES_IN_INODE, mt->bitmap, new_block_no, &overflown);
         if (err != OK) return err;
 
         if (overflown) {

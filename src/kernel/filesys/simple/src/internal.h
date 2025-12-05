@@ -217,14 +217,10 @@ static void bitmap_release_memory(block_bitmap *bitmap, mem_allocator *mem);
 static void bitmap_dump_debug_info(block_bitmap *bitmap);
 
 // ranges.inc.c
-static int v2_range_array_resolve_index(block_range *arr, int items, uint32_t *block_index, uint32_t *block_no);
-static int v2_range_array_last_block_no(block_range *arr, int items, uint32_t *block_no);
-static int v2_range_array_expand(block_range *arr, int items, block_bitmap *bitmap, uint32_t *block_no, int *overflown);
-static void v2_range_array_release_blocks(block_range *arr, int items, block_bitmap *bitmap);
-//
-static inline int is_range_empty(const block_range *range);
-static inline int check_or_consume_blocks_in_range(const block_range *range, uint32_t *relative_block_no, uint32_t *absolute_block_no);
-
+static int range_array_resolve_index(block_range *arr, int items, uint32_t *block_index, uint32_t *block_no);
+static int range_array_last_block_no(block_range *arr, int items, uint32_t *block_no);
+static int range_array_expand(block_range *arr, int items, block_bitmap *bitmap, uint32_t *block_no, int *overflown);
+static void range_array_release_blocks(block_range *arr, int items, block_bitmap *bitmap);
 
 // range_blocks.inc.c
 static int range_block_get_last_block_no(mounted_data *mt, uint32_t range_block_no, uint32_t *last_block_no);
@@ -232,6 +228,8 @@ static int range_block_initialize(mounted_data *mt, uint32_t range_block_no, uin
 static int range_block_expand(mounted_data *mt, uint32_t range_block_no, uint32_t *new_block_no, int *overflown);
 static int range_block_release_indirect_block(mounted_data *mt, uint32_t indirect_block_no);
 static int range_block_release_dbl_indirect_block(mounted_data *mt, uint32_t dbl_indirect_block_no);
+static int range_block_resolve_indirect_index(mounted_data *mt, uint32_t indirect_block_no, uint32_t *block_index, uint32_t *block_no);
+static int range_block_resolve_dbl_indirect_index(mounted_data *mt, uint32_t dbl_indirect_block_no, uint32_t *block_index, uint32_t *block_no);
 
 // inode_ops.inc.c - operations an inode can do
 static int inode_read_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length);
@@ -240,7 +238,7 @@ static int inode_read_file_rec(mounted_data *mt, cached_inode *n, uint32_t rec_s
 static int inode_write_file_rec(mounted_data *mt, cached_inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
 static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n);
 static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no);
-static int inode_extend_file_blocks_v2(mounted_data *mt, cached_inode *node, uint32_t *new_block_no);
+static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *new_block_no);
 static void inode_dump_debug_info(mounted_data *mt, const char *title, stored_inode *n);
 
 // inode_db.inc.c
