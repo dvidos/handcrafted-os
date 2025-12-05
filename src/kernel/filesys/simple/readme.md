@@ -49,3 +49,30 @@ actually, this points to the important internal functions of a file system:
 - blocks manipulation (allocation, freeing)
 - directory entries manipulation (resolve, find, add, remove, modify, skip/reuse empty slots)
 - cached read/write operations
+
+---
+
+## Possible structure of the description
+
+1. split the device into blocks, decide block size, find ways to read/write blocks.
+1. impement a caching layer on top of the blocks, tracking dirty blocks. use LRU as needed.
+1. first block allocated to superblock, write information for the whole filesystem.
+1. some subsequent blocks devoted for bitmap to track used blocks. one bit for each block.
+1. then.... inodes,
+   - they use ranges/extents to track which blocks contain file data.
+   - can have direct, indirect, double indirect ranges
+   - they track file_size, mtime, permissions, gid/uid etc
+   - make functions to read/write/truncate/extend inode file contents
+1. implement caching layer for inodes, track dirty, evict as needed etc.
+1. then, use the inode actions to implement
+   - one file used for storing inodes. inode_id is the rec_no
+   - one file used for root directory, entries have name & inode_id.
+   - make functions to read/append/write/delete inodes and dir-entries.
+1. make functions to resolve a path to a cached inode.
+1. implement caching layer for open files, one or more per inode. they track file position.
+1. from there, create the external API facing functions.  
+
+Some key points:
+
+* The whole thing is primarily an in-memory structure, 
+* Some parts persisted to disk periodically, on sync, on unmount.

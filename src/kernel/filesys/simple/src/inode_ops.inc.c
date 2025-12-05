@@ -20,8 +20,6 @@ static int inode_recalculate_allocated_blocks(mounted_data *mt, stored_inode *no
     return OK;
 }
 
-// -----------------------------------------------------------------------------
-
 static int inode_read_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length) {
     int err;
 
@@ -163,7 +161,7 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
 
         // release all pointed blocks
         int ranges_in_block = mt->superblock->block_size_in_bytes / sizeof(block_range);
-        range_array_release_blocks(mt, (block_range *)mt->generic_block_buffer, ranges_in_block);
+        range_array_release_blocks_old(mt, (block_range *)mt->generic_block_buffer, ranges_in_block);
 
         // release indirect as well
         bitmap_mark_block_free(mt->bitmap, n->inode.indirect_ranges_block_no);
@@ -171,7 +169,7 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
     }
 
     // then the internal ranges
-    range_array_release_blocks(mt, n->inode.ranges, RANGES_IN_INODE);
+    range_array_release_blocks_old(mt, n->inode.ranges, RANGES_IN_INODE);
 
     // finally, reset inode file size to zero
     n->inode.modified_at = mt->clock->get_seconds_since_epoch(mt->clock);
@@ -261,8 +259,76 @@ static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_ar
     return OK;
 }
 
+// -----------
+
 // allocate and add a data block at the end of a file, upate the ranges
-static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *absolute_block_no) {
+static int inode_extend_file_blocks_v2(mounted_data *mt, cached_inode *node, uint32_t *new_block_no) {
+
+    uint32_t dbl_indirect_block_no;
+    uint32_t indirect_block_no;
+    int overflown;
+    int err;
+    
+    if (node->inode.double_indirect_block_no != 0) {
+        // find indirection and expand indirect block
+        err = range_block_get_last_block_no(mt, node->inode.double_indirect_block_no, &indirect_block_no);
+        if (err != OK) return err;
+        err = range_block_expand(mt, indirect_block_no, new_block_no, &overflown);
+        if (err != OK) return err;
+
+        if (overflown) {
+            // fallback to expanding the double indirect, initialize new indirect
+            err = range_block_expand(mt, node->inode.double_indirect_block_no, &indirect_block_no, &overflown);
+            if (err != OK) return err;
+            if (overflown) return ERR_RESOURCES_EXHAUSTED;  // if double indirect cannot be expanded, we failed.
+            err = range_block_initialize(mt, indirect_block_no, new_block_no);
+            if (err != OK) return err;
+        }
+
+    } else if (node->inode.indirect_ranges_block_no != 0) {
+        // attempt to expand the indirect
+        err = range_block_expand(mt, node->inode.indirect_ranges_block_no, new_block_no, &overflown);
+        if (err != OK) return err;
+
+        if (overflown) {
+            // fallback to creating a double indirect with its first indirect
+            err = bitmap_find_free_block(mt->bitmap, &dbl_indirect_block_no);
+            if (err != OK) return err;
+            bitmap_mark_block_used(mt->bitmap, dbl_indirect_block_no);
+            err = range_block_initialize(mt, dbl_indirect_block_no, &indirect_block_no);
+            if (err != OK) return err;
+            err = range_block_initialize(mt, indirect_block_no, new_block_no);
+            if (err != OK) return err;
+            node->inode.double_indirect_block_no = dbl_indirect_block_no;
+            node->is_dirty = 1;
+        }
+
+    } else {
+        // no double or single indirect, try expanding inline ranges
+        err = v2_range_array_expand(node->inode.ranges, RANGES_IN_INODE, mt->bitmap, new_block_no, &overflown);
+        if (err != OK) return err;
+
+        if (overflown) {
+            // fallback to create the indirect block
+            err = bitmap_find_free_block(mt->bitmap, &indirect_block_no);
+            if (err != OK) return err;
+            bitmap_mark_block_used(mt->bitmap, indirect_block_no);
+            err = range_block_initialize(mt, indirect_block_no, new_block_no);
+            if (err != OK) return err;
+            node->inode.indirect_ranges_block_no = indirect_block_no;
+            node->is_dirty = 1;
+        }
+    }
+
+    // now matter how we ended up to a new_block_no, we did, so wipe clean!
+    err = bcache_wipe(mt->cache, *new_block_no);
+    if (err != OK) return err;
+
+    return OK;
+}
+
+static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *new_block_no) {
+
     int err;
     int use_indirect_block;
 
@@ -271,7 +337,7 @@ static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32
         err = add_block_to_array_of_ranges(mt, 
             node->inode.ranges, RANGES_IN_INODE, 
             1, &use_indirect_block, 
-            absolute_block_no);
+            new_block_no);
         if (err == OK && !use_indirect_block) {
             // we managed to allocate
             node->inode.allocated_blocks++;
@@ -303,7 +369,7 @@ static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32
         mt->superblock->block_size_in_bytes / sizeof(block_range), 
         0, // no fallback exists
         &use_indirect_block, // actualy, we don't care
-        absolute_block_no);
+        new_block_no);
     if (err != OK) return err;
 
     // write back the changes
@@ -320,89 +386,6 @@ static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32
 }
 
 // -----------------------------------------------------------------------------
-
-static int inode_db_rec_count(mounted_data *mt) {
-    return mt->cached_inodes_db_inode->inode.file_size / sizeof(stored_inode);
-}
-
-static int inode_db_load(mounted_data *mt, uint32_t inode_id, stored_inode *node) {
-    if (inode_id == INODE_DB_INODE_ID) {
-        memcpy(node, &mt->superblock->inodes_db_inode, sizeof(stored_inode));
-        return OK;
-    } else if (inode_id == ROOT_DIR_INODE_ID) {
-        memcpy(node, &mt->superblock->root_dir_inode, sizeof(stored_inode));
-        return OK;
-    }
-
-    int err = inode_read_file_rec(mt, mt->cached_inodes_db_inode, sizeof(stored_inode), inode_id, node);
-    if (err != OK) return err;
-
-    return OK;
-}
-
-static stored_inode inode_prepare(clock_device *clock, int for_dir) {
-    stored_inode node;
-
-    memset(&node, 0, sizeof(stored_inode));
-    if (for_dir)
-        node.is_dir = 1;
-    else
-        node.is_file = 1;
-    node.is_used = 1;
-    node.modified_at = clock->get_seconds_since_epoch(clock);
-
-    return node;
-}
-
-static int inode_db_append(mounted_data *mt, stored_inode *node, uint32_t *inode_id) {
-    int recs = inode_db_rec_count(mt);
-    if (recs >= UINT32_MAX - 2)
-        return ERR_RESOURCES_EXHAUSTED; // try reusing deleted inodes?
-
-    // this should have a lock somehow (race conditions)
-    int rec_no = recs;
-    int err = inode_write_file_rec(mt, mt->cached_inodes_db_inode, sizeof(stored_inode), rec_no, node);
-    if (err != OK) return err;
-
-    *inode_id = rec_no;
-    mt->superblock->inodes_db_rec_count = recs + 1;
-    return OK;
-}
-
-static int inode_db_update(mounted_data *mt, uint32_t inode_id, stored_inode *node) {
-    if (inode_id == INODE_DB_INODE_ID) {
-        memcpy(&mt->superblock->inodes_db_inode, node, sizeof(stored_inode));
-        return OK;
-    } else if (inode_id == ROOT_DIR_INODE_ID) {
-        memcpy(&mt->superblock->root_dir_inode, node, sizeof(stored_inode));
-        return OK;
-    }
-
-    int err = inode_write_file_rec(mt, mt->cached_inodes_db_inode, sizeof(stored_inode), inode_id, node);
-    if (err != OK) return err;
-
-    return OK;
-}
-
-static int inode_db_delete(mounted_data *mt, uint32_t inode_id) {
-    if (inode_id == INODE_DB_INODE_ID || inode_id == ROOT_DIR_INODE_ID)
-        return ERR_NOT_PERMITTED;
-    
-    int recs = inode_db_rec_count(mt);
-    if (inode_id == recs - 1) {
-        // shorten the file, but keep blocks for simplicity
-        mt->cached_inodes_db_inode->inode.file_size = (recs - 1) * sizeof(stored_inode);
-        mt->superblock->inodes_db_rec_count = recs - 1;
-
-    } else {
-        stored_inode blank;
-        memset(&blank, 0, sizeof(stored_inode));
-        int err = inode_write_file_rec(mt, mt->cached_inodes_db_inode, sizeof(stored_inode), inode_id, &blank);
-        if (err != OK) return err;
-    }
-
-    return OK;
-}
 
 static void inode_dump_debug_info(mounted_data *mt, const char *title, stored_inode *n) {
     printf("%s [U:%d, F:%d, D:%d, FileSz=%d, AlocBlks=%d, Ranges=(%d:%d,%d:%d,%d:%d,%d:%d,%d:%d,%d:%d), Indirect=%d", 

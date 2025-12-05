@@ -8,12 +8,17 @@
 // ------------------------------------------------------------------
 
 #include "block_ops.inc.c"
+#include "block_cache.inc.c"
 #include "bitmap.inc.c"
+#include "ranges.inc.c"
+#include "range_blocks.inc.c"
+
+#include "inode_ops.inc.c"
+#include "inode_db.inc.c"
+
+
 #include "path.inc.c"
 #include "superblock.inc.c"
-#include "block_cache.inc.c"
-#include "ranges.inc.c"
-#include "inode_ops.inc.c"
 #include "inode_cache.inc.c"
 #include "opened_files.inc.c"
 #include "dirs.inc.c"

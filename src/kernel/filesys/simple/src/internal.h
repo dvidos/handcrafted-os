@@ -72,9 +72,10 @@ struct stored_inode { // target size: 64
     uint32_t modified_at;  // seconds since epoch, when data was modified.
     // maybe permissions (e.g. xrwxrwxrw), and owner user/group
 
-    uint8_t padding2[8];
+    uint8_t padding2[4];
     block_range ranges[RANGES_IN_INODE]; // size: 6 * 6 = 36
     uint32_t indirect_ranges_block_no; // this should be aligned to 4 bytes...
+    uint32_t double_indirect_block_no; // this should be aligned to 4 bytes...
 };
 
 _Static_assert(sizeof(stored_inode) == 64, "stored_inode wrong size");
@@ -203,22 +204,6 @@ static inline int bcache_flush(block_cache *data);
 static inline void bcache_release_memory(block_cache *data, mem_allocator *mem);
 static void bcache_dump_debug_info(block_cache *data);
 
-
-
-
-
-
-
-
-
-// path.inc.c
-static void path_get_first_part(const char *path, char *filename_buffer, int filename_buffer_size);
-static const char *path_get_last_part(const char *path);
-
-// superblock.inc.c
-static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, stored_superblock *sb);
-static void superblock_dump_debug_info(stored_superblock *sb);
-
 // bitmap.inc.c
 static block_bitmap *initialize_block_bitmap(mem_allocator *mem, uint32_t storage_first_block, uint32_t bitmap_size_in_blocks, uint32_t blocks_in_device, uint32_t block_size);
 static int bitmap_load(block_bitmap *bitmap, block_cache *cache);
@@ -232,6 +217,11 @@ static void bitmap_release_memory(block_bitmap *bitmap, mem_allocator *mem);
 static void bitmap_dump_debug_info(block_bitmap *bitmap);
 
 // ranges.inc.c
+static int v2_range_array_resolve_index(block_range *arr, int items, uint32_t *block_index, uint32_t *block_no);
+static int v2_range_array_last_block_no(block_range *arr, int items, uint32_t *block_no);
+static int v2_range_array_expand(block_range *arr, int items, block_bitmap *bitmap, uint32_t *block_no, int *overflown);
+static void v2_range_array_release_blocks(block_range *arr, int items, block_bitmap *bitmap);
+//
 static inline int is_range_used(const block_range *range);
 static inline int is_range_empty(const block_range *range);
 static inline uint32_t range_last_block_no(const block_range *range);
@@ -239,25 +229,37 @@ static inline int check_or_consume_blocks_in_range(const block_range *range, uin
 static inline void find_last_used_and_first_free_range(const block_range *ranges_array, int ranges_count, int *last_used_idx, int *first_free_idx);
 static inline int initialize_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
 static inline int extend_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
-static inline void range_array_release_blocks(mounted_data *mt, block_range *ranges_array, int ranges_count);
+static inline void range_array_release_blocks_old(mounted_data *mt, block_range *ranges_array, int ranges_count);
 
-// inode_ops.inc.c - high-level cached file operations, shared for dbs, directories, real files, extend files as needed.
+// range_blocks.inc.c
+static int range_block_get_last_block_no(mounted_data *mt, uint32_t range_block_no, uint32_t *last_block_no);
+static int range_block_initialize(mounted_data *mt, uint32_t range_block_no, uint32_t *new_block_no);
+static int range_block_expand(mounted_data *mt, uint32_t range_block_no, uint32_t *new_block_no, int *overflown);
+static int range_block_release_indirect_block(mounted_data *mt, uint32_t indirect_block_no);
+static int range_block_release_dbl_indirect_block(mounted_data *mt, uint32_t dbl_indirect_block_no);
+
+// inode_ops.inc.c - operations an inode can do
 static int inode_read_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_write_file_bytes(mounted_data *mt, cached_inode *n, uint32_t file_pos, void *data, uint32_t length);
 static int inode_read_file_rec(mounted_data *mt, cached_inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
 static int inode_write_file_rec(mounted_data *mt, cached_inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
 static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n);
-static stored_inode inode_prepare(clock_device *clock, int for_dir);
 static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no);
 static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no);
 static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *absolute_block_no);
+static void inode_dump_debug_info(mounted_data *mt, const char *title, stored_inode *n);
 
+// inode_db.inc.c
 static int inode_db_rec_count(mounted_data *mt);
+static stored_inode inode_prepare(clock_device *clock, int for_dir);
 static int inode_db_load(mounted_data *mt, uint32_t inode_id, stored_inode *node);
 static int inode_db_append(mounted_data *mt, stored_inode *node, uint32_t *inode_id);
 static int inode_db_update(mounted_data *mt, uint32_t inode_id, stored_inode *node);
 static int inode_db_delete(mounted_data *mt, uint32_t inode_id);
-static void inode_dump_debug_info(mounted_data *mt, const char *title, stored_inode *n);
+
+// superblock.inc.c
+static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, stored_superblock *sb);
+static void superblock_dump_debug_info(stored_superblock *sb);
 
 // inode_cache.inc.c
 static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr);
@@ -271,7 +273,6 @@ static int opened_handles_release(mounted_data *mt, open_handle *handle);
 static int opened_files_register(mounted_data *mt, cached_inode *node, open_handle **handle_ptr);
 static void opened_files_dump_debug_info(mounted_data *mt);
 
-
 // dirs.inc.c
 static int dir_entries_count(cached_inode *dir_inode);
 static int dir_load_entry(mounted_data *mt, cached_inode *dir_inode, int entry_rec_no, stored_dir_entry *entry);
@@ -281,6 +282,10 @@ static int dir_update_entry(mounted_data *mt, cached_inode *dir_inode, int entry
 static int dir_append_entry(mounted_data *mt, cached_inode *dir_inode, const char *name, uint32_t inode_id);
 static int dir_delete_entry(mounted_data *mt, cached_inode *dir_inode, int entry_rec_no);
 static void dir_dump_debug_info(mounted_data *mt, cached_inode *dir_inode, int depth);
+
+// path.inc.c
+static void path_get_first_part(const char *path, char *filename_buffer, int filename_buffer_size);
+static const char *path_get_last_part(const char *path);
 
 // resolution.inc.c
 static int resolve_path_to_inode(mounted_data *mt, const char *path, cached_inode **cached_inode_ptr);
