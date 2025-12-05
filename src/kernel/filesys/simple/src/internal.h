@@ -222,14 +222,9 @@ static int v2_range_array_last_block_no(block_range *arr, int items, uint32_t *b
 static int v2_range_array_expand(block_range *arr, int items, block_bitmap *bitmap, uint32_t *block_no, int *overflown);
 static void v2_range_array_release_blocks(block_range *arr, int items, block_bitmap *bitmap);
 //
-static inline int is_range_used(const block_range *range);
 static inline int is_range_empty(const block_range *range);
-static inline uint32_t range_last_block_no(const block_range *range);
 static inline int check_or_consume_blocks_in_range(const block_range *range, uint32_t *relative_block_no, uint32_t *absolute_block_no);
-static inline void find_last_used_and_first_free_range(const block_range *ranges_array, int ranges_count, int *last_used_idx, int *first_free_idx);
-static inline int initialize_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
-static inline int extend_range_by_allocating_block(mounted_data *mt, block_range *range, uint32_t *block_no);
-static inline void range_array_release_blocks_old(mounted_data *mt, block_range *ranges_array, int ranges_count);
+
 
 // range_blocks.inc.c
 static int range_block_get_last_block_no(mounted_data *mt, uint32_t range_block_no, uint32_t *last_block_no);
@@ -245,8 +240,7 @@ static int inode_read_file_rec(mounted_data *mt, cached_inode *n, uint32_t rec_s
 static int inode_write_file_rec(mounted_data *mt, cached_inode *n, uint32_t rec_size, uint32_t rec_no, void *rec);
 static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n);
 static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no);
-static int add_block_to_array_of_ranges(mounted_data *mt, block_range *ranges_array, int ranges_count, int fallback_available, int *use_fallback, uint32_t *new_block_no);
-static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *absolute_block_no);
+static int inode_extend_file_blocks_v2(mounted_data *mt, cached_inode *node, uint32_t *new_block_no);
 static void inode_dump_debug_info(mounted_data *mt, const char *title, stored_inode *n);
 
 // inode_db.inc.c
