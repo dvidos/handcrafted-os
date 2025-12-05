@@ -103,7 +103,7 @@ static void dir_dump_debug_info(mounted_data *mt, cached_inode *dir_inode, int d
         // here, if we read from disk, the node may be already changed in the cache
         if (icache_is_inode_cached(mt, entry.inode_id)) {
             cached_inode *cached;
-            err = get_cached_inode(mt, entry.inode_id, &cached);
+            err = icache_get(mt, entry.inode_id, &cached);
             if (err != OK) break;
             inode_dump_debug_info(mt, "", &cached->inode);
 

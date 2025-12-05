@@ -117,9 +117,9 @@ static int sfs_mount(simple_filesystem *sfs, int readonly) {
     if (err != OK) return err;
 
     // we should force open the two special inodes (offset 0 and 1)
-    err = get_cached_inode(mt, INODE_DB_INODE_ID, &mt->cached_inodes_db_inode);
+    err = icache_get(mt, INODE_DB_INODE_ID, &mt->cached_inodes_db_inode);
     if (err != OK) return err;
-    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &mt->cached_root_dir_inode);
+    err = icache_get(mt, ROOT_DIR_INODE_ID, &mt->cached_root_dir_inode);
     if (err != OK) return err;
     return OK;
 }
@@ -434,7 +434,7 @@ static int sfs_create(simple_filesystem *sfs, char *path, int is_dir) {
     // if we added a directory, we need to add the "." and the ".." as well.
     if (is_dir) {
         cached_inode *new_dir;
-        err = get_cached_inode(mt, new_inode_id, &new_dir);
+        err = icache_get(mt, new_inode_id, &new_dir);
         if (err != OK) return err;
         err = dir_append_entry(mt, new_dir, ".", new_inode_id);
         if (err != OK) return err;
@@ -496,7 +496,7 @@ static int sfs_unlink(simple_filesystem *sfs, char *path, int options) {
 
     // load this inode, truncate, remove it, invalidate cache
     cached_inode *doomed;
-    err = get_cached_inode(mt, doomed_inode_id, &doomed);
+    err = icache_get(mt, doomed_inode_id, &doomed);
     if (err != OK) return err;
     err = inode_truncate_file_bytes(mt, doomed);
     if (err != OK) return err;
@@ -573,7 +573,7 @@ static void sfs_dump_debug_info(simple_filesystem *sfs, const char *title) {
     printf("Root directory\n");
 
     cached_inode *root;
-    int err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &root);
+    int err = icache_get(mt, ROOT_DIR_INODE_ID, &root);
     if (err != OK) return;
 
     dir_dump_debug_info(mt, root, 1);

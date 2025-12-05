@@ -1,30 +1,6 @@
 #include "internal.h"
 
 
-static int range_array_resolve_index(block_range *arr, int items, uint32_t *block_index, uint32_t *block_no) {
-    block_range *range;
-
-    for (int i = 0; i < items; i++) {
-        range = &arr[i];
-
-        // if used ranges exhausted, no point
-        if (range->first_block_no == 0)
-            break;
-
-        // if index is within... range, use it
-        if (*block_index < range->blocks_count) {
-            *block_no = range->first_block_no + *block_index;
-            *block_index = 0;
-            return OK;
-        }
-
-        // deplete and try next range
-        *block_index -= range->blocks_count;
-    }
-
-    return ERR_NOT_FOUND;
-}
-
 static int range_array_last_block_no(block_range *arr, int items, uint32_t *last_block_no) {
     for (int i = items - 1; i >= 0; i--) {
         if (arr[i].first_block_no != 0) {
@@ -85,6 +61,30 @@ static int range_array_expand(block_range *arr, int items, block_bitmap *bitmap,
     *new_block_no = 0;
     *overflown = 1;
     return OK;
+}
+
+static int range_array_resolve_index(block_range *arr, int items, uint32_t *block_index, uint32_t *block_no) {
+    block_range *range;
+
+    for (int i = 0; i < items; i++) {
+        range = &arr[i];
+
+        // if used ranges exhausted, no point
+        if (range->first_block_no == 0)
+            break;
+
+        // if index is within... range, use it
+        if (*block_index < range->blocks_count) {
+            *block_no = range->first_block_no + *block_index;
+            *block_index = 0;
+            return OK;
+        }
+
+        // deplete and try next range
+        *block_index -= range->blocks_count;
+    }
+
+    return ERR_NOT_FOUND;
 }
 
 static void range_array_release_blocks(block_range *arr, int items, block_bitmap *bitmap) {

@@ -4,7 +4,7 @@
 #define INODE_CACHE_PINNED_ENTRIES   2  // for the inode db and the root dir
 
 
-static int get_cached_inode(mounted_data *mt, int inode_id, cached_inode **ptr) {
+static int icache_get(mounted_data *mt, int inode_id, cached_inode **ptr) {
     cached_inode *cached = NULL;
     int err;
 

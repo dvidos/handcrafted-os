@@ -16,7 +16,7 @@ static int inode_read_file_bytes(mounted_data *mt, cached_inode *n, uint32_t fil
 
     // now we know the absolute block, we can read it (at most till EOF)
     while (length > 0 && file_pos < n->inode.file_size) {
-        err = inode_resolve_block(mt, n, block_index, &disk_block_no);
+        err = inode_resolve_index(mt, n, block_index, &disk_block_no);
         if (err != OK) return err;
         
         uint32_t bytes_till_block_end = mt->superblock->block_size_in_bytes - block_offset;
@@ -63,10 +63,10 @@ static int inode_write_file_bytes(mounted_data *mt, cached_inode *n, uint32_t fi
         
         // there may be space enough in the allocated blocks or we need to add a block
         if (block_index >= n->inode.allocated_blocks) {
-            err = inode_extend_file_blocks(mt, n, &disk_block_no);
+            err = inode_expand_blocks(mt, n, &disk_block_no);
             if (err != OK) return err;
         } else {
-            err = inode_resolve_block(mt, n, block_index, &disk_block_no);
+            err = inode_resolve_index(mt, n, block_index, &disk_block_no);
             if (err != OK) return err;
         }
 
@@ -162,7 +162,7 @@ static int inode_truncate_file_bytes(mounted_data *mt, cached_inode *n) {
 }
 
 // given an inode, it resolves the relative block index in the file, into the block_no on the disk
-static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
+static int inode_resolve_index(mounted_data *mt, cached_inode *node, uint32_t block_index_in_file, uint32_t *absolute_block_no) {
     if (block_index_in_file >= node->inode.allocated_blocks)
         return ERR_OUT_OF_BOUNDS;
 
@@ -189,7 +189,7 @@ static int inode_resolve_block(mounted_data *mt, cached_inode *node, uint32_t bl
 }
 
 // allocate and add a data block at the end of a file, upate the ranges
-static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32_t *new_block_no) {
+static int inode_expand_blocks(mounted_data *mt, cached_inode *node, uint32_t *new_block_no) {
 
     uint32_t dbl_indirect_block_no;
     uint32_t indirect_block_no;
@@ -198,7 +198,7 @@ static int inode_extend_file_blocks(mounted_data *mt, cached_inode *node, uint32
     
     if (node->inode.double_indirect_block_no != 0) {
         // find indirection and expand indirect block
-        err = range_block_get_last_block_no(mt, node->inode.double_indirect_block_no, &indirect_block_no);
+        err = range_block_last_block_no(mt, node->inode.double_indirect_block_no, &indirect_block_no);
         if (err != OK) return err;
         err = range_block_expand(mt, indirect_block_no, new_block_no, &overflown);
         if (err != OK) return err;

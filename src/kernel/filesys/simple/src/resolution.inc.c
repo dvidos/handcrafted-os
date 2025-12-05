@@ -19,11 +19,11 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
         if (resolve_parent_dir_only)
             return ERR_INVALID_ARGUMENT;
 
-        return get_cached_inode(mt, ROOT_DIR_INODE_ID, cached_inode_ptr);
+        return icache_get(mt, ROOT_DIR_INODE_ID, cached_inode_ptr);
     }
 
     // start walking down the directories from root dir
-    err = get_cached_inode(mt, ROOT_DIR_INODE_ID, &cached_dir);
+    err = icache_get(mt, ROOT_DIR_INODE_ID, &cached_dir);
     while (1) {
 
         // get first part of the path
@@ -45,7 +45,7 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
         if (err != OK) return err;
 
         // load so we can return it, or use it.
-        err = get_cached_inode(mt, entry_inode_id, &cached_entry);
+        err = icache_get(mt, entry_inode_id, &cached_entry);
         if (err != OK) return err;
 
         if (path_finished) {
