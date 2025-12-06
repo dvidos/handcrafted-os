@@ -17,4 +17,4 @@ cp grub.cfg iso/boot/grub/
 grub-mkrescue -o graphics.iso iso
 
 # Run in QEMU
-qemu-system-i386 -cdrom graphics.iso -vga std
+qemu-system-i386 -cdrom graphics.iso -vga std  -serial stdio
