@@ -42,9 +42,14 @@ iso: $(KERNEL_ELF)
 
 # Build ISO using grub-mkrescue
 iso-build: iso
-	grub-mkrescue -o $(ISO_FILE) $(ISO_DIR)
+	#grub-mkrescue -o $(ISO_FILE) $(ISO_DIR)
+	grub-mkrescue -o $(ISO_FILE) $(ISO_DIR) --modules="normal vbe vga video video_fb gfxterm gfxmenu"
+
+
 
 # Run in QEMU
 run: iso-build
-	qemu-system-i386 -cdrom $(ISO_FILE) -vga std -serial stdio
+	# The older (legacy) boot path in QEMU — the -kernel option — historically supported the original Multiboot (v1) but not Multiboot2
+	# qemu-system-i386 -cdrom $(ISO_FILE) -vga std -serial stdio
+	qemu-system-i386 -cdrom $(ISO_FILE) -vga cirrus -serial stdio
 	
