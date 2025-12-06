@@ -32,11 +32,13 @@ void parse_multiboot2(uint32_t addr) {
             break;
         }
 
-        vga_str("Tag type: "); vga_int(tag->type); vga_str(", size: "); vga_int(tag->size); vga_str("\n");
+        vga_str("Tag type: "); vga_int(tag->type); 
+        vga_str(", size: "); vga_int(tag->size); 
+        vga_str(", data: "); 
 
         // Example: print first 8 bytes of data in hex
         uint32_t data_bytes = tag->size - 8;
-        for (uint32_t i = 0; i < data_bytes && i < 8; i++) {
+        for (uint32_t i = 0; i < data_bytes; i++) {
             vga_hex8(tag->data[i]);
             vga_str(" ");
         }
@@ -60,23 +62,12 @@ void dump_mbi_bytes(multiboot_info_t* mbi) {
 }
 
 
-__attribute__((naked)) void _start() {
-    asm volatile(
-        "cli\n"           // disable interrupts
-        "push %ebx\n"     // ebx has the grub pointer
-        "push %eax\n"     // eax has the magic number (36D76289)
-        "call kmain\n"    // call C function
-        "hlt_loop:\n"
-        "hlt\n"
-        "jmp hlt_loop\n"
-    );
-}
 
 void kmain(void *magic_num, multiboot_info_t* mbi) {
-    vga_str("Passed magin num  : "); vga_hex32(magic_num); vga_str("\n");
-    vga_str("Passed MBI address: "); vga_hex32(mbi); vga_str("\n");
-
     vga_str("Kernel started\n");
+    vga_str("EAX magic num: "); vga_hex32((uint32_t)magic_num); vga_str("\n");
+    vga_str("EBX multiboot info address: "); vga_hex32((uint32_t)mbi); vga_str("\n");
+
     parse_multiboot2((uint32_t)mbi);
 
     // Memory info
@@ -95,8 +86,6 @@ void kmain(void *magic_num, multiboot_info_t* mbi) {
     } else {
         vga_str("No framebuffer info provided\n");
     }
-
-
 
     // Draw a small green diagonal line if 32bpp RGB
     if ((mbi->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) &&

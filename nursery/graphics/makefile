@@ -18,17 +18,20 @@ ISO_FILE = graphics.iso
 # Default target: build ELF
 all: $(KERNEL_ELF)
 
+start.o: start.s
+	as --32 $< -o $@
+
 # Compile each .c into .o
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Link object files into kernel ELF
-$(KERNEL_ELF): $(OBJS)
-	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+$(KERNEL_ELF): start.o $(OBJS)
+	$(LD) $(LDFLAGS) -o $@ start.o $(OBJS)
 
 # Clean build artifacts
 clean:
-	rm -f $(OBJS) $(KERNEL_ELF) $(ISO_FILE)
+	rm -f start.o $(OBJS) $(KERNEL_ELF) $(ISO_FILE)
 	rm -rf $(ISO_DIR)
 
 # Prepare ISO structure
@@ -44,4 +47,4 @@ iso-build: iso
 # Run in QEMU
 run: iso-build
 	qemu-system-i386 -cdrom $(ISO_FILE) -vga std -serial stdio
-
+	
