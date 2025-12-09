@@ -13,11 +13,9 @@ extern void pm_entry(uint32_t kernel_addr);
 
 // -------------------------------------------------------
 
-/* external NASM routines */
 extern uint8_t vbe_set_mode_real(void);
 extern uint8_t vbe_get_mode_info_real(void);
 
-/* set VBE mode */
 static inline uint8_t vbe_set_mode_c(uint16_t mode) {
     uint8_t result;
     asm volatile (
@@ -122,6 +120,7 @@ void stage2_main(void) {
     fb_info.bpp     = *(uint8_t*)(vbe_info + 0x19);
     fb_info.pitch   = *(uint16_t*)(vbe_info + 0x10);
 
+    halt();
     if (!vbe_set_mode_c(mode)) {
         bios_print_str("error setting vbe mode");
         halt();
@@ -131,6 +130,6 @@ void stage2_main(void) {
     halt();
 
     // we should load the kernel as well, shouldn't we????
-    
+
     pm_entry(KERNEL_LOAD_ADDR);
 }
