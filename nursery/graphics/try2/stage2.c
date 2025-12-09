@@ -51,11 +51,64 @@ static inline uint8_t vbe_get_mode_info_c(uint16_t mode, void *buffer) {
 
 // -------------------------------------------------------
 
+void inline bios_print_char(char c) {
+    asm volatile (
+        "movb $0x0E, %%ah\n"   // BIOS teletype function
+        "movb %0, %%al\n"      // character to print
+        "int $0x10\n"
+        :
+        : "r"(c)
+        : "ax"
+    );
+}
+void bios_print_str(char *s) {
+    while (*s) bios_print_char(*s++);
+}
+void bios_print_int(int value) {
+    if (value == 0) { bios_print_char('0'); return; }
+    char buff[16];
+    int negative = (value < 0);
+    if (negative) value = -value;
+    int idx = sizeof(buff) - 1;
+    buff[idx] = 0;
+    while (value > 0) {
+        buff[--idx] = '0' + (value % 10);
+        value /= 10;
+    }
+    if (negative) buff[--idx] = '-';
+    bios_print_str(buff + idx);
+}
+static const char *hex = "0123456789abcdef";
+void bios_print_hex32(uint32_t value) {
+    bios_print_char(hex[(value >> 28) & 0xF]);
+    bios_print_char(hex[(value >> 24) & 0xF]);
+    bios_print_char(hex[(value >> 20) & 0xF]);
+    bios_print_char(hex[(value >> 16) & 0xF]);
+    bios_print_char(hex[(value >> 12) & 0xF]);
+    bios_print_char(hex[(value >> 8)  & 0xF]);
+    bios_print_char(hex[(value >> 4)  & 0xF]);
+    bios_print_char(hex[(value >> 0)  & 0xF]);
+}
+void bios_print_hex16(uint16_t value) {
+    bios_print_char(hex[(value >> 12) & 0xF]);
+    bios_print_char(hex[(value >> 8)  & 0xF]);
+    bios_print_char(hex[(value >> 4)  & 0xF]);
+    bios_print_char(hex[(value >> 0)  & 0xF]);
+}
+void bios_print_hex8(uint8_t value) {
+    bios_print_char(hex[(value >> 4)  & 0xF]);
+    bios_print_char(hex[(value >> 0)  & 0xF]);
+}
 
+// -------------------------------------------------------
 
 void stage2_main(void) {
-    uint16_t mode = 0x118;
+    bios_print_str("\r\nStage 2 running...");
 
+    for(;;) asm("hlt");
+
+
+    uint16_t mode = 0x118;
     if (!vbe_get_mode_info_c(mode, vbe_info))
         for(;;) asm("hlt");
 

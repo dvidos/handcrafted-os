@@ -14,8 +14,6 @@ _stage2_start:
     mov ah, 0x0E      ; teletype print
     mov al, 'S'
     int 0x10
-    
-    jmp $
 
     call stage2_main
     hlt

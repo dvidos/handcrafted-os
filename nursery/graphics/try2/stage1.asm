@@ -25,7 +25,7 @@ start:
     mov dh, 0      ; head 0
     mov dl, 0x80   ; first hard disk
     mov ah, 0x02   ; BIOS read sectors
-    mov al, 2      ; number of sectors
+    mov al, 16     ; number of sectors (each 512 bytes)
     mov ch, 0      ; cylinder 0
     mov cl, 2      ; sector 2 (sector numbers start at 1)
     int 0x13
