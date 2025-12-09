@@ -51,17 +51,15 @@ static inline uint8_t vbe_get_mode_info_c(uint16_t mode, void *buffer) {
 
 // -------------------------------------------------------
 
-void inline bios_print_char(char c) {
-    asm volatile (
-        "movb $0x0E, %%ah\n"   // BIOS teletype function
-        "movb %0, %%al\n"      // character to print
-        "int $0x10\n"
-        :
-        : "r"(c)
-        : "ax"
-    );
+void inline halt() {
+    for(;;) asm("hlt");
 }
-void bios_print_str(char *s) {
+
+void inline bios_print_char(char c) {
+    // bios teletype int 0x10
+    asm volatile ("movb $0x0E, %%ah\n" "movb %0, %%al\n"  "int $0x10\n" : : "r"(c) : "ax");
+}
+void inline bios_print_str(char *s) {
     while (*s) bios_print_char(*s++);
 }
 void bios_print_int(int value) {
@@ -103,14 +101,20 @@ void bios_print_hex8(uint8_t value) {
 // -------------------------------------------------------
 
 void stage2_main(void) {
-    bios_print_str("\r\nStage 2 running...");
-
-    for(;;) asm("hlt");
-
+    bios_print_str("\r\nStage 2 running... ");
 
     uint16_t mode = 0x118;
-    if (!vbe_get_mode_info_c(mode, vbe_info))
-        for(;;) asm("hlt");
+    if (!vbe_get_mode_info_c(mode, vbe_info)) {
+        bios_print_str("error getting mode info");
+        halt();
+    }
+
+    bios_print_str("VBE mode info\r\n");     
+    bios_print_str("fb_addr: "); bios_print_hex32(*(uint32_t*)(vbe_info + 0x0C)); bios_print_str("\r\n");     
+    bios_print_str("width:   "); bios_print_int(*(uint16_t*)(vbe_info + 0x12)); bios_print_str("\r\n");     
+    bios_print_str("height:  "); bios_print_int(*(uint16_t*)(vbe_info + 0x14)); bios_print_str("\r\n");     
+    bios_print_str("bpp:     "); bios_print_int(*(uint8_t*)(vbe_info + 0x19));   bios_print_str("\r\n");   
+    bios_print_str("pitch:   "); bios_print_int(*(uint16_t*)(vbe_info + 0x10)); bios_print_str("\r\n");     
 
     fb_info.fb_addr = *(uint32_t*)(vbe_info + 0x0C);
     fb_info.width   = *(uint16_t*)(vbe_info + 0x12);
@@ -118,8 +122,15 @@ void stage2_main(void) {
     fb_info.bpp     = *(uint8_t*)(vbe_info + 0x19);
     fb_info.pitch   = *(uint16_t*)(vbe_info + 0x10);
 
-    if (!vbe_set_mode_c(mode))
-        for(;;) asm("hlt");
+    if (!vbe_set_mode_c(mode)) {
+        bios_print_str("error setting vbe mode");
+        halt();
+    }
 
+    bios_print_str("done");
+    halt();
+
+    // we should load the kernel as well, shouldn't we????
+    
     pm_entry(KERNEL_LOAD_ADDR);
 }
