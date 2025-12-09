@@ -9,6 +9,14 @@ global vbe_get_mode_info_real
 
 
 _stage2_start:
+
+    ; show we are running
+    mov ah, 0x0E      ; teletype print
+    mov al, 'S'
+    int 0x10
+    
+    jmp $
+
     call stage2_main
     hlt
     jmp $
@@ -83,9 +91,19 @@ pm_entry:
 ; ------------------------
 [BITS 32]
 pm_entry_pm:
-    ; now in protected mode
+    ; 1. Set up data segments
+    mov ax, DATA_SEL
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    
+    ; 2. Set up stack
+    mov ax, DATA_SEL
+    mov ss, ax          ; load stack segment
+    mov esp, 0x90000    ; stack top (match what kernel.ld has)
+
     ; jump to kernel entry point in EAX
-    mov eax, eax        ; eax already has kernel address
     jmp eax
 
 ; ------------------------
