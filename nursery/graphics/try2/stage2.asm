@@ -15,6 +15,13 @@ _stage2_start:
     mov al, 'S'
     int 0x10
 
+    ; before calling C, setup some deeper stack
+    ; we are at 0x800, or 2KB, and could go up to 31KB, where the first stage is.
+    mov ax, 0x0000
+    mov ss, ax
+    mov sp, 0x7C00
+
+    ; now we can call the C code, still in real mode
     call stage2_main
     hlt
     jmp $

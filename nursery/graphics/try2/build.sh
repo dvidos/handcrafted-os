@@ -4,12 +4,23 @@ set -e
 
 mkdir -p build
 
-#     address    (dec)   usage
-# 0x0000_7C00    (31K)  first boot loader (512 bytes long)
-# 0x0000_1000     (4K)  second boot loader (8KB long)
-# 0x0000_9000    (32K)  stack for 1st, 2nd bootloader
-# 0x0009_0000  (576KB)  stack of kernel (see kernel.ld)
-# 0x0010_0000    (1MB)  kernel (text, bss, data, etc)
+# Typical computer memory setup
+# -------------------------------------------------
+# 0x00000 - 0x003FF	 Interrupt vector table (IVT)
+# 0x00400 - 0x04FF	 BIOS data area (keyboard, timers, etc.)
+# 0x00500 - 0x9FFFF	 Conventional memory usable by DOS/bootloader
+# 0xA0000 - 0xFFFFF	 Video memory / BIOS ROM / memory-mapped I/O
+# 
+# 
+#     From    (Hex)     To      (Hex)      Size   What
+#  -------  -------  -------  -------  --------   ----------------------------
+#     0 KB     0x00     1 KB    0x400      1 KB   Interrupt vector, etc
+#     1 KB    0x400     2 KB    0x800      1 KB   BIOS data area
+#     2 KB    0x800    31 KB   0x7C00     29 KB   Stage 2 bootloader + its stack
+#    31 KB   0x7C00    32 KB   0x8000    512 B    Stage 1 bootloader from BIOS
+#    32 KB   0x8000   640 KB  0xA0000    608 KB   Kernel + its stack
+#   640 KB  0xA0000     1 MB 0x100000    384 KB   Upper memory / Video / BIOS ROM 
+#     1 MB 0x100000           (sky)            (any)     Usable in protected mode
 
 
 # Stage 1

@@ -4,24 +4,20 @@
 [ORG 0x7C00]
 
 start:
-    cli
+    cli                     ; disable interrupts
+    mov ax, 0x0000
+    mov ds, ax
+    mov es, ax
+    mov ss, ax              ; segment of stack
+    mov sp, 0x8000          ; confines 1st stage in the 31KB-32KB area (0x7C00-0x8000), giving 512 bytes of usable stack
 
     ; show we are... "Loading"
     mov ah, 0x0E      ; teletype print
     mov al, 'L'
     int 0x10
 
-    ; let's setup stack, in case this saves us
-    mov ax, 0x0000      ; segment for stack
-    mov ss, ax
-    mov sp, 0x9000      ; top of stack
-
-    xor ax, ax
-    mov ds, ax
-    mov es, ax
-
-    ; load stage2 at 0x1000
-    mov bx, 0x1000
+    ; load stage2 at 0x800 (2 KB), about 16 sectors or 8 KB
+    mov bx, 0x800
     mov dh, 0      ; head 0
     mov dl, 0x80   ; first hard disk
     mov ah, 0x02   ; BIOS read sectors
@@ -36,8 +32,8 @@ start:
     mov al, 'G'
     int 0x10
 
-    ; jump to stage2
-    jmp 0x0000:0x1000
+    ; jump to stage2 entry point
+    jmp 0x0000:0x0800
 
 disk_error:
     ; show "Error"
