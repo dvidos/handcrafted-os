@@ -8,7 +8,7 @@ uint8_t vbe_info[256];
 static const char *hex_digits = "0123456789abcdef";
 int echo_in_serial_port = 0;
 
-#define KERNEL_LOAD_ADDR 0x00100000  /* 1 MB, defined in kernel.ld */
+#define KERNEL_LOAD_ADDR 0x8000  /* 32KB */
 extern void pm_entry(uint32_t kernel_addr);
 
 // -------------------------------------------------------
@@ -228,10 +228,10 @@ void stage2_main(void) {
 
     // we should load the kernel as well, shouldn't we????
     // and we should pass in framebuffer & boot information, right?
-
+    // we should push the fb_info address onto the stack though...
+    // load 128 sectors, i.e. 64KB into address 0x8000 or 32KB.
 
     // now enter Protected Mode and jump directly to the kernel
     // passing in any information we have now
-    // we should push the fb_info address onto the stack though...
     pm_entry(KERNEL_LOAD_ADDR);
 }

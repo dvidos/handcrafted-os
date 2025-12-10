@@ -32,14 +32,14 @@ nasm stage2.asm -f elf32 -o build/stage2_asm.o
 i686-elf-gcc -m16 -ffreestanding -fno-pie -O2 -c stage2.c -o build/stage2.o
 i686-elf-ld -Ttext=0x1000 -e _stage2_start -o build/stage2.elf build/stage2_asm.o build/stage2.o 
 objcopy -O binary build/stage2.elf build/stage2.bin
-dd if=/dev/zero bs=1 count=$((8192 - $(stat -c %s build/stage2.bin))) >> build/stage2.bin  # pad to two sectors
+dd if=/dev/zero bs=1 count=$((8192 - $(stat -c %s build/stage2.bin))) >> build/stage2.bin  # pad to 8K size / 16 sectors
 
 
 # Kernel
 i686-elf-gcc -m32 -ffreestanding -fno-pie -O2 -c kernel.c -o build/kernel.o
 i686-elf-ld -m elf_i386 -T kernel.ld -o build/kernel.elf build/kernel.o
 objcopy -O binary build/kernel.elf build/kernel.bin
-
+dd if=/dev/zero bs=1 count=$((65536 - $(stat -c %s build/kernel.bin))) >> build/kernel.bin  # pad to 64K size / 128 sectors
 
 # Create image
 cat build/stage1.bin build/stage2.bin build/kernel.bin > build/os.img
