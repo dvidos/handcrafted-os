@@ -258,7 +258,7 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
 
 int load_kernel() {
     int ret = bios_read_sectors(
-        0,
+        17,
         KERNEL_SIZE_KB * 2,      // 0.5kb per sector
         KERNEL_LOAD_ADDRESS
     );
