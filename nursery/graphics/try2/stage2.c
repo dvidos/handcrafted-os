@@ -2,19 +2,24 @@
 #include "framebuffer.h"
 
 
+
 // global buffers for VBE and framebuffer info
 framebuffer_info_t fb_info;
 uint8_t vbe_info[256];
 static const char *hex_digits = "0123456789abcdef";
 int echo_in_serial_port = 0;
 
-#define KERNEL_LOAD_ADDR 0x8000  /* 32KB */
+#define KERNEL_FIRST_SECTOR_LBA      16  // 1 for 1st stage, 16 for second, LBA is zero based
+#define KERNEL_SIZE_KB               64  // how many kilobytes to load
+#define KERNEL_LOAD_ADDRESS      0x8000  // 32KB decimal, this MUST be below 1MB, and match the kernel.ld
+
+extern uint8_t vbe_set_mode_real(void);
+extern uint8_t vbe_get_mode_info_real(void);
+extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
 extern void pm_entry(uint32_t kernel_addr);
 
 // -------------------------------------------------------
 
-extern uint8_t vbe_set_mode_real(void);
-extern uint8_t vbe_get_mode_info_real(void);
 
 static inline uint8_t vbe_set_mode_c(uint16_t mode) {
     uint8_t result;
@@ -50,7 +55,6 @@ static inline uint8_t vbe_get_mode_info_c(uint16_t mode, void *buffer) {
 static inline void halt() {
     for(;;) asm("hlt");
 }
-
 static inline void outb(unsigned short port, unsigned char val) {
     asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
@@ -87,7 +91,8 @@ static void bios_print_char(char c) {
         serial_write_char(c);
 }
 static void bios_print_str(char *s) {
-    while (*s) bios_print_char(*s++);
+    while (*s)
+        bios_print_char(*s++);
 }
 static void bios_print_int(int value) {
     if (value == 0) { bios_print_char('0'); return; }
@@ -182,6 +187,9 @@ static int setup_graphics() {
         return 0;
     }
 
+    return 1;
+}
+static void graphics_demo() {
     // demonstration!
     uint8_t *fb = (uint8_t *)fb_info.fb_addr;
     for (int y = 0; y < 255; y++) {
@@ -208,30 +216,78 @@ static int setup_graphics() {
     rect_border(260, 20, 280, 40, 0xffffff);
     rect_border(280, 20, 300, 40, 0xffffff);
     rect_border(300, 20, 320, 40, 0xffffff);
-
-    return 1;
 }
 
 // -----------------------------------------------------------------
 
+struct dap {
+    uint8_t  size;      // must be 0x10
+    uint8_t  reserved;
+    uint16_t count;     // number of sectors to read
+    uint16_t offset;    // offset of destination
+    uint16_t segment;   // segment of destination
+    uint64_t lba;       // starting LBA
+} __attribute__((packed));
+
+
+int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
+{
+    struct dap packet;
+    packet.size     = 0x10;
+    packet.reserved = 0;
+    packet.count    = count;
+    packet.offset   = dest & 0xF;
+    packet.segment  = dest >> 4;
+    packet.lba      = (uint64_t)lba;
+
+    uint32_t ptr = (uint32_t)&packet;
+
+    return bios_read_sectors_asm(ptr);   // AL returned
+}
+
+int load_kernel() {
+    return bios_read_sectors(
+        KERNEL_FIRST_SECTOR_LBA,
+        KERNEL_SIZE_KB * 2,      // 0.5kb per sector
+        KERNEL_LOAD_ADDRESS
+    );
+}
+
+// -------------------------------------------------------
+
 void stage2_main(void) {
 
+    // we are still running in real mode
+    // we can call BIOS interrupts
+    // we have some VGA and some VBE routines
+    // our job is to:
+    // - query, select, and enter graphics mode
+    // - load the kernel into specific memory address
+    // - enter protected mode and jump to the kernel entry
     serial_init(); // for debugging in QEMU, run with "-serial stdio"
-    echo_in_serial_port = 1;
+    echo_in_serial_port = 0;
 
-    bios_print_str("\r\nStage 2 running... ");
-    if (!setup_graphics())
+    bios_print_str("\r\nStage 2 bootloader running... ");
+
+    bios_print_str("\r\nLoading kernel...");
+
+
+// halt();
+//     if (!load_kernel(KERNEL_LOAD_ADDRESS)) {
+//         bios_print_str("FAILED");
+//         halt();
+//     }
+
+    bios_print_str("\r\nInitializing graphics...");
+    if (!setup_graphics()) {
+        bios_print_str("FAILED");
         halt();
+    }
+    graphics_demo();
+
+halt();
 
 
-    halt();
-
-    // we should load the kernel as well, shouldn't we????
-    // and we should pass in framebuffer & boot information, right?
-    // we should push the fb_info address onto the stack though...
-    // load 128 sectors, i.e. 64KB into address 0x8000 or 32KB.
-
-    // now enter Protected Mode and jump directly to the kernel
-    // passing in any information we have now
-    pm_entry(KERNEL_LOAD_ADDR);
+    bios_print_str("\r\nInitializing protected mode...");
+    pm_entry(KERNEL_LOAD_ADDRESS);
 }
