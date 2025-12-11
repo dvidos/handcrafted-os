@@ -47,4 +47,5 @@ cat build/stage1.bin build/stage2.bin build/kernel.bin > build/os.img
 
 # Launch QEMU
 # qemu-system-i386 -drive format=raw,file=build/os.img -monitor stdio -d int,cpu_reset
-qemu-system-i386 -drive format=raw,file=build/os.img -serial stdio
+# qemu-system-i386 -drive format=raw,file=build/os.img -serial stdio
+qemu-system-i386 -drive format=raw,file=build/os.img
