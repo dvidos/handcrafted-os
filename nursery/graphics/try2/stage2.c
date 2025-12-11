@@ -7,7 +7,7 @@
 framebuffer_info_t fb_info;
 uint8_t vbe_info[256];
 static const char *hex_digits = "0123456789abcdef";
-int echo_in_serial_port = 0;
+int serial_port_initialized = 0;
 
 #define KERNEL_FIRST_SECTOR_LBA      16  // 1 for 1st stage, 16 for second, LBA is zero based
 #define KERNEL_SIZE_KB               64  // how many kilobytes to load
@@ -74,6 +74,8 @@ static void serial_init() {
     outb(0x3F8 + 3, 0x03); // 8 bits, no parity, 1 stop bit
     outb(0x3F8 + 2, 0xC7); // enable FIFO
     outb(0x3F8 + 4, 0x0B); // IRQs disabled, RTS/DSR set
+
+    serial_port_initialized = 1;
 }
 static void serial_write_char(char c) {
     while ((inb(0x3F8 + 5) & 0x20) == 0); // Wait for transmit buffer empty
@@ -87,12 +89,11 @@ static void bios_print_char(char c) {
     asm volatile ("movb $0x0E, %%ah\n" "movb %0, %%al\n"  "int $0x10\n" : : "m"(c) : "ax");
 
     // for debugging (copy/paste) in QEMU
-    if (echo_in_serial_port)
+    if (serial_port_initialized)
         serial_write_char(c);
 }
 static void bios_print_str(char *s) {
-    while (*s)
-        bios_print_char(*s++);
+    while (*s) { bios_print_char(*s); s++; }
 }
 static void bios_print_int(int value) {
     if (value == 0) { bios_print_char('0'); return; }
@@ -264,8 +265,17 @@ void stage2_main(void) {
     // - query, select, and enter graphics mode
     // - load the kernel into specific memory address
     // - enter protected mode and jump to the kernel entry
-    serial_init(); // for debugging in QEMU, run with "-serial stdio"
-    echo_in_serial_port = 0;
+
+
+    // serial_init(); // for debugging in QEMU, run with "-serial stdio"
+
+    bios_print_char('K');
+    bios_print_char('L');
+    bios_print_char('M');
+    bios_print_str("Message");
+    bios_print_hex32((uint32_t)(char *)"Message");
+    bios_print_char('"');
+    halt();
 
     bios_print_str("\r\nStage 2 bootloader running... ");
 

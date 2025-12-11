@@ -9,6 +9,7 @@ global vbe_get_mode_info_real
 global bios_read_sectors_asm
 
 
+; this label at address 0x800 / 2MB
 _stage2_start:
 
     ; show we are running
@@ -18,7 +19,9 @@ _stage2_start:
 
     ; before calling C, setup some deeper stack
     ; we are at 0x800, or 2KB, and could go up to 31KB, where the first stage is.
-    mov ax, 0x0000
+    mov ax, cs
+    mov ds, ax
+    mov es, ax
     mov ss, ax
     mov sp, 0x7C00
 
