@@ -87,18 +87,17 @@ vbe_get_mode_info_real:
 ; uint8_t bios_read_sectors_asm(struct dap* packet)
 ;
 ; C passes: packet pointer in EDX   (SysV ABI, same as GCC -m16 backend)
-; Returns: AL = 0 success, AL = 1 failure
+; Returns: AL = 1 success, AL = 0 failure
 ; ---------------------------------------------------------------------------
 
 bios_read_sectors_asm:
     ; Save registers we will use
-    push ax
+    ;push ax
     push bx
     push cx
     push dx
     push si
     push ds
-
     ; EDX contains 32-bit pointer to DAP
     ; Convert it to segment:offset
     mov bx, dx          ; BX = lower 16 bits (offset)
@@ -111,21 +110,17 @@ bios_read_sectors_asm:
     mov dl, 0x80        ; boot disk = first HDD (use 0x00 for floppy)
     int 0x13
     jc .error           ; carry = error
-
-    xor al, al          ; success: AL = 0
+    mov ax, 1           ; success: AL = 1
     jmp .done
-
 .error:
-    mov al, 1           ; failure: AL = 1
-
+    mov ax, 0           ; failure: AL = 0
 .done:
     pop ds
     pop si
     pop dx
     pop cx
     pop bx
-    pop ax
-
+    ;pop ax  TODO: this destroys AL too. Maybe fix the returned value.
     ret
 
 
@@ -188,4 +183,3 @@ gdt_descriptor:
 
 CODE_SEL equ 0x08
 DATA_SEL equ 0x10
-

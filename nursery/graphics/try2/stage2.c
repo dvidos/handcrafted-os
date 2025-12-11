@@ -242,16 +242,28 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
     packet.lba      = (uint64_t)lba;
 
     uint32_t ptr = (uint32_t)&packet;
+    uint8_t result;
 
-    return bios_read_sectors_asm(ptr);   // AL returned
+    asm volatile (
+        "movl %[ptr], %%edx\n"
+        "call bios_read_sectors_asm\n"
+        "movb %%al, %[ret]\n"
+        : [ret] "=m"(result)
+        : [ptr] "r"(ptr)
+        : "ax", "bx", "cx", "dx", "si", "memory"
+    );    
+
+    return result;
 }
 
 int load_kernel() {
-    return bios_read_sectors(
-        KERNEL_FIRST_SECTOR_LBA,
+    int ret = bios_read_sectors(
+        0,
         KERNEL_SIZE_KB * 2,      // 0.5kb per sector
         KERNEL_LOAD_ADDRESS
     );
+    bios_print_int(ret);
+    return ret;
 }
 
 // -------------------------------------------------------
@@ -266,27 +278,17 @@ void stage2_main(void) {
     // - load the kernel into specific memory address
     // - enter protected mode and jump to the kernel entry
 
-
-    // serial_init(); // for debugging in QEMU, run with "-serial stdio"
-
-    bios_print_char('K');
-    bios_print_char('L');
-    bios_print_char('M');
-    bios_print_str("Message");
-    bios_print_hex32((uint32_t)(char *)"Message");
-    bios_print_char('"');
-    halt();
-
-    bios_print_str("\r\nStage 2 bootloader running... ");
+    serial_init(); // for debugging in QEMU, run with "-serial stdio"
 
     bios_print_str("\r\nLoading kernel...");
+    if (!load_kernel(KERNEL_LOAD_ADDRESS)) {
+        bios_print_str("FAILED");
+        halt();
+    } else {
+        bios_print_str("PASSED");
+    }
 
-
-// halt();
-//     if (!load_kernel(KERNEL_LOAD_ADDRESS)) {
-//         bios_print_str("FAILED");
-//         halt();
-//     }
+halt();
 
     bios_print_str("\r\nInitializing graphics...");
     if (!setup_graphics()) {
@@ -296,7 +298,6 @@ void stage2_main(void) {
     graphics_demo();
 
 halt();
-
 
     bios_print_str("\r\nInitializing protected mode...");
     pm_entry(KERNEL_LOAD_ADDRESS);

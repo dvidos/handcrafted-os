@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-
-mkdir -p build
-
 # Typical computer memory setup
 # -------------------------------------------------
 # 0x00000 - 0x003FF	 Interrupt vector table (IVT)
@@ -17,11 +14,13 @@ mkdir -p build
 #     0 KB     0x00     1 KB    0x400      1 KB   Interrupt vector, etc
 #     1 KB    0x400     2 KB    0x800      1 KB   BIOS data area
 #     2 KB    0x800    31 KB   0x7C00     29 KB   Stage 2 bootloader + its stack
-#    31 KB   0x7C00    32 KB   0x8000    512 B    Stage 1 bootloader from BIOS
+#    31 KB   0x7C00    32 KB   0x8000    512  B   Stage 1 bootloader from BIOS
 #    32 KB   0x8000   640 KB  0xA0000    608 KB   Kernel + its stack
 #   640 KB  0xA0000     1 MB 0x100000    384 KB   Upper memory / Video / BIOS ROM 
-#     1 MB 0x100000           (sky)            (any)     Usable in protected mode
+#     1 MB 0x100000    (sky)              (any)   Usable in protected mode
 
+
+mkdir -p build
 
 # Stage 1
 nasm stage1.asm -f bin -o build/stage1.bin
