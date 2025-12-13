@@ -1,15 +1,9 @@
 #include <stdint.h>
 #include "../boot_info.h"
+#include "memory/string.h"
 
 boot_info_t global_boot_info;
 
-void memcpy(void *dest, void *src, int len) {
-    while (len-- > 0) {
-        *(unsigned char *)dest = *(unsigned char *)src;
-        dest += 1;
-        src += 1;
-    }
-}
 
 static void gf_fill(uint32_t color) {
     framebuffer_info_t *fb = &global_boot_info.fb;

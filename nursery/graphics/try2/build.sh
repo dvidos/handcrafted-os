@@ -75,12 +75,10 @@ i686-elf-ld -Ttext=$STAGE2_LOAD_ADDRESS -e _stage2_start -o build/stage2.elf bui
 objcopy -O binary build/stage2.elf build/stage2.bin
 pad_file_to_sectors build/stage2.bin $STAGE2_SECTORS
 
+
 # Kernel
-nasm src/kernel/kernel.asm -f elf32 -o build/kernel_asm.o
-i686-elf-gcc -m32 -ffreestanding -fno-pie -nostdlib -O2 -c src/kernel/kernel.c -o build/kernel.o
-i686-elf-ld -m elf_i386 -T src/kernel/kernel.ld \
-    --defsym KERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS \
-    -o build/kernel.elf build/kernel_asm.o build/kernel.o
+make -C src/kernel KERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS
+cp src/kernel/kernel.elf build/kernel.elf
 objcopy -O binary build/kernel.elf build/kernel.bin
 pad_file_to_sectors build/kernel.bin $KERNEL_SECTORS
 
