@@ -2,7 +2,6 @@
 #include "boot_info.h"
 
 boot_info_t global_boot_info;
-boot_info_t *gbi = &global_boot_info;
 
 void memcpy(void *dest, void *src, int len) {
     while (len-- > 0) {
@@ -13,14 +12,27 @@ void memcpy(void *dest, void *src, int len) {
 }
 
 static void gf_fill(uint32_t color) {
-    
+    framebuffer_info_t *fb = &global_boot_info.fb;
+    uint8_t red   = (color >> 16) & 0xFF;
+    uint8_t green = (color >> 8) & 0xFF;
+    uint8_t blue  = (color >> 0) & 0xFF;
+
+    for (int y = 0; y < fb->height; y++) {
+        for (int x = 0; x < fb->width; x++) {
+            uint8_t *pix_start = ((uint8_t *)fb->fb_addr) + y * fb->pitch + x * 3;
+            pix_start[2] = red;
+            pix_start[1] = green;
+            pix_start[0] = blue;
+        }
+    }
 }
+
 static void graphics_demo() {
     // demonstration!
-    uint8_t *fb = (uint8_t *)gbi->fb.fb_addr;
+    framebuffer_info_t *fb = &global_boot_info.fb;
     for (int y = 0; y < 255; y++) {
         for (int x = 0; x < 255; x++) {
-            uint8_t *pix_start = fb + y * gbi->fb.pitch + x * 3;
+            uint8_t *pix_start = ((uint8_t *)fb->fb_addr) + (y+100) * fb->pitch + (x+100) * 3;
             pix_start[0] = y & 0xFF; // blue
             pix_start[1] = x & 0xFF; // green
             pix_start[2] = (y^x) & 0xFF; // red
@@ -32,7 +44,6 @@ static void graphics_demo() {
     //     ((uint8_t *)gbi->fb.fb_addr)[i] = i & 0xFF;
     //     ((uint8_t *)gbi->fb.fb_addr)[i] = i & 0xFF;
     // }
-    for(;;) asm("hlt");
 
     // rect_filled(260, 0, 280, 20, 0x0000cc);
     // rect_filled(280, 0, 300, 20, 0x00cc00);
@@ -52,10 +63,11 @@ static void graphics_demo() {
 }
 
 void kernel_main(boot_info_t* bi) {
-    // for(;;) asm volatile("hlt");
-
+    // preserve boot info
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
 
+
+    gf_fill(0x008080);
     graphics_demo();
 
     // kernel can never return, there's nothing to return to.
