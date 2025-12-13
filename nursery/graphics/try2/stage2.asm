@@ -31,7 +31,6 @@ _stage2_start:
     jmp $
 
 
-
 ; ----------------------------------------------------
 ; vbe_set_mode_real
 ; Input: BX = mode

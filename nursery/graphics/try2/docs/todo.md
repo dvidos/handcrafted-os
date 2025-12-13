@@ -22,7 +22,9 @@
 * rounded corners, antialiased
 * gradients
 * alpha / opacity
+* blur (for panes / icons etc)
 * emulated 3d appearance (sunken, raised) with definable curature, height/depth, and distance from the edge
+* show images? icons? at least one format? (e.g. png, webp etc)
 
 Essentially something to make as non-boxy graphics as possible, with as simple an interface as possible.
 [Example openbox video](https://www.youtube.com/watch?v=5XoHWbdVhPc)

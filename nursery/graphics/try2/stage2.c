@@ -8,8 +8,11 @@ framebuffer_info_t fb_info;
 uint8_t vbe_info[256];
 static const char *hex_digits = "0123456789abcdef";
 int serial_port_initialized = 0;
+uint8_t _reg8_;
+uint16_t _reg16_;
+uint32_t _reg32_;
 
-#define KERNEL_FIRST_SECTOR_LBA      16  // 1 for 1st stage, 16 for second, LBA is zero based
+#define KERNEL_FIRST_SECTOR_LBA      17  // 1 for 1st stage, 16 for second, LBA is zero based
 #define KERNEL_SIZE_KB               64  // how many kilobytes to load
 #define KERNEL_LOAD_ADDRESS      0x8000  // 32KB decimal, this MUST be below 1MB, and match the kernel.ld
 
@@ -19,7 +22,6 @@ extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
 extern void pm_entry(uint32_t kernel_addr);
 
 // -------------------------------------------------------
-
 
 static inline uint8_t vbe_set_mode_c(uint16_t mode) {
     uint8_t result;
@@ -82,6 +84,7 @@ static void serial_write_char(char c) {
     outb(0x3F8, c);
 }
 
+
 // -------------------------------------------------------
 
 static void bios_print_char(char c) {
@@ -129,10 +132,17 @@ static void bios_print_hex8(uint8_t value) {
     bios_print_char(hex_digits[(value >> 4)  & 0xF]);
     bios_print_char(hex_digits[(value >> 0)  & 0xF]);
 }
-static void bios_hex_dump(unsigned char *buffer, int len) {
+static void bios_hex_dump(void *buffer, int len) {
     for (int i = 0; i < len; i++) {
-        bios_print_hex8(*buffer++);
+        bios_print_hex8(*(uint8_t *)buffer++);
         bios_print_char(' ');
+    }
+}
+static void bios_hex16_dump(void *buffer, int len) {
+    for (int i = 0; i < len; i++) {
+        bios_print_hex16(*(uint16_t *)buffer);
+        bios_print_char(' ');
+        buffer += 2;
     }
 }
 
@@ -221,6 +231,46 @@ static void graphics_demo() {
 
 // -----------------------------------------------------------------
 
+static inline uint16_t get_ax(void) { uint16_t v; asm volatile("mov %%ax,%0":"=r"(v)); return v; }
+static inline uint16_t get_bx(void) { uint16_t v; asm volatile("mov %%bx,%0":"=r"(v)); return v; }
+static inline uint16_t get_cx(void) { uint16_t v; asm volatile("mov %%cx,%0":"=r"(v)); return v; }
+static inline uint16_t get_dx(void) { uint16_t v; asm volatile("mov %%dx,%0":"=r"(v)); return v; }
+static inline uint16_t get_si(void) { uint16_t v; asm volatile("mov %%si,%0":"=r"(v)); return v; }
+static inline uint16_t get_di(void) { uint16_t v; asm volatile("mov %%di,%0":"=r"(v)); return v; }
+static inline uint16_t get_sp(void) { uint16_t v; asm volatile("mov %%sp,%0":"=r"(v)); return v; }
+static inline uint16_t get_bp(void) { uint16_t v; asm volatile("mov %%bp,%0":"=r"(v)); return v; }
+static inline uint16_t get_cs(void) { uint16_t v; asm volatile("mov %%cs,%0":"=r"(v)); return v; }
+static inline uint16_t get_ds(void) { uint16_t v; asm volatile("mov %%ds,%0":"=r"(v)); return v; }
+static inline uint16_t get_es(void) { uint16_t v; asm volatile("mov %%es,%0":"=r"(v)); return v; }
+static inline uint16_t get_ss(void) { uint16_t v; asm volatile("mov %%ss,%0":"=r"(v)); return v; }
+static inline uint32_t get_eip(void) { uint32_t eip; asm volatile ("call 1f\n"  "1: pop %0\n"  : "=r"(eip)); return eip; }
+
+#define print_cpu_status()  \
+    bios_print_str("AX:"); asm volatile("mov %%ax,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("BX:"); asm volatile("mov %%bx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("CX:"); asm volatile("mov %%cx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("DX:"); asm volatile("mov %%dx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("\r\n"); \
+    \
+    bios_print_str("SI:"); asm volatile("mov %%si,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("DI:"); asm volatile("mov %%di,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("BP:"); asm volatile("mov %%bp,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("SP:"); asm volatile("mov %%sp,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("\r\n"); \
+    \
+    bios_print_str("CS:"); asm volatile("mov %%cs,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("DS:"); asm volatile("mov %%ds,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("ES:"); asm volatile("mov %%es,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("SS:"); asm volatile("mov %%ss,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("EIP:"); asm volatile ("call 1f\n"  "1: pop %0\n"  : "=r"(_reg32_)); bios_print_hex32(_reg32_);  \
+    bios_print_str("\r\n"); \
+    \
+    asm volatile("mov %%sp,%0":"=r"(_reg16_)); \
+    bios_print_str("Words at SP: "); bios_hex16_dump((void *)_reg16_, 16); bios_print_str("\r\n");
+    // bios_print_str("Words at BP: "); bios_hex16_dump((void *)(uint32_t)get_bp(), 16); bios_print_str("\r\n");
+
+// -----------------------------------------------------------------
+
 struct dap {
     uint8_t  size;      // must be 0x10
     uint8_t  reserved;
@@ -230,40 +280,47 @@ struct dap {
     uint64_t lba;       // starting LBA
 } __attribute__((packed));
 
+static struct dap disk_address_packet __attribute__((aligned(16)));
 
 int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
 {
-    struct dap packet;
-    packet.size     = 0x10;
-    packet.reserved = 0;
-    packet.count    = count;
-    packet.offset   = dest & 0xF;
-    packet.segment  = dest >> 4;
-    packet.lba      = (uint64_t)lba;
+    disk_address_packet.size     = 0x10;
+    disk_address_packet.reserved = 0;
+    disk_address_packet.count    = count;
+    disk_address_packet.offset   = dest & 0xF;
+    disk_address_packet.segment  = dest >> 4;
+    disk_address_packet.lba      = (uint64_t)lba;
 
-    uint32_t ptr = (uint32_t)&packet;
     uint8_t result;
 
+    // print_cpu_status();
+
     asm volatile (
+        "nop \n"
+        "nop \n"
+        "nop \n"
         "movl %[ptr], %%edx\n"
-        "call bios_read_sectors_asm\n"
+        "callw bios_read_sectors_asm\n"
         "movb %%al, %[ret]\n"
+        "nop \n"
+        "nop \n"
+        "nop \n"
         : [ret] "=m"(result)
-        : [ptr] "r"(ptr)
+        : [ptr] "r"(&disk_address_packet)
         : "ax", "bx", "cx", "dx", "si", "memory"
     );    
+
+    // print_cpu_status();
 
     return result;
 }
 
 int load_kernel() {
-    int ret = bios_read_sectors(
-        17,
+    return bios_read_sectors(
+        KERNEL_FIRST_SECTOR_LBA,
         KERNEL_SIZE_KB * 2,      // 0.5kb per sector
         KERNEL_LOAD_ADDRESS
     );
-    bios_print_int(ret);
-    return ret;
 }
 
 // -------------------------------------------------------
@@ -280,17 +337,15 @@ void stage2_main(void) {
 
     serial_init(); // for debugging in QEMU, run with "-serial stdio"
 
-    bios_print_str("\r\nLoading kernel...");
-    if (!load_kernel(KERNEL_LOAD_ADDRESS)) {
+    bios_print_str("Loading kernel...\r\n");
+    if (!load_kernel()) {
         bios_print_str("FAILED");
-        halt();
     } else {
         bios_print_str("PASSED");
     }
+    halt();
 
-halt();
-
-    bios_print_str("\r\nInitializing graphics...");
+    bios_print_str("Initializing graphics...\r\n");
     if (!setup_graphics()) {
         bios_print_str("FAILED");
         halt();
@@ -299,6 +354,6 @@ halt();
 
 halt();
 
-    bios_print_str("\r\nInitializing protected mode...");
+    bios_print_str("Initializing protected mode...\r\n");
     pm_entry(KERNEL_LOAD_ADDRESS);
 }
