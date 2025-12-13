@@ -3,6 +3,7 @@ BITS 16
 
 extern stage2_main
 extern kernel_addr_global
+extern boot_info
 
 global _stage2_start
 global vbe_set_mode_real
@@ -156,10 +157,15 @@ enter_protected_mode_32bits:
     mov ax, DATA_SEL
     mov ss, ax          ; load stack segment
     mov esp, 0x90000    ; stack top (match what kernel.ld has)
+    
+    ; pass in first argument in kernel_main()
+    mov eax, boot_info
+    push eax
 
     ; jump to kernel entry point in EAX
     mov eax, [kernel_addr_global]
-    jmp eax
+    call eax
+    jmp $
 
 ; ------------------------
 [BITS 16]

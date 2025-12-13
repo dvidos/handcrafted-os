@@ -1,17 +1,15 @@
 #include <stdint.h>
-#include "framebuffer.h"
+#include "boot_info.h"
 
 
-
-// global buffers for VBE and framebuffer info
-framebuffer_info_t fb_info;
+uint32_t kernel_addr_global;
+boot_info_t boot_info;
 uint8_t vbe_info[256];
 static const char *hex_digits = "0123456789abcdef";
 int serial_port_initialized = 0;
 uint8_t _reg8_;
 uint16_t _reg16_;
 uint32_t _reg32_;
-uint32_t kernel_addr_global;
 
 #define KERNEL_FIRST_SECTOR_LBA      17  // 1 for 1st stage, 16 for second, LBA is zero based
 #define KERNEL_SIZE_KB               64  // how many kilobytes to load
@@ -150,7 +148,7 @@ static void bios_hex16_dump(void *buffer, int len) {
 // -------------------------------------------------------
 
 static inline void set_pixel(int x, int y, uint32_t color) {
-    uint8_t *pix_start = (uint8_t *)(fb_info.fb_addr + y * fb_info.pitch + x * 3);
+    uint8_t *pix_start = (uint8_t *)(boot_info.fb.fb_addr + y * boot_info.fb.pitch + x * 3);
     pix_start[0] = (color >> 16) & 0xFF;
     pix_start[1] = (color >>  8) & 0xFF;
     pix_start[2] = (color >>  0) & 0xFF;
@@ -179,11 +177,11 @@ static int setup_graphics() {
         return 0;
     }
 
-    fb_info.fb_addr = *(uint32_t*)(vbe_info + 0x28);
-    fb_info.width   = *(uint16_t*)(vbe_info + 0x12);
-    fb_info.height  = *(uint16_t*)(vbe_info + 0x14);
-    fb_info.bpp     = *(uint8_t*)(vbe_info + 0x19);
-    fb_info.pitch   = *(uint16_t*)(vbe_info + 0x10);
+    boot_info.fb.fb_addr = *(uint32_t*)(vbe_info + 0x28);
+    boot_info.fb.width   = *(uint16_t*)(vbe_info + 0x12);
+    boot_info.fb.height  = *(uint16_t*)(vbe_info + 0x14);
+    boot_info.fb.bpp     = *(uint8_t*)(vbe_info + 0x19);
+    boot_info.fb.pitch   = *(uint16_t*)(vbe_info + 0x10);
 
     // bios_print_str("VBE mode info\r\n");
     // bios_print_str("bytes:   "); bios_hex_dump(vbe_info, 256); bios_print_str("\r\n");
@@ -203,10 +201,10 @@ static int setup_graphics() {
 }
 static void graphics_demo() {
     // demonstration!
-    uint8_t *fb = (uint8_t *)fb_info.fb_addr;
+    uint8_t *fb = (uint8_t *)boot_info.fb.fb_addr;
     for (int y = 0; y < 255; y++) {
         for (int x = 0; x < 255; x++) {
-            uint8_t *pix_start = fb + y * fb_info.pitch + x * 3;
+            uint8_t *pix_start = fb + y * boot_info.fb.pitch + x * 3;
             pix_start[0] = x & 0xFF; // blue
             pix_start[1] = y & 0xFF; // green
             pix_start[2] = (y+x) & 0xFF; // red
@@ -346,10 +344,11 @@ void stage2_main(void) {
         bios_print_str("FAILED");
         halt();
     }
-    graphics_demo();
-
+    // graphics_demo();
 
     bios_print_str("Initializing protected mode...\r\n");
     kernel_addr_global = KERNEL_LOAD_ADDRESS;
+    bios_print_str("kernel address: "); bios_print_hex32(kernel_addr_global); bios_print_str("\r\n");
+    bios_print_str("boot info address: "); bios_print_hex32(&boot_info); bios_print_str("\r\n");
     enter_protected_mode();
 }
