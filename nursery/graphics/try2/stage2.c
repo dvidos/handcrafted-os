@@ -1,8 +1,17 @@
 #include <stdint.h>
 #include "boot_info.h"
 
+#ifndef KERNEL_LOAD_ADDRESS
+    #error KERNEL_LOAD_ADDRESS not defined
+#endif
+#ifndef KERNEL_FIRST_SECTOR_LBA
+    #error KERNEL_FIRST_SECTOR_LBA not defined
+#endif
+#ifndef KERNEL_SECTORS
+    #error KERNEL_SECTORS not defined
+#endif
 
-uint32_t kernel_addr_global;
+
 boot_info_t boot_info;
 uint8_t vbe_info[256];
 static const char *hex_digits = "0123456789abcdef";
@@ -11,9 +20,6 @@ uint8_t _reg8_;
 uint16_t _reg16_;
 uint32_t _reg32_;
 
-#define KERNEL_FIRST_SECTOR_LBA      17  // 1 for 1st stage, 16 for second, LBA is zero based
-#define KERNEL_SIZE_KB               64  // how many kilobytes to load
-#define KERNEL_LOAD_ADDRESS      0x8000  // 32KB decimal, this MUST be below 1MB, and match the kernel.ld
 
 extern uint8_t vbe_set_mode_real(void);
 extern uint8_t vbe_get_mode_info_real(void);
@@ -292,15 +298,9 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
     // print_cpu_status();
 
     asm volatile (
-        "nop \n"
-        "nop \n"
-        "nop \n"
         "movl %[ptr], %%edx\n"
         "callw bios_read_sectors_asm\n"
         "movb %%al, %[ret]\n"
-        "nop \n"
-        "nop \n"
-        "nop \n"
         : [ret] "=m"(_reg8_)
         : [ptr] "r"(&disk_address_packet)
         : "ax", "bx", "cx", "dx", "si", "memory"
@@ -312,11 +312,7 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
 }
 
 int load_kernel() {
-    return bios_read_sectors(
-        KERNEL_FIRST_SECTOR_LBA,
-        KERNEL_SIZE_KB * 2,      // 0.5kb per sector
-        KERNEL_LOAD_ADDRESS
-    );
+    return bios_read_sectors(KERNEL_FIRST_SECTOR_LBA, KERNEL_SECTORS, KERNEL_LOAD_ADDRESS);
 }
 
 // -------------------------------------------------------
@@ -346,8 +342,7 @@ void stage2_main(void) {
     }
     // graphics_demo();
 
-    kernel_addr_global = KERNEL_LOAD_ADDRESS;
-    bios_print_str("Kernel load & entry address: 0x"); bios_print_hex32(kernel_addr_global); bios_print_str("\r\n");
+    bios_print_str("Kernel load & entry address: 0x"); bios_print_hex32(KERNEL_LOAD_ADDRESS); bios_print_str("\r\n");
     bios_print_str("Boot info structure address: 0x"); bios_print_hex32((uint32_t)&boot_info); bios_print_str("\r\n");
 
     bios_print_str("Initializing protected mode and jumping to kernel...\r\n");

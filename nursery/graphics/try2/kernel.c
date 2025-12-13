@@ -12,6 +12,9 @@ void memcpy(void *dest, void *src, int len) {
     }
 }
 
+static void gf_fill(uint32_t color) {
+    
+}
 static void graphics_demo() {
     // demonstration!
     uint8_t *fb = (uint8_t *)gbi->fb.fb_addr;

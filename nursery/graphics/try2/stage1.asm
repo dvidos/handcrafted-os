@@ -3,6 +3,14 @@
 [BITS 16]
 [ORG 0x7C00]
 
+%ifndef STAGE2_LOAD_ADDRESS
+    %error STAGE2_LOAD_ADDRESS not defined
+%endif
+%ifndef STAGE2_SECTORS
+    %error STAGE2_SECTORS not defined
+%endif
+
+
 start:
     cli                     ; disable interrupts
     mov ax, 0x0000
@@ -17,13 +25,13 @@ start:
     int 0x10
 
     ; load stage2 at 0x800 (2 KB), about 16 sectors or 8 KB
-    mov bx, 0x800
-    mov dh, 0      ; head 0
-    mov dl, 0x80   ; first hard disk
-    mov ah, 0x02   ; BIOS read sectors
-    mov al, 16     ; number of sectors (each 512 bytes)
-    mov ch, 0      ; cylinder 0
-    mov cl, 2      ; sector 2 (sector numbers start at 1)
+    mov bx, STAGE2_LOAD_ADDRESS
+    mov dh, 0               ; head 0
+    mov dl, 0x80            ; first hard disk
+    mov ah, 0x02            ; BIOS read sectors
+    mov al, STAGE2_SECTORS  ; number of sectors (each 512 bytes)
+    mov ch, 0               ; cylinder 0
+    mov cl, 2               ; sector 2 (sector numbers start at 1)
     int 0x13
     jc disk_error
 
@@ -33,7 +41,7 @@ start:
     int 0x10
 
     ; jump to stage2 entry point
-    jmp 0x0000:0x0800
+    jmp 0x0000:STAGE2_LOAD_ADDRESS
 
 disk_error:
     ; show "Error"

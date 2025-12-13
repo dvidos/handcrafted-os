@@ -2,13 +2,24 @@
 BITS 16
 
 extern stage2_main
-extern kernel_addr_global
 extern boot_info
 
 global _stage2_start
 global vbe_set_mode_real
 global vbe_get_mode_info_real
 global bios_read_sectors_asm
+
+%ifndef STAGE2_STACK_TOP
+    %error STAGE2_STACK_TOP not defined
+%endif
+%ifndef KERNEL_STACK_TOP
+    %error KERNEL_STACK_TOP not defined
+%endif
+%ifndef KERNEL_LOAD_ADDRESS
+    %error KERNEL_LOAD_ADDRESS not defined
+%endif
+
+
 
 
 ; this label at address 0x800 / 2MB
@@ -25,7 +36,7 @@ _stage2_start:
     mov ds, ax
     mov es, ax
     mov ss, ax
-    mov sp, 0x7C00
+    mov sp, STAGE2_STACK_TOP
 
     ; now we can call the C code, still in real mode
     call stage2_main
@@ -93,7 +104,6 @@ vbe_get_mode_info_real:
 
 bios_read_sectors_asm:
     ; Save registers we will use
-    ;push ax
     push bx
     push cx
     push dx
@@ -121,7 +131,6 @@ bios_read_sectors_asm:
     pop dx
     pop cx
     pop bx
-    ;pop ax  TODO: this destroys AL too. Maybe fix the returned value.
     ret
 
 
@@ -156,14 +165,14 @@ enter_protected_mode_32bits:
     ; 2. Set up stack
     mov ax, DATA_SEL
     mov ss, ax          ; load stack segment
-    mov esp, 0x90000    ; stack top (match what kernel.ld has)
+    mov esp, KERNEL_STACK_TOP   ; stack top (match what kernel.ld has)
     
     ; pass in first argument in kernel_main()
     mov eax, boot_info
     push eax
 
     ; jump to kernel entry point in EAX
-    mov eax, [kernel_addr_global]
+    mov eax, KERNEL_LOAD_ADDRESS
     jmp eax
 
 ; ------------------------
