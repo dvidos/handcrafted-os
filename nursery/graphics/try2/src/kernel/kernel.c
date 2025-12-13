@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "boot_info.h"
+#include "../boot_info.h"
 
 boot_info_t global_boot_info;
 

@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "boot_info.h"
+#include "../boot_info.h"
 
 #ifndef KERNEL_LOAD_ADDRESS
     #error KERNEL_LOAD_ADDRESS not defined

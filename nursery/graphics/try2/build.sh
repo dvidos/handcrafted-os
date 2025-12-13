@@ -55,13 +55,13 @@ pad_file_to_sectors() {
 mkdir -p build
 
 # Stage 1
-nasm stage1.asm \
+nasm src/stage1/stage1.asm \
     -DSTAGE2_LOAD_ADDRESS=$STAGE2_LOAD_ADDRESS \
     -DSTAGE2_SECTORS=$STAGE2_SECTORS \
     -f bin -o build/stage1.bin
 
 # Stage 2 bootloader (16 sectors, 8KB)
-nasm stage2.asm \
+nasm src/stage2/stage2.asm \
     -DSTAGE2_STACK_TOP=$STAGE2_STACK_TOP \
     -DKERNEL_STACK_TOP=$KERNEL_STACK_TOP \
     -DKERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS \
@@ -70,15 +70,15 @@ i686-elf-gcc -m16 -ffreestanding -fno-pie -O2 \
     -DKERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS \
     -DKERNEL_FIRST_SECTOR_LBA=$KERNEL_FIRST_SECTOR_LBA \
     -DKERNEL_SECTORS=$KERNEL_SECTORS \
-    -c stage2.c -o build/stage2.o
+    -c src/stage2/stage2.c -o build/stage2.o
 i686-elf-ld -Ttext=$STAGE2_LOAD_ADDRESS -e _stage2_start -o build/stage2.elf build/stage2_asm.o build/stage2.o 
 objcopy -O binary build/stage2.elf build/stage2.bin
 pad_file_to_sectors build/stage2.bin $STAGE2_SECTORS
 
 # Kernel
-nasm kernel.asm -f elf32 -o build/kernel_asm.o
-i686-elf-gcc -m32 -ffreestanding -fno-pie -nostdlib -O2 -c kernel.c -o build/kernel.o
-i686-elf-ld -m elf_i386 -T kernel.ld \
+nasm src/kernel/kernel.asm -f elf32 -o build/kernel_asm.o
+i686-elf-gcc -m32 -ffreestanding -fno-pie -nostdlib -O2 -c src/kernel/kernel.c -o build/kernel.o
+i686-elf-ld -m elf_i386 -T src/kernel/kernel.ld \
     --defsym KERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS \
     -o build/kernel.elf build/kernel_asm.o build/kernel.o
 objcopy -O binary build/kernel.elf build/kernel.bin
