@@ -35,8 +35,9 @@ dd if=/dev/zero bs=1 count=$((8192 - $(stat -c %s build/stage2.bin))) >> build/s
 
 
 # Kernel
-i686-elf-gcc -m32 -ffreestanding -fno-pie -O2 -c kernel.c -o build/kernel.o
-i686-elf-ld -m elf_i386 -T kernel.ld -o build/kernel.elf build/kernel.o
+nasm kernel.asm -f elf32 -o build/kernel_asm.o
+i686-elf-gcc -m32 -ffreestanding -fno-pie -nostdlib -O2 -c kernel.c -o build/kernel.o
+i686-elf-ld -m elf_i386 -T kernel.ld -o build/kernel.elf build/kernel_asm.o build/kernel.o
 objcopy -O binary build/kernel.elf build/kernel.bin
 dd if=/dev/zero bs=1 count=$((65536 - $(stat -c %s build/kernel.bin))) >> build/kernel.bin  # pad to 64K size / 128 sectors
 
@@ -45,5 +46,6 @@ cat build/stage1.bin build/stage2.bin build/kernel.bin > build/os.img
 
 
 # Launch QEMU
-# qemu-system-i386 -drive format=raw,file=build/os.img -monitor stdio -d int,cpu_reset
+#qemu-system-i386 -drive format=raw,file=build/os.img -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
+# qemu-system-i386 -drive format=raw,file=build/os.img -monitor stdio -d guest_errors
 qemu-system-i386 -drive format=raw,file=build/os.img -serial stdio

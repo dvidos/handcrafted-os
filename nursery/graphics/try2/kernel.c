@@ -14,19 +14,21 @@ void memcpy(void *dest, void *src, int len) {
 
 static void graphics_demo() {
     // demonstration!
-    // uint8_t *fb = (uint8_t *)gbi->fb.fb_addr;
-    // for (int y = 0; y < 255; y++) {
-    //     for (int x = 0; x < 255; x++) {
-    //         uint8_t *pix_start = fb + y * gbi->fb.pitch + x * 3;
-    //         pix_start[0] = x & 0xFF; // blue
-    //         pix_start[1] = y & 0xFF; // green
-    //         pix_start[2] = (y+x) & 0xFF; // red
-    //     }
-    // }
-
-    for (int i = 0; i < 4096; i++) {
-        ((uint8_t *)gbi->fb.fb_addr)[i] = i & 0xFF;
+    uint8_t *fb = (uint8_t *)gbi->fb.fb_addr;
+    for (int y = 0; y < 255; y++) {
+        for (int x = 0; x < 255; x++) {
+            uint8_t *pix_start = fb + y * gbi->fb.pitch + x * 3;
+            pix_start[0] = y & 0xFF; // blue
+            pix_start[1] = x & 0xFF; // green
+            pix_start[2] = (y^x) & 0xFF; // red
+        }
     }
+
+    // for (int i = 0; i < 64 * 4096; i++) {
+    //     ((uint8_t *)gbi->fb.fb_addr)[i] = i & 0xFF;
+    //     ((uint8_t *)gbi->fb.fb_addr)[i] = i & 0xFF;
+    //     ((uint8_t *)gbi->fb.fb_addr)[i] = i & 0xFF;
+    // }
     for(;;) asm("hlt");
 
     // rect_filled(260, 0, 280, 20, 0x0000cc);
@@ -45,7 +47,6 @@ static void graphics_demo() {
     // rect_border(280, 20, 300, 40, 0xffffff);
     // rect_border(300, 20, 320, 40, 0xffffff);
 }
-
 
 void kernel_main(boot_info_t* bi) {
     // for(;;) asm volatile("hlt");

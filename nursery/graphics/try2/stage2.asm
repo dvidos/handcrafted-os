@@ -164,8 +164,7 @@ enter_protected_mode_32bits:
 
     ; jump to kernel entry point in EAX
     mov eax, [kernel_addr_global]
-    call eax
-    jmp $
+    jmp eax
 
 ; ------------------------
 [BITS 16]

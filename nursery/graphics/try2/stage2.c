@@ -346,9 +346,10 @@ void stage2_main(void) {
     }
     // graphics_demo();
 
-    bios_print_str("Initializing protected mode...\r\n");
     kernel_addr_global = KERNEL_LOAD_ADDRESS;
-    bios_print_str("kernel address: "); bios_print_hex32(kernel_addr_global); bios_print_str("\r\n");
-    bios_print_str("boot info address: "); bios_print_hex32(&boot_info); bios_print_str("\r\n");
+    bios_print_str("Kernel load & entry address: 0x"); bios_print_hex32(kernel_addr_global); bios_print_str("\r\n");
+    bios_print_str("Boot info structure address: 0x"); bios_print_hex32((uint32_t)&boot_info); bios_print_str("\r\n");
+
+    bios_print_str("Initializing protected mode and jumping to kernel...\r\n");
     enter_protected_mode();
 }
