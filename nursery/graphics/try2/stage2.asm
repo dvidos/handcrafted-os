@@ -2,6 +2,7 @@
 BITS 16
 
 extern stage2_main
+extern kernel_addr_global
 
 global _stage2_start
 global vbe_set_mode_real
@@ -131,19 +132,19 @@ bios_read_sectors_asm:
 ; --------------------------------------------------------------------------------
 
 [BITS 16]
-global pm_entry
+global enter_protected_mode
 
-pm_entry:
+enter_protected_mode:
     cli                 ; disable interrupts
     lgdt [gdt_descriptor] ; load GDT
     mov eax, cr0
     or eax, 1           ; set PE bit
     mov cr0, eax        ; enter protected mode
-    jmp CODE_SEL:pm_entry_pm  ; far jump to flush prefetch
+    jmp CODE_SEL:enter_protected_mode_32bits  ; far jump to flush prefetch
 
 ; ------------------------
 [BITS 32]
-pm_entry_pm:
+enter_protected_mode_32bits:
     ; 1. Set up data segments
     mov ax, DATA_SEL
     mov ds, ax
@@ -157,6 +158,7 @@ pm_entry_pm:
     mov esp, 0x90000    ; stack top (match what kernel.ld has)
 
     ; jump to kernel entry point in EAX
+    mov eax, [kernel_addr_global]
     jmp eax
 
 ; ------------------------

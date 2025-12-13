@@ -11,6 +11,7 @@ int serial_port_initialized = 0;
 uint8_t _reg8_;
 uint16_t _reg16_;
 uint32_t _reg32_;
+uint32_t kernel_addr_global;
 
 #define KERNEL_FIRST_SECTOR_LBA      17  // 1 for 1st stage, 16 for second, LBA is zero based
 #define KERNEL_SIZE_KB               64  // how many kilobytes to load
@@ -19,7 +20,7 @@ uint32_t _reg32_;
 extern uint8_t vbe_set_mode_real(void);
 extern uint8_t vbe_get_mode_info_real(void);
 extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
-extern void pm_entry(uint32_t kernel_addr);
+extern void enter_protected_mode(); // make sure arg is uint32_t, a long pointer
 
 // -------------------------------------------------------
 
@@ -265,8 +266,7 @@ static inline uint32_t get_eip(void) { uint32_t eip; asm volatile ("call 1f\n"  
     bios_print_str("EIP:"); asm volatile ("call 1f\n"  "1: pop %0\n"  : "=r"(_reg32_)); bios_print_hex32(_reg32_);  \
     bios_print_str("\r\n"); \
     \
-    asm volatile("mov %%sp,%0":"=r"(_reg16_)); \
-    bios_print_str("Words at SP: "); bios_hex16_dump((void *)_reg16_, 16); bios_print_str("\r\n");
+    asm volatile("mov %%sp,%0":"=r"(_reg16_)); bios_print_str("Words at SP: "); bios_hex16_dump((void *)_reg16_, 16); bios_print_str("\r\n");
     // bios_print_str("Words at BP: "); bios_hex16_dump((void *)(uint32_t)get_bp(), 16); bios_print_str("\r\n");
 
 // -----------------------------------------------------------------
@@ -291,8 +291,6 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
     disk_address_packet.segment  = dest >> 4;
     disk_address_packet.lba      = (uint64_t)lba;
 
-    uint8_t result;
-
     // print_cpu_status();
 
     asm volatile (
@@ -305,14 +303,14 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
         "nop \n"
         "nop \n"
         "nop \n"
-        : [ret] "=m"(result)
+        : [ret] "=m"(_reg8_)
         : [ptr] "r"(&disk_address_packet)
         : "ax", "bx", "cx", "dx", "si", "memory"
     );    
 
     // print_cpu_status();
 
-    return result;
+    return _reg8_;
 }
 
 int load_kernel() {
@@ -340,11 +338,9 @@ void stage2_main(void) {
     bios_print_str("Loading kernel...\r\n");
     if (!load_kernel()) {
         bios_print_str("FAILED");
-    } else {
-        bios_print_str("PASSED");
+        halt();
     }
-    halt();
-
+    
     bios_print_str("Initializing graphics...\r\n");
     if (!setup_graphics()) {
         bios_print_str("FAILED");
@@ -352,8 +348,8 @@ void stage2_main(void) {
     }
     graphics_demo();
 
-halt();
 
     bios_print_str("Initializing protected mode...\r\n");
-    pm_entry(KERNEL_LOAD_ADDRESS);
+    kernel_addr_global = KERNEL_LOAD_ADDRESS;
+    enter_protected_mode();
 }
