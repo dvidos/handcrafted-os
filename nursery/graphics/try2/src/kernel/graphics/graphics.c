@@ -1,8 +1,7 @@
 #include <stdint.h>
 #include "graphics.h"
 #include "color.h"
-#include "font5x9.h"
-#include "font16x16.h"
+#include "font8x16.h"
 #include "../memory/string.h"
 
 
@@ -87,8 +86,8 @@ void graphics_demo(int left, int top, int width, int height) {
     }
 }
 
-int graphics_draw_character5x9(int x, int baseline_y, char chr, color clr) {
-    const glyph5x9 *gl = get_5x9_glyph(chr);
+int graphics_draw_8x16_character(int x, int baseline_y, char chr, font8x16 *font, color clr) {
+    const glyph8x16 *gl = font8x16_get_glyph(font, chr);
 
     for (int line = 0; line < 9; line++) {
         uint8_t bitmap = gl->bitmap[line];
@@ -106,38 +105,13 @@ int graphics_draw_character5x9(int x, int baseline_y, char chr, color clr) {
     return gl->width;
 }
 
-int graphics_draw_character16x16(int x, int baseline_y, char chr, color clr) {
-    const glyph16x16 *gl = get_16x16_glyph(chr);
-
-    for (int line = 0; line < 16; line++) {
-        uint16_t bitmap = gl->bitmap[line];
-        if (bitmap == 0)
-            continue;
-
-        for (int column = 0; column < gl->width; column++) {
-            if ((bitmap & (0x8000 >> column)) == 0)
-                continue;
-          
-            graphics_pixel(x + column, baseline_y - 12 + line, clr);
-        }
-    }
-
-    return gl->width;
-}
-
-int graphics_draw_text(int x, int baseline_y, const char *text, int font_num, color clr) {
+int graphics_draw_8x16_text(int x, int baseline_y, const char *text, font8x16 *font, color clr) {
     int running_x = x;
     int width = 0;
 
     while (*text) {
-        if (font_num == 1) {
-            width = graphics_draw_character5x9(running_x, baseline_y, *text, clr);
-            running_x += width + 1; // add space between the characters
-        } else if (font_num == 2) {
-            width = graphics_draw_character16x16(running_x, baseline_y, *text, clr);
-            running_x += width + 2; // add space between the characters
-        }
-
+        width = graphics_draw_8x16_character(running_x, baseline_y, *text, font, clr);
+        running_x += width + 1; // add space between the characters
         text++;
     }
 
