@@ -2,17 +2,28 @@
 
 
 #define B(sym) (  \
-    (((sym)[7] == ' ' ? 0 : 1) << 7) |    \
-    (((sym)[6] == ' ' ? 0 : 1) << 6) |    \
-    (((sym)[5] == ' ' ? 0 : 1) << 5) |    \
-    (((sym)[4] == ' ' ? 0 : 1) << 4) |    \
-    (((sym)[3] == ' ' ? 0 : 1) << 3) |    \
-    (((sym)[2] == ' ' ? 0 : 1) << 2) |    \
-    (((sym)[1] == ' ' ? 0 : 1) << 1) |    \
-    (((sym)[0] == ' ' ? 0 : 1) << 0))
+    (((sym)[0] == ' ' ? 0 : 1) << 7) |    \
+    (((sym)[1] == ' ' ? 0 : 1) << 6) |    \
+    (((sym)[2] == ' ' ? 0 : 1) << 5) |    \
+    (((sym)[3] == ' ' ? 0 : 1) << 4) |    \
+    (((sym)[4] == ' ' ? 0 : 1) << 3) |    \
+    (((sym)[5] == ' ' ? 0 : 1) << 2) |    \
+    (((sym)[6] == ' ' ? 0 : 1) << 1) |    \
+    (((sym)[7] == ' ' ? 0 : 1) << 0))
 
 glyph5x7 font5x7[] = {
 
+    {2, { // ' ' (32)
+      B("        "),
+      B("        "),
+      B("        "),
+      B("        "),
+      B("        "),
+      B("        "),
+      B("        "),
+      B("        "),
+      B("        "),
+    }},
     {1, { // '!' (33)
       B("#       "),
       B("#       "),
@@ -1065,19 +1076,9 @@ glyph5x7 font5x7[] = {
     }},    
 };
 
-
-// void draw_char(gs *g, int x, int y, char c, color col) {
-//     const glyph_t *glt = get_glyph(c);
-//     for (int row = 0; row < 7; row++) {
-//         uint8_t bits = glt->bitmap[row];
-//         for (int bit = 0; bit < glt->width; bit++) {
-//             if (bits & (1 << (7 - glt->width + bit))) {
-//                 gs_set_pixel(g, x + bit, y + row, col);
-//             }
-//         }
-//     }
-// }
-
-void draw_char_directly(int baseline_y, int *running_x, char c) {
+const glyph5x7 *get_5x7_glyph(char c) {
+   if (c < 32 || c > 126)
+        return &font5x7[' ']; // return space for unknown
     
+    return &font5x7[c - ' '];
 }

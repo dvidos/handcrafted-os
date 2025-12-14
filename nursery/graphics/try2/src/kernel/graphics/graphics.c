@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "graphics.h"
 #include "color.h"
+#include "font5x7.h"
 #include "../memory/string.h"
 
 
@@ -23,6 +24,7 @@ struct graphics_global_info {
 
 struct graphics_global_info ggi;
 
+
 void graphics_initialize(void *fb_address, int width, int height, int pitch, int bpp) {
     ggi.fb_address = fb_address;
     ggi.fb_width = width;
@@ -31,32 +33,83 @@ void graphics_initialize(void *fb_address, int width, int height, int pitch, int
     ggi.fb_bpp = bpp;
 }
 
-void graphics_fill(color c) {
-    uint8_t red   = (c >> 16) & 0xFF;
-    uint8_t green = (c >> 8)  & 0xFF;
-    uint8_t blue  = (c >> 0)  & 0xFF;
+void graphics_fill(color clr) {
+    uint8_t red   = RGB_R(clr);
+    uint8_t green = RGB_G(clr);
+    uint8_t blue  = RGB_B(clr);
 
     for (int y = 0; y < ggi.fb_height; y++) {
+        uint8_t *ptr = ((uint8_t *)ggi.fb_address) + y * ggi.fb_pitch;
         for (int x = 0; x < ggi.fb_width; x++) {
-            uint8_t *pix_start = ((uint8_t *)ggi.fb_address) + y * ggi.fb_pitch + x * 3;
-            pix_start[2] = red;
-            pix_start[1] = green;
-            pix_start[0] = blue;
+            *ptr++ = blue;
+            *ptr++ = green;
+            *ptr++ = red;
         }
     }
+}
+
+void graphics_rect(int left, int y, int width, int height, color clr) {
+    uint8_t red   = RGB_R(clr);
+    uint8_t green = RGB_G(clr);
+    uint8_t blue  = RGB_B(clr);
+
+    for (int y_offs = 0; y_offs < height; y_offs++) {
+        uint8_t *ptr = ((uint8_t *)ggi.fb_address) + (y + y_offs) * ggi.fb_pitch + (left * 3);
+        for (int x = 0; x < width; x++) {
+            *ptr++ = blue;
+            *ptr++ = green;
+            *ptr++ = red;
+        }
+    }
+}
+
+static void inline graphics_pixel(int x, int y, color clr) {
+    uint8_t *ptr = ggi.fb_address + y * ggi.fb_pitch + x * 3;
+    *ptr++ = RGB_B(clr);
+    *ptr++ = RGB_G(clr);
+    *ptr++ = RGB_R(clr);
 }
 
 void graphics_demo(int left, int top, int width, int height) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            uint8_t *pix_start = ggi.fb_address + (top + y) * ggi.fb_pitch + (left + x) * 3;
-            pix_start[0] = y & 0xFF; // blue
-            pix_start[1] = x & 0xFF; // green
-            pix_start[2] = (y^x) & 0xFF; // red
+            graphics_pixel(left + x, top + y, RGB(x, y, x^y));
         }
     }
 }
 
+int graphics_draw_character(int x, int baseline_y, char chr, color clr) {
+    const glyph5x7 *gl = get_5x7_glyph(chr);
+    
+
+    for (int line = 0; line < 9; line++) {
+        uint8_t bitmap = gl->bitmap[line];
+        if (bitmap == 0)
+            continue;
+
+        // for (int column = 0; column < gl->width; column++) {
+        for (int column = 0; column < 8; column++) {
+            if ((bitmap & (0x80 >> column)) == 0)
+                continue;
+          
+            graphics_pixel(x + column, baseline_y - 6 + line, clr);
+        }
+    }
+
+    return gl->width;
+}
+
+int graphics_draw_text(int x, int baseline_y, const char *text, color clr) {
+    int running_x = x;
+
+    while (*text) {
+        int width = graphics_draw_character(running_x, baseline_y, *text, clr);
+        running_x += width + 1; // add space between the characters
+        text++;
+    }
+
+    return running_x - x;
+}
 
 
 
