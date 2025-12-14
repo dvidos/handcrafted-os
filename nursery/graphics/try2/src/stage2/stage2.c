@@ -177,7 +177,11 @@ static inline void rect_filled(int x1, int y1, int x2, int y2, uint32_t color) {
     }
 }
 static int setup_graphics() {
-    uint16_t mode = 0x118; // 1024x768x24
+    uint16_t mode = 0x10F;       //  320 x 200 x 24
+    // uint16_t mode = 0x112;    //  640 x 480 x 24
+    // uint16_t mode = 0x115;    //  800 x 600 x 24
+    // uint16_t mode = 0x118;    // 1024 x 768 x 24
+    // uint16_t mode = 0x11b;    // 1280 x 1024 x 24
     if (!vbe_get_mode_info_c(mode, vbe_info)) {
         bios_print_str("error getting VBE mode info");
         return 0;
@@ -312,6 +316,7 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
 }
 
 int load_kernel() {
+    // these defined by the build script
     return bios_read_sectors(KERNEL_FIRST_SECTOR_LBA, KERNEL_SECTORS, KERNEL_LOAD_ADDRESS);
 }
 

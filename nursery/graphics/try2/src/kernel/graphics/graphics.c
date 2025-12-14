@@ -48,13 +48,18 @@ void graphics_fill(color clr) {
     }
 }
 
-void graphics_rect(int left, int y, int width, int height, color clr) {
+void graphics_rect(int x, int y, int width, int height, color clr) {
     uint8_t red   = RGB_R(clr);
     uint8_t green = RGB_G(clr);
     uint8_t blue  = RGB_B(clr);
 
+    if (x + width > ggi.fb_width)
+        width = ggi.fb_width - x;
+    if (y + height > ggi.fb_height)
+        height = ggi.fb_height - y;
+    
     for (int y_offs = 0; y_offs < height; y_offs++) {
-        uint8_t *ptr = ((uint8_t *)ggi.fb_address) + (y + y_offs) * ggi.fb_pitch + (left * 3);
+        uint8_t *ptr = ((uint8_t *)ggi.fb_address) + (y + y_offs) * ggi.fb_pitch + (x * 3);
         for (int x = 0; x < width; x++) {
             *ptr++ = blue;
             *ptr++ = green;
@@ -64,6 +69,9 @@ void graphics_rect(int left, int y, int width, int height, color clr) {
 }
 
 static void inline graphics_pixel(int x, int y, color clr) {
+    if (x >= ggi.fb_width) return;
+    if (y >= ggi.fb_height) return;
+    
     uint8_t *ptr = ggi.fb_address + y * ggi.fb_pitch + x * 3;
     *ptr++ = RGB_B(clr);
     *ptr++ = RGB_G(clr);
@@ -80,15 +88,13 @@ void graphics_demo(int left, int top, int width, int height) {
 
 int graphics_draw_character(int x, int baseline_y, char chr, color clr) {
     const glyph5x7 *gl = get_5x7_glyph(chr);
-    
 
     for (int line = 0; line < 9; line++) {
         uint8_t bitmap = gl->bitmap[line];
         if (bitmap == 0)
             continue;
 
-        // for (int column = 0; column < gl->width; column++) {
-        for (int column = 0; column < 8; column++) {
+        for (int column = 0; column < gl->width; column++) {
             if ((bitmap & (0x80 >> column)) == 0)
                 continue;
           
