@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "graphics.h"
 #include "color.h"
-#include "font5x7.h"
+#include "font5x9.h"
 #include "../memory/string.h"
 
 
@@ -87,7 +87,7 @@ void graphics_demo(int left, int top, int width, int height) {
 }
 
 int graphics_draw_character(int x, int baseline_y, char chr, color clr) {
-    const glyph5x7 *gl = get_5x7_glyph(chr);
+    const glyph5x9 *gl = get_5x9_glyph(chr);
 
     for (int line = 0; line < 9; line++) {
         uint8_t bitmap = gl->bitmap[line];

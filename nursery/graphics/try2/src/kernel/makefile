@@ -13,7 +13,7 @@ C_OBJS= \
     memory/malloc.o \
     graphics/graphics.o \
     graphics/color.o \
-    graphics/font5x7.o
+    graphics/font5x9.o
 
 ASM_OBJ=kernel_asm.o
 
