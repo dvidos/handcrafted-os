@@ -178,10 +178,10 @@ static inline void rect_filled(int x1, int y1, int x2, int y2, uint32_t color) {
 }
 static int setup_graphics() {
     // uint16_t mode = 0x10F;       //  320 x 200 x 24
-    // uint16_t mode = 0x112;    //  640 x 480 x 24
+    uint16_t mode = 0x112;    //  640 x 480 x 24
     // uint16_t mode = 0x115;    //  800 x 600 x 24
     // uint16_t mode = 0x118;    // 1024 x 768 x 24
-    uint16_t mode = 0x11b;    // 1280 x 1024 x 24
+    // uint16_t mode = 0x11b;    // 1280 x 1024 x 24
     if (!vbe_get_mode_info_c(mode, vbe_info)) {
         bios_print_str("error getting VBE mode info");
         return 0;
@@ -340,16 +340,15 @@ void stage2_main(void) {
         halt();
     }
     
+    bios_print_str("Kernel load & entry address: 0x"); bios_print_hex32(KERNEL_LOAD_ADDRESS); bios_print_str("\r\n");
+    bios_print_str("Boot info structure address: 0x"); bios_print_hex32((uint32_t)&boot_info); bios_print_str("\r\n");
+
     bios_print_str("Initializing graphics...\r\n");
     if (!setup_graphics()) {
         bios_print_str("FAILED");
         halt();
     }
-    // graphics_demo();
 
-    bios_print_str("Kernel load & entry address: 0x"); bios_print_hex32(KERNEL_LOAD_ADDRESS); bios_print_str("\r\n");
-    bios_print_str("Boot info structure address: 0x"); bios_print_hex32((uint32_t)&boot_info); bios_print_str("\r\n");
-
-    bios_print_str("Initializing protected mode and jumping to kernel...\r\n");
+    // bios_print_str("Initializing protected mode and jumping to kernel...\r\n");
     enter_protected_mode();
 }

@@ -1,7 +1,7 @@
 # possible future todos
 
-* one small bitmap font for primitive text rendering (maybe embedded in code, i.e. macos style)
-* some primitive rectangle & filled_rectangle functions
+* ~~one small bitmap font for primitive text rendering (maybe embedded in code, i.e. macos style)~~
+* ~~some primitive rectangle & filled_rectangle functions~~
 
 * try the scalable font on osdev.org, or [here](https://gitlab.com/bztsrc/scalable-font2)
 * try shadeable rectangles with rounded corners, ala blackbox

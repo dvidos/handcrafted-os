@@ -89,8 +89,8 @@ void graphics_demo(int left, int top, int width, int height) {
 int graphics_draw_8x16_character(int x, int baseline_y, char chr, font8x16 *font, color clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);
 
-    for (int line = 0; line < 9; line++) {
-        uint8_t bitmap = gl->bitmap[line];
+    for (int row_no = 0; row_no < font->line_height; row_no++) {
+        uint8_t bitmap = gl->bitmaps[row_no];
         if (bitmap == 0)
             continue;
 
@@ -98,7 +98,7 @@ int graphics_draw_8x16_character(int x, int baseline_y, char chr, font8x16 *font
             if ((bitmap & (0x80 >> column)) == 0)
                 continue;
           
-            graphics_pixel(x + column, baseline_y - 6 + line, clr);
+            graphics_pixel(x + column, baseline_y - font->baseline + row_no, clr);
         }
     }
 
@@ -111,13 +111,22 @@ int graphics_draw_8x16_text(int x, int baseline_y, const char *text, font8x16 *f
 
     while (*text) {
         width = graphics_draw_8x16_character(running_x, baseline_y, *text, font, clr);
-        running_x += width + 1; // add space between the characters
+        running_x += width + font->char_spacing;
         text++;
     }
 
     return running_x - x;
 }
 
+int graphics_draw_8x16_demo(int x, int baseline_y, font8x16 *font, color clr) {
+    graphics_draw_8x16_text(x, baseline_y, font->name, font, clr);
+    baseline_y += font->line_height + 1;
+    graphics_draw_8x16_text(x, baseline_y, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", font, clr);
+    baseline_y += font->line_height + 1;
+    graphics_draw_8x16_text(x, baseline_y, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", font, clr);
+    baseline_y += font->line_height + 1;
+    graphics_draw_8x16_text(x, baseline_y, "The quick brown fox jumped over the lazy dog!", font, clr);
+}
 
 
 /*
