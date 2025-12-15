@@ -37,15 +37,16 @@ inline garea garea_of(int x, int y, int w, int h) { return (garea){.origin = (gp
 
 gbuffer *new_gbuffer(int width, int height, int pitch, int bits_per_pixel);
 void gb_free(gbuffer *gb);
-
-inline gsize gb_size(gbuffer *gb) { return (gsize){.width = gb->width, .height = gb->height}; }
-
 void gb_set_pixel(gbuffer *gb, int x, int y, color clr);
 color gb_get_pixel(gbuffer *gb, int x, int y);
-
 void gb_fill(gbuffer *gb, color clr);
+void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr);
+
+// ---- line of (tested) implementation up to here ----
+
+inline gsize gb_size(gbuffer *gb) { return (gsize){.width = gb->width, .height = gb->height}; }
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
-void gb_fill_rect(gbuffer *gb, garea area, color clr);
+
 void gb_rect_border(gbuffer *gb, garea area, color clr);
 
 // ideas to be implemented below...

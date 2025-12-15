@@ -8,7 +8,7 @@ typedef uint32_t color; // first byte = opacity, FF=opaque, 00=transparect
 #define RGB_G(clr)          (((clr) >>  8) & 0xFF)
 #define RGB_B(clr)          (((clr) >>  0) & 0xFF)
 #define RGBA(r, g, b, a)    (((a) & 0xFF) << 24) | (((r) & 0xFF) << 16) | (((g) & 0xFF) << 8) | ((b) & 0xFF)
-#define RGB(r, g, b)        0xFF000000 | (((r) & 0xFF) << 16) | (((g) & 0xFF) << 8) | ((b) & 0xFF)
+#define RGB(r, g, b)        0xFF000000 | ((((uint32_t)r) & 0xFF) << 16) | ((((uint32_t)g) & 0xFF) << 8) | (((uint32_t)b) & 0xFF)
 
 color color_rgba(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha);
 color color_rgb(uint8_t red, uint8_t green, uint8_t blue);

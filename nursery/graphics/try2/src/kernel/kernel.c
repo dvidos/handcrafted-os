@@ -30,19 +30,25 @@ void kernel_main(boot_info_t* bi) {
     main->buffer[0] = 0xff;
     main->buffer[1] = 0xff;
     main->buffer[2] = 0xff;
-    for (int i = 0; i < 256; i++) {
-        for (int j = 0; j < 256; j++) {
-            gb_set_pixel(main, i, j, (0x008800 | (i << 16) | j));
+    gb_fill(main, 0x708090);
+    // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
+    // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
+    for (int i = 0; i < 640; i += 10) {
+        for (int j = 0; j < 480; j += 10) {
+            color clr = RGB(0x33, i, j);
+            gb_fill_rect(main, i * 2, j * 2, 18, 18, clr);
         }
     }
-    // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
-    // gb_fill(main, 0x708090);
+    for (int i = 0; i < 128; i += 7) {
+        for (int j = 0; j < 128; j += 7) {
+            color clr = RGB(255 - j, 255 - i, 0xff);
+            gb_set_pixel(main, i,     j, clr);
+            gb_set_pixel(main, i,     j + 1, clr);
+            gb_set_pixel(main, i + 1, j, clr);
+            gb_set_pixel(main, i + 1, j + 1, clr);
+        }
+    }
 
-    // gbuffer *test = new_gbuffer(700, 100, 150, 32);
-    // gb_fill(test, 0x999999);
-    // gb_rect_border(test, garea_of(0, 0, test->width, test->height), color_black());
-    // // // gb_fill_rect(test, garea_of(10, 10, 30, 30), 0xffcc00);
-    // // // gb_rect_border(test, garea_of(10, 10, 30, 30), color_black());
     // gb_copy_area(main, test, gb_size(test), gpoint_of(100, 30), gpoint_zero());
 
     graphics_display_main_buffer();

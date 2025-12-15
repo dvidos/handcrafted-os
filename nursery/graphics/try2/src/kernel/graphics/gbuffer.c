@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 #include "../memory/malloc.h"
 #include "../memory/string.h"
 #include "gbuffer.h"
@@ -51,47 +52,87 @@ gbuffer *new_gbuffer(int width, int height, int pitch, int bits_per_pixel) {
 }
 
 void gb_free(gbuffer *gb) {
-    kfree(gb->buffer);
-    kfree(gb);
+    if (gb != 0) {
+        kfree(gb->buffer);
+        kfree(gb);
+    }
 }
-
 
 // assume 32M color pallette, 3 bytes per pixel
 #define GBUFFER_24BIT_PIXEL_AT(gb, x, y)                (gb->buffer + ((y) * gb->pitch) + ((x) * 3))
 #define GBUFFER_SET_24BIT_PIXEL(ptr, r, g, b)           { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
-#define GBUFFER_GET_24BIT_PIXEL(ptr)                    (((color)ptr[0]) | ((color)ptr[1] << 8) | ((color)ptr[2] << 16))
 #define GBUFFER_SET_24BIT_PIXELS(ptr, r, g, b, count)   while (count-- > 0) { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
+#define GBUFFER_GET_24BIT_PIXEL(ptr)                    (((color)ptr[0]) | ((color)ptr[1] << 8) | ((color)ptr[2] << 16))
 #define GBUFFER_COPY_24BIT_PIXEL(dest, src)             { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
 #define GBUFFER_COPY_24BIT_PIXELS(dest, src, count)     while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
 #define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = RGB_R(clr); uint8_t green = RGB_G(clr); uint8_t blue  = RGB_B(clr);
 
 
 void gb_set_pixel(gbuffer *gb, int x, int y, color clr) {
+    if (x < 0 || x >= gb->width)  return;
+    if (y < 0 || y >= gb->height) return;
+
     GBUFFER_BREAKUP_COLOR(clr);
     uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
     GBUFFER_SET_24BIT_PIXEL(pixel_ptr, red, green, blue);
 }
 
 color gb_get_pixel(gbuffer *gb, int x, int y) {
+    if (x < 0 || x >= gb->width)  return 0;
+    if (y < 0 || y >= gb->height) return 0;
+
     uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
     return GBUFFER_GET_24BIT_PIXEL(pixel_ptr);
 }
 
 void gb_fill(gbuffer *gb, color clr) {
-    GBUFFER_BREAKUP_COLOR(clr);
-    
-    if (red == green && green == blue) {
-        // speed optimization
-        memset(gb->buffer, red, gb->buffer_size);
+    if (clr == 0) {
+        memset(gb->buffer, clr & 0xFF, gb->buffer_size);
         return;
     }
 
-    // the whole buffer (hoping pitch is multiple of 3)
-    uint8_t *end_ptr = gb->buffer + gb->buffer_size;
-    uint8_t *pixel_ptr = gb->buffer;
-    while (pixel_ptr < end_ptr) // TODO: do this per scanline.
-        GBUFFER_SET_24BIT_PIXEL(pixel_ptr, red, green, blue);
+    GBUFFER_BREAKUP_COLOR(clr);
+    for (int i = 0; i < gb->height; i++) {
+        uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, 0, i);
+        int count = gb->width;
+        GBUFFER_SET_24BIT_PIXELS(pixel_ptr, red, green, blue, count);
+    }
 }
+
+void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
+    if (x >= gb->width)  return;
+    if (y >= gb->height) return;
+    if (width <= 0)      return;
+    if (height <= 0)     return;
+
+    if (x < 0) {
+        width += x; // diminish width by the negative amount
+        x = 0;
+    }
+    if (y < 0) {
+        height += y; // diminish height by the negative amount
+        y = 0;
+    }
+    if (x + width > gb->width)
+        width = gb->width - x;
+    if (y + height > gb->height)
+        height = gb->height - y;
+
+    GBUFFER_BREAKUP_COLOR(clr);
+
+    int y_end = y + height;
+    for (int i = y; i < y_end; i++) {
+        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, i);
+        int count = width;
+        GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+    }
+}
+
+
+
+
+
+// ---- above here all tested ---------
 
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
 
@@ -103,19 +144,6 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
         uint8_t *dest_pix = GBUFFER_24BIT_PIXEL_AT(dest, dest_origin.x, dest_y);
         int count = size.width;
         GBUFFER_COPY_24BIT_PIXELS(dest_pix, src_pix, count);
-    }
-}
-
-void gb_fill_rect(gbuffer *gb, garea area, color clr) {
-    GBUFFER_BREAKUP_COLOR(clr);
-    uint8_t *pixel;
-    int count;
-
-    int y_end = area.origin.y + area.size.height;
-    for (int y = area.origin.y; y < y_end; y++) {
-        pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, y);
-        count = area.size.width;
-        GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
     }
 }
 
