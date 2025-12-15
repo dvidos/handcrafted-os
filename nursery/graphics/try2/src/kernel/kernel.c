@@ -36,7 +36,7 @@ void kernel_main(boot_info_t* bi) {
         }
     }
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
-    gb_fill(main, 0x708090);
+    // gb_fill(main, 0x708090);
 
     // gbuffer *test = new_gbuffer(700, 100, 150, 32);
     // gb_fill(test, 0x999999);
