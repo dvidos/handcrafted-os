@@ -41,11 +41,11 @@ void gb_set_pixel(gbuffer *gb, int x, int y, color clr);
 color gb_get_pixel(gbuffer *gb, int x, int y);
 void gb_fill(gbuffer *gb, color clr);
 void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr);
-
-// ---- line of (tested) implementation up to here ----
-
 inline gsize gb_size(gbuffer *gb) { return (gsize){.width = gb->width, .height = gb->height}; }
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
+
+
+// ---- line of (tested) implementation up to here ----
 
 void gb_rect_border(gbuffer *gb, garea area, color clr);
 

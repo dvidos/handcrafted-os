@@ -128,12 +128,6 @@ void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
     }
 }
 
-
-
-
-
-// ---- above here all tested ---------
-
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
 
     for (int y_offs = 0; y_offs < size.height; y_offs++) {
@@ -146,6 +140,12 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
         GBUFFER_COPY_24BIT_PIXELS(dest_pix, src_pix, count);
     }
 }
+
+
+
+
+
+// ---- above here all tested ---------
 
 void gb_rect_border(gbuffer *gb, garea area, color clr) {
     GBUFFER_BREAKUP_COLOR(clr);
