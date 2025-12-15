@@ -1,0 +1,148 @@
+#include <stdint.h>
+#include "../memory/malloc.h"
+#include "../memory/string.h"
+#include "gbuffer.h"
+
+/*
+    GPT proposes:
+    - put_pixel(), get_pixel()
+    - fill(), but per scanline, don't assume lines continuity, memset only for zero
+    - fill_rect(), with again writing per scanline
+    - blit(), or copy source/dest, origin/origin, size. memcpy() per scanline.
+        (blit = BIT BIT BLOCK TRANSFER)
+    - scroll_y(), essentially an internal blit(), faster than rerendering text, clean new area
+    - for text, can prepare a large glyph buffer with all fonts, 1bpp or 8bpp and copy that instead of rendering... (hmm...)
+
+    I should focus on correctness first, performance later.
+    Afterwards, blit can support: 
+    - simple, 
+    - masked, 
+    - bit-operations (and, or, xor),
+    - format-changing (e.g. RGB565 -> XRGB8888),
+    - scaling (using diff src/dest size),
+    - alpha blending (dst = src * a + dst * (1 - a)
+
+    For debugging he proposes:
+    - a horizontal or vertical part of the screen dedicated for debugging messages, like a console
+    - gb_debug_rect() with red, for debugging dimensions
+    - gb_debug_crosshair() with red, for debugging points
+    - allocate extra bytes on the buffers, with magic values, to detect overruns/underruns
+*/
+
+
+
+gbuffer *new_gbuffer(int width, int height, int pitch, int bits_per_pixel) {
+    if (pitch < width)
+        pitch = width;
+    
+    gbuffer *gb = (gbuffer *)kmalloc(sizeof(gbuffer));
+    gb->width = width;
+    gb->height = height;
+    gb->pitch = pitch;
+    gb->bits_per_pixel = bits_per_pixel;
+
+    // we should have a specific method to set pixels, depending 
+    int bytes_per_pixel = (bits_per_pixel + 7) / 8; // ceiling division
+
+    gb->buffer_size = (pitch * height) * bytes_per_pixel;
+    gb->buffer = (uint8_t *)kmalloc(gb->buffer_size);
+
+    return gb;
+}
+
+void gb_free(gbuffer *gb) {
+    kfree(gb->buffer);
+    kfree(gb);
+}
+
+
+// assume 32M color pallette, 3 bytes per pixel
+#define GBUFFER_24BIT_PIXEL_AT(gb, x, y)                (gb->buffer + ((y) * gb->pitch) + ((x) * 3))
+#define GBUFFER_SET_24BIT_PIXEL(ptr, r, g, b)           { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
+#define GBUFFER_GET_24BIT_PIXEL(ptr)                    (((color)ptr[0]) | ((color)ptr[1] << 8) | ((color)ptr[2] << 16))
+#define GBUFFER_SET_24BIT_PIXELS(ptr, r, g, b, count)   while (count-- > 0) { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
+#define GBUFFER_COPY_24BIT_PIXEL(dest, src)             { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
+#define GBUFFER_COPY_24BIT_PIXELS(dest, src, count)     while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
+#define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = RGB_R(clr); uint8_t green = RGB_G(clr); uint8_t blue  = RGB_B(clr);
+
+
+void gb_set_pixel(gbuffer *gb, int x, int y, color clr) {
+    GBUFFER_BREAKUP_COLOR(clr);
+    uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
+    GBUFFER_SET_24BIT_PIXEL(pixel_ptr, red, green, blue);
+}
+
+color gb_get_pixel(gbuffer *gb, int x, int y) {
+    uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
+    return GBUFFER_GET_24BIT_PIXEL(pixel_ptr);
+}
+
+void gb_fill(gbuffer *gb, color clr) {
+    GBUFFER_BREAKUP_COLOR(clr);
+    
+    if (red == green && green == blue) {
+        // speed optimization
+        memset(gb->buffer, red, gb->buffer_size);
+        return;
+    }
+
+    // the whole buffer (hoping pitch is multiple of 3)
+    uint8_t *end_ptr = gb->buffer + gb->buffer_size;
+    uint8_t *pixel_ptr = gb->buffer;
+    while (pixel_ptr < end_ptr) // TODO: do this per scanline.
+        GBUFFER_SET_24BIT_PIXEL(pixel_ptr, red, green, blue);
+}
+
+void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
+
+    for (int y_offs = 0; y_offs < size.height; y_offs++) {
+        int src_y = src_origin.y + y_offs;
+        int dest_y = dest_origin.y + y_offs;
+
+        uint8_t *src_pix  = GBUFFER_24BIT_PIXEL_AT(src, src_origin.x,  src_y);
+        uint8_t *dest_pix = GBUFFER_24BIT_PIXEL_AT(dest, dest_origin.x, dest_y);
+        int count = size.width;
+        GBUFFER_COPY_24BIT_PIXELS(dest_pix, src_pix, count);
+    }
+}
+
+void gb_fill_rect(gbuffer *gb, garea area, color clr) {
+    GBUFFER_BREAKUP_COLOR(clr);
+    uint8_t *pixel;
+    int count;
+
+    int y_end = area.origin.y + area.size.height;
+    for (int y = area.origin.y; y < y_end; y++) {
+        pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, y);
+        count = area.size.width;
+        GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+    }
+}
+
+void gb_rect_border(gbuffer *gb, garea area, color clr) {
+    GBUFFER_BREAKUP_COLOR(clr);
+    uint8_t *pixel;
+    int count;
+    
+    // top horizontal line
+    pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, area.origin.y);
+    count = area.size.width;
+    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+
+    // bottom horizontal line
+    pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, area.origin.y + area.size.height);
+    count = area.size.width;
+    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+
+    int y_end = area.origin.y + area.size.height;
+    int right_x = area.origin.x + area.size.width - 1;
+    for (int y = area.origin.y; y < y_end; y++) {
+        // left column
+        pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, y);
+        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+
+        // right columns
+        pixel = GBUFFER_24BIT_PIXEL_AT(gb, right_x, y);
+        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+    }
+}

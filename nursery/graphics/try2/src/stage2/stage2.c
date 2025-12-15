@@ -176,6 +176,7 @@ static inline void rect_filled(int x1, int y1, int x2, int y2, uint32_t color) {
         }
     }
 }
+
 static int setup_graphics() {
     // uint16_t mode = 0x10F;       //  320 x 200 x 24
     uint16_t mode = 0x112;    //  640 x 480 x 24

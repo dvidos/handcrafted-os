@@ -2,17 +2,8 @@
 #include "graphics.h"
 #include "color.h"
 #include "font8x16.h"
+#include "gbuffer.h"
 #include "../memory/string.h"
-
-
-struct graphics_surface {
-    int width;
-    int height;
-    uint32_t *pixels_array;  // each pixel colors RGBA color
-    int opacity;
-    int blur_radius;
-    int shadow_radius;
-};
 
 struct graphics_global_info {
     uint8_t *fb_address;
@@ -20,8 +11,8 @@ struct graphics_global_info {
     int      fb_height;
     int      fb_pitch;
     int      fb_bpp;
+    gbuffer *main_buffer;
 };
-
 struct graphics_global_info ggi;
 
 
@@ -31,6 +22,8 @@ void graphics_initialize(void *fb_address, int width, int height, int pitch, int
     ggi.fb_height = height;
     ggi.fb_pitch = pitch;
     ggi.fb_bpp = bpp;
+
+    ggi.main_buffer = new_gbuffer(width, height, pitch, bpp);
 }
 
 void graphics_fill(color clr) {
@@ -126,6 +119,17 @@ int graphics_draw_8x16_demo(int x, int baseline_y, font8x16 *font, color clr) {
     graphics_draw_8x16_text(x, baseline_y, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", font, clr);
     baseline_y += font->line_height + 1;
     graphics_draw_8x16_text(x, baseline_y, "The quick brown fox jumped over the lazy dog!", font, clr);
+}
+
+gbuffer *graphics_get_main_buffer() {
+    // this allows clients to manipulate the main buffer
+    return ggi.main_buffer;
+}
+
+int graphics_display_main_buffer() {
+    // can't get simpler: fast copy from the buffer to the graphics memory
+    gbuffer *main = ggi.main_buffer;
+    memcpy(ggi.fb_address, main->buffer, main->buffer_size);
 }
 
 

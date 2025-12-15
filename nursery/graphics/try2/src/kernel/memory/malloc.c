@@ -7,3 +7,7 @@ void *kmalloc(int size) {
     free_memory_ptr += size;
     return p;
 }
+
+void kfree(void *ptr) {
+    // nothing for now
+}

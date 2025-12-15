@@ -12,6 +12,7 @@ C_OBJS= \
     memory/string.o \
     memory/malloc.o \
     graphics/graphics.o \
+    graphics/gbuffer.o \
     graphics/color.o \
     graphics/font8x16.o \
     graphics/mits7.o \
