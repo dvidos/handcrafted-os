@@ -130,7 +130,29 @@ void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
 }
 
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
-    // TODO: we could implement some boundary checks here...
+
+    // if origins outside of boundaries, no point
+    if (src_origin.x  >= dest->width)  return;
+    if (src_origin.y  >= dest->height) return;
+    if (dest_origin.x >= dest->width)  return;
+    if (dest_origin.y >= dest->height) return;
+
+    // actually diminish sizes, if in negative values
+    if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
+    if (src_origin.y  < 0) { int d = -src_origin.y;  size.height -= d; src_origin.y  += d; dest_origin.y += d; }
+    if (dest_origin.x < 0) { int d = -dest_origin.x; size.width  -= d; dest_origin.x += d; src_origin.x  += d; }
+    if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
+
+    // shorten size, if bleeding outside
+    if (src_origin.x  + size.width  > src->width)   size.width  = src->width   - src_origin.x;
+    if (src_origin.y  + size.height > src->height)  size.height = src->height  - src_origin.y;
+    if (dest_origin.x + size.width  > dest->width)  size.width  = dest->width  - dest_origin.x;
+    if (dest_origin.y + size.height > dest->height) size.height = dest->height - dest_origin.y;
+
+    // is there anything visible left to copy?
+    if (size.width  <= 0) return;
+    if (size.height <= 0) return;
+
     for (int y_offs = 0; y_offs < size.height; y_offs++) {
         int src_y = src_origin.y + y_offs;
         int dest_y = dest_origin.y + y_offs;
@@ -141,8 +163,6 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
         GBUFFER_COPY_24BIT_PIXELS(dest_pix, src_pix, count);
     }
 }
-
-
 
 static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint8_t red, uint8_t blue, uint8_t green) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);

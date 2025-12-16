@@ -15,13 +15,13 @@ typedef struct gbuffer {
 } gbuffer;
 
 typedef struct gpoint {
-    uint32_t x;
-    uint32_t y;
+    int x;
+    int y;
 } gpoint;
 
 typedef struct gsize {
-    uint32_t width;
-    uint32_t height;
+    int width;
+    int height;
 } gsize;
 
 typedef struct garea {
