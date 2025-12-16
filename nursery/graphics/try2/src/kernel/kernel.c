@@ -54,7 +54,7 @@ void kernel_main(boot_info_t* bi) {
     gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
     gb_text(r, "This is baseline 26, same font", 3, 26, geneva9, color_white());
     // gb_copy_area(main, r, gb_size(r), gpoint_of(0, 150), gpoint_zero());
-    gb_copy_area(main, r, gb_size(r), gpoint_of(10, 10), gpoint_zero());
+    gb_copy_area(main, r, gb_size(r), gpoint_of(300, 10), gpoint_zero());
     gb_copy_area(main, r, gb_size(r), gpoint_of(10, 150), gpoint_zero());
 
     // copy/paste offser
