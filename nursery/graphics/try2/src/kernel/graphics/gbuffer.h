@@ -3,6 +3,7 @@
 #include "../memory/malloc.h"
 #include "../memory/string.h"
 #include "color.h"
+#include "font8x16.h"
 
 typedef struct gbuffer {
     int height;
@@ -34,7 +35,6 @@ inline gpoint gpoint_zero() { return (gpoint){.x = 0, .y = 0}; }
 inline gsize gsize_of(int w, int h) { return (gsize){.width = w, .height = h}; }
 inline garea garea_of(int x, int y, int w, int h) { return (garea){.origin = (gpoint){.x = x, .y = y}, .size = (gsize){.width = w, .height = h}}; }
 
-
 gbuffer *new_gbuffer(int width, int height, int pitch, int bits_per_pixel);
 void gb_free(gbuffer *gb);
 void gb_set_pixel(gbuffer *gb, int x, int y, color clr);
@@ -46,12 +46,13 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
 
 
 // ---- line of (tested) implementation up to here ----
+int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
+//void gb_rect_frame(gbuffer *gb, int x, int y, int width, int height, color clr);
 
-void gb_rect_border(gbuffer *gb, garea area, color clr);
+
 
 // ideas to be implemented below...
 
-void gb_text(gbuffer *gb, int radius);
 void gb_blur(gbuffer *gb, int radius);
 void gb_noise(gbuffer *gb);
 void gb_darken(gbuffer *gb, int radius);

@@ -63,6 +63,7 @@ void gb_free(gbuffer *gb) {
 #define GBUFFER_SET_24BIT_PIXEL(ptr, r, g, b)           { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
 #define GBUFFER_SET_24BIT_PIXELS(ptr, r, g, b, count)   while (count-- > 0) { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
 #define GBUFFER_GET_24BIT_PIXEL(ptr)                    (((color)ptr[0]) | ((color)ptr[1] << 8) | ((color)ptr[2] << 16))
+#define GBUFFER_SKIP_24BIT_PIXEL(ptr)                   { ptr += 3; }
 #define GBUFFER_COPY_24BIT_PIXEL(dest, src)             { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
 #define GBUFFER_COPY_24BIT_PIXELS(dest, src, count)     while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
 #define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = RGB_R(clr); uint8_t green = RGB_G(clr); uint8_t blue  = RGB_B(clr);
@@ -129,7 +130,7 @@ void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
 }
 
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
-
+    // TODO: we could implement some boundary checks here...
     for (int y_offs = 0; y_offs < size.height; y_offs++) {
         int src_y = src_origin.y + y_offs;
         int dest_y = dest_origin.y + y_offs;
@@ -141,6 +142,44 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
     }
 }
 
+
+
+static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint8_t red, uint8_t blue, uint8_t green) {
+    const glyph8x16 *gl = font8x16_get_glyph(font, chr);
+
+    for (int row_no = 0; row_no < font->line_height; row_no++) {
+        uint8_t bitmap = gl->bitmaps[row_no];
+        if (bitmap == 0)
+            continue;
+
+        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, baseline_y - font->baseline + row_no);
+        uint8_t mask = 0x80;
+        for (int column = 0; column < gl->width; column++) {
+            if (bitmap & mask) {
+                GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+            } else {
+                GBUFFER_SKIP_24BIT_PIXEL(pixel);
+            }
+            mask >>= 1;
+        }
+    }
+
+    return gl->width;
+}
+
+int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr) {
+    GBUFFER_BREAKUP_COLOR(clr);
+    int running_x = x;
+    int width = 0;
+
+    while (*text) {
+        width = gb_draw_8x16_character(gb, running_x, base_y, *text, f, red, green, blue);
+        running_x += width + f->char_spacing;
+        text++;
+    }
+
+    return running_x - x;
+}
 
 
 
