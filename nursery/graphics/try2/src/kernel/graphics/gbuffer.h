@@ -34,6 +34,7 @@ inline gpoint gpoint_of(int x, int y) { return (gpoint){.x = x, .y = y}; }
 inline gpoint gpoint_zero() { return (gpoint){.x = 0, .y = 0}; }
 inline gsize gsize_of(int w, int h) { return (gsize){.width = w, .height = h}; }
 inline garea garea_of(int x, int y, int w, int h) { return (garea){.origin = (gpoint){.x = x, .y = y}, .size = (gsize){.width = w, .height = h}}; }
+inline gsize gb_size(gbuffer *gb) { return (gsize){.width = gb->width, .height = gb->height}; }
 
 gbuffer *new_gbuffer(int width, int height, int pitch, int bits_per_pixel);
 void gb_free(gbuffer *gb);
@@ -41,13 +42,9 @@ void gb_set_pixel(gbuffer *gb, int x, int y, color clr);
 color gb_get_pixel(gbuffer *gb, int x, int y);
 void gb_fill(gbuffer *gb, color clr);
 void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr);
-inline gsize gb_size(gbuffer *gb) { return (gsize){.width = gb->width, .height = gb->height}; }
-void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
-
-
-// ---- line of (tested) implementation up to here ----
+void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr);
 int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
-//void gb_rect_frame(gbuffer *gb, int x, int y, int width, int height, color clr);
+void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
 
 
 

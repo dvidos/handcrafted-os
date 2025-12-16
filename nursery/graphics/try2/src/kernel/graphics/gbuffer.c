@@ -30,6 +30,16 @@
     - allocate extra bytes on the buffers, with magic values, to detect overruns/underruns
 */
 
+// assume 32M color pallette, 3 bytes per pixel
+#define GBUFFER_24BIT_PIXEL_AT(gb, x, y)                (gb->buffer + ((y) * gb->pitch) + ((x) * 3))
+#define GBUFFER_SET_24BIT_PIXEL(ptr, r, g, b)           { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
+#define GBUFFER_SET_24BIT_PIXELS(ptr, r, g, b, count)   while (count-- > 0) { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
+#define GBUFFER_GET_24BIT_PIXEL(ptr)                    (((color)ptr[0]) | ((color)ptr[1] << 8) | ((color)ptr[2] << 16))
+#define GBUFFER_SKIP_24BIT_PIXEL(ptr)                   { ptr += 3; }
+#define GBUFFER_COPY_24BIT_PIXEL(dest, src)             { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
+#define GBUFFER_COPY_24BIT_PIXELS(dest, src, count)     while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
+#define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = RGB_R(clr); uint8_t green = RGB_G(clr); uint8_t blue  = RGB_B(clr);
+
 
 
 gbuffer *new_gbuffer(int width, int height, int pitch, int bits_per_pixel) {
@@ -57,17 +67,6 @@ void gb_free(gbuffer *gb) {
         kfree(gb);
     }
 }
-
-// assume 32M color pallette, 3 bytes per pixel
-#define GBUFFER_24BIT_PIXEL_AT(gb, x, y)                (gb->buffer + ((y) * gb->pitch) + ((x) * 3))
-#define GBUFFER_SET_24BIT_PIXEL(ptr, r, g, b)           { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
-#define GBUFFER_SET_24BIT_PIXELS(ptr, r, g, b, count)   while (count-- > 0) { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
-#define GBUFFER_GET_24BIT_PIXEL(ptr)                    (((color)ptr[0]) | ((color)ptr[1] << 8) | ((color)ptr[2] << 16))
-#define GBUFFER_SKIP_24BIT_PIXEL(ptr)                   { ptr += 3; }
-#define GBUFFER_COPY_24BIT_PIXEL(dest, src)             { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
-#define GBUFFER_COPY_24BIT_PIXELS(dest, src, count)     while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
-#define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = RGB_R(clr); uint8_t green = RGB_G(clr); uint8_t blue  = RGB_B(clr);
-
 
 void gb_set_pixel(gbuffer *gb, int x, int y, color clr) {
     if (x < 0 || x >= gb->width)  return;
@@ -103,21 +102,12 @@ void gb_fill(gbuffer *gb, color clr) {
 void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
     if (x >= gb->width)  return;
     if (y >= gb->height) return;
-    if (width <= 0)      return;
-    if (height <= 0)     return;
-
-    if (x < 0) {
-        width += x; // diminish width by the negative amount
-        x = 0;
-    }
-    if (y < 0) {
-        height += y; // diminish height by the negative amount
-        y = 0;
-    }
-    if (x + width > gb->width)
-        width = gb->width - x;
-    if (y + height > gb->height)
-        height = gb->height - y;
+    if (x < 0) { int diff = -x; width -= diff; x += diff; }
+    if (y < 0) { int diff = -y; height -= diff; y += diff; }
+    if (x + width  > gb->width)  { width  = gb->width  - x; }
+    if (y + height > gb->height) { height = gb->height - y; }
+    if (width  <= 0) return;
+    if (height <= 0) return;
 
     GBUFFER_BREAKUP_COLOR(clr);
 
@@ -129,38 +119,42 @@ void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
     }
 }
 
-void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
+void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr) {
+    if (x >= gb->width)  return;
+    if (y >= gb->height) return;
+    if (x < 0) { int diff = -x; width -= diff; x += diff; }
+    if (y < 0) { int diff = -y; height -= diff; y += diff; }
+    if (x + width  > gb->width)  { width  = gb->width  - x; }
+    if (y + height > gb->height) { height = gb->height - y; }
+    if (width  <= 0) return;
+    if (height <= 0) return;
 
-    // if origins outside of boundaries, no point
-    if (src_origin.x  >= dest->width)  return;
-    if (src_origin.y  >= dest->height) return;
-    if (dest_origin.x >= dest->width)  return;
-    if (dest_origin.y >= dest->height) return;
+    GBUFFER_BREAKUP_COLOR(clr);
+    uint8_t *pixel;
+    int count;
+    int last_y = y + height - 1;
+    int last_x = x + width - 1;
 
-    // actually diminish sizes, if in negative values
-    if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
-    if (src_origin.y  < 0) { int d = -src_origin.y;  size.height -= d; src_origin.y  += d; dest_origin.y += d; }
-    if (dest_origin.x < 0) { int d = -dest_origin.x; size.width  -= d; dest_origin.x += d; src_origin.x  += d; }
-    if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
+    // top line
+    pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
+    count = width;
+    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
 
-    // shorten size, if bleeding outside
-    if (src_origin.x  + size.width  > src->width)   size.width  = src->width   - src_origin.x;
-    if (src_origin.y  + size.height > src->height)  size.height = src->height  - src_origin.y;
-    if (dest_origin.x + size.width  > dest->width)  size.width  = dest->width  - dest_origin.x;
-    if (dest_origin.y + size.height > dest->height) size.height = dest->height - dest_origin.y;
+    // bottom line
+    pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, y + height - 1);
+    count = width;
+    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
 
-    // is there anything visible left to copy?
-    if (size.width  <= 0) return;
-    if (size.height <= 0) return;
+    // left line
+    for (int i = y; i <= last_y; i++) {
+        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, i);
+        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+    }
 
-    for (int y_offs = 0; y_offs < size.height; y_offs++) {
-        int src_y = src_origin.y + y_offs;
-        int dest_y = dest_origin.y + y_offs;
-
-        uint8_t *src_pix  = GBUFFER_24BIT_PIXEL_AT(src, src_origin.x,  src_y);
-        uint8_t *dest_pix = GBUFFER_24BIT_PIXEL_AT(dest, dest_origin.x, dest_y);
-        int count = size.width;
-        GBUFFER_COPY_24BIT_PIXELS(dest_pix, src_pix, count);
+    // right line
+    for (int i = y; i <= last_y; i++) {
+        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, last_x, i);
+        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
     }
 }
 
@@ -201,35 +195,37 @@ int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color
     return running_x - x;
 }
 
+void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
 
+    // if origins outside of boundaries, no point
+    if (src_origin.x  >= dest->width)  return;
+    if (src_origin.y  >= dest->height) return;
+    if (dest_origin.x >= dest->width)  return;
+    if (dest_origin.y >= dest->height) return;
 
+    // actually diminish sizes, if in negative values
+    if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
+    if (src_origin.y  < 0) { int d = -src_origin.y;  size.height -= d; src_origin.y  += d; dest_origin.y += d; }
+    if (dest_origin.x < 0) { int d = -dest_origin.x; size.width  -= d; dest_origin.x += d; src_origin.x  += d; }
+    if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
 
-// ---- above here all tested ---------
+    // shorten size, if bleeding outside
+    if (src_origin.x  + size.width  > src->width)   size.width  = src->width   - src_origin.x;
+    if (src_origin.y  + size.height > src->height)  size.height = src->height  - src_origin.y;
+    if (dest_origin.x + size.width  > dest->width)  size.width  = dest->width  - dest_origin.x;
+    if (dest_origin.y + size.height > dest->height) size.height = dest->height - dest_origin.y;
 
-void gb_rect_border(gbuffer *gb, garea area, color clr) {
-    GBUFFER_BREAKUP_COLOR(clr);
-    uint8_t *pixel;
-    int count;
-    
-    // top horizontal line
-    pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, area.origin.y);
-    count = area.size.width;
-    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+    // is there anything visible left to copy?
+    if (size.width  <= 0) return;
+    if (size.height <= 0) return;
 
-    // bottom horizontal line
-    pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, area.origin.y + area.size.height);
-    count = area.size.width;
-    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+    for (int y_offs = 0; y_offs < size.height; y_offs++) {
+        int src_y = src_origin.y + y_offs;
+        int dest_y = dest_origin.y + y_offs;
 
-    int y_end = area.origin.y + area.size.height;
-    int right_x = area.origin.x + area.size.width - 1;
-    for (int y = area.origin.y; y < y_end; y++) {
-        // left column
-        pixel = GBUFFER_24BIT_PIXEL_AT(gb, area.origin.x, y);
-        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
-
-        // right columns
-        pixel = GBUFFER_24BIT_PIXEL_AT(gb, right_x, y);
-        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+        uint8_t *src_pix  = GBUFFER_24BIT_PIXEL_AT(src, src_origin.x,  src_y);
+        uint8_t *dest_pix = GBUFFER_24BIT_PIXEL_AT(dest, dest_origin.x, dest_y);
+        int count = size.width;
+        GBUFFER_COPY_24BIT_PIXELS(dest_pix, src_pix, count);
     }
 }
