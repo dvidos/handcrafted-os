@@ -402,7 +402,7 @@ glyph8x16 geneva12_glyphs[] = {
       B("        "),
       B("        "),
     }},
-    {1, { // ';' (59)
+    {2, { // ';' (59)
       B("        "),
       B("        "),
       B(" #      "),
@@ -1367,7 +1367,7 @@ glyph8x16 geneva12_glyphs[] = {
 
 static font8x16 _geneva9 = {
   .name = "Geneva 9px",
-  .line_height = 12, // 7 x-height, 9 cap-height + 3px descenders
+  .num_bitmaps = 12, // 7 x-height, 9 cap-height + 3px descenders
   .baseline = 8,
   .char_spacing = 2,
   .glyphs = geneva12_glyphs,

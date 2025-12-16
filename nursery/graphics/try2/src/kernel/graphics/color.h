@@ -3,19 +3,21 @@
 
 typedef uint32_t color; // first byte = opacity, FF=opaque, 00=transparect
 
-#define RGB_A(clr)          (((clr) >> 24) & 0xFF)
-#define RGB_R(clr)          (((clr) >> 16) & 0xFF)
-#define RGB_G(clr)          (((clr) >>  8) & 0xFF)
-#define RGB_B(clr)          (((clr) >>  0) & 0xFF)
-#define RGBA(r, g, b, a)    (((a) & 0xFF) << 24) | (((r) & 0xFF) << 16) | (((g) & 0xFF) << 8) | ((b) & 0xFF)
-#define RGB(r, g, b)        0xFF000000 | ((((uint32_t)r) & 0xFF) << 16) | ((((uint32_t)g) & 0xFF) << 8) | (((uint32_t)b) & 0xFF)
+static inline uint8_t color_a(color c) { return (c >> 24); }
+static inline uint8_t color_r(color c) { return (c >> 16); }
+static inline uint8_t color_g(color c) { return (c >>  8); }
+static inline uint8_t color_b(color c) { return (c >>  0); }
+static inline color   color_argb(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue) { return (((uint32_t)alpha) << 24) | (((uint32_t)red) << 16) | (((uint32_t)green) << 8) | (((uint32_t)blue) << 0); }
+static inline color   color_rgb(uint8_t red, uint8_t green, uint8_t blue) { return color_argb(0xFF, red, green, blue); }
+static inline color   color_black() { return 0xFF000000; }
+static inline color   color_white() { return 0xFFFFFFFF; }
+static inline color   color_transparent() { return 0x00000000; }
 
-color color_rgba(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha);
-color color_rgb(uint8_t red, uint8_t green, uint8_t blue);
-color color_black();
-color color_gray();
-color color_white();
-color color_transparent();
+
+
+// TODO: bring online the 16 colors from the Tango palette that we have in our Screenshots (e.g. inline color_tango_red())
+// TODO: also do this pattern for inlines in headers:
+
 
 color color_between(color c1, color c2, float distance_factor); // factor in [0,1]
 color color_darken(color c, float darkness_factor); // factor in [0,1]

@@ -38,7 +38,13 @@
 #define GBUFFER_SKIP_24BIT_PIXEL(ptr)                   { ptr += 3; }
 #define GBUFFER_COPY_24BIT_PIXEL(dest, src)             { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
 #define GBUFFER_COPY_24BIT_PIXELS(dest, src, count)     while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
-#define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = RGB_R(clr); uint8_t green = RGB_G(clr); uint8_t blue  = RGB_B(clr);
+#define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = color_r(clr); uint8_t green = color_g(clr); uint8_t blue  = color_b(clr);
+
+
+
+
+
+
 
 
 
@@ -161,7 +167,7 @@ void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr)
 static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint8_t red, uint8_t blue, uint8_t green) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);
 
-    for (int row_no = 0; row_no < font->line_height; row_no++) {
+    for (int row_no = 0; row_no < font->num_bitmaps; row_no++) {
         uint8_t bitmap = gl->bitmaps[row_no];
         if (bitmap == 0)
             continue;

@@ -27,9 +27,9 @@ void graphics_initialize(void *fb_address, int width, int height, int pitch, int
 }
 
 void graphics_fill(color clr) {
-    uint8_t red   = RGB_R(clr);
-    uint8_t green = RGB_G(clr);
-    uint8_t blue  = RGB_B(clr);
+    uint8_t red   = color_r(clr);
+    uint8_t green = color_g(clr);
+    uint8_t blue  = color_b(clr);
 
     for (int y = 0; y < ggi.fb_height; y++) {
         uint8_t *ptr = ((uint8_t *)ggi.fb_address) + y * ggi.fb_pitch;
@@ -42,9 +42,9 @@ void graphics_fill(color clr) {
 }
 
 void graphics_rect(int x, int y, int width, int height, color clr) {
-    uint8_t red   = RGB_R(clr);
-    uint8_t green = RGB_G(clr);
-    uint8_t blue  = RGB_B(clr);
+    uint8_t red   = color_r(clr);
+    uint8_t green = color_g(clr);
+    uint8_t blue  = color_b(clr);
 
     if (x + width > ggi.fb_width)
         width = ggi.fb_width - x;
@@ -66,15 +66,15 @@ static void inline graphics_pixel(int x, int y, color clr) {
     if (y >= ggi.fb_height) return;
     
     uint8_t *ptr = ggi.fb_address + y * ggi.fb_pitch + x * 3;
-    *ptr++ = RGB_B(clr);
-    *ptr++ = RGB_G(clr);
-    *ptr++ = RGB_R(clr);
+    *ptr++ = color_b(clr);
+    *ptr++ = color_g(clr);
+    *ptr++ = color_r(clr);
 }
 
 void graphics_demo(int left, int top, int width, int height) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            graphics_pixel(left + x, top + y, RGB(x, y, x^y));
+            graphics_pixel(left + x, top + y, color_rgb(x, y, x^y));
         }
     }
 }
@@ -82,7 +82,7 @@ void graphics_demo(int left, int top, int width, int height) {
 int graphics_draw_8x16_character(int x, int baseline_y, char chr, font8x16 *font, color clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);
 
-    for (int row_no = 0; row_no < font->line_height; row_no++) {
+    for (int row_no = 0; row_no < font->num_bitmaps; row_no++) {
         uint8_t bitmap = gl->bitmaps[row_no];
         if (bitmap == 0)
             continue;
@@ -113,11 +113,11 @@ int graphics_draw_8x16_text(int x, int baseline_y, const char *text, font8x16 *f
 
 int graphics_draw_8x16_demo(int x, int baseline_y, font8x16 *font, color clr) {
     graphics_draw_8x16_text(x, baseline_y, font->name, font, clr);
-    baseline_y += font->line_height + 1;
+    baseline_y += font->num_bitmaps + 1;
     graphics_draw_8x16_text(x, baseline_y, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", font, clr);
-    baseline_y += font->line_height + 1;
+    baseline_y += font->num_bitmaps + 1;
     graphics_draw_8x16_text(x, baseline_y, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", font, clr);
-    baseline_y += font->line_height + 1;
+    baseline_y += font->num_bitmaps + 1;
     graphics_draw_8x16_text(x, baseline_y, "The quick brown fox jumped over the lazy dog!", font, clr);
 }
 

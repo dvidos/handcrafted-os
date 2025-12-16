@@ -1,19 +1,6 @@
 #include <stdint.h>
 #include "color.h"
 
-color color_rgba(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha) {
-    return ((alpha & 0xFF) << 24) | ((red & 0xFF) << 16) | ((green & 0xFF) << 8) | (blue & 0xFF);
-}
-
-color color_rgb(uint8_t red, uint8_t green, uint8_t blue) {
-    return 0xFF000000 | ((red & 0xFF) << 16) | ((green & 0xFF) << 8) | (blue & 0xFF);
-}
-
-color color_black()       { return 0xFF000000; }
-color color_gray()        { return 0xFF888888; }
-color color_white()       { return 0xFFFFFFFF; }
-color color_transparent() { return 0x00000000; }
-
 color color_between(color c1, color c2, float distance_factor) {
     uint8_t r1 = (c1 >> 16) & 0xFF;
     uint8_t g1 = (c1 >>  8) & 0xFF;
@@ -31,11 +18,10 @@ color color_between(color c1, color c2, float distance_factor) {
 }
 
 color color_darken(color c, float darkness_factor) {
-    return RGBA(
-        (uint8_t)(RGB_R(c) * (1 - darkness_factor)),
-        (uint8_t)(RGB_G(c) * (1 - darkness_factor)),
-        (uint8_t)(RGB_B(c) * (1 - darkness_factor)),
-        RGB_A(c)
+    return color_rgb(
+        (uint8_t)(color_r(c) * (1 - darkness_factor)),
+        (uint8_t)(color_g(c) * (1 - darkness_factor)),
+        (uint8_t)(color_b(c) * (1 - darkness_factor))
     );
 }
 

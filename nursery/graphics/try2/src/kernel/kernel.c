@@ -35,13 +35,13 @@ void kernel_main(boot_info_t* bi) {
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
     for (int i = 0; i < 640; i += 10) {
         for (int j = 0; j < 480; j += 10) {
-            color clr = RGB(0x33, i, j);
+            color clr = color_rgb(0x33, i, j);
             gb_fill_rect(main, i * 2, j * 2, 18, 18, clr);
         }
     }
     for (int i = 0; i < 128; i += 7) {
         for (int j = 0; j < 128; j += 7) {
-            color clr = RGB(255 - j, 255 - i, 0xff);
+            color clr = color_rgb(255 - j, 255 - i, 0xff);
             gb_set_pixel(main, i,     j, clr);
             gb_set_pixel(main, i,     j + 1, clr);
             gb_set_pixel(main, i + 1, j, clr);
