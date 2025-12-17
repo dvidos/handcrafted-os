@@ -13,10 +13,23 @@ static inline color   color_black() { return 0xFF000000; }
 static inline color   color_white() { return 0xFFFFFFFF; }
 static inline color   color_transparent() { return 0x00000000; }
 
-
-
-// TODO: bring online the 16 colors from the Tango palette that we have in our Screenshots (e.g. inline color_tango_red())
-// TODO: also do this pattern for inlines in headers:
+// from settings of linux terminal, dark tango theme
+static inline color color_tango_black()          { return 0xFF2e3436; }
+static inline color color_tango_red()            { return 0xFFcc0000; }
+static inline color color_tango_green()          { return 0xFF4e9a06; }
+static inline color color_tango_yellow()         { return 0xFFc4a000; }
+static inline color color_tango_blue()           { return 0xFF3465a4; }
+static inline color color_tango_magenta()        { return 0xFF75507b; }
+static inline color color_tango_cyan()           { return 0xFF06989a; }
+static inline color color_tango_white()          { return 0xFFd3d7cf; }
+static inline color color_tango_dark_gray()      { return 0xFF555753; }
+static inline color color_tango_bright_red()     { return 0xFFef2929; }
+static inline color color_tango_bright_green()   { return 0xFF8ae234; }
+static inline color color_tango_bright_yellow()  { return 0xFFfce94f; }
+static inline color color_tango_bright_blue()    { return 0xFF729fcf; }
+static inline color color_tango_bright_magenta() { return 0xFFad7fa8; }
+static inline color color_tango_bright_cyan()    { return 0xFF34e2e2; }
+static inline color color_tango_bright_white()   { return 0xFFeeeeec; }
 
 
 color color_between(color c1, color c2, float distance_factor); // factor in [0,1]

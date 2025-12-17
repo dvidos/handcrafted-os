@@ -211,7 +211,6 @@ void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr)
     gb_text(gb, "The quick brown fox jumped over the lazy dog!", x, baseline_y, font, clr);
 }
 
-
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
 
     // if origins outside of boundaries, no point

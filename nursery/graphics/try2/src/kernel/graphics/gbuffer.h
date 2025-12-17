@@ -44,10 +44,10 @@ void gb_fill(gbuffer *gb, color clr);
 void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr);
 void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr);
 int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
+void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
 
-// TODO: implement this (after geneva bold & geneva mono)
-void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);
+
 // note: for alpha, we need true 32 bit buffers and framebuffer.
 // we must make our buffers true 32 bit, to support alpha, and then, when copying to the VBE, convert the alpha as we copy.
 // that means we can copy whole uint32_t at a time.
