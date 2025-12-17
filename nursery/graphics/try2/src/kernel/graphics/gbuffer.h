@@ -8,10 +8,8 @@
 typedef struct gbuffer {
     int height;
     int width;
-    int pitch;
-    int bits_per_pixel;
     int buffer_size;
-    uint8_t *buffer;
+    uint32_t *buffer_argb;
 } gbuffer;
 
 typedef struct gpoint {
@@ -35,7 +33,7 @@ inline gsize gsize_of(int w, int h) { return (gsize){.width = w, .height = h}; }
 inline garea garea_of(int x, int y, int w, int h) { return (garea){.origin = (gpoint){.x = x, .y = y}, .size = (gsize){.width = w, .height = h}}; }
 inline gsize gb_size(gbuffer *gb) { return (gsize){.width = gb->width, .height = gb->height}; }
 
-gbuffer *new_gbuffer(int width, int height, int pitch, int bits_per_pixel);
+gbuffer *new_gbuffer(int width, int height);
 void gb_free(gbuffer *gb);
 void gb_set_pixel(gbuffer *gb, int x, int y, color clr);
 color gb_get_pixel(gbuffer *gb, int x, int y);
@@ -58,7 +56,6 @@ void gb_blur(gbuffer *gb, int radius);
 
 
 // ideas to be implemented below...
-
 void gb_scroll_y(gbuffer *gb, int y_diff);
 void gb_copy_with_alpha();
 void gb_copy_blurred();

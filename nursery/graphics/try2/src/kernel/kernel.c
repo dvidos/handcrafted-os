@@ -27,9 +27,6 @@ void kernel_main(boot_info_t* bi) {
     // graphics_draw_8x16_demo(10, 130, mits7,   color_black());
 
     gbuffer *main = graphics_get_main_buffer();
-    main->buffer[0] = 0xff;
-    main->buffer[1] = 0xff;
-    main->buffer[2] = 0xff;
     gb_fill(main, color_tango_dark_gray());
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
@@ -48,7 +45,7 @@ void kernel_main(boot_info_t* bi) {
     //         gb_set_pixel(main, i + 1, j + 1, clr);
     //     }
     // }
-    gbuffer *r = new_gbuffer(450, 300, main->pitch, main->bits_per_pixel);
+    gbuffer *r = new_gbuffer(450, 300);
     gb_fill(r, color_tango_blue());
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());

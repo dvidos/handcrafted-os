@@ -23,10 +23,11 @@ void graphics_initialize(void *fb_address, int width, int height, int pitch, int
     ggi.fb_pitch = pitch;
     ggi.fb_bpp = bpp;
 
-    ggi.main_buffer = new_gbuffer(width, height, pitch, bpp);
+    ggi.main_buffer = new_gbuffer(width, height);
 }
 
 void graphics_fill(color clr) {
+    // assumes 24 bpp framebuffer
     uint8_t red   = color_r(clr);
     uint8_t green = color_g(clr);
     uint8_t blue  = color_b(clr);
@@ -42,6 +43,7 @@ void graphics_fill(color clr) {
 }
 
 void graphics_rect(int x, int y, int width, int height, color clr) {
+    // assumes 24 bpp framebuffer
     uint8_t red   = color_r(clr);
     uint8_t green = color_g(clr);
     uint8_t blue  = color_b(clr);
@@ -62,6 +64,7 @@ void graphics_rect(int x, int y, int width, int height, color clr) {
 }
 
 static void inline graphics_pixel(int x, int y, color clr) {
+    // assumes 24 bpp framebuffer
     if (x >= ggi.fb_width) return;
     if (y >= ggi.fb_height) return;
     
@@ -127,9 +130,19 @@ gbuffer *graphics_get_main_buffer() {
 }
 
 int graphics_display_main_buffer() {
-    // can't get simpler: fast copy from the buffer to the graphics memory
-    gbuffer *main = ggi.main_buffer;
-    memcpy(ggi.fb_address, main->buffer, main->buffer_size);
+    // we need to convert formats.
+    // our buffers are AARRGGBB, our VBE framebuffer is RRGGBB.
+    uint8_t *vbe = ggi.fb_address;
+    uint32_t *buff_argb = ggi.main_buffer->buffer_argb;
+    int count = (ggi.fb_height * ggi.fb_pitch);
+    
+    while (count-- > 0) {
+        // alpha channel is lost here.
+        *vbe++ = color_b(*buff_argb);
+        *vbe++ = color_g(*buff_argb);
+        *vbe++ = color_r(*buff_argb);
+        buff_argb++;
+    }
 }
 
 
