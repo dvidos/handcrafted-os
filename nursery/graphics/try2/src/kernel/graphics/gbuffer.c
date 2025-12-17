@@ -68,7 +68,7 @@ void gb_fill(gbuffer *gb, color clr) {
 
     for (int i = 0; i < gb->height; i++) {
         uint32_t *pixel_ptr = _pixel_ptr(gb, 0, i);
-        pixel_ptr = _set_pixel_row(pixel_ptr, clr, gb->width);
+        _set_pixel_row(pixel_ptr, clr, gb->width);
     }
 }
 
@@ -85,7 +85,7 @@ void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
     int y_end = y + height;
     for (int i = y; i < y_end; i++) {
         uint32_t *pixel = _pixel_ptr(gb, x, i);
-        pixel = _set_pixel_row(pixel, clr, width);
+        _set_pixel_row(pixel, clr, width);
     }
 }
 
@@ -106,21 +106,21 @@ void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr)
 
     // top line
     pixel = _pixel_ptr(gb, x, y);
-    pixel = _set_pixel_row(pixel, clr, width);
+    _set_pixel_row(pixel, clr, width);
 
     // bottom line
     pixel = _pixel_ptr(gb, x, y + height - 1);
-    pixel = _set_pixel_row(pixel, clr, width);
+    _set_pixel_row(pixel, clr, width);
 
     // left line
     for (int i = y; i <= last_y; i++) {
-        uint32_t *pixel = _pixel_ptr(gb, x, i);
+        pixel = _pixel_ptr(gb, x, i);
         _set_pixel(pixel, clr);
     }
 
     // right line
     for (int i = y; i <= last_y; i++) {
-        uint32_t *pixel = _pixel_ptr(gb, last_x, i);
+        pixel = _pixel_ptr(gb, last_x, i);
         _set_pixel(pixel, clr);
     }
 }
@@ -203,5 +203,49 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
         uint32_t *src_pix  = _pixel_ptr(src, src_origin.x,  src_y);
         uint32_t *dest_pix = _pixel_ptr(dest, dest_origin.x, dest_y);
         _copy_pixel_row(dest_pix, src_pix, size.width);
+    }
+}
+
+void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
+
+    // if origins outside of boundaries, no point
+    if (src_origin.x  >= dest->width)  return;
+    if (src_origin.y  >= dest->height) return;
+    if (dest_origin.x >= dest->width)  return;
+    if (dest_origin.y >= dest->height) return;
+
+    // actually diminish sizes, if in negative values
+    if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
+    if (src_origin.y  < 0) { int d = -src_origin.y;  size.height -= d; src_origin.y  += d; dest_origin.y += d; }
+    if (dest_origin.x < 0) { int d = -dest_origin.x; size.width  -= d; dest_origin.x += d; src_origin.x  += d; }
+    if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
+
+    // shorten size, if bleeding outside
+    if (src_origin.x  + size.width  > src->width)   size.width  = src->width   - src_origin.x;
+    if (src_origin.y  + size.height > src->height)  size.height = src->height  - src_origin.y;
+    if (dest_origin.x + size.width  > dest->width)  size.width  = dest->width  - dest_origin.x;
+    if (dest_origin.y + size.height > dest->height) size.height = dest->height - dest_origin.y;
+
+    // is there anything visible left to copy?
+    if (size.width  <= 0) return;
+    if (size.height <= 0) return;
+
+    for (int y_offs = 0; y_offs < size.height; y_offs++) {
+        int src_y = src_origin.y + y_offs;
+        int dest_y = dest_origin.y + y_offs;
+
+        for (int x_offs = 0; x_offs < size.width; x_offs++) {
+            uint32_t *src_pix  = _pixel_ptr(src, src_origin.x + x_offs,  src_y);
+            uint32_t *dest_pix = _pixel_ptr(dest, dest_origin.x + x_offs, dest_y);
+
+            uint8_t src_alpha = color_a(src_pix);
+            color blended = color_argb(
+                color_a(*dest_pix), // unchanged
+                color_blend_channel(color_r(dest_pix), color_r(src_pix), src_alpha),
+                color_blend_channel(color_g(dest_pix), color_g(src_pix), src_alpha),
+                color_blend_channel(color_b(dest_pix), color_b(src_pix), src_alpha)
+            );
+            _set_pixel(dest_pix, blended);
+        }
     }
 }
