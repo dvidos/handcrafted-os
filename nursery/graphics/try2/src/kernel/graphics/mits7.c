@@ -15,7 +15,7 @@
 // total height 9px, width up to 8 px
 
 // simple font
-glyph8x16 mits7_glyphs[] = {
+static glyph8x16 mits7_glyphs[] = {
 
     {2, { // ' ' (32)
       B("        "),
@@ -1087,5 +1087,6 @@ static font8x16 _mits7 = {
   .char_spacing = 1,
   .glyphs = mits7_glyphs,
 };
+
 font8x16 *mits7 = &_mits7;
 

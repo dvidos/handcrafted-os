@@ -33,33 +33,32 @@ void kernel_main(boot_info_t* bi) {
     gb_fill(main, 0x708090);
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
-    for (int i = 0; i < 640; i += 10) {
-        for (int j = 0; j < 480; j += 10) {
-            color clr = color_rgb(0x33, i, j);
-            gb_fill_rect(main, i * 2, j * 2, 18, 18, clr);
-        }
-    }
-    for (int i = 0; i < 128; i += 7) {
-        for (int j = 0; j < 128; j += 7) {
-            color clr = color_rgb(255 - j, 255 - i, 0xff);
-            gb_set_pixel(main, i,     j, clr);
-            gb_set_pixel(main, i,     j + 1, clr);
-            gb_set_pixel(main, i + 1, j, clr);
-            gb_set_pixel(main, i + 1, j + 1, clr);
-        }
-    }
-    gbuffer *r = new_gbuffer(400, 100, main->pitch, main->bits_per_pixel);
-    gb_fill(r, 0xcc0000);
+    // for (int i = 0; i < 640; i += 10) {
+    //     for (int j = 0; j < 480; j += 10) {
+    //         color clr = color_rgb(0x33, i, j);
+    //         gb_fill_rect(main, i * 2, j * 2, 18, 18, clr);
+    //     }
+    // }
+    // for (int i = 0; i < 128; i += 7) {
+    //     for (int j = 0; j < 128; j += 7) {
+    //         color clr = color_rgb(255 - j, 255 - i, 0xff);
+    //         gb_set_pixel(main, i,     j, clr);
+    //         gb_set_pixel(main, i,     j + 1, clr);
+    //         gb_set_pixel(main, i + 1, j, clr);
+    //         gb_set_pixel(main, i + 1, j + 1, clr);
+    //     }
+    // }
+    gbuffer *r = new_gbuffer(450, 300, main->pitch, main->bits_per_pixel);
+    gb_fill(r, 0x6699cc);
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
-    gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
-    gb_text(r, "This is baseline 26, same font", 3, 26, geneva9, color_white());
-    gb_rect_border(r, 20, 40, 10, 20, color_white());
+    // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
+    // gb_text(r, "This is baseline 26, same font", 3, 26, geneva9, color_white());
+    gb_text_demo(r, 10, 20, geneva9, color_black());
+    gb_text_demo(r, 10, 80, geneva9_bold, color_black());
+    gb_text_demo(r, 10, 140, geneva9_mono, color_black());
+    // gb_rect_border(r, 20, 40, 10, 20, color_white());
 
-    
     gb_copy_area(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero());
-    gb_copy_area(main, r, gb_size(r), gpoint_of(-15, 130), gpoint_zero());
-    gb_copy_area(main, r, gb_size(r), gpoint_of(470, 170), gpoint_zero());
-    gb_copy_area(main, r, gb_size(r), gpoint_of(10, 300), gpoint_of(-100, 0));
 
     // copy/paste offser
     // gb_copy_area(r, main, gb_size(r), gpoint_zero(), gpoint_of(10, 10));

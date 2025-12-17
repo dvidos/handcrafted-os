@@ -16,7 +16,9 @@ C_OBJS= \
     graphics/color.o \
     graphics/font8x16.o \
     graphics/mits7.o \
-    graphics/geneva9.o
+    graphics/geneva9.o \
+    graphics/geneva9_bold.o \
+    graphics/geneva9_mono.o
 
 ASM_OBJ=kernel_asm.o
 

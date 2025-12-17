@@ -16,7 +16,7 @@
 // see https://www.masterstech-home.com/Images/Font_Sample_Gifs/G/Geneva.GIF
 
 
-glyph8x16 geneva12_glyphs[] = {
+static glyph8x16 geneva9_glyphs[] = {
 
     {3, { // ' ' (32)
       B("        "),
@@ -61,11 +61,11 @@ glyph8x16 geneva12_glyphs[] = {
       B("        "),
     }},
     {5, { // '#' (35)
-      B("        "),
-      B("        "),
       B(" # #    "),
       B(" # #    "),
       B("#####   "),
+      B(" # #    "),
+      B(" # #    "),
       B(" # #    "),
       B("#####   "),
       B(" # #    "),
@@ -102,16 +102,16 @@ glyph8x16 geneva12_glyphs[] = {
       B("        "),
       B("        "),
     }},
-    {7, { // '&' (38)
+    {8, { // '&' (38)
       B("  ##    "),
       B(" #  #   "),
       B(" #  #   "),
       B("  ##    "),
-      B(" #  # # "),
+      B(" #  #   "),
       B("#   # # "),
       B("#    #  "),
       B("#   # # "),
-      B(" ###    "),
+      B(" ###   #"),
       B("        "),
       B("        "),
       B("        "),
@@ -926,7 +926,7 @@ glyph8x16 geneva12_glyphs[] = {
       B("        "),
       B("        "),
     }},
-    {3, { // '`' (96)
+    {2, { // '`' (96)
       B("#       "),
       B(" #      "),
       B("        "),
@@ -1370,7 +1370,8 @@ static font8x16 _geneva9 = {
   .num_bitmaps = 12, // 7 x-height, 9 cap-height + 3px descenders
   .baseline = 8,
   .char_spacing = 2,
-  .glyphs = geneva12_glyphs,
+  .glyphs = geneva9_glyphs,
 };
+
 font8x16 *geneva9 = &_geneva9;
 
