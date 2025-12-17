@@ -61,8 +61,8 @@ void kernel_main(boot_info_t* bi) {
     gb_text_demo(r, 10, 230, mits7, letters);
     // gb_rect_border(r, 20, 40, 10, 20, color_white());
 
-    gb_copy_area(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero());
     gb_copy_area_with_alpha(main, r, gb_size(r), gpoint_of(170, 150), gpoint_zero(), 0x66);
+    gb_copy_area(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero());
 
     // copy/paste offser
     // gb_copy_area(r, main, gb_size(r), gpoint_zero(), gpoint_of(10, 10));

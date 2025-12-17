@@ -17,9 +17,9 @@
 
 ## advanced graphics engine
 
+* rounded corners, antialiased
 * scalable fonts, antialiased, w/shadow
 * shadows
-* rounded corners, antialiased
 * gradients
 * alpha / opacity
 * blur (for panes / icons etc)
