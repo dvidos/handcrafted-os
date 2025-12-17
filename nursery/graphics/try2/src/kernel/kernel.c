@@ -54,8 +54,9 @@ void kernel_main(boot_info_t* bi) {
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
     // gb_text(r, "This is baseline 26, same font", 3, 26, geneva9, color_white());
     gb_text_demo(r, 10, 20, geneva9, color_white());
-    gb_text_demo(r, 10, 80, geneva9_bold, color_white());
-    gb_text_demo(r, 10, 140, geneva9_mono, color_white());
+    gb_text_demo(r, 10, 90, geneva9_bold, color_white());
+    gb_text_demo(r, 10, 160, geneva9_mono, color_white());
+    gb_text_demo(r, 10, 230, mits7, color_white());
     // gb_rect_border(r, 20, 40, 10, 20, color_white());
 
     gb_copy_area(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero());

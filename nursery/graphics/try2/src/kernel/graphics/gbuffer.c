@@ -31,20 +31,14 @@
 */
 
 // assume 32M color pallette, 3 bytes per pixel
-#define GBUFFER_24BIT_PIXEL_AT(gb, x, y)                (gb->buffer + ((y) * gb->pitch) + ((x) * 3))
-#define GBUFFER_SET_24BIT_PIXEL(ptr, r, g, b)           { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
-#define GBUFFER_SET_24BIT_PIXELS(ptr, r, g, b, count)   while (count-- > 0) { *ptr++ = b; *ptr++ = g; *ptr++ = r; }
-#define GBUFFER_GET_24BIT_PIXEL(ptr)                    (((color)ptr[0]) | ((color)ptr[1] << 8) | ((color)ptr[2] << 16))
-#define GBUFFER_SKIP_24BIT_PIXEL(ptr)                   { ptr += 3; }
-#define GBUFFER_COPY_24BIT_PIXEL(dest, src)             { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
-#define GBUFFER_COPY_24BIT_PIXELS(dest, src, count)     while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; }
 #define GBUFFER_BREAKUP_COLOR(clr)                      uint8_t red = color_r(clr); uint8_t green = color_g(clr); uint8_t blue  = color_b(clr);
 
-
-
-
-
-
+static inline uint8_t *_pixel_ptr(gbuffer *gb, int x, int y) { return gb->buffer + y * gb->pitch + x * 3; }
+static inline uint8_t *_set_pixel(uint8_t *ptr, uint8_t r, uint8_t g, uint8_t b)   { *ptr++ = b; *ptr++ = g; *ptr++ = r; return ptr; }
+static inline uint8_t *_set_pixels(uint8_t *ptr, uint8_t r, uint8_t g, uint8_t b, int count)   { while (count-- > 0) { *ptr++ = b; *ptr++ = g; *ptr++ = r; } return ptr; }
+static inline color _get_pixel(uint8_t *ptr) { return color_argb(0xFF, ptr[2], ptr[1], ptr[0]); }
+static inline uint8_t *_skip_pixel(uint8_t *ptr) { return ptr + 3; }
+static inline void _copy_pixels(uint8_t *dest, uint8_t *src, int count) {  while (count-- > 0) { *dest++ = *src++; *dest++ = *src++; *dest++ = *src++; } }
 
 
 
@@ -79,16 +73,16 @@ void gb_set_pixel(gbuffer *gb, int x, int y, color clr) {
     if (y < 0 || y >= gb->height) return;
 
     GBUFFER_BREAKUP_COLOR(clr);
-    uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
-    GBUFFER_SET_24BIT_PIXEL(pixel_ptr, red, green, blue);
+    uint8_t *pixel_ptr = _pixel_ptr(gb, x, y);
+    _set_pixel(pixel_ptr, red, green, blue);
 }
 
 color gb_get_pixel(gbuffer *gb, int x, int y) {
     if (x < 0 || x >= gb->width)  return 0;
     if (y < 0 || y >= gb->height) return 0;
 
-    uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
-    return GBUFFER_GET_24BIT_PIXEL(pixel_ptr);
+    uint8_t *pixel_ptr = _pixel_ptr(gb, x, y);
+    return _get_pixel(pixel_ptr);
 }
 
 void gb_fill(gbuffer *gb, color clr) {
@@ -99,9 +93,9 @@ void gb_fill(gbuffer *gb, color clr) {
 
     GBUFFER_BREAKUP_COLOR(clr);
     for (int i = 0; i < gb->height; i++) {
-        uint8_t *pixel_ptr = GBUFFER_24BIT_PIXEL_AT(gb, 0, i);
+        uint8_t *pixel_ptr = _pixel_ptr(gb, 0, i);
         int count = gb->width;
-        GBUFFER_SET_24BIT_PIXELS(pixel_ptr, red, green, blue, count);
+        pixel_ptr = _set_pixels(pixel_ptr, red, green, blue, count);
     }
 }
 
@@ -119,9 +113,9 @@ void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
 
     int y_end = y + height;
     for (int i = y; i < y_end; i++) {
-        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, i);
+        uint8_t *pixel = _pixel_ptr(gb, x, i);
         int count = width;
-        GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+        pixel = _set_pixels(pixel, red, green, blue, count);
     }
 }
 
@@ -142,25 +136,25 @@ void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr)
     int last_x = x + width - 1;
 
     // top line
-    pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, y);
+    pixel = _pixel_ptr(gb, x, y);
     count = width;
-    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+    pixel = _set_pixels(pixel, red, green, blue, count);
 
     // bottom line
-    pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, y + height - 1);
+    pixel = _pixel_ptr(gb, x, y + height - 1);
     count = width;
-    GBUFFER_SET_24BIT_PIXELS(pixel, red, green, blue, count);
+    pixel = _set_pixels(pixel, red, green, blue, count);
 
     // left line
     for (int i = y; i <= last_y; i++) {
-        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, i);
-        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+        uint8_t *pixel = _pixel_ptr(gb, x, i);
+        _set_pixel(pixel, red, green, blue);
     }
 
     // right line
     for (int i = y; i <= last_y; i++) {
-        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, last_x, i);
-        GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+        uint8_t *pixel = _pixel_ptr(gb, last_x, i);
+        _set_pixel(pixel, red, green, blue);
     }
 }
 
@@ -172,13 +166,13 @@ static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, 
         if (bitmap == 0)
             continue;
 
-        uint8_t *pixel = GBUFFER_24BIT_PIXEL_AT(gb, x, baseline_y - font->baseline + row_no);
+        uint8_t *pixel = _pixel_ptr(gb, x, baseline_y - font->baseline + row_no);
         uint8_t mask = 0x80;
         for (int column = 0; column < gl->width; column++) {
             if (bitmap & mask) {
-                GBUFFER_SET_24BIT_PIXEL(pixel, red, green, blue);
+                pixel = _set_pixel(pixel, red, green, blue);
             } else {
-                GBUFFER_SKIP_24BIT_PIXEL(pixel);
+                pixel = _skip_pixel(pixel);
             }
             mask >>= 1;
         }
@@ -203,11 +197,11 @@ int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color
 
 void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr) {
     gb_text(gb, font->name, x, baseline_y, font, clr);
-    baseline_y += font->num_bitmaps + 1;
+    baseline_y += font->line_height;
     gb_text(gb, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", x, baseline_y, font, clr);
-    baseline_y += font->num_bitmaps + 1;
+    baseline_y += font->line_height;
     gb_text(gb, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", x, baseline_y, font, clr);
-    baseline_y += font->num_bitmaps + 1;
+    baseline_y += font->line_height;
     gb_text(gb, "The quick brown fox jumped over the lazy dog!", x, baseline_y, font, clr);
 }
 
@@ -239,9 +233,13 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
         int src_y = src_origin.y + y_offs;
         int dest_y = dest_origin.y + y_offs;
 
-        uint8_t *src_pix  = GBUFFER_24BIT_PIXEL_AT(src, src_origin.x,  src_y);
-        uint8_t *dest_pix = GBUFFER_24BIT_PIXEL_AT(dest, dest_origin.x, dest_y);
+        uint8_t *src_pix  = _pixel_ptr(src, src_origin.x,  src_y);
+        uint8_t *dest_pix = _pixel_ptr(dest, dest_origin.x, dest_y);
         int count = size.width;
-        GBUFFER_COPY_24BIT_PIXELS(dest_pix, src_pix, count);
+        // we need to advance the pointers...
+        _copy_pixels(dest_pix, src_pix, count);
+        dest_pix = _skip_pixel(dest_pix);
+        src_pix = _skip_pixel(src_pix);
+
     }
 }

@@ -29,7 +29,6 @@ typedef struct garea {
     gsize size;
 } garea;
 
-
 inline gpoint gpoint_of(int x, int y) { return (gpoint){.x = x, .y = y}; }
 inline gpoint gpoint_zero() { return (gpoint){.x = 0, .y = 0}; }
 inline gsize gsize_of(int w, int h) { return (gsize){.width = w, .height = h}; }

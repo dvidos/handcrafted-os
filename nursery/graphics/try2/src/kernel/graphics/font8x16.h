@@ -12,6 +12,7 @@ typedef struct {
     const char *name;
     uint8_t num_bitmaps;  // includes both ascenders and descenders
     uint8_t baseline;     // offset from top to baseline of letters
+    uint8_t line_height;  // how far ahead two baselines should be
     uint8_t char_spacing; // 1-2 pixels for space between chars
     glyph8x16 *glyphs; // from space (32) to ~ (127).
     // some special glyphs (e.g. W) will have extension glyph, to save space
