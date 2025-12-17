@@ -206,7 +206,7 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
     }
 }
 
-void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
+void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin, uint8_t global_alpha) {
 
     // if origins outside of boundaries, no point
     if (src_origin.x  >= dest->width)  return;
@@ -238,12 +238,12 @@ void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint des
             uint32_t *src_pix  = _pixel_ptr(src, src_origin.x + x_offs,  src_y);
             uint32_t *dest_pix = _pixel_ptr(dest, dest_origin.x + x_offs, dest_y);
 
-            uint8_t src_alpha = color_a(src_pix);
+            uint8_t src_alpha = color_a(*src_pix) * global_alpha / 255;
             color blended = color_argb(
                 color_a(*dest_pix), // unchanged
-                color_blend_channel(color_r(dest_pix), color_r(src_pix), src_alpha),
-                color_blend_channel(color_g(dest_pix), color_g(src_pix), src_alpha),
-                color_blend_channel(color_b(dest_pix), color_b(src_pix), src_alpha)
+                color_blend_channel(color_r(*dest_pix), color_r(*src_pix), src_alpha),
+                color_blend_channel(color_g(*dest_pix), color_g(*src_pix), src_alpha),
+                color_blend_channel(color_b(*dest_pix), color_b(*src_pix), src_alpha)
             );
             _set_pixel(dest_pix, blended);
         }

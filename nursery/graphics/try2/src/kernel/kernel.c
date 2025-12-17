@@ -45,18 +45,24 @@ void kernel_main(boot_info_t* bi) {
     //         gb_set_pixel(main, i + 1, j + 1, clr);
     //     }
     // }
+
+    color bg = color_with_alpha(0xFF, color_tango_green());
+    color letters = color_with_alpha(0xFF, color_tango_bright_white());
+    
     gbuffer *r = new_gbuffer(450, 300);
-    gb_fill(r, color_tango_blue());
+    gb_fill(r, bg);
+    
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
     // gb_text(r, "This is baseline 26, same font", 3, 26, geneva9, color_white());
-    gb_text_demo(r, 10, 20, geneva9, color_white());
-    gb_text_demo(r, 10, 90, geneva9_bold, color_white());
-    gb_text_demo(r, 10, 160, geneva9_mono, color_white());
-    gb_text_demo(r, 10, 230, mits7, color_white());
+    gb_text_demo(r, 10, 20, geneva9, letters);
+    gb_text_demo(r, 10, 90, geneva9_bold, letters);
+    gb_text_demo(r, 10, 160, geneva9_mono, letters);
+    gb_text_demo(r, 10, 230, mits7, letters);
     // gb_rect_border(r, 20, 40, 10, 20, color_white());
 
     gb_copy_area(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero());
+    gb_copy_area_with_alpha(main, r, gb_size(r), gpoint_of(170, 150), gpoint_zero(), 0x66);
 
     // copy/paste offser
     // gb_copy_area(r, main, gb_size(r), gpoint_zero(), gpoint_of(10, 10));

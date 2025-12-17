@@ -9,18 +9,12 @@ static inline uint8_t color_g(color c) { return (c >>  8); }
 static inline uint8_t color_b(color c) { return (c >>  0); }
 static inline color   color_argb(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue) { return (((uint32_t)alpha) << 24) | (((uint32_t)red) << 16) | (((uint32_t)green) << 8) | (((uint32_t)blue) << 0); }
 static inline color   color_rgb(uint8_t red, uint8_t green, uint8_t blue) { return color_argb(0xFF, red, green, blue); }
+static inline color   color_with_alpha(uint8_t alpha, color clr) { return (((uint32_t)alpha) << 24) | (clr & 0xFFFFFF); }
 static inline color   color_black() { return 0xFF000000; }
 static inline color   color_white() { return 0xFFFFFFFF; }
 static inline color   color_transparent() { return 0x00000000; }
 static inline uint8_t color_blend_channel(uint8_t bottom, uint8_t top, uint8_t alpha) { return (((uint32_t)bottom * (255 - alpha)) + ((uint32_t)top * (alpha))) / 255; }
-static inline color   color_blend(uint32_t bottom, uint32_t top) {
-    uint8_t alpha = color_a(top);
-    return color_argb(alpha, 
-        color_blend_channel(color_r(bottom), color_r(top), alpha),
-        color_blend_channel(color_g(bottom), color_g(top), alpha),
-        color_blend_channel(color_b(bottom), color_b(top), alpha)
-    );
-}
+
 
 // from settings of linux terminal, dark tango theme
 static inline color color_tango_black()          { return 0xFF2e3436; }
