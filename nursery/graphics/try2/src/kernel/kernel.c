@@ -27,7 +27,7 @@ void kernel_main(boot_info_t* bi) {
     // graphics_draw_8x16_demo(10, 130, mits7,   color_black());
 
     gbuffer *main = graphics_get_main_buffer();
-    gb_fill(main, color_tango_dark_gray());
+    gb_fill(main, color_tango_cyan());
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
     // for (int i = 0; i < 640; i += 10) {
@@ -46,23 +46,29 @@ void kernel_main(boot_info_t* bi) {
     //     }
     // }
 
-    color bg = color_with_alpha(0xFF, color_tango_green());
+    color bg = color_with_alpha(0xFF, color_tango_dark_gray());
+    color shadow = color_darken(bg, 0.33);
     color letters = color_with_alpha(0xFF, color_tango_bright_white());
     
     gbuffer *r = new_gbuffer(450, 300);
-    gb_fill(r, bg);
+    // gb_fill(r, bg);
+    gb_fill_rect_rounded(r, 1, 1, 448, 298, 16, bg);
     
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
     // gb_text(r, "This is baseline 26, same font", 3, 26, geneva9, color_white());
+    gb_text_demo(r, 11, 21, geneva9, shadow);
     gb_text_demo(r, 10, 20, geneva9, letters);
+    gb_text_demo(r, 11, 91, geneva9_bold, shadow);
     gb_text_demo(r, 10, 90, geneva9_bold, letters);
+    gb_text_demo(r, 11, 161, geneva9_mono, shadow);
     gb_text_demo(r, 10, 160, geneva9_mono, letters);
+    gb_text_demo(r, 11, 231, mits7, shadow);
     gb_text_demo(r, 10, 230, mits7, letters);
     // gb_rect_border(r, 20, 40, 10, 20, color_white());
 
-    gb_copy_area_with_alpha(main, r, gb_size(r), gpoint_of(170, 150), gpoint_zero(), 0x66);
-    gb_copy_area(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero());
+    gb_copy_area_with_alpha(main, r, gb_size(r), gpoint_of(170, 150), gpoint_zero(), 0xaa);
+    gb_copy_area_with_alpha(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero(), 0xFF);
 
     // copy/paste offser
     // gb_copy_area(r, main, gb_size(r), gpoint_zero(), gpoint_of(10, 10));

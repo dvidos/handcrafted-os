@@ -38,6 +38,7 @@ void gb_free(gbuffer *gb);
 void gb_set_pixel(gbuffer *gb, int x, int y, color clr);
 color gb_get_pixel(gbuffer *gb, int x, int y);
 void gb_fill(gbuffer *gb, color clr);
+void gb_fill_rect_rounded(gbuffer *gb, int x, int y, int width, int height, int radius, color clr);
 void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr);
 void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr);
 int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);

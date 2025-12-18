@@ -4,7 +4,11 @@
 #include "../memory/string.h"
 #include "gbuffer.h"
 
+
 /*
+    Inspiration and goals here: https://www.versionmuseum.com/history-of/classic-mac-os
+    Scaling, antialiasing, semi-transparency, shadows, gradients, rounded corners.
+
     Afterwards, blit can support: 
     - simple, 
     - masked, 
@@ -20,7 +24,6 @@
     - allocate extra bytes on the buffers, with magic values, to detect overruns/underruns
 */
 
-// assume 32M color pallette, 3 bytes per pixel
 static inline uint32_t *_pixel_ptr(gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->width) + x; }
 static inline uint32_t *_set_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
 static inline uint32_t *_set_pixel_row(uint32_t *ptr, uint32_t clr, int length)   { while (length-- > 0) { *ptr++ = clr; } return ptr; }
@@ -88,6 +91,45 @@ void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
         _set_pixel_row(pixel, clr, width);
     }
 }
+
+void gb_fill_rect_rounded(gbuffer *gb, int x, int y, int width, int height, int radius, color clr) {
+
+    color solid_color = color_with_alpha(0xFF, clr);
+    color transparent = color_with_alpha(0x00, clr);
+
+    // three rects, top, bottom, center, leaving the four corners unpainted
+    gb_fill_rect(gb, x + radius, y,                   width - 2 * radius, radius, solid_color);
+    gb_fill_rect(gb, x + radius, y + height - radius, width - 2 * radius, radius, solid_color);
+    gb_fill_rect(gb, x, y + radius, width, height - 2 * radius, solid_color);
+
+    // the -1 are there to avoid floating point arithmetic
+    int squared_in_boundary  = (radius - 1) * (radius - 1);
+    int squared_out_boundary = (radius - 0) * (radius - 0);
+    int center_x1 = x + radius - 1;
+    int center_y1 = y + radius - 1;
+    int center_x2 = x + width - radius;
+    int center_y2 = y + height - radius;
+    color corner_clr;
+
+    for (int dy = 0; dy <= radius; dy++) {
+        for (int dx = 0; dx <= radius; dx++) {
+            int squared_distance = dx*dx + dy*dy;
+            if      (squared_distance <= squared_in_boundary ) corner_clr = solid_color;
+            else if (squared_distance >= squared_out_boundary) corner_clr = transparent;
+            else {
+                uint8_t alpha = (squared_out_boundary - squared_distance) * 255 / (squared_out_boundary - squared_in_boundary);
+                corner_clr = color_with_alpha(alpha, solid_color);
+            }
+
+            // paint symmetrically all four corners at once
+            gb_set_pixel(gb, center_x1 - dx, center_y1 - dy, corner_clr); // top left
+            gb_set_pixel(gb, center_x2 + dx, center_y1 - dy, corner_clr); // top right
+            gb_set_pixel(gb, center_x2 + dx, center_y2 + dy, corner_clr); // botom right
+            gb_set_pixel(gb, center_x1 - dx, center_y2 + dy, corner_clr); // botom left
+        }
+    }
+}
+
 
 void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr) {
     if (x >= gb->width)  return;
