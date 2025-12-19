@@ -27,7 +27,7 @@ void kernel_main(boot_info_t* bi) {
     // graphics_draw_8x16_demo(10, 130, mits7,   color_black());
 
     gbuffer *main = graphics_get_main_buffer();
-    gb_fill(main, color_tango_cyan());
+    gb_fill(main, 0x0080a0);
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
     // for (int i = 0; i < 640; i += 10) {
