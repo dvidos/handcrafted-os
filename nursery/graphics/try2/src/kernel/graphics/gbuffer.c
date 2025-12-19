@@ -31,6 +31,83 @@ static inline color _get_pixel(uint32_t *ptr) { return (color)ptr; }
 static inline uint32_t *_skip_pixel(uint32_t *ptr) { return ptr + 1; }
 static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) {  while (length-- > 0) { *dest++ = *src++; } }
 
+// ----------------------------------------------------
+
+static gbuffer *global_aux_buffer = 0;
+
+void gb_set_aux_buffer(gbuffer *aux_buffer) {
+    // this buffer to be used for blurring, single threadedly
+    global_aux_buffer = aux_buffer;
+}
+
+// ----------------------------------------------------
+
+typedef struct blur_window {
+    uint32_t alpha;
+    uint32_t red;
+    uint32_t green;
+    uint32_t blue;
+    int size;
+} blur_window;
+static inline void blur_window_reset(blur_window *w) {
+    w->alpha = 0;
+    w->red   = 0;
+    w->green = 0;
+    w->blue  = 0;
+    w->size  = 0;
+}
+static inline void blur_window_add(blur_window *w, uint32_t *pixel) {
+    w->alpha += color_a(*pixel);
+    w->red   += color_r(*pixel);
+    w->green += color_g(*pixel);
+    w->blue  += color_b(*pixel);
+    w->size  += 1;
+}
+static inline void blur_window_remove(blur_window *w, uint32_t *pixel) {
+    w->alpha -= color_a(*pixel);
+    w->red   -= color_r(*pixel);
+    w->green -= color_g(*pixel);
+    w->blue  -= color_b(*pixel);
+    w->size  -= 1;
+}
+static inline void blur_window_collect_horizontally(blur_window *w, int curr_x, int y, int radius, gbuffer *gb) {
+    for (int offset = -radius; offset <= +radius; offset++) {
+        if (curr_x + offset < 0) continue;
+        if (curr_x + offset >= gb->width) continue;
+        uint32_t *pixel = _pixel_ptr(gb, curr_x + offset, y);
+        blur_window_add(w, pixel);
+    }
+}
+static inline void blur_window_collect_vertically(blur_window *w, int x, int curr_y, int radius, gbuffer *gb) {
+    for (int offset = -radius; offset <= +radius; offset++) {
+        if (curr_y + offset < 0) continue;
+        if (curr_y + offset >= gb->height) continue;
+        uint32_t *pixel = _pixel_ptr(gb, x, curr_y + offset);
+        blur_window_add(w, pixel);
+    }
+}
+static inline void blur_window_apply(blur_window *w, uint32_t *pixel, int do_blur_alpha) {
+    if (w->size == 0)
+        return;
+    
+    if (do_blur_alpha) {
+        _set_pixel(pixel, color_argb(
+            w->alpha / w->size,
+            color_r(*pixel),
+            color_g(*pixel),
+            color_b(*pixel)
+        ));
+    } else {
+        _set_pixel(pixel, color_argb(
+            color_a(*pixel),
+            w->red   / w->size,
+            w->green / w->size,
+            w->blue  / w->size
+        ));
+    }
+}
+
+// -------------------------------------------
 
 
 gbuffer *new_gbuffer(int width, int height) {
@@ -122,14 +199,13 @@ void gb_fill_rect_rounded(gbuffer *gb, int x, int y, int width, int height, int 
             }
 
             // paint symmetrically all four corners at once
-            gb_set_pixel(gb, center_x1 - dx, center_y1 - dy, corner_clr); // top left
-            gb_set_pixel(gb, center_x2 + dx, center_y1 - dy, corner_clr); // top right
-            gb_set_pixel(gb, center_x2 + dx, center_y2 + dy, corner_clr); // botom right
-            gb_set_pixel(gb, center_x1 - dx, center_y2 + dy, corner_clr); // botom left
+            _set_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), corner_clr); // top left
+            _set_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), corner_clr); // top right
+            _set_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), corner_clr); // botom right
+            _set_pixel(_pixel_ptr(gb, center_x1 - dx, center_y2 + dy), corner_clr); // botom left
         }
     }
 }
-
 
 void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr) {
     if (x >= gb->width)  return;
@@ -166,6 +242,49 @@ void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr)
         _set_pixel(pixel, clr);
     }
 }
+
+void gb_blur(gbuffer *gb, int x, int y, int width, int height, int radius, int do_blur_alpha) {
+    // TODO: apply (and homogenize and apply elsehwre) guardrails:
+    // we need to have one global temp buffer, as bit as the screen,
+    // we scan horizontally, averaging and copying to that buffer
+    // then we scan vertically that buffer, average, and copy the result to this buffer
+    // if blur alpha, we blur alpha, used for shadows, otherwise we blur the colors only.
+
+    blur_window win;
+    uint32_t *pixel;
+
+    // copy some zone from the original image, into the aux buffer, 
+    // so that vertical passes do not bleed into unknown pixels.
+    gb_copy_area(global_aux_buffer, gb, gsize_of(width, radius), gpoint_of(x, y - radius), gpoint_of(x, y - radius));
+    gb_copy_area(global_aux_buffer, gb, gsize_of(width, radius), gpoint_of(x, y + height), gpoint_of(x, y + height));
+
+    // ok, the stupid, slow way first, blur horizontally first
+    for (int curr_y = y; curr_y < y + height; curr_y++) {
+        for (int curr_x = x; curr_x < x + width; curr_x++) {
+            blur_window_reset(&win);
+            // read from buffer, write to aux_buffer
+            blur_window_collect_horizontally(&win, curr_x, curr_y, radius, gb);
+            pixel = _pixel_ptr(global_aux_buffer, curr_x, curr_y);
+            blur_window_apply(&win, pixel, do_blur_alpha);
+        }
+    }
+
+    // then vertically
+    for (int curr_x = x; curr_x < x + width; curr_x++) {
+        for (int curr_y = y; curr_y < y + height; curr_y++) {
+            blur_window_reset(&win);
+            // read from aux_buffer, write to buffer
+            blur_window_collect_vertically(&win, curr_x, curr_y, radius, global_aux_buffer);
+            pixel = _pixel_ptr(gb, curr_x, curr_y);
+            blur_window_apply(&win, pixel, do_blur_alpha);
+        }
+    }
+
+    // i think this is it...
+}
+
+
+
 
 static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint32_t clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);

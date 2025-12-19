@@ -12,6 +12,7 @@ struct graphics_global_info {
     int      fb_pitch;
     int      fb_bpp;
     gbuffer *main_buffer;
+    gbuffer *aux_buffer; // e.g. for blurring
 };
 struct graphics_global_info ggi;
 
@@ -24,6 +25,8 @@ void graphics_initialize(void *fb_address, int width, int height, int pitch, int
     ggi.fb_bpp = bpp;
 
     ggi.main_buffer = new_gbuffer(width, height);
+    ggi.aux_buffer = new_gbuffer(width, height);
+    gb_set_aux_buffer(ggi.aux_buffer);
 }
 
 void graphics_fill(color clr) {
@@ -127,6 +130,10 @@ int graphics_draw_8x16_demo(int x, int baseline_y, font8x16 *font, color clr) {
 gbuffer *graphics_get_main_buffer() {
     // this allows clients to manipulate the main buffer
     return ggi.main_buffer;
+}
+gbuffer *graphics_get_aux_buffer() {
+    // this allows clients to manipulate the main buffer
+    return ggi.aux_buffer;
 }
 
 int graphics_display_main_buffer() {
