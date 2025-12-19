@@ -52,7 +52,7 @@ void kernel_main(boot_info_t* bi) {
     
     gbuffer *r = new_gbuffer(450, 300);
     // gb_fill(r, bg);
-    gb_fill_rect_rounded(r, 1, 1, 400, 298, 16, bg);
+    gb_fill_rect_rounded(r, garea_of(1, 1, 400, 298), 7, bg);
     
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
@@ -67,15 +67,15 @@ void kernel_main(boot_info_t* bi) {
     gb_text_demo(r, 10, 230, mits7, letters);
     // gb_rect_border(r, 20, 40, 120, 80, color_black());
 
-    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 150), gpoint_zero(), 0xaa);
+    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 150), gpoint_zero(), 0xAA);
     gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(10, 20), gpoint_zero(), 0xFF);
-    gb_blur(main, 250, 120, 300, 150, 2, 0);
-    gb_blur(main, 250, 120, 300, 150, 2, 0);
+    gb_blur(main, garea_of(250, 120, 300, 150), 2, 0);
+    gb_blur(main, garea_of(250, 120, 300, 150), 2, 0);
     // gb_rect_border(main, 250, 120, 300, 150, color_black());
     // let's give a semitransparent white buffer on top...
     gbuffer *glass = new_gbuffer(300, 150);
     gb_fill(glass, color_black());
-    gb_copy_area_with_alpha(main, glass, gsize_of(300, 150), gpoint_of(250, 120), gpoint_zero(), 0x44);
+    gb_copy_area_with_alpha(main, glass, gsize_of(300, 150), gpoint_of(250, 120), gpoint_zero(), 0x22);
 
     // copy/paste offser
     // gb_copy_area(r, main, gb_size(r), gpoint_zero(), gpoint_of(10, 10));

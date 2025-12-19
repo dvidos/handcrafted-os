@@ -34,7 +34,6 @@ static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) { 
 // ----------------------------------------------------
 
 static gbuffer *global_aux_buffer = 0;
-
 void gb_set_aux_buffer(gbuffer *aux_buffer) {
     // this buffer to be used for blurring, single threadedly
     global_aux_buffer = aux_buffer;
@@ -109,12 +108,9 @@ static inline void blur_window_apply(blur_window *w, uint32_t *pixel, int do_blu
 
 // -------------------------------------------
 
-
 gbuffer *new_gbuffer(int width, int height) {
     gbuffer *gb = (gbuffer *)kmalloc(sizeof(gbuffer));
-    gb->area.size.width = width;
-    gb->area.size.height = height;
-
+    gb->area = garea_of(0, 0, width, height);
     gb->buffer_size = height * width * sizeof(uint32_t);
     gb->buffer_argb = (uint32_t *)kmalloc(gb->buffer_size);
 
@@ -128,16 +124,14 @@ void gb_free(gbuffer *gb) {
     }
 }
 
-void gb_set_pixel(gbuffer *gb, int x, int y, color clr) {
-    if (x < 0 || x >= gb->area.size.width)  return;
-    if (y < 0 || y >= gb->area.size.height) return;
-    _set_pixel(_pixel_ptr(gb, x, y), clr);
+void gb_set_pixel(gbuffer *gb, gpoint p, color clr) {
+    if (!gpoint_is_inside(p, gb->area)) return;
+    _set_pixel(_pixel_ptr(gb, p.x, p.y), clr);
 }
 
-color gb_get_pixel(gbuffer *gb, int x, int y) {
-    if (x < 0 || x >= gb->area.size.width)  return 0;
-    if (y < 0 || y >= gb->area.size.height) return 0;
-    return _get_pixel(_pixel_ptr(gb, x, y));
+color gb_get_pixel(gbuffer *gb, gpoint p) {
+    if (!gpoint_is_inside(p, gb->area)) return 0;
+    return _get_pixel(_pixel_ptr(gb, p.x, p.y));
 }
 
 void gb_fill(gbuffer *gb, color clr) {
@@ -152,40 +146,47 @@ void gb_fill(gbuffer *gb, color clr) {
     }
 }
 
-void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
-    if (x >= gb->area.size.width)  return;
-    if (y >= gb->area.size.height) return;
-    if (x < 0) { int diff = -x; width -= diff; x += diff; }
-    if (y < 0) { int diff = -y; height -= diff; y += diff; }
-    if (x + width  > gb->area.size.width)  { width  = gb->area.size.width  - x; }
-    if (y + height > gb->area.size.height) { height = gb->area.size.height - y; }
-    if (width  <= 0) return;
-    if (height <= 0) return;
+void gb_fill_rect(gbuffer *gb, garea rect, color clr) {
+    // if (x >= gb->area.size.width)  return;
+    // if (y >= gb->area.size.height) return;
+    // if (x < 0) { int diff = -x; width -= diff; x += diff; }
+    // if (y < 0) { int diff = -y; height -= diff; y += diff; }
+    // if (x + width  > gb->area.size.width)  { width  = gb->area.size.width  - x; }
+    // if (y + height > gb->area.size.height) { height = gb->area.size.height - y; }
+    // if (width  <= 0) return;
+    // if (height <= 0) return;
+    rect = garea_crop(rect, gb->area);
+    if (garea_is_empty(rect))
+        return;
 
-    int y_end = y + height;
-    for (int i = y; i < y_end; i++) {
-        uint32_t *pixel = _pixel_ptr(gb, x, i);
-        _set_pixel_row(pixel, clr, width);
+    int y_end = rect.origin.y + rect.size.height;
+    for (int i = rect.origin.y; i < y_end; i++) {
+        uint32_t *pixel = _pixel_ptr(gb, rect.origin.x, i);
+        _set_pixel_row(pixel, clr, rect.size.width);
     }
 }
 
-void gb_fill_rect_rounded(gbuffer *gb, int x, int y, int width, int height, int radius, color clr) {
+void gb_fill_rect_rounded(gbuffer *gb, garea rect, int radius, color clr) {
 
+    rect = garea_crop(rect, gb->area);
+    if (garea_is_empty(rect))
+        return;
+    
     color solid_color = color_with_alpha(0xFF, clr);
     color transparent = color_with_alpha(0x00, clr);
 
     // three rects, top, bottom, center, leaving the four corners unpainted
-    gb_fill_rect(gb, x + radius, y,                   width - 2 * radius, radius, solid_color);
-    gb_fill_rect(gb, x + radius, y + height - radius, width - 2 * radius, radius, solid_color);
-    gb_fill_rect(gb, x, y + radius, width, height - 2 * radius, solid_color);
+    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y,                             rect.size.width - 2 * radius, radius), solid_color);
+    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - radius, rect.size.width - 2 * radius, radius), solid_color);
+    gb_fill_rect(gb, garea_of(rect.origin.x,          rect.origin.y + radius,                    rect.size.width,              rect.size.height - 2 * radius), solid_color);
 
     // the -1 are there to avoid floating point arithmetic
     int squared_in_boundary  = (radius - 1) * (radius - 1);
     int squared_out_boundary = (radius - 0) * (radius - 0);
-    int center_x1 = x + radius - 1;
-    int center_y1 = y + radius - 1;
-    int center_x2 = x + width - radius;
-    int center_y2 = y + height - radius;
+    int center_x1 = rect.origin.x + radius - 1;
+    int center_y1 = rect.origin.y + radius - 1;
+    int center_x2 = rect.origin.x + rect.size.width - radius;
+    int center_y2 = rect.origin.y + rect.size.height - radius;
     color corner_clr;
 
     for (int dy = 0; dy <= radius; dy++) {
@@ -207,60 +208,61 @@ void gb_fill_rect_rounded(gbuffer *gb, int x, int y, int width, int height, int 
     }
 }
 
-void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr) {
-    if (x >= gb->area.size.width)  return;
-    if (y >= gb->area.size.height) return;
-    if (x < 0) { int diff = -x; width -= diff; x += diff; }
-    if (y < 0) { int diff = -y; height -= diff; y += diff; }
-    if (x + width  > gb->area.size.width)  { width  = gb->area.size.width  - x; }
-    if (y + height > gb->area.size.height) { height = gb->area.size.height - y; }
-    if (width  <= 0) return;
-    if (height <= 0) return;
+void gb_rect_border(gbuffer *gb, garea rect, color clr) {
+
+    rect = garea_crop(rect, gb->area);
+    if (garea_is_empty(rect))
+        return;
 
     uint32_t *pixel;
     int count;
-    int last_y = y + height - 1;
-    int last_x = x + width - 1;
+    gpoint bot_right = garea_bottom_right(rect);
 
     // top line
-    pixel = _pixel_ptr(gb, x, y);
-    _set_pixel_row(pixel, clr, width);
+    pixel = _pixel_ptr(gb, rect.origin.x, rect.origin.y);
+    _set_pixel_row(pixel, clr, rect.size.width);
 
     // bottom line
-    pixel = _pixel_ptr(gb, x, y + height - 1);
-    _set_pixel_row(pixel, clr, width);
+    pixel = _pixel_ptr(gb, rect.origin.x, rect.origin.y + rect.size.height - 1);
+    _set_pixel_row(pixel, clr, rect.size.width);
 
     // left line
-    for (int i = y; i <= last_y; i++) {
-        pixel = _pixel_ptr(gb, x, i);
+    for (int i = rect.origin.y; i <= bot_right.y; i++) {
+        pixel = _pixel_ptr(gb, rect.origin.x, i);
         _set_pixel(pixel, clr);
     }
 
     // right line
-    for (int i = y; i <= last_y; i++) {
-        pixel = _pixel_ptr(gb, last_x, i);
+    for (int i = rect.origin.y; i <= bot_right.y; i++) {
+        pixel = _pixel_ptr(gb, bot_right.x, i);
         _set_pixel(pixel, clr);
     }
 }
 
-void gb_blur(gbuffer *gb, int x, int y, int width, int height, int radius, int do_blur_alpha) {
+void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
     // TODO: apply (and homogenize and apply elsehwre) guardrails:
     // we need to have one global temp buffer, as bit as the screen,
     // we scan horizontally, averaging and copying to that buffer
     // then we scan vertically that buffer, average, and copy the result to this buffer
     // if blur alpha, we blur alpha, used for shadows, otherwise we blur the colors only.
 
+    rect = garea_crop(rect, gb->area);
+    if (garea_is_empty(rect))
+        return;
+
     blur_window win;
     uint32_t *pixel;
 
     // copy some zone from the original image, into the aux buffer, 
     // so that vertical passes do not bleed into unknown pixels.
-    gb_copy_area(global_aux_buffer, gb, gsize_of(width, radius), gpoint_of(x, y - radius), gpoint_of(x, y - radius));
-    gb_copy_area(global_aux_buffer, gb, gsize_of(width, radius), gpoint_of(x, y + height), gpoint_of(x, y + height));
+    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius), gpoint_of(rect.origin.x, rect.origin.y - radius));
+    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
+
+    gpoint end = garea_bottom_right_exclusive(rect);
 
     // ok, the stupid, slow way first, blur horizontally first
-    for (int curr_y = y; curr_y < y + height; curr_y++) {
-        for (int curr_x = x; curr_x < x + width; curr_x++) {
+    for (int curr_y = rect.origin.y; curr_y < end.y; curr_y++) {
+        for (int curr_x = rect.origin.x; curr_x < end.x; curr_x++) {
             blur_window_reset(&win);
             // read from buffer, write to aux_buffer
             blur_window_collect_horizontally(&win, curr_x, curr_y, radius, gb);
@@ -270,8 +272,8 @@ void gb_blur(gbuffer *gb, int x, int y, int width, int height, int radius, int d
     }
 
     // then vertically
-    for (int curr_x = x; curr_x < x + width; curr_x++) {
-        for (int curr_y = y; curr_y < y + height; curr_y++) {
+    for (int curr_x = rect.origin.x; curr_x < end.x; curr_x++) {
+        for (int curr_y = rect.origin.y; curr_y < end.y; curr_y++) {
             blur_window_reset(&win);
             // read from aux_buffer, write to buffer
             blur_window_collect_vertically(&win, curr_x, curr_y, radius, global_aux_buffer);
@@ -282,9 +284,6 @@ void gb_blur(gbuffer *gb, int x, int y, int width, int height, int radius, int d
 
     // i think this is it...
 }
-
-
-
 
 static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint32_t clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);
