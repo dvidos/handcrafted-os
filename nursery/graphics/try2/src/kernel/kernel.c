@@ -67,8 +67,8 @@ void kernel_main(boot_info_t* bi) {
     gb_text_demo(r, 10, 230, mits7, letters);
     // gb_rect_border(r, 20, 40, 120, 80, color_black());
 
-    gb_copy_area_with_alpha(main, r, gb_size(r), gpoint_of(170, 150), gpoint_zero(), 0xaa);
-    gb_copy_area_with_alpha(main, r, gb_size(r), gpoint_of(10, 20), gpoint_zero(), 0xFF);
+    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 150), gpoint_zero(), 0xaa);
+    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(10, 20), gpoint_zero(), 0xFF);
     gb_blur(main, 250, 120, 300, 150, 2, 0);
     gb_blur(main, 250, 120, 300, 150, 2, 0);
     // gb_rect_border(main, 250, 120, 300, 150, color_black());

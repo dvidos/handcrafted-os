@@ -24,7 +24,7 @@
     - allocate extra bytes on the buffers, with magic values, to detect overruns/underruns
 */
 
-static inline uint32_t *_pixel_ptr(gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->width) + x; }
+static inline uint32_t *_pixel_ptr(gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->area.size.width) + x; }
 static inline uint32_t *_set_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
 static inline uint32_t *_set_pixel_row(uint32_t *ptr, uint32_t clr, int length)   { while (length-- > 0) { *ptr++ = clr; } return ptr; }
 static inline color _get_pixel(uint32_t *ptr) { return (color)ptr; }
@@ -73,7 +73,7 @@ static inline void blur_window_remove(blur_window *w, uint32_t *pixel) {
 static inline void blur_window_collect_horizontally(blur_window *w, int curr_x, int y, int radius, gbuffer *gb) {
     for (int offset = -radius; offset <= +radius; offset++) {
         if (curr_x + offset < 0) continue;
-        if (curr_x + offset >= gb->width) continue;
+        if (curr_x + offset >= gb->area.size.width) continue;
         uint32_t *pixel = _pixel_ptr(gb, curr_x + offset, y);
         blur_window_add(w, pixel);
     }
@@ -81,7 +81,7 @@ static inline void blur_window_collect_horizontally(blur_window *w, int curr_x, 
 static inline void blur_window_collect_vertically(blur_window *w, int x, int curr_y, int radius, gbuffer *gb) {
     for (int offset = -radius; offset <= +radius; offset++) {
         if (curr_y + offset < 0) continue;
-        if (curr_y + offset >= gb->height) continue;
+        if (curr_y + offset >= gb->area.size.height) continue;
         uint32_t *pixel = _pixel_ptr(gb, x, curr_y + offset);
         blur_window_add(w, pixel);
     }
@@ -112,8 +112,8 @@ static inline void blur_window_apply(blur_window *w, uint32_t *pixel, int do_blu
 
 gbuffer *new_gbuffer(int width, int height) {
     gbuffer *gb = (gbuffer *)kmalloc(sizeof(gbuffer));
-    gb->width = width;
-    gb->height = height;
+    gb->area.size.width = width;
+    gb->area.size.height = height;
 
     gb->buffer_size = height * width * sizeof(uint32_t);
     gb->buffer_argb = (uint32_t *)kmalloc(gb->buffer_size);
@@ -129,14 +129,14 @@ void gb_free(gbuffer *gb) {
 }
 
 void gb_set_pixel(gbuffer *gb, int x, int y, color clr) {
-    if (x < 0 || x >= gb->width)  return;
-    if (y < 0 || y >= gb->height) return;
+    if (x < 0 || x >= gb->area.size.width)  return;
+    if (y < 0 || y >= gb->area.size.height) return;
     _set_pixel(_pixel_ptr(gb, x, y), clr);
 }
 
 color gb_get_pixel(gbuffer *gb, int x, int y) {
-    if (x < 0 || x >= gb->width)  return 0;
-    if (y < 0 || y >= gb->height) return 0;
+    if (x < 0 || x >= gb->area.size.width)  return 0;
+    if (y < 0 || y >= gb->area.size.height) return 0;
     return _get_pixel(_pixel_ptr(gb, x, y));
 }
 
@@ -146,19 +146,19 @@ void gb_fill(gbuffer *gb, color clr) {
         return;
     }
 
-    for (int i = 0; i < gb->height; i++) {
+    for (int i = 0; i < gb->area.size.height; i++) {
         uint32_t *pixel_ptr = _pixel_ptr(gb, 0, i);
-        _set_pixel_row(pixel_ptr, clr, gb->width);
+        _set_pixel_row(pixel_ptr, clr, gb->area.size.width);
     }
 }
 
 void gb_fill_rect(gbuffer *gb, int x, int y, int width, int height, color clr) {
-    if (x >= gb->width)  return;
-    if (y >= gb->height) return;
+    if (x >= gb->area.size.width)  return;
+    if (y >= gb->area.size.height) return;
     if (x < 0) { int diff = -x; width -= diff; x += diff; }
     if (y < 0) { int diff = -y; height -= diff; y += diff; }
-    if (x + width  > gb->width)  { width  = gb->width  - x; }
-    if (y + height > gb->height) { height = gb->height - y; }
+    if (x + width  > gb->area.size.width)  { width  = gb->area.size.width  - x; }
+    if (y + height > gb->area.size.height) { height = gb->area.size.height - y; }
     if (width  <= 0) return;
     if (height <= 0) return;
 
@@ -208,12 +208,12 @@ void gb_fill_rect_rounded(gbuffer *gb, int x, int y, int width, int height, int 
 }
 
 void gb_rect_border(gbuffer *gb, int x, int y, int width, int height, color clr) {
-    if (x >= gb->width)  return;
-    if (y >= gb->height) return;
+    if (x >= gb->area.size.width)  return;
+    if (y >= gb->area.size.height) return;
     if (x < 0) { int diff = -x; width -= diff; x += diff; }
     if (y < 0) { int diff = -y; height -= diff; y += diff; }
-    if (x + width  > gb->width)  { width  = gb->width  - x; }
-    if (y + height > gb->height) { height = gb->height - y; }
+    if (x + width  > gb->area.size.width)  { width  = gb->area.size.width  - x; }
+    if (y + height > gb->area.size.height) { height = gb->area.size.height - y; }
     if (width  <= 0) return;
     if (height <= 0) return;
 
@@ -336,10 +336,10 @@ void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr)
 void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
 
     // if origins outside of boundaries, no point
-    if (src_origin.x  >= dest->width)  return;
-    if (src_origin.y  >= dest->height) return;
-    if (dest_origin.x >= dest->width)  return;
-    if (dest_origin.y >= dest->height) return;
+    if (src_origin.x  >= dest->area.size.width)  return;
+    if (src_origin.y  >= dest->area.size.height) return;
+    if (dest_origin.x >= dest->area.size.width)  return;
+    if (dest_origin.y >= dest->area.size.height) return;
 
     // actually diminish sizes, if in negative values
     if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
@@ -348,10 +348,10 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
     if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
 
     // shorten size, if bleeding outside
-    if (src_origin.x  + size.width  > src->width)   size.width  = src->width   - src_origin.x;
-    if (src_origin.y  + size.height > src->height)  size.height = src->height  - src_origin.y;
-    if (dest_origin.x + size.width  > dest->width)  size.width  = dest->width  - dest_origin.x;
-    if (dest_origin.y + size.height > dest->height) size.height = dest->height - dest_origin.y;
+    if (src_origin.x  + size.width  > src->area.size.width)   size.width  = src->area.size.width   - src_origin.x;
+    if (src_origin.y  + size.height > src->area.size.height)  size.height = src->area.size.height  - src_origin.y;
+    if (dest_origin.x + size.width  > dest->area.size.width)  size.width  = dest->area.size.width  - dest_origin.x;
+    if (dest_origin.y + size.height > dest->area.size.height) size.height = dest->area.size.height - dest_origin.y;
 
     // is there anything visible left to copy?
     if (size.width  <= 0) return;
@@ -370,10 +370,10 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
 void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin, uint8_t global_alpha) {
 
     // if origins outside of boundaries, no point
-    if (src_origin.x  >= dest->width)  return;
-    if (src_origin.y  >= dest->height) return;
-    if (dest_origin.x >= dest->width)  return;
-    if (dest_origin.y >= dest->height) return;
+    if (src_origin.x  >= dest->area.size.width)  return;
+    if (src_origin.y  >= dest->area.size.height) return;
+    if (dest_origin.x >= dest->area.size.width)  return;
+    if (dest_origin.y >= dest->area.size.height) return;
 
     // actually diminish sizes, if in negative values
     if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
@@ -382,10 +382,10 @@ void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint des
     if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
 
     // shorten size, if bleeding outside
-    if (src_origin.x  + size.width  > src->width)   size.width  = src->width   - src_origin.x;
-    if (src_origin.y  + size.height > src->height)  size.height = src->height  - src_origin.y;
-    if (dest_origin.x + size.width  > dest->width)  size.width  = dest->width  - dest_origin.x;
-    if (dest_origin.y + size.height > dest->height) size.height = dest->height - dest_origin.y;
+    if (src_origin.x  + size.width  > src->area.size.width)   size.width  = src->area.size.width   - src_origin.x;
+    if (src_origin.y  + size.height > src->area.size.height)  size.height = src->area.size.height  - src_origin.y;
+    if (dest_origin.x + size.width  > dest->area.size.width)  size.width  = dest->area.size.width  - dest_origin.x;
+    if (dest_origin.y + size.height > dest->area.size.height) size.height = dest->area.size.height - dest_origin.y;
 
     // is there anything visible left to copy?
     if (size.width  <= 0) return;
