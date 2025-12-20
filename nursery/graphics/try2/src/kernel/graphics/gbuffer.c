@@ -5,7 +5,7 @@
 #include "gbuffer.h"
 
 
-#define clamp(val, low, hi)       ((val) > (hi)) ? (hi) : (((val) < (low)) ? (low) : (val))
+#define clamp01(val)       ((val) > 1.0f) ? 1.0f : (((val) < 0.0f) ? 0.0f : (val))
 
 /*
     Inspiration and goals here: https://www.versionmuseum.com/history-of/classic-mac-os
@@ -303,7 +303,7 @@ void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, c
             gvector pixel_v = gvector_from_to(g1, p);
             float proj_distance = gvector_dot(pixel_v, gradient_v);
             
-            float normalized = clamp(proj_distance / gradient_len_sq, 0.0f, 1.0f);
+            float normalized = clamp01(proj_distance / gradient_len_sq);
             normalized = ease(normalized);
 
             color gradient = color_gradient(c1, c2, normalized);
@@ -326,33 +326,42 @@ void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_widt
     gb_fill_rect(gb, garea_of(rect.origin.x, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
     gb_fill_rect(gb, garea_of(rect.origin.x + rect.size.width - border_width, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
 
-    int border_outer_sq = (radius * radius);
-    int border_inner_sq = (radius - border_width) * (radius - border_width);
-    float border_width_sq = border_outer_sq - border_inner_sq;
-
-    int center_x1 = rect.origin.x + radius;
-    int center_y1 = rect.origin.y + radius;
+    int center_x1 = rect.origin.x + radius - 1;
+    int center_y1 = rect.origin.y + radius - 1;
     int center_x2 = rect.origin.x + rect.size.width - radius;
     int center_y2 = rect.origin.y + rect.size.height - radius;
+
+    float inner_radius = radius - border_width;
+    float inner_radius_in_boundary_sq  = (inner_radius - 1) * (inner_radius - 1);
+    float inner_radius_out_boundary_sq = (inner_radius - 0) * (inner_radius - 0);
+    float inner_radius_sq_diff = inner_radius_out_boundary_sq - inner_radius_in_boundary_sq;
+    float outer_radius = radius;
+    float outer_radius_in_boundary_sq  = (outer_radius - 1) * (outer_radius - 1);
+    float outer_radius_out_boundary_sq = (outer_radius - 0) * (outer_radius - 0);
+    float outer_radius_sq_diff = outer_radius_out_boundary_sq - outer_radius_in_boundary_sq;
 
     for (int dy = 0; dy < radius; dy++) {
         for (int dx = 0; dx < radius; dx++) {
 
-            float dx_f = dx + 0.5f;
-            float dy_f = dy + 0.5f;
-            float distance_sq = dx_f * dx_f + dy_f * dy_f;
+            float dxf = dx;
+            float dyf = dy;
+            float distance_sq = dxf * dxf + dyf * dyf;
 
-            // only draw pixels that lie on the border zone
-            if (distance_sq < border_inner_sq || distance_sq > border_outer_sq)
-                continue;
-
-            // i think we need two antialias fades: one internal to the border, one external to the border
-            // or, alpha should be stronger on the center of border, lower at the edges
-            float alpha = (distance_sq - border_inner_sq) / border_width_sq;
-            alpha = clamp(alpha, 0.0f, 1.0f);
-            color px_color = color_with_alpha(alpha * 0xFF, clr);
+            float alpha = 0.0f;
+            if (distance_sq < inner_radius_in_boundary_sq)
+                alpha = 0.0f; // inside border
+            else if (distance_sq >= inner_radius_in_boundary_sq && distance_sq < inner_radius_out_boundary_sq) 
+                alpha = (distance_sq - inner_radius_in_boundary_sq) / inner_radius_sq_diff;
+            else if (distance_sq >= inner_radius_in_boundary_sq && distance_sq < outer_radius_in_boundary_sq) 
+                alpha = 1.0f; // on border zone
+            else if (distance_sq >= outer_radius_in_boundary_sq && distance_sq < outer_radius_out_boundary_sq) 
+                alpha = (outer_radius_out_boundary_sq - distance_sq) / outer_radius_sq_diff;
+            else if (distance_sq > outer_radius_in_boundary_sq) 
+                alpha = 0.0f; // outsize border
+            alpha = clamp01(alpha);
 
             // paint symmetrically all four corners at once
+            color px_color = color_with_alpha_factor(alpha, clr);
             _set_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), px_color); // top left
             _set_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), px_color); // top right
             _set_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), px_color); // botom right

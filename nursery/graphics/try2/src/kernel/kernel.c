@@ -54,7 +54,7 @@ void kernel_main(boot_info_t* bi) {
     
     gbuffer *r = new_gbuffer(450, 300);
     // gb_fill(r, bg);
-    gb_fill_rect_rounded(r, garea_of(1, 1, 400, 298), 7, bg);
+    gb_fill_rect_rounded(r, garea_of(1, 1, 400, 298), 32, bg);
     
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
@@ -67,6 +67,8 @@ void kernel_main(boot_info_t* bi) {
     gb_text_demo(r, 10, 160, geneva9_mono, letters);
     gb_text_demo(r, 11, 231, mits7, shadow);
     gb_text_demo(r, 10, 230, mits7, letters);
+
+    gb_rect_border_rounded(r, garea_of(200, 20, 220, 150), 32, 6, color_tango_yellow());
 
     // gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 40), gpoint_zero(), 0xAA);
     gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(20, 120), gpoint_zero(), 0xFF);
@@ -103,7 +105,6 @@ void kernel_main(boot_info_t* bi) {
     gb_text(main, "bevel_hl",  320, 82, mits7, color_gray_of(0x33));
     gb_text(main, "piecewise", 380, 82, mits7, color_gray_of(0x33));
 
-    gb_rect_border_rounded(main, garea_of(80, 80, 180, 180), 32, 4, color_tango_yellow());
 
 
 

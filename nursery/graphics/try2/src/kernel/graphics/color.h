@@ -10,6 +10,7 @@ static inline uint8_t color_b(color c) { return (c >>  0); }
 static inline color   color_argb(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue) { return (((uint32_t)alpha) << 24) | (((uint32_t)red) << 16) | (((uint32_t)green) << 8) | (((uint32_t)blue) << 0); }
 static inline color   color_rgb(uint8_t red, uint8_t green, uint8_t blue) { return color_argb(0xFF, red, green, blue); }
 static inline color   color_with_alpha(uint8_t alpha, color clr) { return (((uint32_t)alpha) << 24) | (clr & 0xFFFFFF); }
+static inline color   color_with_alpha_factor(float alpha_factor, color clr) { return (((uint32_t)(alpha_factor * 0xFF)) << 24) | (clr & 0xFFFFFF); }
 static inline color   color_black() { return 0xFF000000; }
 static inline color   color_gray_of(uint8_t value) { return color_argb(0xFF, value, value, value); }
 static inline color   color_gray_fct(float factor) { return color_argb(0xFF, (uint8_t)(factor * 0xFF), (uint8_t)(factor * 0xFF), (uint8_t)(factor * 0xFF)); }
