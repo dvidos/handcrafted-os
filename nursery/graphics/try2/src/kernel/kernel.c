@@ -103,6 +103,7 @@ void kernel_main(boot_info_t* bi) {
     gb_text(main, "bevel_hl",  320, 82, mits7, color_gray_of(0x33));
     gb_text(main, "piecewise", 380, 82, mits7, color_gray_of(0x33));
 
+    gb_rect_border_rounded(main, garea_of(80, 80, 180, 180), 32, 2, color_tango_yellow());
 
 
 

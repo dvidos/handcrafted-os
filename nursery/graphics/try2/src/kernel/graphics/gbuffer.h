@@ -41,6 +41,7 @@ void gb_copy_area_scaled(gbuffer *gb, ...);
 // - draw off-white window with rounded corners, title bar with gradient fill, rounded border light gray, and shadow.
 
 void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, color c2, ease_function ease);
+void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_width, color clr);
 
 
 

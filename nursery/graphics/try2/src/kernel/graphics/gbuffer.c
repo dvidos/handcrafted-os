@@ -281,6 +281,9 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
 }
 
 void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, color c2, ease_function ease) {
+    rect = garea_crop(rect, gb->area);
+    if (garea_is_empty(rect))
+        return;
 
     // gradients are passed as related to rect, but we paint as related to buffer. convert them.
     g1 = gpoint_to_global(g1, rect);
@@ -308,6 +311,58 @@ void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, c
         }
     }
 }
+
+void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_width, color clr) {
+    rect = garea_crop(rect, gb->area);
+    if (garea_is_empty(rect))
+        return;
+    if (radius <= 0 || border_width <= 0)
+        return;
+
+    // Draw straight rectangle edges first
+    color solid = color_with_alpha(0xFF, clr);
+    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y, rect.size.width - 2 * radius, border_width), solid);
+    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - border_width, rect.size.width - 2 * radius, border_width), solid);
+    gb_fill_rect(gb, garea_of(rect.origin.x, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
+    gb_fill_rect(gb, garea_of(rect.origin.x + rect.size.width - border_width, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
+
+    int border_outer_sq = (radius * radius);
+    int border_inner_sq = (radius - border_width) * (radius - border_width);
+    float border_width_sq = border_outer_sq - border_inner_sq;
+
+    int center_x1 = rect.origin.x + radius;
+    int center_y1 = rect.origin.y + radius;
+    int center_x2 = rect.origin.x + rect.size.width - radius;
+    int center_y2 = rect.origin.y + rect.size.height - radius;
+
+    for (int dy = 0; dy < radius; dy++) {
+        for (int dx = 0; dx < radius; dx++) {
+
+            float dx_f = dx + 0.5f;
+            float dy_f = dy + 0.5f;
+            float distance_sq = dx_f * dx_f + dy_f * dy_f;
+
+            // only draw pixels that lie on the border zone
+            if (distance_sq < border_inner_sq || distance_sq > border_outer_sq)
+                continue;
+
+            // i think we need two antialias fades: one internal to the border, one external to the border
+            // or, alpha should be stronger on the center of border, lower at the edges
+            float alpha = (distance_sq - border_inner_sq) / border_width_sq;
+            alpha = clamp(alpha, 0.0f, 1.0f);
+            color px_color = color_with_alpha(alpha * 0xFF, clr);
+
+            // paint symmetrically all four corners at once
+            _set_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), px_color); // top left
+            _set_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), px_color); // top right
+            _set_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), px_color); // botom right
+            _set_pixel(_pixel_ptr(gb, center_x1 - dx, center_y2 + dy), px_color); // botom left
+        }
+    }
+}
+
+
+
 
 
 
