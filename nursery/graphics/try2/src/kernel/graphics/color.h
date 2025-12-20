@@ -3,6 +3,10 @@
 
 typedef uint32_t color; // first byte = opacity, FF=opaque, 00=transparect
 
+static inline float clamp_0_1(float value) { return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value); }
+static inline uint8_t clamp_0_255(int value) { return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value); }
+
+
 static inline uint8_t color_a(color c) { return (c >> 24); }
 static inline uint8_t color_r(color c) { return (c >> 16); }
 static inline uint8_t color_g(color c) { return (c >>  8); }
@@ -37,12 +41,18 @@ static inline color color_tango_bright_magenta() { return 0xFFad7fa8; }
 static inline color color_tango_bright_cyan()    { return 0xFF34e2e2; }
 static inline color color_tango_bright_white()   { return 0xFFeeeeec; }
 
+static inline color color_nextstep_bg() { return 0xFF555577; }
+static inline color color_nextstep_win_face() { return 0xFFaaaaaa; }
+static inline color color_nextstep_win_highlight() { return 0xFFffffff; }
+static inline color color_nextstep_win_shadow() { return 0xFF555555; }
+static inline color color_nextstep_gradient_hi() { return 0xFFaaaabb; }
+static inline color color_nextstep_gradient_low() { return 0xFF555566; }
+
 
 color color_darken(color c, float darkness_factor); // factor in [0,1]
 color color_lighten(color c, float lightness_factor); // factor in [0,1]
 color color_gradient(color a, color b, float transition_pos); // pos in [0,1]
-
-
+color color_blend(color bottom, color top); // does not assume background color
 
 
 
@@ -55,3 +65,8 @@ static inline float ease_in_out(float pos) { return pos * pos * (3.0f - 2.0f * p
 static inline float ease_bevel(float pos) { pos = pos * pos * pos; return 1.0f - (1.0f - pos) * (1.0f - pos) * (1.0f - pos); }
 static inline float ease_bevel_highlight(float pos) { float k = 1.0f - pos; return 1.0f - k * k * k * k; }
 static inline float ease_piecewise(float pos) { return (pos < 0.2f) ? (pos / 0.2f) : 1.0f; }
+
+
+typedef float alpha_calculator_function(void *data, int x, int y);
+// how to calculate alpha, for rounded corners, rects, fonts etc.
+

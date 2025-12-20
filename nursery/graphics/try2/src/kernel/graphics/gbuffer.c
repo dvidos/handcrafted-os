@@ -370,7 +370,9 @@ void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_widt
     }
 }
 
+static void gb_make_drop_shadow(gbuffer *gb, const gbuffer *object, int offset, int blur_radius) {
 
+}
 
 
 

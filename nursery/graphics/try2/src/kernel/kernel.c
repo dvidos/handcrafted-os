@@ -29,7 +29,11 @@ void kernel_main(boot_info_t* bi) {
     gbuffer *main = graphics_get_main_buffer();
     // gb_fill(main, 0x008080);
     color tek_light = 0xFF0482AC;
-    gb_gradient_rect(main, main->area, gpoint_zero(), garea_bottom_left(main->area), tek_light, color_darken(tek_light, 0.25), ease_linear);
+    color nextstep_bg = 0xFF555577;
+    gb_gradient_rect(main, main->area, gpoint_zero(), garea_bottom_left(main->area), nextstep_bg, color_darken(nextstep_bg, 0.12), ease_linear);
+
+
+
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
     // for (int i = 0; i < 640; i += 10) {
@@ -48,13 +52,12 @@ void kernel_main(boot_info_t* bi) {
     //     }
     // }
 
-    color bg = color_with_alpha(0xFF, color_tango_dark_gray());
-    color shadow = color_darken(bg, 0.33);
-    color letters = color_with_alpha(0xFF, color_tango_bright_white());
+    color bg = color_nextstep_win_face();
+    color shadow = color_darken(bg, 0.1);
+    color letters = color_black();
     
     gbuffer *r = new_gbuffer(450, 300);
-    // gb_fill(r, bg);
-    gb_fill_rect_rounded(r, garea_of(1, 1, 400, 298), 32, bg);
+    gb_fill_rect_rounded(r, garea_of(1, 1, 400, 298), 8, bg);
     
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
@@ -68,9 +71,8 @@ void kernel_main(boot_info_t* bi) {
     gb_text_demo(r, 11, 231, mits7, shadow);
     gb_text_demo(r, 10, 230, mits7, letters);
 
-    gb_rect_border_rounded(r, garea_of(200, 20, 220, 150), 32, 6, color_tango_yellow());
 
-    // gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 40), gpoint_zero(), 0xAA);
+    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 150), gpoint_zero(), 0x88);
     gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(20, 120), gpoint_zero(), 0xFF);
     // gb_blur(main, garea_of(250, 120, 300, 150), 2, 0);
     // // gb_rect_border(main, 250, 120, 300, 150, color_black());
@@ -85,6 +87,12 @@ void kernel_main(boot_info_t* bi) {
     // gb_copy_area(main, r, gb_size(r), gpoint_of(300, 150), gpoint_zero());
 
     // gb_copy_area(main, test, gb_size(test), gpoint_of(100, 30), gpoint_zero());
+
+    gbuffer *rr = new_gbuffer(250, 250);
+    gb_rect_border_rounded(rr, garea_of(0, 0, 220, 150), 16, 8, color_tango_black());
+    gb_copy_area_with_alpha(main, rr, r->area.size, gpoint_of(220, 100), gpoint_zero(), 0xFF);
+
+
 
     color c1 = color_gray_of(0xcc);
     color c2 = color_gray_of(0x33);

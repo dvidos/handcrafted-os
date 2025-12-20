@@ -15,7 +15,7 @@ typedef struct gbuffer {
 } gbuffer;
 
 
-void gb_set_aux_buffer(gbuffer *aux_buffer);
+void gb_set_aux_buffer(gbuffer *aux_buffer); // called from graphics initialization code
 
 gbuffer *new_gbuffer(int width, int height);
 void gb_free(gbuffer *gb);
