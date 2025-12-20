@@ -27,7 +27,9 @@ void kernel_main(boot_info_t* bi) {
     // graphics_draw_8x16_demo(10, 130, mits7,   color_black());
 
     gbuffer *main = graphics_get_main_buffer();
-    gb_fill(main, 0x0080a0);
+    // gb_fill(main, 0x008080);
+    color tek_light = 0xFF0482AC;
+    gb_gradient_rect(main, main->area, gpoint_zero(), garea_bottom_left(main->area), tek_light, color_darken(tek_light, 0.25), ease_linear);
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
     // for (int i = 0; i < 640; i += 10) {
@@ -65,17 +67,15 @@ void kernel_main(boot_info_t* bi) {
     gb_text_demo(r, 10, 160, geneva9_mono, letters);
     gb_text_demo(r, 11, 231, mits7, shadow);
     gb_text_demo(r, 10, 230, mits7, letters);
-    // gb_rect_border(r, 20, 40, 120, 80, color_black());
 
-    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 150), gpoint_zero(), 0xAA);
-    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(10, 20), gpoint_zero(), 0xFF);
-    gb_blur(main, garea_of(250, 120, 300, 150), 2, 0);
-    gb_blur(main, garea_of(250, 120, 300, 150), 2, 0);
-    // gb_rect_border(main, 250, 120, 300, 150, color_black());
-    // let's give a semitransparent white buffer on top...
-    gbuffer *glass = new_gbuffer(300, 150);
-    gb_fill(glass, color_black());
-    gb_copy_area_with_alpha(main, glass, gsize_of(300, 150), gpoint_of(250, 120), gpoint_zero(), 0x22);
+    // gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 40), gpoint_zero(), 0xAA);
+    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(20, 120), gpoint_zero(), 0xFF);
+    // gb_blur(main, garea_of(250, 120, 300, 150), 2, 0);
+    // // gb_rect_border(main, 250, 120, 300, 150, color_black());
+    // // let's give a semitransparent white buffer on top...
+    // gbuffer *glass = new_gbuffer(300, 150);
+    // gb_fill(glass, color_black());
+    // gb_copy_area_with_alpha(main, glass, gsize_of(300, 150), gpoint_of(250, 120), gpoint_zero(), 0x22);
 
     // copy/paste offser
     // gb_copy_area(r, main, gb_size(r), gpoint_zero(), gpoint_of(10, 10));
@@ -83,6 +83,28 @@ void kernel_main(boot_info_t* bi) {
     // gb_copy_area(main, r, gb_size(r), gpoint_of(300, 150), gpoint_zero());
 
     // gb_copy_area(main, test, gb_size(test), gpoint_of(100, 30), gpoint_zero());
+
+    color c1 = color_gray_of(0xcc);
+    color c2 = color_gray_of(0x33);
+    gb_gradient_rect(main, garea_of( 20, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_linear);
+    gb_gradient_rect(main, garea_of( 80, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_in_quad);
+    gb_gradient_rect(main, garea_of(140, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_out_quad);
+    gb_gradient_rect(main, garea_of(200, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_in_out);
+    gb_gradient_rect(main, garea_of(260, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_bevel);
+    gb_gradient_rect(main, garea_of(320, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_bevel_highlight);
+    gb_gradient_rect(main, garea_of(380, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_piecewise);
+
+    // yeah, it'd be nice to have "center alignment"
+    gb_text(main, "linear",     20, 82, mits7, color_gray_of(0x33));
+    gb_text(main, "in_quad",    80, 82, mits7, color_gray_of(0x33));
+    gb_text(main, "out_quad",  140, 82, mits7, color_gray_of(0x33));
+    gb_text(main, "in_out",    200, 82, mits7, color_gray_of(0x33));
+    gb_text(main, "bevel",     260, 82, mits7, color_gray_of(0x33));
+    gb_text(main, "bevel_hl",  320, 82, mits7, color_gray_of(0x33));
+    gb_text(main, "piecewise", 380, 82, mits7, color_gray_of(0x33));
+
+
+
 
     graphics_display_main_buffer();
 

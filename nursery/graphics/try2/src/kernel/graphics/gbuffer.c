@@ -5,6 +5,8 @@
 #include "gbuffer.h"
 
 
+#define clamp(val, low, hi)       ((val) > (hi)) ? (hi) : (((val) < (low)) ? (low) : (val))
+
 /*
     Inspiration and goals here: https://www.versionmuseum.com/history-of/classic-mac-os
     Scaling, antialiasing, semi-transparency, shadows, gradients, rounded corners.
@@ -240,12 +242,6 @@ void gb_rect_border(gbuffer *gb, garea rect, color clr) {
 }
 
 void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
-    // TODO: apply (and homogenize and apply elsehwre) guardrails:
-    // we need to have one global temp buffer, as bit as the screen,
-    // we scan horizontally, averaging and copying to that buffer
-    // then we scan vertically that buffer, average, and copy the result to this buffer
-    // if blur alpha, we blur alpha, used for shadows, otherwise we blur the colors only.
-
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
@@ -255,6 +251,7 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
 
     // copy some zone from the original image, into the aux buffer, 
     // so that vertical passes do not bleed into unknown pixels.
+    // TODO: improve the blurring code, just up/down and left/right makes for poor results, need diagonal possibly weighted
     gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius), gpoint_of(rect.origin.x, rect.origin.y - radius));
     gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
 
@@ -281,9 +278,38 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
             blur_window_apply(&win, pixel, do_blur_alpha);
         }
     }
-
-    // i think this is it...
 }
+
+void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, color c2, ease_function ease) {
+
+    // gradients are passed as related to rect, but we paint as related to buffer. convert them.
+    g1 = gpoint_to_global(g1, rect);
+    g2 = gpoint_to_global(g2, rect);
+    gvector gradient_v = gvector_from_to(g1, g2);
+    float gradient_len_sq = gvector_dot(gradient_v, gradient_v);
+
+    // scan line by line
+    gpoint endpoint = garea_bottom_right_exclusive(rect);
+    for (int y = rect.origin.y; y < endpoint.y; y++) {
+        uint32_t *ptr = _pixel_ptr(gb, rect.origin.x, y);
+
+        for (int x = rect.origin.x; x < endpoint.x; x++) {
+
+            // given a pixel, say p, find dot product to find projected distance along gradient_v
+            gpoint p = gpoint_of(x, y);
+            gvector pixel_v = gvector_from_to(g1, p);
+            float proj_distance = gvector_dot(pixel_v, gradient_v);
+            
+            float normalized = clamp(proj_distance / gradient_len_sq, 0.0f, 1.0f);
+            normalized = ease(normalized);
+
+            color gradient = color_gradient(c1, c2, normalized);
+            _set_pixel(ptr++, gradient);
+        }
+    }
+}
+
+
 
 static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint32_t clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);

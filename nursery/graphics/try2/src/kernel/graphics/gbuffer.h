@@ -32,6 +32,16 @@ void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, g
 void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin, uint8_t global_alpha);
 void gb_copy_area_scaled(gbuffer *gb, ...);
 
+// next things:
+// 1. gradients
+// 2. improve blurring
+// 3. border with rounded corner.
+
+// and then:
+// - draw off-white window with rounded corners, title bar with gradient fill, rounded border light gray, and shadow.
+
+void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, color c2, ease_function ease);
+
 
 
 // ideas to be implemented below...
@@ -45,5 +55,5 @@ void gb_lighten(gbuffer *gb, int radius);
 void gb_line(gbuffer *gb, int radius);
 void gb_crop(gbuffer *gb, garea new_area);
 // somehow i may have to make a mask...
-void gb_gradient_rect(gbuffer *dest);
+
 

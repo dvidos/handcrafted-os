@@ -341,8 +341,9 @@ void stage2_main(void) {
         halt();
     }
     
-    bios_print_str("Kernel load & entry address: 0x"); bios_print_hex32(KERNEL_LOAD_ADDRESS); bios_print_str("\r\n");
-    bios_print_str("Boot info structure address: 0x"); bios_print_hex32((uint32_t)&boot_info); bios_print_str("\r\n");
+    bios_print_str("Kernel at 0x"); bios_print_hex32(KERNEL_LOAD_ADDRESS); 
+    bios_print_str(", boot info at 0x"); bios_print_hex32((uint32_t)&boot_info); 
+    bios_print_str("\r\n");
 
     bios_print_str("Initializing graphics...\r\n");
     if (!setup_graphics()) {

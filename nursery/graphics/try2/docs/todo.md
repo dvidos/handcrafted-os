@@ -10,9 +10,9 @@
 ## base graphics engine
 
 * compiled in kernel
-* basic rectangles & frames, 
-* basic text
-* maybe 8-16 hardcoded colors by name (e.g. red, green, blue, yellow, orange, brown, light, dark, and 5 shades of gray)
+* ~~basic rectangles & frames,~~
+* ~~basic text~~
+* ~~maybe 8-16 hardcoded colors by name (e.g. red, green, blue, yellow, orange, brown, light, dark, and 5 shades of gray)~~
 * to be able to achieve a very bare bones thing, way before [this one](https://applemuseum.bott.org/sections/images/screenshots/system1/desktop.gif)
 
 ## advanced graphics engine

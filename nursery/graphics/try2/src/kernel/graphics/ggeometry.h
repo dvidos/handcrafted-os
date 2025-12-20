@@ -8,6 +8,11 @@ typedef struct gpoint {
     int y;
 } gpoint;
 
+typedef struct gvector {
+    float dx;
+    float dy;
+} gvector;
+
 typedef struct gsize {
     int width;
     int height;
@@ -25,6 +30,10 @@ static inline gpoint gpoint_move(gpoint p, int dx, int dy)  { return (gpoint){.x
 static inline int    gpoint_is_inside(gpoint p, garea a)    { return p.x >= a.origin.x && p.x < a.origin.x + a.size.width && p.y >= a.origin.y && p.y < a.origin.y + a.size.height; }
 static inline gpoint gpoint_to_local(gpoint p, garea container)  { return gpoint_of(p.x - container.origin.x, p.y - container.origin.y); }
 static inline gpoint gpoint_to_global(gpoint p, garea container) { return gpoint_of(p.x + container.origin.x, p.y + container.origin.y); }
+
+static inline gvector gvector_from_to(gpoint a, gpoint b) { return (gvector){.dx = b.x - a.x, .dy = b.y - a.y}; }
+static inline float gvector_dot(gvector a, gvector b) { return a.dx * b.dx + a.dy * b.dy; }
+
 
 
 static inline gsize gsize_of(int w, int h)  { return (gsize){.width = w, .height = h}; }
@@ -128,3 +137,4 @@ while ((px = pixel_iter_next(&it)) != NULL) {
          px = pixel_iter_next(&_it))
 
 */
+
