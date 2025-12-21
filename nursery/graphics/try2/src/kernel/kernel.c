@@ -27,7 +27,7 @@ void rectangles_borders_demo() {
 
         gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 18, 0), size), radii[i], win_dark);
         gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 0, 12), size), radii[i], win);
-        gb_rect_border_rounded(work, garea_with(gpoint_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
+        gb_rect_border(work, garea_with(gpoint_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
         pos = gpoint_move(pos, size.width + 40, 0);
     
         gb_copy_area_with_alpha(main, work, work->area.size, gpoint_zero(), gpoint_zero(), 0xFF);
@@ -124,8 +124,8 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + 10);
     gp2.x = 0;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), gp1, gp2, c1, c2, eases[i]);
-        gb_rect_border(main, garea_with(pos, tile_size), border_color);
+        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
+        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -133,8 +133,8 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width / 3;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), gp1, gp2, c1, c2, eases[i]);
-        gb_rect_border(main, garea_with(pos, tile_size), border_color);
+        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
+        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -142,8 +142,8 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), gp1, gp2, c1, c2, eases[i]);
-        gb_rect_border(main, garea_with(pos, tile_size), border_color);
+        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
+        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -151,42 +151,38 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + tile_size.height + 10);
     gp2 = gpoint_of(tile_size.width, tile_size.height / 4);
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), gp1, gp2, c1, c2, eases[i]);
-        gb_rect_border(main, garea_with(pos, tile_size), border_color);
+        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
+        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
     graphics_display_main_buffer();
 }
 
-
-
-
-
 void kernel_main(boot_info_t* bi) {
-    // preserve boot info
+    // preserve boot info, asap
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
     graphics_initialize((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
 
-    rectangles_borders_demo();
+
+    // rectangles_borders_demo();
     // blend_demo();
     // fonts_demo();
-    // gradient_demo();
-
-    // shadow_demo();
+    gradient_demo();
     // blur_demo();
-    // rounded_corners_demo();
+    // shadows_demo();
+    for (;;);
 
 
     // ---------------------------------------------------------------------------------------
-    for (;;);
 
 
     gbuffer *main = graphics_get_main_buffer();
     // gb_fill(main, 0x008080); // Windows '95
     color tek_light = 0xFF0482AC;
     color nextstep_bg = 0xFF555577;
-    gb_gradient_rect(main, main->area, gpoint_zero(), garea_bottom_left(main->area), nextstep_bg, color_darken(nextstep_bg, 0.12), ease_linear);
+    color_params grad = color_params_gradient(nextstep_bg, color_darken(nextstep_bg, 0.12), gpoint_zero(), garea_bottom_right(main->area), ease_linear);
+    gb_gradient_rect(main, main->area, grad);
 
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
@@ -199,10 +195,10 @@ void kernel_main(boot_info_t* bi) {
     // for (int i = 0; i < 128; i += 7) {
     //     for (int j = 0; j < 128; j += 7) {
     //         color clr = color_rgb(255 - j, 255 - i, 0xff);
-    //         gb_set_pixel(main, i,     j, clr);
-    //         gb_set_pixel(main, i,     j + 1, clr);
-    //         gb_set_pixel(main, i + 1, j, clr);
-    //         gb_set_pixel(main, i + 1, j + 1, clr);
+    //         gb_paint_pixel(main, i,     j, clr);
+    //         gb_paint_pixel(main, i,     j + 1, clr);
+    //         gb_paint_pixel(main, i + 1, j, clr);
+    //         gb_paint_pixel(main, i + 1, j + 1, clr);
     //     }
     // }
 /*
@@ -227,7 +223,7 @@ void kernel_main(boot_info_t* bi) {
     // gb_copy_area(main, test, gb_size(test), gpoint_of(100, 30), gpoint_zero());
 
     gbuffer *rr = new_gbuffer(250, 250);
-    gb_rect_border_rounded(rr, garea_of(0, 0, 220, 150), 16, 2, color_tango_black());
+    gb_rect_border(rr, garea_of(0, 0, 220, 150), 16, 2, color_tango_black());
     
     gbuffer *rr_shadow = new_gbuffer(350, 350);
     gb_drop_shadow(rr_shadow, rr, shadow_params_of(0xff000000, 255, 1, 1, 6));

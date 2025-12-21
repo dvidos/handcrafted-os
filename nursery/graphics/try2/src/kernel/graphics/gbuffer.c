@@ -35,6 +35,14 @@ static inline color _get_pixel(uint32_t *ptr) { return (color)ptr; }
 static inline uint32_t *_skip_pixel(uint32_t *ptr) { return ptr + 1; }
 static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) {  while (length-- > 0) { *dest++ = *src++; } }
 
+static inline void _fill_rect_fast(gbuffer *gb, garea rect, color clr) {
+    int y_end = rect.origin.y + rect.size.height;
+    for (int i = rect.origin.y; i < y_end; i++)
+        _set_pixel_row(_pixel_ptr(gb, rect.origin.x, i), clr, rect.size.width);
+}
+
+
+
 // ----------------------------------------------------
 
 static gbuffer *global_aux_buffer = 0;
@@ -128,9 +136,9 @@ void gb_free(gbuffer *gb) {
     }
 }
 
-void gb_set_pixel(gbuffer *gb, gpoint p, color clr) {
-    if (!gpoint_is_inside(p, gb->area)) return;
-    _set_pixel(_pixel_ptr(gb, p.x, p.y), clr);
+void gb_clear(gbuffer *gb) {
+    // zero makes everything transparent
+    memset(gb->buffer_argb, 0, gb->buffer_size);
 }
 
 color gb_get_pixel(gbuffer *gb, gpoint p) {
@@ -138,39 +146,14 @@ color gb_get_pixel(gbuffer *gb, gpoint p) {
     return _get_pixel(_pixel_ptr(gb, p.x, p.y));
 }
 
-void gb_clear(gbuffer *gb) {
-    memset(gb->buffer_argb, 0, gb->buffer_size);
+void gb_paint_pixel(gbuffer *gb, gpoint p, color clr) {
+    if (!gpoint_is_inside(p, gb->area)) return;
+    _blend_pixel(_pixel_ptr(gb, p.x, p.y), clr);
 }
 
 void gb_fill(gbuffer *gb, color clr) {
-    if (clr == 0x000000) {
-        memset(gb->buffer_argb, clr, gb->buffer_size);
-        return;
-    }
-
-    for (int i = 0; i < gb->area.size.height; i++) {
-        uint32_t *pixel_ptr = _pixel_ptr(gb, 0, i);
-        _set_pixel_row(pixel_ptr, clr, gb->area.size.width);
-    }
-}
-
-void gb_fill_rect(gbuffer *gb, garea rect, color clr) {
-    // if (x >= gb->area.size.width)  return;
-    // if (y >= gb->area.size.height) return;
-    // if (x < 0) { int diff = -x; width -= diff; x += diff; }
-    // if (y < 0) { int diff = -y; height -= diff; y += diff; }
-    // if (x + width  > gb->area.size.width)  { width  = gb->area.size.width  - x; }
-    // if (y + height > gb->area.size.height) { height = gb->area.size.height - y; }
-    // if (width  <= 0) return;
-    // if (height <= 0) return;
-    rect = garea_crop(rect, gb->area);
-    if (garea_is_empty(rect))
-        return;
-
-    int y_end = rect.origin.y + rect.size.height;
-    for (int i = rect.origin.y; i < y_end; i++) {
-        uint32_t *pixel = _pixel_ptr(gb, rect.origin.x, i);
-        _set_pixel_row(pixel, clr, rect.size.width);
+    for (int y = 0; y < gb->area.size.height; y++) {
+        _set_pixel_row(_pixel_ptr(gb, 0, y), clr, gb->area.size.width);
     }
 }
 
@@ -184,69 +167,37 @@ void gb_fill_rect_rounded(gbuffer *gb, garea rect, int radius, color clr) {
     color transparent = color_with_alpha(0x00, clr);
 
     // three rects, top, bottom, center, leaving the four corners unpainted
-    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y,                             rect.size.width - 2 * radius, radius), solid_color);
-    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - radius, rect.size.width - 2 * radius, radius), solid_color);
-    gb_fill_rect(gb, garea_of(rect.origin.x,          rect.origin.y + radius,                    rect.size.width,              rect.size.height - 2 * radius), solid_color);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y,                             rect.size.width - 2 * radius, radius), solid_color);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - radius, rect.size.width - 2 * radius, radius), solid_color);
+    _fill_rect_fast(gb, garea_of(rect.origin.x,          rect.origin.y + radius,                    rect.size.width,              rect.size.height - 2 * radius), solid_color);
 
-    if (radius == 0)
-        return;
-    
-    // the -1 are there to avoid floating point arithmetic
-    int squared_in_boundary  = (radius - 1) * (radius - 1);
-    int squared_out_boundary = (radius - 0) * (radius - 0);
-    int center_x1 = rect.origin.x + radius - 1;
-    int center_y1 = rect.origin.y + radius - 1;
-    int center_x2 = rect.origin.x + rect.size.width - radius;
-    int center_y2 = rect.origin.y + rect.size.height - radius;
-    color corner_clr;
+    if (radius > 0) {
+        // the -1 are there to avoid floating point arithmetic
+        int squared_in_boundary  = (radius - 1) * (radius - 1);
+        int squared_out_boundary = (radius - 0) * (radius - 0);
+        int center_x1 = rect.origin.x + radius - 1;
+        int center_y1 = rect.origin.y + radius - 1;
+        int center_x2 = rect.origin.x + rect.size.width - radius;
+        int center_y2 = rect.origin.y + rect.size.height - radius;
+        color corner_clr;
 
-    for (int dy = 0; dy <= radius; dy++) {
-        for (int dx = 0; dx <= radius; dx++) {
-            int squared_distance = dx*dx + dy*dy;
-            if      (squared_distance <= squared_in_boundary ) corner_clr = solid_color;
-            else if (squared_distance >= squared_out_boundary) corner_clr = transparent;
-            else {
-                uint8_t alpha = (squared_out_boundary - squared_distance) * 255 / (squared_out_boundary - squared_in_boundary);
-                corner_clr = color_with_alpha(alpha, solid_color);
+        for (int dy = 0; dy <= radius; dy++) {
+            for (int dx = 0; dx <= radius; dx++) {
+                int squared_distance = dx*dx + dy*dy;
+                if      (squared_distance <= squared_in_boundary ) corner_clr = solid_color;
+                else if (squared_distance >= squared_out_boundary) corner_clr = transparent;
+                else {
+                    uint8_t alpha = (squared_out_boundary - squared_distance) * 255 / (squared_out_boundary - squared_in_boundary);
+                    corner_clr = color_with_alpha(alpha, solid_color);
+                }
+
+                // paint symmetrically all four corners at once
+                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), corner_clr); // top left
+                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), corner_clr); // top right
+                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), corner_clr); // botom right
+                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y2 + dy), corner_clr); // botom left
             }
-
-            // paint symmetrically all four corners at once
-            _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), corner_clr); // top left
-            _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), corner_clr); // top right
-            _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), corner_clr); // botom right
-            _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y2 + dy), corner_clr); // botom left
         }
-    }
-}
-
-void gb_rect_border(gbuffer *gb, garea rect, color clr) {
-
-    rect = garea_crop(rect, gb->area);
-    if (garea_is_empty(rect))
-        return;
-
-    uint32_t *pixel;
-    int count;
-    gpoint bot_right = garea_bottom_right(rect);
-
-    // top line
-    pixel = _pixel_ptr(gb, rect.origin.x, rect.origin.y);
-    _set_pixel_row(pixel, clr, rect.size.width);
-
-    // bottom line
-    pixel = _pixel_ptr(gb, rect.origin.x, rect.origin.y + rect.size.height - 1);
-    _set_pixel_row(pixel, clr, rect.size.width);
-
-    // left line
-    for (int i = rect.origin.y; i <= bot_right.y; i++) {
-        pixel = _pixel_ptr(gb, rect.origin.x, i);
-        _set_pixel(pixel, clr);
-    }
-
-    // right line
-    for (int i = rect.origin.y; i <= bot_right.y; i++) {
-        pixel = _pixel_ptr(gb, bot_right.x, i);
-        _set_pixel(pixel, clr);
     }
 }
 
@@ -289,39 +240,43 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
     }
 }
 
-void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, color c2, ease_function ease) {
+color _appropriate_color(int x, int y, color_params cp) {
+    if (cp.fill_type == FILL_TYPE_SOLID)
+        return cp.clr;
+    
+    if (cp.fill_type == FILL_TYPE_LINEAR_GRADIENT) {
+        // given a pixel, say p, find dot product to find projected distance along gradient_v
+        // then, normalize the distance to the gradient color space
+        gvector pixel_v = gvector_from_to(cp.gradient_p1, gpoint_of(x, y));
+        float proj_distance = gvector_dot(pixel_v, cp.gradient_v);
+        float factor = clamp01(proj_distance / cp.gradient_len_sq);
+        return color_gradient(cp.clr, cp.clr2, cp.ease(factor));
+    }
+
+    return 0;
+}
+
+void gb_gradient_rect(gbuffer *gb, garea rect, color_params cp) {
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
 
-    // gradients are passed as related to rect, but we paint as related to buffer. convert them.
-    g1 = gpoint_to_global(g1, rect);
-    g2 = gpoint_to_global(g2, rect);
-    gvector gradient_v = gvector_from_to(g1, g2);
-    float gradient_len_sq = gvector_dot(gradient_v, gradient_v);
+        // gradients are passed as related to rect, but we paint as related to buffer. convert them.
+    cp.gradient_p1 = gpoint_to_global(cp.gradient_p1, rect);
+    cp.gradient_p2 = gpoint_to_global(cp.gradient_p2, rect);
 
     // scan line by line
     gpoint endpoint = garea_bottom_right_exclusive(rect);
     for (int y = rect.origin.y; y < endpoint.y; y++) {
         uint32_t *ptr = _pixel_ptr(gb, rect.origin.x, y);
-
         for (int x = rect.origin.x; x < endpoint.x; x++) {
-
-            // given a pixel, say p, find dot product to find projected distance along gradient_v
-            gpoint p = gpoint_of(x, y);
-            gvector pixel_v = gvector_from_to(g1, p);
-            float proj_distance = gvector_dot(pixel_v, gradient_v);
-            
-            float normalized = clamp01(proj_distance / gradient_len_sq);
-            normalized = ease(normalized);
-
-            color gradient = color_gradient(c1, c2, normalized);
-            _set_pixel(ptr++, gradient);
+            color gradient = _appropriate_color(x, y, cp);
+            _blend_pixel(ptr++, gradient);
         }
     }
 }
 
-void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_width, color clr) {
+void gb_rect_border(gbuffer *gb, garea rect, int radius, int border_width, color clr) {
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
@@ -330,10 +285,10 @@ void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_widt
 
     // Draw straight rectangle edges first
     color solid = color_with_alpha(0xFF, clr);
-    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y, rect.size.width - 2 * radius, border_width), solid);
-    gb_fill_rect(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - border_width, rect.size.width - 2 * radius, border_width), solid);
-    gb_fill_rect(gb, garea_of(rect.origin.x, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
-    gb_fill_rect(gb, garea_of(rect.origin.x + rect.size.width - border_width, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y, rect.size.width - 2 * radius, border_width), solid);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - border_width, rect.size.width - 2 * radius, border_width), solid);
+    _fill_rect_fast(gb, garea_of(rect.origin.x, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + rect.size.width - border_width, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
 
     if (radius == 0)
         return;

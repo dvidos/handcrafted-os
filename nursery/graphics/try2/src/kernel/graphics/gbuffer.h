@@ -14,6 +14,29 @@ typedef struct gbuffer {
     uint32_t *buffer_argb;
 } gbuffer;
 
+typedef enum color_fill_type {
+    FILL_TYPE_SOLID,
+    FILL_TYPE_LINEAR_GRADIENT,
+} color_fill_type;
+
+typedef struct color_params {
+    color_fill_type fill_type;
+    color clr;
+    color clr2;
+    gpoint gradient_p1;
+    gpoint gradient_p2;
+    ease_function *ease;
+    gvector gradient_v;
+    float gradient_len_sq;
+} color_params;
+
+static color_params color_params_solid(color clr) { return (color_params){.fill_type = FILL_TYPE_SOLID, .clr = clr}; };
+static color_params color_params_gradient(color c1, color c2, gpoint p1, gpoint p2, ease_function ease) { return (color_params){
+    .fill_type = FILL_TYPE_LINEAR_GRADIENT, .clr = c1, .clr2 = c2, .gradient_p1 = p1, .gradient_p2 = p2, .ease = ease,
+    .gradient_v = gvector_from_to(p1, p2), 
+    .gradient_len_sq = gvector_dot(gvector_from_to(p1, p2), gvector_from_to(p1, p2))
+}; }
+
 typedef struct shadow_params {
     color clr;
     uint8_t opacity;
@@ -29,15 +52,13 @@ void gbuffer_initialize(gbuffer *aux_buffer); // called from graphics initializa
 
 gbuffer *new_gbuffer(int width, int height);
 void gb_free(gbuffer *gb);
-void gb_set_pixel(gbuffer *gb, gpoint p, color clr);
-color gb_get_pixel(gbuffer *gb, gpoint p);
 void gb_clear(gbuffer *gb);
+color gb_get_pixel(gbuffer *gb, gpoint p);
+void gb_paint_pixel(gbuffer *gb, gpoint p, color clr);
 void gb_fill(gbuffer *gb, color clr);
-void gb_fill_rect(gbuffer *gb, garea rect, color clr);
 void gb_fill_rect_rounded(gbuffer *gb, garea rect, int radius, color clr);
-void gb_rect_border(gbuffer *gb, garea rect, color clr);
-void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_width, color clr);
-void gb_gradient_rect(gbuffer *gb, garea rect, gpoint g1, gpoint g2, color c1, color c2, ease_function ease);
+void gb_rect_border(gbuffer *gb, garea rect, int radius, int border_width, color clr);
+void gb_gradient_rect(gbuffer *gb, garea rect, color_params cp);
 void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha);
 int  gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
 void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);
