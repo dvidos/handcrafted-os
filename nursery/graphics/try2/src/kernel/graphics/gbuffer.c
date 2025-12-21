@@ -186,7 +186,7 @@ void gb_fill(gbuffer *gb, color clr) {
     }
 }
 
-void gb_fill_rect_rounded(gbuffer *gb, garea rect, color_params cp, int radius) {
+void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
 
     cp.gradient_p1 = gpoint_to_global(cp.gradient_p1, rect);
     cp.gradient_p2 = gpoint_to_global(cp.gradient_p2, rect);
@@ -286,27 +286,7 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
     }
 }
 
-void gb_gradient_rect(gbuffer *gb, garea rect, color_params cp) {
-    rect = garea_crop(rect, gb->area);
-    if (garea_is_empty(rect))
-        return;
-
-        // gradients are passed as related to rect, but we paint as related to buffer. convert them.
-    cp.gradient_p1 = gpoint_to_global(cp.gradient_p1, rect);
-    cp.gradient_p2 = gpoint_to_global(cp.gradient_p2, rect);
-
-    // scan line by line
-    gpoint endpoint = garea_bottom_right_exclusive(rect);
-    for (int y = rect.origin.y; y < endpoint.y; y++) {
-        uint32_t *ptr = _pixel_ptr(gb, rect.origin.x, y);
-        for (int x = rect.origin.x; x < endpoint.x; x++) {
-            color gradient = _appropriate_color(gpoint_of(x, y), cp);
-            _blend_pixel(ptr++, gradient);
-        }
-    }
-}
-
-void gb_rect_border(gbuffer *gb, garea rect, int radius, int border_width, color clr) {
+void gb_border(gbuffer *gb, garea rect, int radius, int border_width, color clr) {
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
@@ -368,7 +348,6 @@ void gb_rect_border(gbuffer *gb, garea rect, int radius, int border_width, color
     }
 }
 
-
 void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params) {
     // make sure we have space to draw
     if (gb->area.size.width  < object->area.size.width  + params.offset_x + 2 * params.blur_radius ||
@@ -393,9 +372,6 @@ void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params) {
     // finally, blur alpha
     gb_blur(gb, gb->area, params.blur_radius, 1);
 }
-
-
-
 
 static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint32_t clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);

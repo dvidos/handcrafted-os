@@ -50,15 +50,15 @@ static shadow_params shadow_params_of(color clr, uint8_t opacity, int offset_x, 
 
 void gbuffer_initialize(gbuffer *aux_buffer); // called from graphics initialization code
 
+
 gbuffer *new_gbuffer(int width, int height);
 void gb_free(gbuffer *gb);
 void gb_clear(gbuffer *gb);
 color gb_get_pixel(gbuffer *gb, gpoint p);
 void gb_paint_pixel(gbuffer *gb, gpoint p, color clr);
 void gb_fill(gbuffer *gb, color clr);
-void gb_fill_rect_rounded(gbuffer *gb, garea rect, color_params cp, int radius);
-void gb_rect_border(gbuffer *gb, garea rect, int radius, int border_width, color clr);
-void gb_gradient_rect(gbuffer *gb, garea rect, color_params cp);
+void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius);
+void gb_border(gbuffer *gb, garea rect, int radius, int border_width, color clr);
 void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha);
 int  gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
 void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);

@@ -32,9 +32,9 @@ void rectangles_borders_demo() {
     for (int i = 0; i < 3; i++) {
         gb_clear(work);
 
-        gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 18, 0), size), win_dark, radii[i]);
-        gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 0, 12), size), win, radii[i]);
-        gb_rect_border(work, garea_with(gpoint_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
+        gb_rect(work, garea_with(gpoint_move(pos, 18, 0), size), win_dark, radii[i]);
+        gb_rect(work, garea_with(gpoint_move(pos, 0, 12), size), win, radii[i]);
+        gb_border(work, garea_with(gpoint_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
         pos = gpoint_move(pos, size.width + 40, 0);
     
         gb_copy_area_with_alpha(main, work, work->area.size, gpoint_zero(), gpoint_zero(), 0xFF);
@@ -95,8 +95,8 @@ void gradient_demo() {
     gpoint gp1 = gpoint_zero();
     gpoint gp2 = gpoint_of(0, tile_size.width);
     gpoint pos = gpoint_of(20, 20);
-    color c1 = color_gray_of(0xaa);
-    color c2 = color_gray_of(0x55);
+    color c1 = color_gray_of(0xcc);
+    color c2 = color_gray_of(0x66);
     color text_color = color_gray_of(0x11);
     color border_color = color_gray_of(0x33);
 
@@ -131,8 +131,8 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + 10);
     gp2.x = 0;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
-        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -140,8 +140,8 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width / 3;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
-        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -149,8 +149,8 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
-        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -158,8 +158,8 @@ void gradient_demo() {
     pos = gpoint_of(20, pos.y + tile_size.height + 10);
     gp2 = gpoint_of(tile_size.width, tile_size.height / 4);
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_gradient_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]));
-        gb_rect_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -172,10 +172,10 @@ void kernel_main(boot_info_t* bi) {
     graphics_initialize((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
 
 
-    rectangles_borders_demo();
+    // rectangles_borders_demo();
     // blend_demo();
     // fonts_demo();
-    // gradient_demo();
+    gradient_demo();
     // blur_demo();
     // shadows_demo();
     for (;;);
@@ -189,7 +189,7 @@ void kernel_main(boot_info_t* bi) {
     color tek_light = 0xFF0482AC;
     color nextstep_bg = 0xFF555577;
     color_params grad = color_params_gradient(nextstep_bg, color_darken(nextstep_bg, 0.12), gpoint_zero(), garea_bottom_right(main->area), ease_linear);
-    gb_gradient_rect(main, main->area, grad);
+    gb_rect(main, main->area, grad, 0);
 
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
     // gb_fill_rect(main, 630, 450, 40, 40, 0x993300);
