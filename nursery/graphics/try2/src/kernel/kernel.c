@@ -174,8 +174,8 @@ void kernel_main(boot_info_t* bi) {
 
     // rectangles_borders_demo();
     // blend_demo();
-    // fonts_demo();
-    gradient_demo();
+    fonts_demo();
+    // gradient_demo();
     // blur_demo();
     // shadows_demo();
     for (;;);
