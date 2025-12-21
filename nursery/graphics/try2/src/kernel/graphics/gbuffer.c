@@ -35,11 +35,40 @@ static inline color _get_pixel(uint32_t *ptr) { return (color)ptr; }
 static inline uint32_t *_skip_pixel(uint32_t *ptr) { return ptr + 1; }
 static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) {  while (length-- > 0) { *dest++ = *src++; } }
 
-static inline void _fill_rect_fast(gbuffer *gb, garea rect, color clr) {
+static color _appropriate_color(gpoint p, color_params cp) {
+    if (cp.fill_type == FILL_TYPE_SOLID)
+        return cp.clr;
+    
+    if (cp.fill_type == FILL_TYPE_LINEAR_GRADIENT) {
+        // given a pixel, say p, find dot product to find projected distance along gradient_v
+        // then, normalize the distance to the gradient color space
+        gvector pixel_v = gvector_from_to(cp.gradient_p1, p);
+        float proj_distance = gvector_dot(pixel_v, cp.gradient_v);
+        float factor = clamp01(proj_distance / cp.gradient_len_sq);
+        return color_gradient(cp.clr, cp.clr2, cp.ease(factor));
+    }
+
+    return 0;
+}
+
+typedef void fill_func(gbuffer *gb, garea rect, color_params cp);
+
+static inline void _fill_rect_fast(gbuffer *gb, garea rect, color_params cp) {
     int y_end = rect.origin.y + rect.size.height;
     for (int i = rect.origin.y; i < y_end; i++)
-        _set_pixel_row(_pixel_ptr(gb, rect.origin.x, i), clr, rect.size.width);
+        _set_pixel_row(_pixel_ptr(gb, rect.origin.x, i), cp.clr, rect.size.width);
 }
+
+static inline void _fill_rect_slow(gbuffer *gb, garea rect, color_params cp) {
+    int y_end = rect.origin.y + rect.size.height;
+    int x_end = rect.origin.x + rect.size.width;
+    for (int y = rect.origin.y; y < y_end; y++) {
+        for (int x = rect.origin.x; x < x_end; x++) {
+            _set_pixel(_pixel_ptr(gb, x, y), _appropriate_color(gpoint_of(x, y), cp));
+        }
+    }
+}
+
 
 
 
@@ -157,45 +186,62 @@ void gb_fill(gbuffer *gb, color clr) {
     }
 }
 
-void gb_fill_rect_rounded(gbuffer *gb, garea rect, int radius, color clr) {
+void gb_fill_rect_rounded(gbuffer *gb, garea rect, color_params cp, int radius) {
+
+    cp.gradient_p1 = gpoint_to_global(cp.gradient_p1, rect);
+    cp.gradient_p2 = gpoint_to_global(cp.gradient_p2, rect);
 
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
+    if (radius < 0)
+        return;
     
-    color solid_color = color_with_alpha(0xFF, clr);
-    color transparent = color_with_alpha(0x00, clr);
+    fill_func *rect_filler = (cp.fill_type == FILL_TYPE_SOLID) ? _fill_rect_fast : _fill_rect_slow;
+    if (radius == 0) {
+        rect_filler(gb, rect, cp);
+    } else if (radius > 0) {
+        // three rects, top, bottom, center, leaving the four corners unpainted
+        rect_filler(gb, garea_of(rect.origin.x + radius, rect.origin.y,                             rect.size.width - 2 * radius, radius                       ), cp);
+        rect_filler(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - radius, rect.size.width - 2 * radius, radius                       ), cp);
+        rect_filler(gb, garea_of(rect.origin.x,          rect.origin.y + radius,                    rect.size.width,              rect.size.height - 2 * radius), cp);
 
-    // three rects, top, bottom, center, leaving the four corners unpainted
-    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y,                             rect.size.width - 2 * radius, radius), solid_color);
-    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - radius, rect.size.width - 2 * radius, radius), solid_color);
-    _fill_rect_fast(gb, garea_of(rect.origin.x,          rect.origin.y + radius,                    rect.size.width,              rect.size.height - 2 * radius), solid_color);
-
-    if (radius > 0) {
-        // the -1 are there to avoid floating point arithmetic
         int squared_in_boundary  = (radius - 1) * (radius - 1);
         int squared_out_boundary = (radius - 0) * (radius - 0);
         int center_x1 = rect.origin.x + radius - 1;
         int center_y1 = rect.origin.y + radius - 1;
         int center_x2 = rect.origin.x + rect.size.width - radius;
         int center_y2 = rect.origin.y + rect.size.height - radius;
-        color corner_clr;
 
+        // we'll need to derive both color and alpha, based on x,y pixel
         for (int dy = 0; dy <= radius; dy++) {
             for (int dx = 0; dx <= radius; dx++) {
+                
+                // one alpha, shared on all four corners
+                uint8_t alpha;
                 int squared_distance = dx*dx + dy*dy;
-                if      (squared_distance <= squared_in_boundary ) corner_clr = solid_color;
-                else if (squared_distance >= squared_out_boundary) corner_clr = transparent;
+                if      (squared_distance <= squared_in_boundary) alpha = 0xFF;
+                else if (squared_distance >= squared_out_boundary) alpha = 0;
                 else {
-                    uint8_t alpha = (squared_out_boundary - squared_distance) * 255 / (squared_out_boundary - squared_in_boundary);
-                    corner_clr = color_with_alpha(alpha, solid_color);
+                    alpha = (squared_out_boundary - squared_distance) * 255 / (squared_out_boundary - squared_in_boundary);
                 }
 
+                gpoint pt_tl = gpoint_of(center_x1 - dx, center_y1 - dy);
+                gpoint pt_tr = gpoint_of(center_x2 + dx, center_y1 - dy);
+                gpoint pt_br = gpoint_of(center_x2 + dx, center_y2 + dy);
+                gpoint pt_bl = gpoint_of(center_x1 - dx, center_y2 + dy);
+
+                // we need four colors
+                color clr_tl = color_with_alpha(alpha, _appropriate_color(pt_tl, cp));
+                color clr_tr = color_with_alpha(alpha, _appropriate_color(pt_tr, cp));
+                color clr_br = color_with_alpha(alpha, _appropriate_color(pt_br, cp));
+                color clr_bl = color_with_alpha(alpha, _appropriate_color(pt_bl, cp));
+
                 // paint symmetrically all four corners at once
-                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), corner_clr); // top left
-                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), corner_clr); // top right
-                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), corner_clr); // botom right
-                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y2 + dy), corner_clr); // botom left
+                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), clr_tl); // top left
+                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), clr_tr); // top right
+                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), clr_br); // botom right
+                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y2 + dy), clr_bl); // botom left
             }
         }
     }
@@ -240,22 +286,6 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
     }
 }
 
-color _appropriate_color(int x, int y, color_params cp) {
-    if (cp.fill_type == FILL_TYPE_SOLID)
-        return cp.clr;
-    
-    if (cp.fill_type == FILL_TYPE_LINEAR_GRADIENT) {
-        // given a pixel, say p, find dot product to find projected distance along gradient_v
-        // then, normalize the distance to the gradient color space
-        gvector pixel_v = gvector_from_to(cp.gradient_p1, gpoint_of(x, y));
-        float proj_distance = gvector_dot(pixel_v, cp.gradient_v);
-        float factor = clamp01(proj_distance / cp.gradient_len_sq);
-        return color_gradient(cp.clr, cp.clr2, cp.ease(factor));
-    }
-
-    return 0;
-}
-
 void gb_gradient_rect(gbuffer *gb, garea rect, color_params cp) {
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
@@ -270,7 +300,7 @@ void gb_gradient_rect(gbuffer *gb, garea rect, color_params cp) {
     for (int y = rect.origin.y; y < endpoint.y; y++) {
         uint32_t *ptr = _pixel_ptr(gb, rect.origin.x, y);
         for (int x = rect.origin.x; x < endpoint.x; x++) {
-            color gradient = _appropriate_color(x, y, cp);
+            color gradient = _appropriate_color(gpoint_of(x, y), cp);
             _blend_pixel(ptr++, gradient);
         }
     }
@@ -283,12 +313,13 @@ void gb_rect_border(gbuffer *gb, garea rect, int radius, int border_width, color
     if (radius < 0 || border_width <= 0)
         return;
 
+    color_params cp = color_params_solid(clr);
+
     // Draw straight rectangle edges first
-    color solid = color_with_alpha(0xFF, clr);
-    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y, rect.size.width - 2 * radius, border_width), solid);
-    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - border_width, rect.size.width - 2 * radius, border_width), solid);
-    _fill_rect_fast(gb, garea_of(rect.origin.x, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
-    _fill_rect_fast(gb, garea_of(rect.origin.x + rect.size.width - border_width, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), solid);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y, rect.size.width - 2 * radius, border_width), cp);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - border_width, rect.size.width - 2 * radius, border_width), cp);
+    _fill_rect_fast(gb, garea_of(rect.origin.x, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), cp);
+    _fill_rect_fast(gb, garea_of(rect.origin.x + rect.size.width - border_width, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), cp);
 
     if (radius == 0)
         return;

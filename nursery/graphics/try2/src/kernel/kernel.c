@@ -13,10 +13,17 @@ void rectangles_borders_demo() {
     gb_fill(main, 0x008080);
     gb_text(main, "Rectangles & borders demo", 5, 13, geneva9, color_white());
 
-    color win = color_nextstep_win_face();
-    color win_dark = color_nextstep_win_shadow();
     gpoint pos = gpoint_of(20, 40);
     gsize size = gsize_of(150, 130);
+
+    // color_params win = color_params_solid(color_nextstep_win_face());
+    color_params win = color_params_gradient(
+        color_gray_of(0xdd),
+        color_gray_of(0x88),
+        gpoint_zero(), gpoint_of(size.width / 2, size.height),
+        ease_linear);
+
+    color_params win_dark = color_params_solid(color_nextstep_win_shadow());
     gbuffer *work = new_gbuffer(main->area.size.width, main->area.size.height);
 
     int thicknesses[] = { 1, 2, 5 };
@@ -25,8 +32,8 @@ void rectangles_borders_demo() {
     for (int i = 0; i < 3; i++) {
         gb_clear(work);
 
-        gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 18, 0), size), radii[i], win_dark);
-        gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 0, 12), size), radii[i], win);
+        gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 18, 0), size), win_dark, radii[i]);
+        gb_fill_rect_rounded(work, garea_with(gpoint_move(pos, 0, 12), size), win, radii[i]);
         gb_rect_border(work, garea_with(gpoint_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
         pos = gpoint_move(pos, size.width + 40, 0);
     
@@ -165,10 +172,10 @@ void kernel_main(boot_info_t* bi) {
     graphics_initialize((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
 
 
-    // rectangles_borders_demo();
+    rectangles_borders_demo();
     // blend_demo();
     // fonts_demo();
-    gradient_demo();
+    // gradient_demo();
     // blur_demo();
     // shadows_demo();
     for (;;);

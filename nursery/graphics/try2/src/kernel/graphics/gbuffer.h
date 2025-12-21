@@ -56,7 +56,7 @@ void gb_clear(gbuffer *gb);
 color gb_get_pixel(gbuffer *gb, gpoint p);
 void gb_paint_pixel(gbuffer *gb, gpoint p, color clr);
 void gb_fill(gbuffer *gb, color clr);
-void gb_fill_rect_rounded(gbuffer *gb, garea rect, int radius, color clr);
+void gb_fill_rect_rounded(gbuffer *gb, garea rect, color_params cp, int radius);
 void gb_rect_border(gbuffer *gb, garea rect, int radius, int border_width, color clr);
 void gb_gradient_rect(gbuffer *gb, garea rect, color_params cp);
 void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha);
