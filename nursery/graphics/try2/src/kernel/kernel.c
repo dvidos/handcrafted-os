@@ -56,24 +56,29 @@ void kernel_main(boot_info_t* bi) {
     color shadow = color_darken(bg, 0.1);
     color letters = color_black();
     
-    gbuffer *r = new_gbuffer(450, 300);
-    gb_fill_rect_rounded(r, garea_of(1, 1, 400, 298), 8, bg);
+    gbuffer *text_panel = new_gbuffer(450, 300);
+    gb_fill_rect_rounded(text_panel, garea_of(1, 1, 400, 298), 6, bg);
+    gb_rect_border_rounded(text_panel, garea_of(1, 1, 400, 298), 6, 1, color_black());
     
     // gb_copy_area(main, r, gb_size(r), gpoint_of(150, 0), gpoint_zero());
     // gb_text(r, "This is baseline 12, Geneva font", 3, 12, geneva9, color_white());
     // gb_text(r, "This is baseline 26, same font", 3, 26, geneva9, color_white());
-    gb_text_demo(r, 11, 21, geneva9, shadow);
-    gb_text_demo(r, 10, 20, geneva9, letters);
-    gb_text_demo(r, 11, 91, geneva9_bold, shadow);
-    gb_text_demo(r, 10, 90, geneva9_bold, letters);
-    gb_text_demo(r, 11, 161, geneva9_mono, shadow);
-    gb_text_demo(r, 10, 160, geneva9_mono, letters);
-    gb_text_demo(r, 11, 231, mits7, shadow);
-    gb_text_demo(r, 10, 230, mits7, letters);
+    gb_text_demo(text_panel, 11, 21, geneva9, shadow);
+    gb_text_demo(text_panel, 10, 20, geneva9, letters);
+    gb_text_demo(text_panel, 11, 91, geneva9_bold, shadow);
+    gb_text_demo(text_panel, 10, 90, geneva9_bold, letters);
+    gb_text_demo(text_panel, 11, 161, geneva9_mono, shadow);
+    gb_text_demo(text_panel, 10, 160, geneva9_mono, letters);
+    gb_text_demo(text_panel, 11, 231, mits7, shadow);
+    gb_text_demo(text_panel, 10, 230, mits7, letters);
 
 
-    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(170, 150), gpoint_zero(), 0x88);
-    gb_copy_area_with_alpha(main, r, r->area.size, gpoint_of(20, 120), gpoint_zero(), 0xFF);
+    gbuffer *text_panel_shadow = new_gbuffer(500, 350);
+    gb_drop_shadow(text_panel_shadow, text_panel, shadow_params_of(color_black(), 0x33, 3, 3, 2));
+    gb_copy_area_with_alpha(main, text_panel_shadow, text_panel_shadow->area.size, gpoint_of(20, 120), gpoint_zero(), 0xFF);
+
+    // gb_copy_area_with_alpha(main, text_panel, text_panel->area.size, gpoint_of(170, 150), gpoint_zero(), 0x88);
+    gb_copy_area_with_alpha(main, text_panel, text_panel->area.size, gpoint_of(20, 120), gpoint_zero(), 0xFF);
     // gb_blur(main, garea_of(250, 120, 300, 150), 2, 0);
     // // gb_rect_border(main, 250, 120, 300, 150, color_black());
     // // let's give a semitransparent white buffer on top...
@@ -89,9 +94,13 @@ void kernel_main(boot_info_t* bi) {
     // gb_copy_area(main, test, gb_size(test), gpoint_of(100, 30), gpoint_zero());
 
     gbuffer *rr = new_gbuffer(250, 250);
-    gb_rect_border_rounded(rr, garea_of(0, 0, 220, 150), 16, 8, color_tango_black());
-    gb_copy_area_with_alpha(main, rr, r->area.size, gpoint_of(220, 100), gpoint_zero(), 0xFF);
-
+    gb_rect_border_rounded(rr, garea_of(0, 0, 220, 150), 16, 2, color_tango_black());
+    
+    gbuffer *rr_shadow = new_gbuffer(350, 350);
+    gb_drop_shadow(rr_shadow, rr, shadow_params_of(0xff000000, 0x55, 4, 3, 2));
+    
+    gb_copy_area_with_alpha(main, rr_shadow, rr_shadow->area.size, gpoint_of(220, 100), gpoint_zero(), 0xFF);
+    gb_copy_area_with_alpha(main, rr, rr->area.size, gpoint_of(220, 100), gpoint_zero(), 0xFF);
 
 
     color c1 = color_gray_of(0xcc);
@@ -105,13 +114,13 @@ void kernel_main(boot_info_t* bi) {
     gb_gradient_rect(main, garea_of(380, 20, 50, 50), gpoint_of(0, 0), gpoint_of(0, 50), c1, c2, ease_piecewise);
 
     // yeah, it'd be nice to have "center alignment"
-    gb_text(main, "linear",     20, 82, mits7, color_gray_of(0x33));
-    gb_text(main, "in_quad",    80, 82, mits7, color_gray_of(0x33));
-    gb_text(main, "out_quad",  140, 82, mits7, color_gray_of(0x33));
-    gb_text(main, "in_out",    200, 82, mits7, color_gray_of(0x33));
-    gb_text(main, "bevel",     260, 82, mits7, color_gray_of(0x33));
-    gb_text(main, "bevel_hl",  320, 82, mits7, color_gray_of(0x33));
-    gb_text(main, "piecewise", 380, 82, mits7, color_gray_of(0x33));
+    gb_text(main, "linear",     20, 82, mits7, color_gray_of(0xcc));
+    gb_text(main, "in_quad",    80, 82, mits7, color_gray_of(0xcc));
+    gb_text(main, "out_quad",  140, 82, mits7, color_gray_of(0xcc));
+    gb_text(main, "in_out",    200, 82, mits7, color_gray_of(0xcc));
+    gb_text(main, "bevel",     260, 82, mits7, color_gray_of(0xcc));
+    gb_text(main, "bevel_hl",  320, 82, mits7, color_gray_of(0xcc));
+    gb_text(main, "piecewise", 380, 82, mits7, color_gray_of(0xcc));
 
 
 

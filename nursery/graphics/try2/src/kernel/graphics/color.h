@@ -3,8 +3,8 @@
 
 typedef uint32_t color; // first byte = opacity, FF=opaque, 00=transparect
 
-static inline float clamp_0_1(float value) { return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value); }
-static inline uint8_t clamp_0_255(int value) { return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value); }
+void color_initialize();
+
 
 
 static inline uint8_t color_a(color c) { return (c >> 24); }
@@ -48,9 +48,8 @@ static inline color color_nextstep_win_shadow() { return 0xFF555555; }
 static inline color color_nextstep_gradient_hi() { return 0xFFaaaabb; }
 static inline color color_nextstep_gradient_low() { return 0xFF555566; }
 
-
-color color_darken(color c, float darkness_factor); // factor in [0,1]
-color color_lighten(color c, float lightness_factor); // factor in [0,1]
+color color_darken(color c, float darkness_factor); // factor in [0,1], 0=same, 1=black
+color color_lighten(color c, float lightness_factor); // factor in [0,1], 0=same, 1=white
 color color_gradient(color a, color b, float transition_pos); // pos in [0,1]
 color color_blend(color bottom, color top); // does not assume background color
 

@@ -1,5 +1,31 @@
 #include <stdint.h>
 #include "color.h"
+#include "../memory/malloc.h"
+
+
+typedef struct color_lookups {
+    uint8_t applied_alphas[256][256];
+} color_lookups;
+static color_lookups *lookups;
+
+
+void color_initialize() {
+    lookups = kmalloc(sizeof(color_lookups));
+
+    // many operations in graphics boil down to a float division: "result = x * (y / 255)",
+    // essentially, y defines the resulting percentage (per byte) of x.
+    // since this division is expensive, we use precomputed lookup tables.
+    // same happens when two alphas are blended together
+
+    for (int alpha = 0; alpha < 256; alpha++) {
+        for (int color = 0; color < 256; color++) {
+            lookups->applied_alphas[color][alpha] = (color * alpha) / 255;
+        }
+    }
+}
+static inline uint8_t _apply_alpha(uint8_t c, uint8_t alpha) {
+    return lookups->applied_alphas[c][alpha];
+}
 
 
 color color_darken(color c, float darkness_factor) {
@@ -40,21 +66,21 @@ color color_blend(color bottom, color top) {
 
     // top
     uint32_t top_a = color_a(top);
-    uint32_t top_transparency = 255 - top_a;
+    uint32_t top_a_inv = 255 - top_a;
     uint32_t top_r = color_r(top);
     uint32_t top_g = color_g(top);
     uint32_t top_b = color_b(top);
     
     // result
-    uint32_t result_a = top_a + (bottom_a * top_transparency) / 255;
+    uint32_t result_a = top_a + _apply_alpha(bottom_a, top_a_inv);
     uint32_t result_r = 0;
     uint32_t result_g = 0;
     uint32_t result_b = 0;
 
-    if (result_a > 0) {
-        result_r = (top_r * top_a * 255 + bottom_r * bottom_a * top_transparency) / (result_a * 255);
-        result_g = (top_g * top_a * 255 + bottom_g * bottom_a * top_transparency) / (result_a * 255);
-        result_b = (top_b * top_a * 255 + bottom_b * bottom_a * top_transparency) / (result_a * 255);
+    if (result_a > 0) {       
+        result_r = (top_r * top_a * 255 + bottom_r * bottom_a * top_a_inv) / (result_a * 255);
+        result_g = (top_g * top_a * 255 + bottom_g * bottom_a * top_a_inv) / (result_a * 255);
+        result_b = (top_b * top_a * 255 + bottom_b * bottom_a * top_a_inv) / (result_a * 255);
     }
     
     return color_argb((uint8_t)result_a, (uint8_t)result_r, (uint8_t)result_g, (uint8_t)result_b);

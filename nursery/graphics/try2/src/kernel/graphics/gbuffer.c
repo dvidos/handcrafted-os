@@ -6,6 +6,7 @@
 
 
 #define clamp01(val)       ((val) > 1.0f) ? 1.0f : (((val) < 0.0f) ? 0.0f : (val))
+#define clamp255(val)      ((val) > 255) ? 255 : (((val) < 0) ? 0 : (val))
 
 /*
     Inspiration and goals here: https://www.versionmuseum.com/history-of/classic-mac-os
@@ -26,7 +27,7 @@
     - allocate extra bytes on the buffers, with magic values, to detect overruns/underruns
 */
 
-static inline uint32_t *_pixel_ptr(gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->area.size.width) + x; }
+static inline uint32_t *_pixel_ptr(const gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->area.size.width) + x; }
 static inline uint32_t *_set_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
 static inline uint32_t *_set_pixel_row(uint32_t *ptr, uint32_t clr, int length)   { while (length-- > 0) { *ptr++ = clr; } return ptr; }
 static inline color _get_pixel(uint32_t *ptr) { return (color)ptr; }
@@ -36,7 +37,7 @@ static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) { 
 // ----------------------------------------------------
 
 static gbuffer *global_aux_buffer = 0;
-void gb_set_aux_buffer(gbuffer *aux_buffer) {
+void gbuffer_initialize(gbuffer *aux_buffer) {
     // this buffer to be used for blurring, single threadedly
     global_aux_buffer = aux_buffer;
 }
@@ -370,8 +371,31 @@ void gb_rect_border_rounded(gbuffer *gb, garea rect, int radius, int border_widt
     }
 }
 
-static void gb_make_drop_shadow(gbuffer *gb, const gbuffer *object, int offset, int blur_radius) {
 
+
+void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params) {
+    // make sure we have space to draw
+    if (gb->area.size.width  < object->area.size.width  + params.offset_x + 2 * params.blur_radius ||
+        gb->area.size.height < object->area.size.height + params.offset_y + 2 * params.blur_radius)
+        return;
+
+    // offset and merge alpha
+    for (int y = 0; y < object->area.size.height; y++) {
+
+        for (int x = 0; x < object->area.size.width; x++) {
+            uint32_t *object_pix = _pixel_ptr(object, x, y);
+            uint8_t object_alpha = color_a(*object_pix);
+            if (object_alpha == 0)
+                continue;
+            
+            uint8_t shadow_alpha = (object_alpha * params.opacity) / 255;
+            uint32_t *target_pix = _pixel_ptr(gb, x + params.offset_x, y + params.offset_y);
+            _set_pixel(target_pix, color_with_alpha(shadow_alpha, params.clr));
+        }
+    }
+
+    // finally, blur alpha
+    gb_blur(gb, gb->area, params.blur_radius, 1);
 }
 
 

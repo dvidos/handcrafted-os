@@ -26,7 +26,8 @@ void graphics_initialize(void *fb_address, int width, int height, int pitch, int
 
     ggi.main_buffer = new_gbuffer(width, height);
     ggi.aux_buffer = new_gbuffer(width, height);
-    gb_set_aux_buffer(ggi.aux_buffer);
+    gbuffer_initialize(ggi.aux_buffer);
+    color_initialize();
 }
 
 void graphics_fill(color clr) {
