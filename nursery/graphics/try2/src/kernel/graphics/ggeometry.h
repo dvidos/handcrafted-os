@@ -45,6 +45,7 @@ static inline gsize gsize_normalize(gsize s)            { return (gsize){.width 
 
 
 static inline garea garea_of(int x, int y, int w, int h) { return (garea){.origin = gpoint_of(x, y), .size = gsize_of(w, h)}; }
+static inline garea garea_with(gpoint p, gsize s) { return (garea){.origin = p, .size = s}; }
 static inline int   garea_is_empty(garea a)              { return gsize_is_empty(a.size); }
 static inline garea garea_grow(garea a, int dx, int dy)  { return (garea){.origin = gpoint_move(a.origin, -dx, -dy), .size = gsize_grow(a.size, 2*dx, 2*dy)}; }
 static inline garea garea_move(garea a, int dx, int dy)  { return (garea){.origin = gpoint_move(a.origin, dx, dy), .size = a.size}; }

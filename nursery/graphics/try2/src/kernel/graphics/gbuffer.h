@@ -31,6 +31,7 @@ gbuffer *new_gbuffer(int width, int height);
 void gb_free(gbuffer *gb);
 void gb_set_pixel(gbuffer *gb, gpoint p, color clr);
 color gb_get_pixel(gbuffer *gb, gpoint p);
+void gb_clear(gbuffer *gb);
 void gb_fill(gbuffer *gb, color clr);
 void gb_fill_rect(gbuffer *gb, garea rect, color clr);
 void gb_fill_rect_rounded(gbuffer *gb, garea rect, int radius, color clr);
