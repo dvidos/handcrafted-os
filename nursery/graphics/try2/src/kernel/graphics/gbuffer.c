@@ -8,34 +8,19 @@
 #define clamp01(val)       ((val) > 1.0f) ? 1.0f : (((val) < 0.0f) ? 0.0f : (val))
 #define clamp255(val)      ((val) > 255) ? 255 : (((val) < 0) ? 0 : (val))
 
-/*
-    Inspiration and goals here: https://www.versionmuseum.com/history-of/classic-mac-os
-    Scaling, antialiasing, semi-transparency, shadows, gradients, rounded corners.
-
-    Afterwards, blit can support: 
-    - simple, 
-    - masked, 
-    - bit-operations (and, or, xor),
-    - format-changing (e.g. RGB565 -> XRGB8888),
-    - scaling (using diff src/dest size),
-    - alpha blending (dst = src * a + dst * (1 - a)
-
-    For debugging he proposes:
-    - a horizontal or vertical part of the screen dedicated for debugging messages, like a console
-    - gb_debug_rect() with red, for debugging dimensions
-    - gb_debug_crosshair() with red, for debugging points
-    - allocate extra bytes on the buffers, with magic values, to detect overruns/underruns
-*/
-
 static inline uint32_t *_pixel_ptr(const gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->area.size.width) + x; }
-static inline uint32_t *_set_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
+static inline uint32_t *_replace_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
 static inline uint32_t *_blend_pixel(uint32_t *ptr, color clr)   { *ptr++ = color_blend(*ptr, clr); return ptr; }
 static inline uint32_t *_set_pixel_row(uint32_t *ptr, uint32_t clr, int length)   { while (length-- > 0) { *ptr++ = clr; } return ptr; }
 static inline color _get_pixel(uint32_t *ptr) { return (color)ptr; }
 static inline uint32_t *_skip_pixel(uint32_t *ptr) { return ptr + 1; }
 static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) {  while (length-- > 0) { *dest++ = *src++; } }
 
-static color _appropriate_color(gpoint p, color_params cp) {
+// gaussian blur functions
+#include "gbuffer_blur.inc.c"
+
+
+static color _location_dependent_color(gpoint p, color_params cp) {
     if (cp.fill_type == FILL_TYPE_SOLID)
         return cp.clr;
     
@@ -64,7 +49,7 @@ static inline void _fill_rect_slow(gbuffer *gb, garea rect, color_params cp) {
     int x_end = rect.origin.x + rect.size.width;
     for (int y = rect.origin.y; y < y_end; y++) {
         for (int x = rect.origin.x; x < x_end; x++) {
-            _set_pixel(_pixel_ptr(gb, x, y), _appropriate_color(gpoint_of(x, y), cp));
+            _replace_pixel(_pixel_ptr(gb, x, y), _location_dependent_color(gpoint_of(x, y), cp));
         }
     }
 }
@@ -78,76 +63,10 @@ static gbuffer *global_aux_buffer = 0;
 void gbuffer_initialize(gbuffer *aux_buffer) {
     // this buffer to be used for blurring, single threadedly
     global_aux_buffer = aux_buffer;
+    // we should also prepare gausian distribution tables, floats that sum up to 1.
 }
 
 // ----------------------------------------------------
-
-typedef struct blur_window {
-    uint32_t alpha;
-    uint32_t red;
-    uint32_t green;
-    uint32_t blue;
-    int size;
-} blur_window;
-static inline void blur_window_reset(blur_window *w) {
-    w->alpha = 0;
-    w->red   = 0;
-    w->green = 0;
-    w->blue  = 0;
-    w->size  = 0;
-}
-static inline void blur_window_add(blur_window *w, uint32_t *pixel) {
-    w->alpha += color_a(*pixel);
-    w->red   += color_r(*pixel);
-    w->green += color_g(*pixel);
-    w->blue  += color_b(*pixel);
-    w->size  += 1;
-}
-static inline void blur_window_remove(blur_window *w, uint32_t *pixel) {
-    w->alpha -= color_a(*pixel);
-    w->red   -= color_r(*pixel);
-    w->green -= color_g(*pixel);
-    w->blue  -= color_b(*pixel);
-    w->size  -= 1;
-}
-static inline void blur_window_collect_horizontally(blur_window *w, int curr_x, int y, int radius, gbuffer *gb) {
-    for (int offset = -radius; offset <= +radius; offset++) {
-        if (curr_x + offset < 0) continue;
-        if (curr_x + offset >= gb->area.size.width) continue;
-        uint32_t *pixel = _pixel_ptr(gb, curr_x + offset, y);
-        blur_window_add(w, pixel);
-    }
-}
-static inline void blur_window_collect_vertically(blur_window *w, int x, int curr_y, int radius, gbuffer *gb) {
-    for (int offset = -radius; offset <= +radius; offset++) {
-        if (curr_y + offset < 0) continue;
-        if (curr_y + offset >= gb->area.size.height) continue;
-        uint32_t *pixel = _pixel_ptr(gb, x, curr_y + offset);
-        blur_window_add(w, pixel);
-    }
-}
-static inline void blur_window_apply(blur_window *w, uint32_t *pixel, int do_blur_alpha) {
-    if (w->size == 0)
-        return;
-    
-    if (do_blur_alpha) {
-        _set_pixel(pixel, color_argb(
-            w->alpha / w->size,
-            color_r(*pixel),
-            color_g(*pixel),
-            color_b(*pixel)
-        ));
-    } else {
-        _set_pixel(pixel, color_argb(
-            color_a(*pixel),
-            w->red   / w->size,
-            w->green / w->size,
-            w->blue  / w->size
-        ));
-    }
-}
-
-// -------------------------------------------
 
 gbuffer *new_gbuffer(int width, int height) {
     gbuffer *gb = (gbuffer *)kmalloc(sizeof(gbuffer));
@@ -208,16 +127,16 @@ void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
 
         int squared_in_boundary  = (radius - 1) * (radius - 1);
         int squared_out_boundary = (radius - 0) * (radius - 0);
-        int center_x1 = rect.origin.x + radius - 1;
-        int center_y1 = rect.origin.y + radius - 1;
-        int center_x2 = rect.origin.x + rect.size.width - radius;
-        int center_y2 = rect.origin.y + rect.size.height - radius;
+        int cx1 = rect.origin.x + radius - 1;
+        int cy1 = rect.origin.y + radius - 1;
+        int cx2 = rect.origin.x + rect.size.width - radius;
+        int cy2 = rect.origin.y + rect.size.height - radius;
 
         // we'll need to derive both color and alpha, based on x,y pixel
         for (int dy = 0; dy <= radius; dy++) {
             for (int dx = 0; dx <= radius; dx++) {
                 
-                // one alpha, shared on all four corners
+                // same alpha is shared on all four corners
                 uint8_t alpha;
                 int squared_distance = dx*dx + dy*dy;
                 if      (squared_distance <= squared_in_boundary) alpha = 0xFF;
@@ -226,31 +145,33 @@ void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
                     alpha = (squared_out_boundary - squared_distance) * 255 / (squared_out_boundary - squared_in_boundary);
                 }
 
-                gpoint pt_tl = gpoint_of(center_x1 - dx, center_y1 - dy);
-                gpoint pt_tr = gpoint_of(center_x2 + dx, center_y1 - dy);
-                gpoint pt_br = gpoint_of(center_x2 + dx, center_y2 + dy);
-                gpoint pt_bl = gpoint_of(center_x1 - dx, center_y2 + dy);
+                // but the four points may have different color due to gradient
+                gpoint pt_tl = gpoint_of(cx1 - dx, cy1 - dy);
+                gpoint pt_tr = gpoint_of(cx2 + dx, cy1 - dy);
+                gpoint pt_br = gpoint_of(cx2 + dx, cy2 + dy);
+                gpoint pt_bl = gpoint_of(cx1 - dx, cy2 + dy);
 
-                // we need four colors
-                color clr_tl = color_with_alpha(alpha, _appropriate_color(pt_tl, cp));
-                color clr_tr = color_with_alpha(alpha, _appropriate_color(pt_tr, cp));
-                color clr_br = color_with_alpha(alpha, _appropriate_color(pt_br, cp));
-                color clr_bl = color_with_alpha(alpha, _appropriate_color(pt_bl, cp));
+                color clr_tl = color_with_alpha(alpha, _location_dependent_color(pt_tl, cp));
+                color clr_tr = color_with_alpha(alpha, _location_dependent_color(pt_tr, cp));
+                color clr_br = color_with_alpha(alpha, _location_dependent_color(pt_br, cp));
+                color clr_bl = color_with_alpha(alpha, _location_dependent_color(pt_bl, cp));
 
-                // paint symmetrically all four corners at once
-                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y1 - dy), clr_tl); // top left
-                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y1 - dy), clr_tr); // top right
-                _blend_pixel(_pixel_ptr(gb, center_x2 + dx, center_y2 + dy), clr_br); // botom right
-                _blend_pixel(_pixel_ptr(gb, center_x1 - dx, center_y2 + dy), clr_bl); // botom left
+                _blend_pixel(_pixel_ptr(gb, cx1 - dx, cy1 - dy), clr_tl); // top left
+                _blend_pixel(_pixel_ptr(gb, cx2 + dx, cy1 - dy), clr_tr); // top right
+                _blend_pixel(_pixel_ptr(gb, cx2 + dx, cy2 + dy), clr_br); // botom right
+                _blend_pixel(_pixel_ptr(gb, cx1 - dx, cy2 + dy), clr_bl); // botom left
             }
         }
     }
 }
 
 void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
+    // we'll employ some Gaussian Blur!
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
+    
+    if (radius > 32) return; // we don't support it for now
 
     blur_window win;
     uint32_t *pixel;
@@ -270,7 +191,7 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
             // read from buffer, write to aux_buffer
             blur_window_collect_horizontally(&win, curr_x, curr_y, radius, gb);
             pixel = _pixel_ptr(global_aux_buffer, curr_x, curr_y);
-            blur_window_apply(&win, pixel, do_blur_alpha);
+            _replace_pixel(pixel, do_blur_alpha ? blur_window_apply_alpha(&win, *pixel) : blur_window_apply_color(&win, *pixel));
         }
     }
 
@@ -281,7 +202,7 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
             // read from aux_buffer, write to buffer
             blur_window_collect_vertically(&win, curr_x, curr_y, radius, global_aux_buffer);
             pixel = _pixel_ptr(gb, curr_x, curr_y);
-            blur_window_apply(&win, pixel, do_blur_alpha);
+            _replace_pixel(pixel, do_blur_alpha ? blur_window_apply_alpha(&win, *pixel) : blur_window_apply_color(&win, *pixel));
         }
     }
 }
@@ -365,7 +286,7 @@ void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params) {
             
             uint8_t shadow_alpha = (object_alpha * params.opacity) / 255;
             uint32_t *target_pix = _pixel_ptr(gb, x + params.offset_x, y + params.offset_y);
-            _set_pixel(target_pix, color_with_alpha(shadow_alpha, params.clr));
+            _replace_pixel(target_pix, color_with_alpha(shadow_alpha, params.clr));
         }
     }
 
@@ -385,7 +306,7 @@ static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, 
         uint8_t mask = 0x80;
         for (int column = 0; column < gl->width; column++) {
             if (bitmap & mask) {
-                pixel = _set_pixel(pixel, clr);
+                pixel = _replace_pixel(pixel, clr);
             } else {
                 pixel = _skip_pixel(pixel);
             }
@@ -493,7 +414,7 @@ void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint des
                 color_blend_channel(color_g(*dest_pix), color_g(*src_pix), src_alpha),
                 color_blend_channel(color_b(*dest_pix), color_b(*src_pix), src_alpha)
             );
-            _set_pixel(dest_pix, blended);
+            _replace_pixel(dest_pix, blended);
         }
     }
 }

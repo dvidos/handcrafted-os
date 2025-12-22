@@ -166,6 +166,28 @@ void gradient_demo() {
     graphics_display_main_buffer();
 }
 
+
+void blur_demo() {
+    gbuffer *main = graphics_get_main_buffer();
+    gb_fill(main, 0x008080);
+    gb_text(main, "Blurring demo", 5, 13, geneva9, color_white());
+
+    int sq_size[] = { 2, 4, 10, 30 };
+    int radii[] = { 0, 3, 10, 30 };
+    gpoint p = gpoint_of(100, 100);
+
+    for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
+        for (int r = 0; r < sizeof(radii)/sizeof(radii[0]); r++) {
+            gb_rect(main, garea_with(p, gsize_of(sq_size[s], sq_size[s])), color_params_solid(color_black()), sq_size[s] / 2);
+            gb_blur(main, garea_with(gpoint_move(p, -50, -50), gsize_of(100, 100)), radii[r], 0);
+            p = gpoint_move(p, 100, 0);
+        }
+        p = gpoint_of(100, p.y + 100);
+    }
+
+    graphics_display_main_buffer();
+}
+
 void kernel_main(boot_info_t* bi) {
     // preserve boot info, asap
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
@@ -174,9 +196,9 @@ void kernel_main(boot_info_t* bi) {
 
     // rectangles_borders_demo();
     // blend_demo();
-    fonts_demo();
+    // fonts_demo();
     // gradient_demo();
-    // blur_demo();
+    blur_demo();
     // shadows_demo();
     for (;;);
 
