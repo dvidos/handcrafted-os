@@ -194,7 +194,11 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_colo
         // blur_window_box_algorithm_hor(gb, global_aux_buffer, rect, radius, applicator);
         // blur_window_box_algorithm_ver(global_aux_buffer, gb, rect, radius, applicator);
 
-        blur_window_box_algorithm_hor(gb, global_aux_buffer, rect, radius, applicator);
+        blur_window_box_algorithm(
+            gb, global_aux_buffer, 
+            rect.origin.y, rect.origin.y + rect.size.height,
+            rect.origin.x, rect.origin.x + rect.size.width,
+            radius, blur_get_pixel_hor_slices, applicator);
         gb_copy_area(gb, global_aux_buffer, rect.size, rect.origin, rect.origin);
     }
 }
