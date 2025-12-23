@@ -170,18 +170,12 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_colo
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
-    if (radius <= 1)
+    if (radius <= 0)
         return;
     
-    // copy some zone from the original image, into the aux buffer, 
-    // so that vertical passes do not bleed into unknown pixels.
-    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius),           gpoint_of(rect.origin.x, rect.origin.y - radius));
-    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
-
-    blur_window_apply_func *color_applicator = (blur_alpha_instead_of_color ? blur_window_apply_alpha : blur_window_apply_color);
-
     /*
         update: i used gaussian blur, which is ideal mathematically, but painfully slow.
+        i even had to create external tool to generate precal tables for radii 1..32.
         it seems box blur (x3) achieves similar results. box blur is essentially adding average of sourounding pixels.
         one pass horizontal, one vertical, then again, two more times (or more).
         so, box blur is a building block, not a final product.
@@ -190,6 +184,14 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_colo
         i should make a building block (actually two, for x/y directions) in the include file,
         then call it 6 times here.
     */
+
+    // copy some zone from the original image, into the aux buffer, 
+    // so that vertical passes do not bleed into unknown pixels.
+    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius),           gpoint_of(rect.origin.x, rect.origin.y - radius));
+    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
+
+    blur_window_apply_func *color_applicator = (blur_alpha_instead_of_color ? blur_window_apply_alpha : blur_window_apply_color);
+
     for (int times = 0; times < 3; times++) {
         blur_window_box_algorithm(
             gb, global_aux_buffer, 
@@ -203,8 +205,6 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_colo
             rect.origin.y, rect.origin.y + rect.size.height,
             radius, blur_get_pixel_vertical_slices, color_applicator
         );
-
-        // gb_copy_area(gb, global_aux_buffer, rect.size, rect.origin, rect.origin);
     }
 }
 

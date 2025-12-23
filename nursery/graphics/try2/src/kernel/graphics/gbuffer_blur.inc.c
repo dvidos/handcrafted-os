@@ -93,8 +93,6 @@ static uint32_t *blur_get_pixel_vertical_slices(gbuffer *gb, int slice_num, int 
     return _pixel_ptr(gb, slice_num, slice_px); // slices are x, pixels are y
 }
 
-
-
 static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
     int start_slice, int end_slice, int slice_start_pixel, int slice_end_pixel,
     int radius, blur_get_pixel_func get_slice_pixel, blur_window_apply_func apply_blur) {
@@ -153,54 +151,3 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
         }
     }
 }
-
-
-
-// static inline void blur_window_box_algorithm_ver(gbuffer *src, gbuffer *dest, garea rect, int radius, blur_window_apply_func apply_blur) {
-//     // this method mirrors the same for vertical
-//     blur_window win;
-
-//     for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
-//         blur_window_clear(&win);
-
-//         const int y_start = rect.origin.y;
-//         const int y_end   = rect.origin.y + rect.size.height;
-//         int y;
-//         int y_win_first;
-//         int y_win_last;
-
-//         // Prime window with pixels prior to the first pixel (partial window)
-//         for (int i = radius; i > 0; i--) {
-//             int yi = y_start - i;
-//             if (yi >= 0)
-//                 blur_window_add(&win, _pixel_ptr(src, x, yi));
-//         }
-
-//         // Phase 1: growing window (left edge),  x = [x_start .. x_start+radius-1]
-//         for (y = y_start; y < y_start + radius && y < y_end; y++) {
-//             y_win_last = y + radius;
-//             if (y_win_last < y_end)
-//                 blur_window_add(&win, _pixel_ptr(src, x, y_win_last));
-//             apply_blur(&win, _pixel_ptr(dest, x, y));
-//         }
-
-//         // Phase 2: full window, fast path, x = [x_start+radius .. x_end-radius-1]
-//         for (; y + radius < y_end; y++) {
-//             y_win_first = y - radius - 1;  // add right, remove left
-//             y_win_last = y + radius;
-//             blur_window_add_and_remove(&win, _pixel_ptr(src, x, y_win_last), _pixel_ptr(src, x, y_win_first));
-//             apply_blur(&win, _pixel_ptr(dest, x, y));
-//         }
-
-//         // Phase 3: shrinking window (right edge), x = [x_end-radius .. x_end-1]
-//         for (; y < y_end; y++) {
-//             y_win_first = y - radius - 1;
-//             if (y_win_first >= 0)
-//                 blur_window_remove(&win, _pixel_ptr(src, x, y_win_first));
-//             if (y_win_last < src->area.size.height)
-//                 blur_window_add(&win, _pixel_ptr(src, x, y_win_last));
-//             apply_blur(&win, _pixel_ptr(dest, x, y));
-//         }
-//     }
-// }
-

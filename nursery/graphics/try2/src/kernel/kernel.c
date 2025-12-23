@@ -175,24 +175,24 @@ void gradient_demo() {
 void blur_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0xFF007777);
-    gb_text(main, "Blurring demo", 5, 13, geneva9, color_white());
+    gb_text(main, "Blurring demo (fast boxing algorithm x3)", 5, 13, geneva9, color_white());
     int tile_side = 80;
     gsize tile_size = gsize_of(tile_side, tile_side);
 
-    serial_print_str("Hello from blur demo!\r\n");
-
     int sq_size[] = { 3, 7, 15, 30 };
-    int blur_radii[] = { 0, 2, 3, 4, 10 };
+    int blur_radii[] = { 0, 1, 2, 4, 8, 16 };
 
     for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
         for (int r = 0; r < sizeof(blur_radii)/sizeof(blur_radii[0]); r++) {
             gpoint p = gpoint_of(10 + r * (tile_side + 10), 30 + s * (tile_side + 10));
             int offset = (tile_side/2) - sq_size[s] / 2;
 
-            gb_rect(main, garea_with(gpoint_move(p, offset + 3, offset - 3), gsize_of(sq_size[s], sq_size[s])), color_params_solid(color_tango_red()), 0);
-            gb_rect(main, garea_with(gpoint_move(p, offset, offset), gsize_of(sq_size[s], sq_size[s])), color_params_solid(color_black()), 0);
+            gb_rect(main, garea_with(gpoint_move(p, offset + 3, offset - 3), gsize_of(sq_size[s], sq_size[s])), color_params_solid(0xcccc00), 0);
+            gb_rect(main, garea_with(gpoint_move(p, offset, offset), gsize_of(sq_size[s], sq_size[s])), color_params_solid(0x0000cc), 0);
+            gb_border(main, garea_with(gpoint_move(p, offset - 3, offset + 3), gsize_of(sq_size[s], sq_size[s])), sq_size[s] / 2, 2, 0x00cc0000);
+
             gb_blur(main, garea_with(p, tile_size), blur_radii[r], 0);
-            gb_border(main, garea_with(p, tile_size), 0, 1, color_tango_red());
+            gb_border(main, garea_with(p, tile_size), 0, 1, color_tango_dark_gray());
         }
     }
 
