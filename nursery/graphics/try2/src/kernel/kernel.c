@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "../boot_info.h"
 #include "memory/string.h"
+#include "memory/sprintf.h"
 #include "serial/logger.h"
 #include "graphics/graphics.h"
 #include "graphics/gbuffer.h"
@@ -9,7 +10,6 @@
 boot_info_t global_boot_info;
 
 
-// -----------------------------------------------------------------
 
 
 
@@ -173,6 +173,8 @@ void gradient_demo() {
 
 
 void blur_demo() {
+    char buffer[64];
+
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0xFF007777);
     gb_text(main, "Blurring demo (fast boxing algorithm x3)", 5, 13, geneva9, color_white());
@@ -182,9 +184,15 @@ void blur_demo() {
     int sq_size[] = { 3, 7, 15, 30 };
     int blur_radii[] = { 0, 1, 2, 4, 8, 16 };
 
+    for (int r = 0; r < sizeof(blur_radii)/sizeof(blur_radii[0]); r++) {
+        gpoint p = gpoint_of(12 + r * (tile_side + 10), 30);
+        sprintfn(buffer, sizeof(buffer), "r=%d", blur_radii[r]);
+        gb_text(main, buffer, p.x, p.y, mits7, color_gray_of(0xcc));
+    }
+
     for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
         for (int r = 0; r < sizeof(blur_radii)/sizeof(blur_radii[0]); r++) {
-            gpoint p = gpoint_of(10 + r * (tile_side + 10), 30 + s * (tile_side + 10));
+            gpoint p = gpoint_of(10 + r * (tile_side + 10), 40 + s * (tile_side + 10));
             int offset = (tile_side/2) - sq_size[s] / 2;
 
             gb_rect(main, garea_with(gpoint_move(p, offset + 3, offset - 3), gsize_of(sq_size[s], sq_size[s])), color_params_solid(0xcccc00), 0);
@@ -199,26 +207,7 @@ void blur_demo() {
     graphics_display_main_buffer();
 }
 
-void kernel_main(boot_info_t* bi) {
-    // preserve boot info, asap
-    memcpy(&global_boot_info, bi, sizeof(boot_info_t));
-    initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
-    initialize_logger(LOG_LEVEL_DEBUG);
-    log.info("Kernel starting...");
-
-
-    // rectangles_borders_demo();
-    // blend_demo();
-    // fonts_demo();
-    // gradient_demo();
-    blur_demo();
-    // shadows_demo();
-    for (;;);
-
-
-    // ---------------------------------------------------------------------------------------
-
-
+void shadows_demo() {
     gbuffer *main = graphics_get_main_buffer();
     // gb_fill(main, 0x008080); // Windows '95
     color tek_light = 0xFF0482AC;
@@ -275,10 +264,27 @@ void kernel_main(boot_info_t* bi) {
 
     graphics_display_main_buffer();
 */
+}
 
+void kernel_main(boot_info_t* bi) {
+    // preserve boot info, asap
+    memcpy(&global_boot_info, bi, sizeof(boot_info_t));
+    initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
+    initialize_logger(LOG_LEVEL_DEBUG);
 
+    log.info("Kernel starting...");
+    // rectangles_borders_demo();
+    // blend_demo();
+    // fonts_demo();
+    // gradient_demo();
+    blur_demo();
+    // shadows_demo();
 
-
-    // kernel can never return, there's nothing to return to.
+    for (;;);
+    
+    
+    
+    // kernel can never return, there's nothing to return to. it's all burned down to the ground.
+    log.info("Kernel halted. Close the emulator.");
     for(;;) asm volatile("hlt");
 }

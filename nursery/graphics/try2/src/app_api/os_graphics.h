@@ -70,9 +70,9 @@ void gc_pop_state(graphics_context *ctx);  // ...and then going back to whatever
 void gc_set_fill(graphics_context *ctx, paint_info *fill);
 void gc_set_stroke(graphics_context *ctx, paint_info *stroke);
 void gc_set_font(graphics_context *ctx, font_info *font);
-void gc_trans_move(graphics_context *ctx, float dx, float dy);
-void gc_trans_scale(graphics_context *ctx, float sx, float sy);
-void gc_trans_rotate(graphics_context *ctx, float angle_in_radians);
+void gc_set_move_transformation(graphics_context *ctx, float dx, float dy);
+void gc_set_scale_transformation(graphics_context *ctx, float sx, float sy);
+void gc_set_rotate_transformation(graphics_context *ctx, float angle_in_radians);
 void gc_fill_rect(graphics_context *ctx, float x, float y, float w, float h);
 void gc_draw_line(graphics_context *ctx, float x1, float y1, float x2, float y2);
 void gc_draw_text(graphics_context *ctx, const char *text, float x, float base_y);
