@@ -84,7 +84,7 @@ static void serial_init() {
 
     serial_port_initialized = 1;
 }
-static void serial_write_char(char c) {
+static void serial_print_char(char c) {
     while ((inb(0x3F8 + 5) & 0x20) == 0); // Wait for transmit buffer empty
     outb(0x3F8, c);
 }
@@ -92,19 +92,19 @@ static void serial_write_char(char c) {
 
 // -------------------------------------------------------
 
-static void bios_print_char(char c) {
+static void print_char(char c) {
     // bios teletype int 0x10
     asm volatile ("movb $0x0E, %%ah\n" "movb %0, %%al\n"  "int $0x10\n" : : "m"(c) : "ax");
 
     // for debugging (copy/paste) in QEMU
     if (serial_port_initialized)
-        serial_write_char(c);
+        serial_print_char(c);
 }
 static void bios_print_str(char *s) {
-    while (*s) { bios_print_char(*s); s++; }
+    while (*s) { print_char(*s); s++; }
 }
 static void bios_print_int(int value) {
-    if (value == 0) { bios_print_char('0'); return; }
+    if (value == 0) { print_char('0'); return; }
     char buff[16];
     int negative = (value < 0);
     if (negative) value = -value;
@@ -118,35 +118,35 @@ static void bios_print_int(int value) {
     bios_print_str(buff + idx);
 }
 static void bios_print_hex32(uint32_t value) {
-    bios_print_char(hex_digits[(value >> 28) & 0xF]);
-    bios_print_char(hex_digits[(value >> 24) & 0xF]);
-    bios_print_char(hex_digits[(value >> 20) & 0xF]);
-    bios_print_char(hex_digits[(value >> 16) & 0xF]);
-    bios_print_char(hex_digits[(value >> 12) & 0xF]);
-    bios_print_char(hex_digits[(value >> 8)  & 0xF]);
-    bios_print_char(hex_digits[(value >> 4)  & 0xF]);
-    bios_print_char(hex_digits[(value >> 0)  & 0xF]);
+    print_char(hex_digits[(value >> 28) & 0xF]);
+    print_char(hex_digits[(value >> 24) & 0xF]);
+    print_char(hex_digits[(value >> 20) & 0xF]);
+    print_char(hex_digits[(value >> 16) & 0xF]);
+    print_char(hex_digits[(value >> 12) & 0xF]);
+    print_char(hex_digits[(value >> 8)  & 0xF]);
+    print_char(hex_digits[(value >> 4)  & 0xF]);
+    print_char(hex_digits[(value >> 0)  & 0xF]);
 }
 static void bios_print_hex16(uint16_t value) {
-    bios_print_char(hex_digits[(value >> 12) & 0xF]);
-    bios_print_char(hex_digits[(value >> 8)  & 0xF]);
-    bios_print_char(hex_digits[(value >> 4)  & 0xF]);
-    bios_print_char(hex_digits[(value >> 0)  & 0xF]);
+    print_char(hex_digits[(value >> 12) & 0xF]);
+    print_char(hex_digits[(value >> 8)  & 0xF]);
+    print_char(hex_digits[(value >> 4)  & 0xF]);
+    print_char(hex_digits[(value >> 0)  & 0xF]);
 }
 static void bios_print_hex8(uint8_t value) {
-    bios_print_char(hex_digits[(value >> 4)  & 0xF]);
-    bios_print_char(hex_digits[(value >> 0)  & 0xF]);
+    print_char(hex_digits[(value >> 4)  & 0xF]);
+    print_char(hex_digits[(value >> 0)  & 0xF]);
 }
 static void bios_hex_dump(void *buffer, int len) {
     for (int i = 0; i < len; i++) {
         bios_print_hex8(*(uint8_t *)buffer++);
-        bios_print_char(' ');
+        print_char(' ');
     }
 }
 static void bios_hex16_dump(void *buffer, int len) {
     for (int i = 0; i < len; i++) {
         bios_print_hex16(*(uint16_t *)buffer);
-        bios_print_char(' ');
+        print_char(' ');
         buffer += 2;
     }
 }
@@ -256,22 +256,22 @@ static inline uint16_t get_ss(void) { uint16_t v; asm volatile("mov %%ss,%0":"=r
 static inline uint32_t get_eip(void) { uint32_t eip; asm volatile ("call 1f\n"  "1: pop %0\n"  : "=r"(eip)); return eip; }
 
 #define print_cpu_status()  \
-    bios_print_str("AX:"); asm volatile("mov %%ax,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("BX:"); asm volatile("mov %%bx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("CX:"); asm volatile("mov %%cx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("DX:"); asm volatile("mov %%dx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("AX:"); asm volatile("mov %%ax,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("BX:"); asm volatile("mov %%bx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("CX:"); asm volatile("mov %%cx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("DX:"); asm volatile("mov %%dx,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
     bios_print_str("\r\n"); \
     \
-    bios_print_str("SI:"); asm volatile("mov %%si,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("DI:"); asm volatile("mov %%di,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("BP:"); asm volatile("mov %%bp,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("SP:"); asm volatile("mov %%sp,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("SI:"); asm volatile("mov %%si,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("DI:"); asm volatile("mov %%di,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("BP:"); asm volatile("mov %%bp,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("SP:"); asm volatile("mov %%sp,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
     bios_print_str("\r\n"); \
     \
-    bios_print_str("CS:"); asm volatile("mov %%cs,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("DS:"); asm volatile("mov %%ds,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("ES:"); asm volatile("mov %%es,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
-    bios_print_str("SS:"); asm volatile("mov %%ss,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); bios_print_char(' ');  \
+    bios_print_str("CS:"); asm volatile("mov %%cs,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("DS:"); asm volatile("mov %%ds,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("ES:"); asm volatile("mov %%es,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
+    bios_print_str("SS:"); asm volatile("mov %%ss,%0":"=r"(_reg16_)); bios_print_hex16(_reg16_); print_char(' ');  \
     bios_print_str("EIP:"); asm volatile ("call 1f\n"  "1: pop %0\n"  : "=r"(_reg32_)); bios_print_hex32(_reg32_);  \
     bios_print_str("\r\n"); \
     \

@@ -1,11 +1,16 @@
 #include <stdint.h>
 #include "../boot_info.h"
 #include "memory/string.h"
+#include "serial/serial.h"
 #include "graphics/graphics.h"
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
 
 boot_info_t global_boot_info;
+
+
+// -----------------------------------------------------------------
+
 
 
 void rectangles_borders_demo() {
@@ -169,22 +174,29 @@ void gradient_demo() {
 
 void blur_demo() {
     gbuffer *main = graphics_get_main_buffer();
-    gb_fill(main, 0x008080);
+    gb_fill(main, 0xFF007777);
     gb_text(main, "Blurring demo", 5, 13, geneva9, color_white());
+    int tile_side = 50;
+    gsize tile_size = gsize_of(tile_side, tile_side);
 
-    int sq_size[] = { 2, 4, 10, 30 };
-    int radii[] = { 0, 3, 10, 30 };
-    gpoint p = gpoint_of(100, 100);
+    serial_print_str("Hello from blur demo!\r\n");
 
-    for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
-        for (int r = 0; r < sizeof(radii)/sizeof(radii[0]); r++) {
-            gb_rect(main, garea_with(p, gsize_of(sq_size[s], sq_size[s])), color_params_solid(color_black()), sq_size[s] / 2);
-            gb_blur(main, garea_with(gpoint_move(p, -20, -20), gsize_of(80, 80)), radii[r], 0);
-            gb_border(main, garea_with(gpoint_move(p, -20, -20), gsize_of(80, 80)), 0, 1, color_tango_red());
-            p = gpoint_move(p, 100, 0);
-        }
-        p = gpoint_of(100, p.y + 100);
-    }
+    int sq_size[] = { 1, 4, 10, 30 };
+    int blur_radii[] = { 2, 3, 4, 5, 15 };
+
+    // for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
+    //     for (int r = 0; r < sizeof(blur_radii)/sizeof(blur_radii[0]); r++) {
+    int s = 3;
+    int r = 3;
+            gpoint p = gpoint_of(10 + r * (tile_side + 10), 30 + s * (tile_side + 10));
+            int offset = (tile_side/2) - sq_size[s] / 2;
+
+            // gb_rect(main, garea_with(gpoint_move(p, offset + 3, offset - 3), gsize_of(sq_size[s], sq_size[s])), color_params_solid(color_tango_red()), 0);
+            gb_rect(main, garea_with(gpoint_move(p, offset, offset), gsize_of(sq_size[s], sq_size[s])), color_params_solid(color_black()), 0);
+            gb_blur(main, garea_with(p, tile_size), blur_radii[r], 0);
+            gb_border(main, garea_with(p, tile_size), 0, 1, color_tango_red());
+    //     }
+    // }
 
     graphics_display_main_buffer();
 }
@@ -193,6 +205,7 @@ void kernel_main(boot_info_t* bi) {
     // preserve boot info, asap
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
     graphics_initialize((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
+    serial_init();
 
 
     // rectangles_borders_demo();

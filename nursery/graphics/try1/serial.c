@@ -14,7 +14,7 @@ static inline uint8_t inb(uint16_t port) {
     return ret;
 }
 
-static inline void serial_write_char(char c) {
+static inline void serial_print_char(char c) {
     // wait for transmit holding register empty
     while ((inb(COM1 + 5) & 0x20) == 0);
     outb(COM1, c);
@@ -22,6 +22,6 @@ static inline void serial_write_char(char c) {
 
 void serial_write(const char* str) {
     for (const char* p = str; *p; p++)
-        serial_write_char(*p);
+        serial_print_char(*p);
 }
 

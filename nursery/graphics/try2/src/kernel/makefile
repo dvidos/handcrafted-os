@@ -11,6 +11,7 @@ C_OBJS= \
     kernel.o \
     memory/string.o \
     memory/malloc.o \
+    serial/serial.o \
     graphics/graphics.o \
     graphics/gbuffer.o \
     graphics/color.o \

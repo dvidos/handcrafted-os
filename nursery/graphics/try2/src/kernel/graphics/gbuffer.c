@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include "../memory/malloc.h"
 #include "../memory/string.h"
+#include "../serial/serial.h"
 #include "gbuffer.h"
 
 
@@ -165,9 +166,11 @@ void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
     }
 }
 
-void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
+void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_color) {
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
+        return;
+    if (radius <= 1)
         return;
     
     // copy some zone from the original image, into the aux buffer, 
@@ -175,7 +178,7 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
     gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius),           gpoint_of(rect.origin.x, rect.origin.y - radius));
     gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
 
-    blur_window_apply_func *applicator = (do_blur_alpha ? blur_window_apply_alpha : blur_window_apply_color);
+    blur_window_apply_func *applicator = (blur_alpha_instead_of_color ? blur_window_apply_alpha : blur_window_apply_color);
 
     /*
         update: i used gaussian blur, which is ideal mathematically, but painfully slow.
@@ -187,9 +190,12 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
         i should make a building block (actually two, for x/y directions) in the include file,
         then call it 6 times here.
     */
-    for (int times = 0; times < 3; times++) {
+    for (int times = 0; times < 1; times++) {
+        // blur_window_box_algorithm_hor(gb, global_aux_buffer, rect, radius, applicator);
+        // blur_window_box_algorithm_ver(global_aux_buffer, gb, rect, radius, applicator);
+
         blur_window_box_algorithm_hor(gb, global_aux_buffer, rect, radius, applicator);
-        blur_window_box_algorithm_ver(global_aux_buffer, gb, rect, radius, applicator);
+        gb_copy_area(gb, global_aux_buffer, rect.size, rect.origin, rect.origin);
     }
 }
 
