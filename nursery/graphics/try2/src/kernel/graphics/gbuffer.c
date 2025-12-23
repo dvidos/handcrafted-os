@@ -12,7 +12,7 @@ static inline uint32_t *_pixel_ptr(const gbuffer *gb, int x, int y) { return gb-
 static inline uint32_t *_replace_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
 static inline uint32_t *_blend_pixel(uint32_t *ptr, color clr)   { *ptr++ = color_blend(*ptr, clr); return ptr; }
 static inline uint32_t *_set_pixel_row(uint32_t *ptr, uint32_t clr, int length)   { while (length-- > 0) { *ptr++ = clr; } return ptr; }
-static inline color _get_pixel(uint32_t *ptr) { return (color)ptr; }
+static inline color _get_pixel(uint32_t *ptr) { return (color)*ptr; }
 static inline uint32_t *_skip_pixel(uint32_t *ptr) { return ptr + 1; }
 static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) {  while (length-- > 0) { *dest++ = *src++; } }
 
@@ -166,44 +166,30 @@ void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
 }
 
 void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha) {
-    // we'll employ some Gaussian Blur!
     rect = garea_crop(rect, gb->area);
     if (garea_is_empty(rect))
         return;
     
-    if (radius > 32) return; // we don't support it for now
-
-    blur_window win;
-    uint32_t *pixel;
-
     // copy some zone from the original image, into the aux buffer, 
     // so that vertical passes do not bleed into unknown pixels.
-    // TODO: improve the blurring code, just up/down and left/right makes for poor results, need diagonal possibly weighted
-    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius), gpoint_of(rect.origin.x, rect.origin.y - radius));
+    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius),           gpoint_of(rect.origin.x, rect.origin.y - radius));
     gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
 
-    gpoint end = garea_bottom_right_exclusive(rect);
+    blur_window_apply_func *applicator = (do_blur_alpha ? blur_window_apply_alpha : blur_window_apply_color);
 
-    // ok, the stupid, slow way first, blur horizontally first
-    for (int curr_y = rect.origin.y; curr_y < end.y; curr_y++) {
-        for (int curr_x = rect.origin.x; curr_x < end.x; curr_x++) {
-            blur_window_reset(&win);
-            // read from buffer, write to aux_buffer
-            blur_window_collect_horizontally(&win, curr_x, curr_y, radius, gb);
-            pixel = _pixel_ptr(global_aux_buffer, curr_x, curr_y);
-            _replace_pixel(pixel, do_blur_alpha ? blur_window_apply_alpha(&win, *pixel) : blur_window_apply_color(&win, *pixel));
-        }
-    }
-
-    // then vertically
-    for (int curr_x = rect.origin.x; curr_x < end.x; curr_x++) {
-        for (int curr_y = rect.origin.y; curr_y < end.y; curr_y++) {
-            blur_window_reset(&win);
-            // read from aux_buffer, write to buffer
-            blur_window_collect_vertically(&win, curr_x, curr_y, radius, global_aux_buffer);
-            pixel = _pixel_ptr(gb, curr_x, curr_y);
-            _replace_pixel(pixel, do_blur_alpha ? blur_window_apply_alpha(&win, *pixel) : blur_window_apply_color(&win, *pixel));
-        }
+    /*
+        update: i used gaussian blur, which is ideal mathematically, but painfully slow.
+        it seems box blur (x3) achieves similar results. box blur is essentially adding average of sourounding pixels.
+        one pass horizontal, one vertical, then again, two more times (or more).
+        so, box blur is a building block, not a final product.
+        if one uses a running window, speed can be improved dramatically.
+        the window only works in the "middle", where the size of the window can be full.
+        i should make a building block (actually two, for x/y directions) in the include file,
+        then call it 6 times here.
+    */
+    for (int times = 0; times < 3; times++) {
+        blur_window_box_algorithm_hor(gb, global_aux_buffer, rect, radius, applicator);
+        blur_window_box_algorithm_ver(global_aux_buffer, gb, rect, radius, applicator);
     }
 }
 

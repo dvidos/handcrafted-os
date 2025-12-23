@@ -179,7 +179,8 @@ void blur_demo() {
     for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
         for (int r = 0; r < sizeof(radii)/sizeof(radii[0]); r++) {
             gb_rect(main, garea_with(p, gsize_of(sq_size[s], sq_size[s])), color_params_solid(color_black()), sq_size[s] / 2);
-            gb_blur(main, garea_with(gpoint_move(p, -50, -50), gsize_of(100, 100)), radii[r], 0);
+            gb_blur(main, garea_with(gpoint_move(p, -20, -20), gsize_of(80, 80)), radii[r], 0);
+            gb_border(main, garea_with(gpoint_move(p, -20, -20), gsize_of(80, 80)), 0, 1, color_tango_red());
             p = gpoint_move(p, 100, 0);
         }
         p = gpoint_of(100, p.y + 100);
