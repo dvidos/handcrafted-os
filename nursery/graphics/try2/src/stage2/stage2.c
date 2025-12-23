@@ -73,7 +73,7 @@ static inline unsigned char inb(unsigned short port) {
 
 // -------------------------------------------------------
 
-static void serial_init() {
+static void initialize_serial_port() {
     outb(0x3F8 + 1, 0x00); // disable interrupts
     outb(0x3F8 + 3, 0x80); // enable DLAB
     outb(0x3F8 + 0, 0x01); // baud divisor low  (115200 / 1 = 115200)
@@ -333,7 +333,7 @@ void stage2_main(void) {
     // - load the kernel into specific memory address
     // - enter protected mode and jump to the kernel entry
 
-    serial_init(); // for debugging in QEMU, run with "-serial stdio"
+    initialize_serial_port(); // for debugging in QEMU, run with "-serial stdio"
 
     bios_print_str("Loading kernel...\r\n");
     if (!load_kernel()) {

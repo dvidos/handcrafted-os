@@ -17,7 +17,7 @@ struct graphics_global_info {
 struct graphics_global_info ggi;
 
 
-void graphics_initialize(void *fb_address, int width, int height, int pitch, int bpp) {
+void initialize_graphics(void *fb_address, int width, int height, int pitch, int bpp) {
     ggi.fb_address = fb_address;
     ggi.fb_width = width;
     ggi.fb_height = height;
@@ -26,8 +26,8 @@ void graphics_initialize(void *fb_address, int width, int height, int pitch, int
 
     ggi.main_buffer = new_gbuffer(width, height);
     ggi.aux_buffer = new_gbuffer(width, height);
-    gbuffer_initialize(ggi.aux_buffer);
-    color_initialize();
+    initialize_gbuffer(ggi.aux_buffer);
+    initialize_colors();
 }
 
 void graphics_fill(color clr) {

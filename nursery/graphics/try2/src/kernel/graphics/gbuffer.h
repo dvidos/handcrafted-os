@@ -48,7 +48,7 @@ typedef struct shadow_params {
 static shadow_params shadow_params_of(color clr, uint8_t opacity, int offset_x, int offset_y, int blur_radius) { return (shadow_params){.clr = clr, .opacity = opacity, .offset_x = offset_x, .offset_y = offset_y, .blur_radius = blur_radius}; }
 
 
-void gbuffer_initialize(gbuffer *aux_buffer); // called from graphics initialization code
+void initialize_gbuffer(gbuffer *aux_buffer); // called from graphics initialization code
 
 
 gbuffer *new_gbuffer(int width, int height);

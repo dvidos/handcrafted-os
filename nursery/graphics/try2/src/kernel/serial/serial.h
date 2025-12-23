@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 
-void serial_init();
+void initialize_serial_port();
 void serial_print_char(char c);
 void serial_print_str(char *s);
 void serial_print_int(int value);

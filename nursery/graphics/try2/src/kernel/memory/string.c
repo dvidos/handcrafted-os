@@ -36,3 +36,30 @@ int memcmp(const void *s1, const void *s2, int size) {
     }
     return 0;
 }
+
+int strlen(const char* str)
+{
+	int len = 0;
+	while (str[len])
+		len++;
+	return len;
+}
+
+int strcmp(const char *a, const char *b) {
+    while (*a != '\0' && *b != '\0') {
+        if (*a != *b) {
+            return (int)(*a - *b);
+        }
+        a++;
+        b++;
+    }
+    // either one or both are '\0'
+    return (int)(*a - *b);
+}
+
+void strcpy(char *target, const char *source) {
+    while (*source != '\0') {
+        *target++ = *source++;
+    }
+    *target = *source; // final null char
+}

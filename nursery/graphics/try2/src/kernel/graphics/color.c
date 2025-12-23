@@ -9,7 +9,7 @@ typedef struct color_lookups {
 static color_lookups *lookups;
 
 
-void color_initialize() {
+void initialize_colors() {
     lookups = kmalloc(sizeof(color_lookups));
 
     // many operations in graphics boil down to a float division: "result = x * (y / 255)",

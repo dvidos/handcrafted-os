@@ -61,7 +61,7 @@ static inline void _fill_rect_slow(gbuffer *gb, garea rect, color_params cp) {
 // ----------------------------------------------------
 
 static gbuffer *global_aux_buffer = 0;
-void gbuffer_initialize(gbuffer *aux_buffer) {
+void initialize_gbuffer(gbuffer *aux_buffer) {
     // this buffer to be used for blurring, single threadedly
     global_aux_buffer = aux_buffer;
     // we should also prepare gausian distribution tables, floats that sum up to 1.

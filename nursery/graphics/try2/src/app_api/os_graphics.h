@@ -3,19 +3,19 @@
 
 /*
     So, core layers:
-    - app kit surface: windows, views, buttons, etc.
+    - app kit surface: windows, views, buttons, etc. 
     - graphics context: resolution-independent drawing of app kit or views, on graphics buffers
     - window manager: organizes owned windows and decides what is drawn where on screen
     
     An app will know:
     - mostly app kit (it holds one surface)
-    - it can use special graphics view, to gain access to arbitrary drawing
+    - it can use special graphics view, to gain access to arbitrary drawing (e.g. maps, charts, images etc)
     - it will use float coordinates, where 1 = 1pt = 1/72 inch ~= 0.3 mm
 
     Alternatively, the graphics context only converts the function calls
     into commands and queues them for an external rasterizer to render them,
-    which would be done by the WM. This gains flexibility with the backend,
-    allows zooming, scrolling etc. 
+    which would be managed by the WM. 
+    This gains flexibility with the backend, allows zooming, scrolling etc. 
     The graphics context and commands will still be resolution-independent.
 
 */
@@ -29,6 +29,7 @@ struct app_kit_widget {
     void (*draw)(app_kit_widget *wgt, graphics_context *ctx);
 };
 
+// or each discrete widget exposes a `get_widget_interface()` to return an interface
 app_kit_widget *create_app_kit_button(char *text, float x, float y);
 app_kit_widget *create_app_kit_label(char *text, float x, float y);
 app_kit_widget *create_app_kit_textbox(float x, float y, float w, float h);
@@ -99,7 +100,7 @@ void wm_hide_window(wm_window *w);
 void wm_show_window(wm_window *w);
 void wm_make_window_full_screen(wm_window *w);
 void wm_unmake_window_full_screen(wm_window *w);
-
+// from OS
 void wm_repaint_screen(); // repaints dirty areas only
 void wm_dispatch_event(event *e); // to current window
 

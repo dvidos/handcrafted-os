@@ -13,7 +13,7 @@ static inline unsigned char inb(unsigned short port) {
     return ret;
 }
 
-void serial_init() {
+void initialize_serial_port() {
     outb(0x3F8 + 1, 0x00); // disable interrupts
     outb(0x3F8 + 3, 0x80); // enable DLAB
     outb(0x3F8 + 0, 0x01); // baud divisor low  (115200 / 1 = 115200)

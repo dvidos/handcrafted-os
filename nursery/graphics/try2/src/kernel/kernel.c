@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "../boot_info.h"
 #include "memory/string.h"
-#include "serial/serial.h"
+#include "serial/logger.h"
 #include "graphics/graphics.h"
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
@@ -202,8 +202,9 @@ void blur_demo() {
 void kernel_main(boot_info_t* bi) {
     // preserve boot info, asap
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
-    graphics_initialize((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
-    serial_init();
+    initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
+    initialize_logger(LOG_LEVEL_DEBUG);
+    log.info("Kernel starting...");
 
 
     // rectangles_borders_demo();
