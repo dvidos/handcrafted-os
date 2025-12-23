@@ -55,6 +55,10 @@ static void blur_window_apply_alpha(blur_window *w, uint32_t *pixel) {
     _replace_pixel(pixel, color_with_alpha(w->alpha / w->size, _get_pixel(pixel)));
 }
 
+
+#define DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, win, extra)  ((void)0)
+// #define DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, win, extra)  __debug_blur(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, win, extra)
+
 static inline void __debug_blur(gbuffer *src, gbuffer *dest, int slice_num, int pixel_num, int slice_start_pixel, int slice_end_pixel, int radius, blur_window *win, char *extra) {
     serial_print_str("blur");
     serial_print_str(", radius="); serial_print_int(radius);
@@ -82,10 +86,10 @@ static inline void __debug_blur(gbuffer *src, gbuffer *dest, int slice_num, int 
 
 typedef uint32_t *blur_get_pixel_func(gbuffer *gb, int slice_num, int slice_px);
 
-static uint32_t *blur_get_pixel_hor_slices(gbuffer *gb, int slice_num, int slice_px) {
+static uint32_t *blur_get_pixel_horizontal_slices(gbuffer *gb, int slice_num, int slice_px) {
     return _pixel_ptr(gb, slice_px, slice_num); // pixels are x, slices are y
 }
-static uint32_t *blur_get_pixel_ver_slices(gbuffer *gb, int slice_num, int slice_px) {
+static uint32_t *blur_get_pixel_vertical_slices(gbuffer *gb, int slice_num, int slice_px) {
     return _pixel_ptr(gb, slice_num, slice_px); // slices are x, pixels are y
 }
 
@@ -103,7 +107,7 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
         int win_end_pixel;
         
         blur_window_clear(&win);
-        __debug_blur(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "init");
+        DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "init");
 
         // Prime window with pixels prior to the first pixel (partial window)
         for (int look_back = radius; look_back > 0; look_back--) {
@@ -112,7 +116,7 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
                 continue;
 
             blur_window_add(&win, get_slice_pixel(src, slice_num, px));
-            __debug_blur(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "priming");
+            DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "priming");
         }
 
         // Phase 1: growing window (left edge),  x = [x_start .. x_start+radius-1]
@@ -122,7 +126,7 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
             if (win_end_pixel < slice_end_pixel)
                 blur_window_add(&win, get_slice_pixel(src, slice_num, win_end_pixel));
             apply_blur(&win, get_slice_pixel(dest, slice_num, pixel_num));
-            __debug_blur(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "growing");
+            DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "growing");
         }
 
         // Phase 2: full window, fast path, x = [x_start+radius .. x_end-radius-1]
@@ -132,7 +136,7 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
 
             blur_window_add_and_remove(&win, get_slice_pixel(src, slice_num, win_end_pixel), get_slice_pixel(src, slice_num, win_start_pixel));
             apply_blur(&win, get_slice_pixel(dest, slice_num, pixel_num));
-            __debug_blur(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "stepping");
+            DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "stepping");
         }
 
         // Phase 3: shrinking window (right edge), x = [x_end-radius .. x_end-1]
@@ -145,7 +149,7 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
             if (win_end_pixel < src->area.size.width)
                 blur_window_add(&win, get_slice_pixel(src, slice_num, win_end_pixel));
             apply_blur(&win, get_slice_pixel(dest, slice_num, pixel_num));
-            __debug_blur(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "shrinking");
+            DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "shrinking");
         }
     }
 }
