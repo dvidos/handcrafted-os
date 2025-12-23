@@ -44,6 +44,63 @@ _stage2_start:
     jmp $
 
 
+
+; ----------------------------------------------------
+; vbe_get_ctrl_info_real
+; Called from C as: uint8_t vbe_get_ctrl_info_real(uint16_t addr);
+; Input (C-style): [SP+2] = addr
+; Output: AL = 1 on success, 0 on failure
+; Clobbers: BX, CX, DI, ES, BP
+; ----------------------------------------------------
+global vbe_get_ctrl_info_real
+vbe_get_ctrl_info_real:
+    push bp            ; save BP
+    mov bp, sp         ; setup stack frame
+    mov dx, [bp+4]     ; load first argument (addr) from stack
+                       ; [bp+0] = old BP
+                       ; [bp+2] = return address
+                       ; [bp+4] = addr
+    
+    ; Convert linear address DX -> ES:DI
+    mov bx, dx        ; save linear address
+    shr bx, 4         ; segment = linear >> 4
+    and dx, 0x0F      ; offset = linear & 0xF
+    mov es, bx
+    mov di, dx
+
+    ; Call VBE BIOS function 0x4F00
+    mov ax, 0x4F00
+    int 0x10
+
+    ; Check success (AX = 0x004F)
+    cmp ax, 0x004F
+    sete al           ; AL = 1 if success, 0 otherwise
+    mov sp, bp
+    pop bp             ; restore BP
+    ret
+
+
+
+global vbe_get_mode_info_real
+vbe_get_mode_info_real:
+    ; DX = linear buffer address
+    ; CX = mode
+
+    ; Convert linear address DX -> ES:DI
+    mov bx, dx
+    shr bx, 4
+    and dx, 0x0F
+    mov es, bx
+    mov di, dx
+
+    ; Call VBE BIOS function 0x4F01
+    mov ax, 0x4F01
+    int 0x10
+
+    cmp ax, 0x004F
+    sete al      ; AL = 1 on success, 0 otherwise
+    ret
+
 ; ----------------------------------------------------
 ; vbe_set_mode_real
 ; Input: BX = mode
@@ -62,36 +119,8 @@ vbe_set_mode_real:
 
 
 
-; ----------------------------------------------------
-; vbe_get_mode_info_real
-; Input:
-;   CX = mode
-;   DX = linear address of 256-byte buffer (from C)
-; Output:
-;   AL = 1 success, 0 fail
-; ----------------------------------------------------
-vbe_get_mode_info_real:
-    ; Convert linear address (DX) -> ES:DI
-    mov ax, dx
-    mov es, ax          ; segment = linear >> 4? We'll split correctly
-    mov di, dx          ; offset = linear & 0xF ?
 
-    ; Actually, split properly:
-    mov bx, dx          ; save linear
-    shr bx, 4           ; segment = linear >> 4
-    and dx, 0x0F        ; offset = linear & 0xF
-    mov es, bx
-    mov di, dx
 
-    mov ax, 0x4F01
-    int 0x10
-    cmp ax, 0x004F
-    jne .fail_get
-    mov al, 1
-    ret
-.fail_get:
-    xor al, al
-    ret
 
 
 
