@@ -21,8 +21,7 @@ global bios_read_sectors_asm
 
 
 
-
-; this label at address 0x800 / 2MB
+; this label at address 0x800 / 2KB
 _stage2_start:
 
     ; show we are running
@@ -44,40 +43,98 @@ _stage2_start:
     jmp $
 
 
+global asm_return_bp2_arg   ; seems [BP+2]  lo word of return address
+global asm_return_bp4_arg   ; seems [BP+4]  hi word of return address
+global asm_return_bp6_arg   ; seems [BP+6]  lo word of 1st arg (leftmost)
+global asm_return_bp8_arg   ; seems [BP+8]  hi word of 1st arg (leftmost)
+global asm_return_bp10_arg  ; seems [BP+10] lo word of 2nd arg
+global asm_return_bp12_arg  ; seems [BP+12] hi word of 2 arg
+
+asm_return_bp2_arg:
+    push bp
+    mov bp, sp
+    mov ax, [bp+2]
+    mov sp,bp
+    pop bp
+    ret
+asm_return_bp4_arg:
+    push bp
+    mov bp, sp
+    mov ax, [bp+4]
+    mov sp,bp
+    pop bp
+    ret
+asm_return_bp6_arg:
+    push bp
+    mov bp, sp
+    mov ax, [bp+6]
+    mov sp,bp
+    pop bp
+    ret
+asm_return_bp8_arg:
+    push bp
+    mov bp, sp
+    mov ax, [bp+8]
+    mov sp,bp
+    pop bp
+    ret
+asm_return_bp10_arg:
+    push bp
+    mov bp, sp
+    mov ax, [bp+10]
+    mov sp,bp
+    pop bp
+    ret
+asm_return_bp12_arg:
+    push bp
+    mov bp, sp
+    mov ax, [bp+12]
+    mov sp,bp
+    pop bp
+    ret
+    
+
 
 ; ----------------------------------------------------
 ; vbe_get_ctrl_info_real
-; Called from C as: uint8_t vbe_get_ctrl_info_real(uint16_t addr);
-; Input (C-style): [SP+2] = addr
-; Output: AL = 1 on success, 0 on failure
-; Clobbers: BX, CX, DI, ES, BP
+; Input: 4 bytes linear address of 512-byte buffer, pushed on stack
+; Output: AL = 1 success, 0 failure
+; Clobbers: BX, CX, DI, ES
 ; ----------------------------------------------------
 global vbe_get_ctrl_info_real
 vbe_get_ctrl_info_real:
-    push bp            ; save BP
-    mov bp, sp         ; setup stack frame
-    mov dx, [bp+4]     ; load first argument (addr) from stack
-                       ; [bp+0] = old BP
-                       ; [bp+2] = return address
-                       ; [bp+4] = addr
     
-    ; Convert linear address DX -> ES:DI
-    mov bx, dx        ; save linear address
-    shr bx, 4         ; segment = linear >> 4
-    and dx, 0x0F      ; offset = linear & 0xF
-    mov es, bx
-    mov di, dx
+    ; --- standard function prologue ---
+    push bp           ; save old BP, establish stack frame. [BP] is old BP, [BP+2/+4] is return addr, ...
+    mov bp, sp        ; [BP+6/+8] first arg low/high word, [BP+10/+12] second arg low/high word
+    sub sp, 0         ; allocate n local bytes. [BP-2], [BP-4] etc
+    ; --- save registers to destroy ---
+    push bx
+    push es
+    push di
+                      
+    ; load arg into ES:DI (hand coded dv)
+    mov dx, [bp+8]      ; load high word value...
+    mov es, dx          ; ...onto es
+    mov dx, [bp+6]      ; load low word value...
+    mov di, dx          ; ...onto di
 
-    ; Call VBE BIOS function 0x4F00
+    ; VBE BIOS function 0x4F00
     mov ax, 0x4F00
     int 0x10
 
-    ; Check success (AX = 0x004F)
+    ; set AL = 1 on success, 0 on failure
     cmp ax, 0x004F
-    sete al           ; AL = 1 if success, 0 otherwise
-    mov sp, bp
-    pop bp             ; restore BP
-    ret
+    sete al
+
+    ; restore registers (inverse)
+    pop di
+    pop es
+    pop bx
+    ; --- standard function epilogue ---
+    mov sp,bp         ; deallocate local stack space
+    pop bp            ; restore old BP
+    ret               ; return to caller
 
 
 

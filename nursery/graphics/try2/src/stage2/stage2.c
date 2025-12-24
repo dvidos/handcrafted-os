@@ -13,7 +13,7 @@
 
 
 boot_info_t boot_info;
-uint8_t vbe_info[256];
+uint8_t buffer[256];
 static const char *hex_digits = "0123456789abcdef";
 int serial_port_initialized = 0;
 uint8_t _reg8_;
@@ -21,41 +21,19 @@ uint16_t _reg16_;
 uint32_t _reg32_;
 
 
+extern uint32_t asm_return_bp2_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp4_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp6_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp8_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp10_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp12_arg(uint32_t word1, uint32_t word2);
+
+extern uint8_t vbe_get_ctrl_info_real(void *ptr);
 extern uint8_t vbe_set_mode_real(void);
 extern uint8_t vbe_get_mode_info_real(void);
 extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
 extern void enter_protected_mode(); // make sure arg is uint32_t, a long pointer
 
-// -------------------------------------------------------
-
-static inline uint8_t vbe_set_mode_c(uint16_t mode) {
-    uint8_t result;
-    asm volatile (
-        "movw %[m], %%bx\n"   /* mode -> BX */
-        "call vbe_set_mode_real\n"
-        "movb %%al, %[r]\n"
-        : [r] "=r"(result)
-        : [m] "r"(mode)
-        : "bx", "ax", "memory"
-    );
-    return result;
-}
-static inline uint8_t vbe_get_mode_info_c(uint16_t mode, void *buffer) {
-    uint8_t result;
-    uint32_t addr = (uint32_t)buffer;
-
-    /* pass linear address in DX to NASM, NASM splits to ES:DI */
-    asm volatile (
-        "movl %[addr], %%edx\n"
-        "movw %[m], %%cx\n"
-        "call vbe_get_mode_info_real\n"
-        "movb %%al, %[r]\n"
-        : [r] "=r"(result)
-        : [addr] "r"(addr), [m] "r"(mode)
-        : "cx", "dx", "ax", "di", "memory"
-    );
-    return result;
-}
 
 // -------------------------------------------------------
 
@@ -150,6 +128,12 @@ static void bios_hex16_dump(void *buffer, int len) {
         buffer += 2;
     }
 }
+static inline void panic(char *message) {
+    bios_print_str("\r\nPanic: ");
+    bios_print_str(message);
+    halt();
+}
+
 
 // -------------------------------------------------------
 
@@ -175,7 +159,7 @@ static void bios_hex16_dump(void *buffer, int len) {
 #define SCANCODE_KEYPAD_9  0x49
 #define SCANCODE_KEYPAD_0  0x52
 
-static inline uint16_t bios_ticks_low(void)
+static uint16_t bios_ticks_low(void)
 {
     // advances ~18.2065 times per second
     uint16_t ticks;
@@ -189,7 +173,7 @@ static inline uint16_t bios_ticks_low(void)
     );
     return ticks;
 }
-static inline int bios_key_available(void)
+static int bios_key_available(void)
 {
     unsigned char zf;
     asm volatile (
@@ -202,7 +186,7 @@ static inline int bios_key_available(void)
     );
     return !zf;   /* 1 = key available */
 }
-static inline uint16_t bios_read_key(void)
+static uint16_t bios_read_key(void)
 {
     uint16_t key;
     asm volatile (
@@ -215,7 +199,7 @@ static inline uint16_t bios_read_key(void)
     );
     return key;   /* AH=scancode, AL=ASCII */
 }
-static inline uint16_t get_key_with_timeout(unsigned seconds) {
+static uint16_t get_key_with_timeout(unsigned seconds) {
     unsigned start = bios_ticks_low();
     while (1) {
         if (bios_key_available()) {
@@ -252,6 +236,49 @@ static void discover_keys() {
 
 // -------------------------------------------------------
 
+typedef struct __attribute__((packed)) {
+    char     vbe_signature[4];     /* 'VBE2' */
+    uint16_t vbe_version;          /* BCD, e.g., 0x0200 for VBE 2.0 */
+    uint32_t oem_string_ptr;       /* physical pointer (seg:off) to OEM string */
+    uint8_t  capabilities[4];      /* capability bits */
+    uint32_t video_mode_ptr;       /* pointer to list of supported video modes */
+    uint16_t total_memory;         /* in 64KB blocks */
+    uint16_t oem_software_rev;
+    uint32_t oem_vendor_name_ptr;
+    uint32_t oem_product_name_ptr;
+    uint32_t oem_product_rev_ptr;
+    uint8_t  reserved[222];        /* reserved / padding */
+    uint8_t  oem_data[256];        /* optional OEM scratch area */
+} vbe_ctrl_info_t;
+
+static uint8_t vbe_get_mode_info_c(uint16_t mode, void *buffer) {
+    uint8_t result;
+    uint32_t addr = (uint32_t)buffer;
+
+    /* pass linear address in DX to NASM, NASM splits to ES:DI */
+    asm volatile (
+        "movl %[addr], %%edx\n"
+        "movw %[m], %%cx\n"
+        "call vbe_get_mode_info_real\n"
+        "movb %%al, %[r]\n"
+        : [r] "=r"(result)
+        : [addr] "r"(addr), [m] "r"(mode)
+        : "cx", "dx", "ax", "bx", "di", "memory"
+    );
+    return result;
+}
+static uint8_t vbe_set_mode_c(uint16_t mode) {
+    uint8_t result;
+    asm volatile (
+        "movw %[m], %%bx\n"   /* mode -> BX */
+        "call vbe_set_mode_real\n"
+        "movb %%al, %[r]\n"
+        : [r] "=r"(result)
+        : [m] "r"(mode)
+        : "bx", "ax", "memory"
+    );
+    return result;
+}
 
 // -------------------------------------------------------
 
@@ -280,21 +307,45 @@ static inline void rect_filled(int x1, int y1, int x2, int y2, uint32_t color) {
 }
 
 static int setup_graphics() {
+
+    vbe_ctrl_info_t vbe_info;
+    bios_print_str("getting vbe ctrl info ");
+    // ((char *)&vbe_ctrl_info)[0] = 'V';
+    // ((char *)&vbe_ctrl_info)[1] = 'B';
+    // ((char *)&vbe_ctrl_info)[2] = 'E';
+    // ((char *)&vbe_ctrl_info)[3] = '2';
+    if (vbe_get_ctrl_info_real(&vbe_info)) {
+        bios_print_str("success\r\n");
+        bios_print_char(vbe_info.vbe_signature[0]);
+        bios_print_char(vbe_info.vbe_signature[1]);
+        bios_print_char(vbe_info.vbe_signature[2]);
+        bios_print_char(vbe_info.vbe_signature[3]);
+        bios_print_char(' ');
+        bios_print_str("addr:"); bios_print_hex32(vbe_info.video_mode_ptr);
+        // bios_hex_dump(&vbe_ctrl_info, sizeof(vbe_ctrl_info_t));
+    } else {
+        bios_print_str("failure\r\n");
+    }
+    halt();
+
+
+
+
     // uint16_t mode = 0x10F;       //  320 x 200 x 24
     uint16_t mode = 0x112;    //  640 x 480 x 24
     // uint16_t mode = 0x115;    //  800 x 600 x 24
     // uint16_t mode = 0x118;    // 1024 x 768 x 24
     // uint16_t mode = 0x11b;    // 1280 x 1024 x 24
-    if (!vbe_get_mode_info_c(mode, vbe_info)) {
+    if (!vbe_get_mode_info_c(mode, buffer)) {
         bios_print_str("error getting VBE mode info");
         return 0;
     }
 
-    boot_info.fb.fb_addr = *(uint32_t*)(vbe_info + 0x28);
-    boot_info.fb.width   = *(uint16_t*)(vbe_info + 0x12);
-    boot_info.fb.height  = *(uint16_t*)(vbe_info + 0x14);
-    boot_info.fb.bpp     = *(uint8_t*)(vbe_info + 0x19);
-    boot_info.fb.pitch   = *(uint16_t*)(vbe_info + 0x10);
+    boot_info.fb.fb_addr = *(uint32_t*)(buffer + 0x28);
+    boot_info.fb.width   = *(uint16_t*)(buffer + 0x12);
+    boot_info.fb.height  = *(uint16_t*)(buffer + 0x14);
+    boot_info.fb.bpp     = *(uint8_t*)(buffer + 0x19);
+    boot_info.fb.pitch   = *(uint16_t*)(buffer + 0x10);
 
     // bios_print_str("VBE mode info\r\n");
     // bios_print_str("bytes:   "); bios_hex_dump(vbe_info, 256); bios_print_str("\r\n");
@@ -382,7 +433,7 @@ static inline uint32_t get_eip(void) { uint32_t eip; asm volatile ("call 1f\n"  
 
 // -----------------------------------------------------------------
 
-struct dap {
+struct disk_address_packet {
     uint8_t  size;      // must be 0x10
     uint8_t  reserved;
     uint16_t count;     // number of sectors to read
@@ -391,7 +442,7 @@ struct dap {
     uint64_t lba;       // starting LBA
 } __attribute__((packed));
 
-static struct dap disk_address_packet __attribute__((aligned(16)));
+static struct disk_address_packet disk_address_packet __attribute__((aligned(16)));
 
 int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
 {
@@ -425,6 +476,46 @@ int load_kernel() {
 
 // -------------------------------------------------------
 
+void assembly_interface_tests() {
+    /*
+        It seems gcc still converts everything to 32bit and pushes args as 4 bytes each, despite explicitly prototyped as uint16_t.
+        sizeof(void *) is 4
+        when C calls assembly, prototyped as uint16_t, f(0x1234, 0x5678, 0x9abc), in assembly, [BP+ 4] arg is 0x0000
+        when C calls assembly, prototyped as uint16_t, f(0x1234, 0x5678, 0x9abc), in assembly, [BP+ 6] arg is 0x1234
+        when C calls assembly, prototyped as uint16_t, f(0x1234, 0x5678, 0x9abc), in assembly, [BP+ 8] arg is 0x0000
+        when C calls assembly, prototyped as uint16_t, f(0x1234, 0x5678, 0x9abc), in assembly, [BP+10] arg is 0x5678
+        similarly,
+        when C calls assembly, prototyped as uint32_t, f(0x01234567, 0x89abcdef), in assembly, [BP+ 4] arg is 0x0000
+        when C calls assembly, prototyped as uint32_t, f(0x01234567, 0x89abcdef), in assembly, [BP+ 6] arg is 0x4567
+        when C calls assembly, prototyped as uint32_t, f(0x01234567, 0x89abcdef), in assembly, [BP+ 8] arg is 0x0123
+        when C calls assembly, prototyped as uint32_t, f(0x01234567, 0x89abcdef), in assembly, [BP+10] arg is 0xcdef
+
+        so:
+        - BP+6: low word of 1st arg
+        - BP+8: hi word of 1st arg
+        - BP+10: low word of 2nd arg,
+        - BP+12: hi word of 2nd arg
+    */
+
+    // bios_print_str("sizeof(void *) is "); bios_print_int(sizeof(void *)); bios_print_str("\r\n");
+    // bios_print_str("is assembly, [BP+ 2] arg is 0x"); bios_print_hex16(asm_return_bp2_arg(0x01234567, 0x89abcdef)); bios_print_str("\r\n");
+    // bios_print_str("is assembly, [BP+ 4] arg is 0x"); bios_print_hex16(asm_return_bp4_arg(0x01234567, 0x89abcdef)); bios_print_str("\r\n");
+    // bios_print_str("is assembly, [BP+ 6] arg is 0x"); bios_print_hex16(asm_return_bp6_arg(0x01234567, 0x89abcdef)); bios_print_str("\r\n");
+    // bios_print_str("is assembly, [BP+ 8] arg is 0x"); bios_print_hex16(asm_return_bp8_arg(0x01234567, 0x89abcdef)); bios_print_str("\r\n");
+    // bios_print_str("is assembly, [BP+10] arg is 0x"); bios_print_hex16(asm_return_bp10_arg(0x01234567, 0x89abcdef)); bios_print_str("\r\n");
+    // bios_print_str("is assembly, [BP+12] arg is 0x"); bios_print_hex16(asm_return_bp12_arg(0x01234567, 0x89abcdef)); bios_print_str("\r\n");
+    // halt();
+
+    if (sizeof(void *) != 4) panic("C assumed to have 32 bits pointers");
+    if (asm_return_bp6_arg(0x44332211,  0x88776655) != 0x2211) panic("C assumed to pass 32 bits values, [BP+6] should be low word of 1st argument");
+    if (asm_return_bp8_arg(0x44332211,  0x88776655) != 0x4433) panic("C assumed to pass 32 bits values, [BP+8] should be high word of 1st argument");
+    if (asm_return_bp10_arg(0x44332211, 0x88776655) != 0x6655) panic("C assumed to pass 32 bits values, [BP+10] should be low word of 2nd argument");
+    if (asm_return_bp12_arg(0x44332211, 0x88776655) != 0x8877) panic("C assumed to pass 32 bits values, [BP+12] should be high word of 2nd argument");
+
+}
+
+// -------------------------------------------------------
+
 void stage2_main(void) {
 
     // we are still running in real mode
@@ -437,6 +528,9 @@ void stage2_main(void) {
 
     initialize_serial_port(); // for debugging in QEMU, run with "-serial stdio"
 
+    assembly_interface_tests();
+
+
     bios_print_str("Loading kernel...\r\n");
     if (!load_kernel()) {
         bios_print_str("FAILED");
@@ -446,7 +540,6 @@ void stage2_main(void) {
     bios_print_str("Kernel at 0x"); bios_print_hex32(KERNEL_LOAD_ADDRESS); 
     bios_print_str(", boot info at 0x"); bios_print_hex32((uint32_t)&boot_info); 
     bios_print_str("\r\n");
-
 
     bios_print_str("Press a key to discover keys...");
     discover_keys();
