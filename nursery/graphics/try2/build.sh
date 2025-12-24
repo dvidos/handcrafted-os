@@ -18,7 +18,7 @@ STAGE1_SIZE=$SECTOR_SIZE    # one sector, this size preset by BIOS
 STAGE1_STACK_TOP=0x0000     # no stack used on 1st stage
 
 STAGE2_LOAD_ADDRESS=0x0800  # at 2 KB, to clear IVT, BIOS memory area etc.
-STAGE2_SIZE_KB=8            # 8 KB currently, can go up to 29 KB
+STAGE2_SIZE_KB=12           # 12 KB currently, can go up to 29 KB
 STAGE2_STACK_TOP=0x7C00     # at 31KB, right below stage 1
 
 KERNEL_LOAD_ADDRESS=0x8000  # 32KB, below upper memory (640KB), must be < 1MB, to be loaded in real mode.

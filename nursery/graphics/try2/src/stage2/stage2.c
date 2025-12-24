@@ -15,9 +15,12 @@
 
 boot_info_t boot_info; // to pass to the kernel
 char global_buffer[128]; // for printf() and others
-static const char *hex_digits = "0123456789abcdef";
-int serial_port_initialized = 0;
+const char *hex_digits = "0123456789abcdef";
+const char *menu_choices = "123456789abcdefghijklmnopqrstuvwxyz";
+uint16_t supported_vbe_modes[30];
+uint16_t supported_vbe_modes_count = 0;
 uint16_t selected_graphics_mode;
+int serial_port_initialized = 0;
 uint8_t _reg8_;
 uint16_t _reg16_;
 uint32_t _reg32_;
@@ -285,25 +288,6 @@ static uint16_t get_key_with_timeout(unsigned seconds) {
     }
 }
 
-static void check_interactive_mode() {
-    printf("Press any key to enter interactive mode...");
-    uint32_t key = get_key_with_timeout(1);
-    printf("\r\n");
-    if (key == 0) return;
-    
-    // and now we are in interactive mode.
-    while (1) {
-        printf("(interactive, esc=exit) > ");
-        key = get_key_with_timeout(0);
-        uint8_t scan = key >> 8;
-        char ascii = key & 0xFF;
-        if (scan == SCANCODE_ESCAPE)
-            break;
-
-        printf("scan code 0x%02x, ascii 0x%02x (%c)\r\n", scan, ascii, (ascii >= ' ' && ascii <= '~' ? ascii : '*'));
-    }
-    printf("\r\n");
-}
 
 // -------------------------------------------------------
 
@@ -397,11 +381,19 @@ static inline void rect_filled(int x1, int y1, int x2, int y2, uint32_t color) {
     }
 }
 
-static int enumerate_graphics_modes() {
+static int discover_graphics_modes() {
     vbe_ctrl_info_t vbe_info;
     vbe_mode_info_t mode_info;
     int max_width = 0;
     int max_bpp = 0;
+    uint16_t mode1920x1080x32 = 0;
+    uint16_t mode1920x1080x24 = 0;
+    uint16_t mode1280x720x32  = 0;
+    uint16_t mode1280x720x24  = 0;
+    uint16_t mode1024x768x32  = 0;
+    uint16_t mode1024x768x24  = 0;
+    uint16_t mode800x600      = 0;
+    uint16_t mode640x480      = 0;
 
     if (!vbe_get_ctrl_info_real(&vbe_info))
         panic("Could not get VBE controller info");
@@ -409,8 +401,6 @@ static int enumerate_graphics_modes() {
     if (vbe_info.vbe_signature[0] != 'V' || vbe_info.vbe_signature[1] != 'E' || vbe_info.vbe_signature[2] != 'S' || vbe_info.vbe_signature[3] != 'A')
         panic("VBE controller did not return VESA information");
     // bios_hex_dump(&vbe_info, sizeof(vbe_info));
-
-    #define FRAMEBUFFER_SUPPORT_MASK   0x80
 
     // this is a pointer to an array of 16 bit words, each with one mode number. The last entry has 0xFFFF for value
     uint16_t *modes_array = (uint16_t *)vbe_info.video_mode_ptr; // in qemu this was 0x000079d4
@@ -420,7 +410,7 @@ static int enumerate_graphics_modes() {
         if (!vbe_get_mode_info_real(mode, &mode_info))
             panic("Failed getting specific mode info");
 
-        if (mode_info.attributes & 0x80 == 0) { // bit 7 means there's framebuffer
+        if (mode_info.attributes & 0x80 == 0) { // bit 7 means there's a framebuffer
             // bios_print_str(" (no framebuffer)\r\n");
             continue;
         }
@@ -440,65 +430,34 @@ static int enumerate_graphics_modes() {
             // bios_print_str(" (unsupported rgb masks)\r\n");
             continue;
         }
-
-        if (mode_info.width > max_width || mode_info.bpp > max_bpp) {
-            max_width = mode_info.width;
-            max_bpp = mode_info.bpp;
-            selected_graphics_mode = mode;
-
-            boot_info.fb.fb_addr = mode_info.framebuffer;
-            boot_info.fb.bpp = mode_info.bpp;
-            boot_info.fb.pitch = mode_info.pitch;
-            boot_info.fb.width = mode_info.width;
-            boot_info.fb.height = mode_info.height;
-        }
-
         // printf("mode 0x%04x (%4d x %4d, %2d bpp, RGB masks %d/%d/%d)\r\n", mode, mode_info.width, mode_info.height, mode_info.bpp, mode_info.red_mask, mode_info.green_mask, mode_info.blue_mask);
-    }
-    printf("Default graphics mode %04x (%dx%dx%d)\r\n", selected_graphics_mode, boot_info.fb.width, boot_info.fb.height, boot_info.fb.bpp);
 
-    /*
-        24bpp x 1152 x 864 (mode 014b)
-        24bpp x 1280 x 1024 (mode 011b)
-        24bpp x 1280 x 720 (mode 018e)
-        24bpp x 1280 x 768 (mode 0176)
-        24bpp x 1280 x 800 (mode 0179)
-        24bpp x 1280 x 960 (mode 017c)
-        24bpp x 1400 x 1050 (mode 0182)
-        24bpp x 1440 x 900 (mode 017f)
-        24bpp x 1600 x 1200 (mode 011f)
-        24bpp x 1600 x 900 (mode 0194)
-        24bpp x 1680 x 1050 (mode 0185)
-        24bpp x 1920 x 1080 (mode 0191)
-        24bpp x 1920 x 1200 (mode 0188)
-        24bpp x 2560 x 1440 (mode 0197)
-        24bpp x 2560 x 1600 (mode 018b)
-        24bpp x 1024 x 768 (mode 0118)
-        24bpp x 800 x 600 (mode 0115)
-        24bpp x 640 x 480 (mode 0112)
-        24bpp x 320 x 200 (mode 010f)
-        ------------------------------
-        32bpp x 1152 x 864 (mode 014c)
-        32bpp x 1280 x 1024 (mode 0145)
-        32bpp x 1280 x 720 (mode 018f)
-        32bpp x 1280 x 768 (mode 0177)
-        32bpp x 1280 x 800 (mode 017a)
-        32bpp x 1280 x 960 (mode 017d)
-        32bpp x 1400 x 1050 (mode 0183)
-        32bpp x 1440 x 900 (mode 0180)
-        32bpp x 1600 x 1200 (mode 0147)
-        32bpp x 1600 x 900 (mode 0195)
-        32bpp x 1680 x 1050 (mode 0186)
-        32bpp x 1920 x 1080 (mode 0192)
-        32bpp x 1920 x 1200 (mode 0189)
-        32bpp x 2560 x 1440 (mode 0198)
-        32bpp x 2560 x 1600 (mode 018c)
-        32bpp x 1024 x 768 (mode 0144)
-        32bpp x 800 x 600 (mode 0143)
-        32bpp x 640 x 480 (mode 0142)
-        32bpp x 640 x 400 (mode 0141)
-        32bpp x 320 x 200 (mode 0140)
-    */
+        // save this for possible menu
+        if (supported_vbe_modes_count < sizeof(supported_vbe_modes)/sizeof(supported_vbe_modes[0]))
+            supported_vbe_modes[supported_vbe_modes_count++] = mode;
+
+        if      (mode_info.width == 1920 && mode_info.height == 1080 && mode_info.bpp == 32) mode1920x1080x32 = mode;
+        else if (mode_info.width == 1920 && mode_info.height == 1080 && mode_info.bpp == 24) mode1920x1080x24 = mode;
+        else if (mode_info.width == 1280 && mode_info.height ==  720 && mode_info.bpp == 32) mode1280x720x32  = mode;
+        else if (mode_info.width == 1280 && mode_info.height ==  720 && mode_info.bpp == 24) mode1280x720x24  = mode;
+        else if (mode_info.width == 1024 && mode_info.height ==  768 && mode_info.bpp == 32) mode1024x768x32  = mode;
+        else if (mode_info.width == 1024 && mode_info.height ==  768 && mode_info.bpp == 24) mode1024x768x24  = mode;
+        else if (mode_info.width ==  800 && mode_info.height ==  600)                        mode800x600      = mode;
+        else if (mode_info.width ==  640 && mode_info.height ==  480)                        mode640x480      = mode;
+    }
+    
+    // now, derive one default graphics mode
+    if      (mode1920x1080x32) selected_graphics_mode = mode1920x1080x32;
+    else if (mode1920x1080x24) selected_graphics_mode = mode1920x1080x24;
+    else if (mode1280x720x32)  selected_graphics_mode = mode1280x720x32;
+    else if (mode1280x720x24)  selected_graphics_mode = mode1280x720x24;
+    else if (mode1024x768x32)  selected_graphics_mode = mode1024x768x32;
+    else if (mode1024x768x24)  selected_graphics_mode = mode1024x768x24;
+    else if (mode800x600)      selected_graphics_mode = mode800x600;
+    else if (mode640x480)      selected_graphics_mode = mode640x480;
+    else panic("Could not detect a default graphics mode");
+
+    printf("Default graphics mode %04x\r\n", selected_graphics_mode);
 }
 
 static int enable_graphics_mode() {
@@ -510,8 +469,8 @@ static int enable_graphics_mode() {
     // selected_graphics_mode = 0x115;    //  800 x 600 x 24
     // selected_graphics_mode = 0x118;    // 1024 x 768 x 24
     // selected_graphics_mode = 0x11b;    // 1280 x 1024 x 24
-    selected_graphics_mode = 0x192;    // 32bpp x 1920 x 1080 (mode 0192)
-    selected_graphics_mode = 0x191;    // 24bpp x 1920 x 1080 (mode 0191) (works)
+    // selected_graphics_mode = 0x192;    // 32bpp x 1920 x 1080 (mode 0192)
+    // selected_graphics_mode = 0x191;    // 24bpp x 1920 x 1080 (mode 0191) (works)
     if (!vbe_get_mode_info_real(selected_graphics_mode, &mode_info))
         panic("Failed getting selected VBE mode info");
 
@@ -522,15 +481,6 @@ static int enable_graphics_mode() {
     boot_info.fb.height  = mode_info.height;
     boot_info.fb.bpp     = mode_info.bpp;
     boot_info.fb.pitch   = mode_info.pitch;
-
-    // bios_print_str("VBE mode info\r\n");
-    // bios_print_str("bytes:   "); bios_hex_dump(vbe_info, 256); bios_print_str("\r\n");
-    // bios_print_str("fb_addr: "); bios_print_hex32(fb_info.fb_addr); bios_print_str("\r\n");
-    // bios_print_str("width:   "); bios_print_int(fb_info.width); bios_print_str("\r\n");
-    // bios_print_str("height:  "); bios_print_int(fb_info.height); bios_print_str("\r\n");
-    // bios_print_str("bpp:     "); bios_print_int(fb_info.bpp);   bios_print_str("\r\n");
-    // bios_print_str("pitch:   "); bios_print_int(fb_info.pitch); bios_print_str("\r\n");
-    // halt();
 
     if (!vbe_set_mode_c(selected_graphics_mode))
         panic("Failed enabling selected VBE mode");
@@ -605,10 +555,6 @@ static inline uint32_t get_eip(void) { uint32_t eip; asm volatile ("call 1f\n"  
     \
     asm volatile("mov %%sp,%0":"=r"(_reg16_)); bios_print_str("Words at SP: "); bios_hex16_dump((void *)_reg16_, 16); bios_print_str("\r\n");
     // bios_print_str("Words at BP: "); bios_hex16_dump((void *)(uint32_t)get_bp(), 16); bios_print_str("\r\n");
-
-// -----------------------------------------------------------------
-
-void menu_clear();
 
 // -----------------------------------------------------------------
 
@@ -694,6 +640,94 @@ void run_assembly_interface_tests() {
 
 // -------------------------------------------------------
 
+
+int choice_of(int num_of_menu_items) {
+    while (1) {
+        uint16_t key = get_key_with_timeout(0);
+        uint8_t scancode = key >> 8;
+        uint8_t ascii = key & 0xFF;
+
+        if (scancode == SCANCODE_ESCAPE)
+            return -1; // -1 means escape
+
+        // should convert 1-9, a-z into choices
+        if (ascii >= '1' && ascii <= '9') {
+            int choice = ascii - '1';
+            if (choice < num_of_menu_items)
+                return choice;
+        } else if (ascii >= 'a' && ascii <= 'z') {
+            int choice = 10 + (ascii - 'a');
+            if (choice < num_of_menu_items)
+                return choice;
+        }
+    }
+}
+
+void graphics_mode_menu() {
+    int page_no = 0;
+    int page_size = 9;
+    int pages_count = (supported_vbe_modes_count + (page_size-1)) / page_size;
+    vbe_mode_info_t mode_info;
+
+    while (1) {
+        printf("Graphics Mode menu, page %d/%d (selected mode 0x%04x)\r\n", page_no + 1, pages_count, selected_graphics_mode);
+        for (int i = 0; i < page_size; i++) {
+            int index = page_no * page_size + i;
+            if (index >= supported_vbe_modes_count) break;
+            if (!vbe_get_mode_info_real(supported_vbe_modes[index], &mode_info))
+                panic("Could not fetch vbe information");
+            printf("  [%c] mode 0x%04x - %4d x %4d x %d bpp\r\n", ('1' + i), supported_vbe_modes[index], mode_info.width, mode_info.height, mode_info.bpp);
+        }
+        printf("  [p] prev page, [n] next page, [esc] back\r\n");
+        uint16_t key = get_key_with_timeout(0);
+        uint8_t ascii = key & 0xFF;
+        if (key >> 8 == SCANCODE_ESCAPE) {
+            break;
+        } else if (ascii >= '1' && ascii <= '9') {
+            int index = page_no * page_size + (ascii - '1');
+            if (index < supported_vbe_modes_count) {
+                printf("Setting selected mode to 0x%04x\r\n", supported_vbe_modes[index]);
+                selected_graphics_mode = supported_vbe_modes[index];
+            }
+        } else if (ascii == 'n') {
+            if (++page_no >= pages_count) page_no = 0;
+        } else if (ascii == 'p') {
+            if (--page_no < 0) page_no = pages_count - 1;
+        }
+    }
+}
+
+void bios_diagnostics_menu() {
+    while (1) {
+        printf("Main menu\r\n");
+        printf("   1  - Select graphics mode\r\n");
+        printf("   2  - BIOS diagnostics menu\r\n");
+        printf("  ESC - Continue to boot\r\n");
+        int choice = choice_of(2);
+        if      (choice <  0) break;
+        else if (choice == 0) { graphics_mode_menu(); }
+        else if (choice == 1) { bios_diagnostics_menu(); }
+    }
+}
+
+void possibly_interactive_menu() {
+    printf("Press any key to enter interactive mode...");
+    uint32_t key = get_key_with_timeout(1);
+    printf("\r\n");
+    if (key == 0) return;
+
+    while (1) {
+        printf("Main menu\r\n");
+        printf("   1  - Select graphics mode\r\n");
+        printf("   2  - BIOS diagnostics menu\r\n");
+        printf("  ESC - Continue to boot\r\n");
+        int choice = choice_of(2);
+        if      (choice <  0) break;
+        else if (choice == 0) { graphics_mode_menu(); }
+        else if (choice == 1) { bios_diagnostics_menu(); }
+    }
+}
+
 void stage2_main(void) {
 
     // we are still running in real mode
@@ -713,9 +747,8 @@ void stage2_main(void) {
     printf("Kernel loaded at 0x%x, boot info address 0x%x\r\n", KERNEL_LOAD_ADDRESS, &boot_info);
 
     // we should already have decided the default graphics mode...
-    enumerate_graphics_modes();
-
-    check_interactive_mode();
+    discover_graphics_modes();
+    possibly_interactive_menu();
 
     printf("Initializing graphics...\r\n");
     if (!enable_graphics_mode())
