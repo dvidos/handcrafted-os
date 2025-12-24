@@ -274,20 +274,20 @@ static uint16_t bios_read_key(void)
     );
     return key;   /* AH=scancode, AL=ASCII */
 }
-static uint16_t get_key_with_timeout(unsigned seconds) {
-    unsigned start = bios_ticks_low();
-    while (1) {
+static int get_key_with_timeout(unsigned seconds, uint8_t *scancode, uint8_t *ascii) {
+    unsigned deadline = bios_ticks_low() + 18 * seconds;
+    unsigned ticks = 0;
+    while (seconds == 0 || ticks < deadline) {
         if (bios_key_available()) {
-            return bios_read_key();
+            uint16_t combined = bios_read_key();
+            if (scancode != 0) *scancode = combined >> 8;
+            if (ascii != 0)    *ascii = combined & 0xFF;
+            return 1;
         }
-
-        unsigned ticks = bios_ticks_low();
-        if (seconds != 0 && ticks > start + 18 * seconds) {
-            return 0; //timed out
-        }
+        ticks = bios_ticks_low();
     }
+    return 0; // timed out
 }
-
 
 // -------------------------------------------------------
 
@@ -642,11 +642,9 @@ void run_assembly_interface_tests() {
 
 
 int choice_of(int num_of_menu_items) {
+    uint8_t scancode, ascii;
     while (1) {
-        uint16_t key = get_key_with_timeout(0);
-        uint8_t scancode = key >> 8;
-        uint8_t ascii = key & 0xFF;
-
+        get_key_with_timeout(0, &scancode, &ascii);
         if (scancode == SCANCODE_ESCAPE)
             return -1; // -1 means escape
 
@@ -668,6 +666,7 @@ void graphics_mode_menu() {
     int page_size = 9;
     int pages_count = (supported_vbe_modes_count + (page_size-1)) / page_size;
     vbe_mode_info_t mode_info;
+    uint8_t scancode, ascii;
 
     while (1) {
         printf("Graphics Mode menu, page %d/%d (selected mode 0x%04x)\r\n", page_no + 1, pages_count, selected_graphics_mode);
@@ -679,9 +678,8 @@ void graphics_mode_menu() {
             printf("  [%c] mode 0x%04x - %4d x %4d x %d bpp\r\n", ('1' + i), supported_vbe_modes[index], mode_info.width, mode_info.height, mode_info.bpp);
         }
         printf("  [p] prev page, [n] next page, [esc] back\r\n");
-        uint16_t key = get_key_with_timeout(0);
-        uint8_t ascii = key & 0xFF;
-        if (key >> 8 == SCANCODE_ESCAPE) {
+        get_key_with_timeout(0, &scancode, &ascii);
+        if (scancode == SCANCODE_ESCAPE) {
             break;
         } else if (ascii >= '1' && ascii <= '9') {
             int index = page_no * page_size + (ascii - '1');
@@ -712,9 +710,9 @@ void bios_diagnostics_menu() {
 
 void possibly_interactive_menu() {
     printf("Press any key to enter interactive mode...");
-    uint32_t key = get_key_with_timeout(1);
+    uint8_t got_key = get_key_with_timeout(1, 0, 0);
     printf("\r\n");
-    if (key == 0) return;
+    if (!got_key) return;
 
     while (1) {
         printf("Main menu\r\n");
