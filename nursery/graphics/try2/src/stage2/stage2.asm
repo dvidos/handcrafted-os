@@ -108,8 +108,8 @@ vbe_get_ctrl_info_real:
     push bp           ; save old BP, establish stack frame. [BP] is old BP, [BP+2/+4] is return addr, ...
     mov bp, sp        ; [BP+6/+8] first arg low/high word, [BP+10/+12] second arg low/high word
     sub sp, 0         ; allocate n local bytes. [BP-2], [BP-4] etc
-    ; --- save registers to destroy ---
-    push bx
+    ; --- save registers to use ---
+    push dx
     push es
     push di
                       
@@ -119,18 +119,16 @@ vbe_get_ctrl_info_real:
     mov dx, [bp+6]      ; load low word value...
     mov di, dx          ; ...onto di
 
-    ; VBE BIOS function 0x4F00
-    mov ax, 0x4F00
+    
+    mov ax, 0x4F00      ; VBE BIOS function 0x4F00
     int 0x10
-
-    ; set AL = 1 on success, 0 on failure
-    cmp ax, 0x004F
+    cmp ax, 0x004F      ; set AL = 1 on success, 0 on failure
     sete al
 
-    ; restore registers (inverse)
+    ; --- restore used registers in inverse ---
     pop di
     pop es
-    pop bx
+    pop dx
     ; --- standard function epilogue ---
     mov sp,bp         ; deallocate local stack space
     pop bp            ; restore old BP
@@ -140,23 +138,41 @@ vbe_get_ctrl_info_real:
 
 global vbe_get_mode_info_real
 vbe_get_mode_info_real:
-    ; DX = linear buffer address
-    ; CX = mode
+    ; --- standard function prologue ---
+    push bp           ; save old BP, establish stack frame. [BP] is old BP, [BP+2/+4] is return addr, ...
+    mov bp, sp        ; [BP+6/+8] first arg low/high word, [BP+10/+12] second arg low/high word
+    sub sp, 0         ; allocate n local bytes. [BP-2], [BP-4] etc
+    ; --- save registers to use ---
+    push cx
+    push dx
+    push es
+    push di
+    
+    ; load arg #1 (mode) into cx
+    mov cx, [bp+6]
 
-    ; Convert linear address DX -> ES:DI
-    mov bx, dx
-    shr bx, 4
-    and dx, 0x0F
-    mov es, bx
-    mov di, dx
-
-    ; Call VBE BIOS function 0x4F01
-    mov ax, 0x4F01
+    ; load arg #2 (buffer) into ES:DI
+    mov dx, [bp+12]      ; load high word value...
+    mov es, dx          ; ...onto es
+    mov dx, [bp+10]      ; load low word value...
+    mov di, dx          ; ...onto di
+    
+    mov ax, 0x4F01      ; Call VBE BIOS function 0x4F01
     int 0x10
+    cmp ax, 0x004F      ; AL = 1 on success, 0 otherwise
+    sete al
 
-    cmp ax, 0x004F
-    sete al      ; AL = 1 on success, 0 otherwise
-    ret
+    ; --- restore used registers in inverse ---
+    pop di
+    pop es
+    pop dx
+    pop cx
+    ; --- standard function epilogue ---
+    mov sp,bp         ; deallocate local stack space
+    pop bp            ; restore old BP
+    ret               ; return to caller
+
+
 
 ; ----------------------------------------------------
 ; vbe_set_mode_real

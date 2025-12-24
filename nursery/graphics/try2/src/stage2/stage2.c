@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdarg.h>
 #include "../boot_info.h"
 
 #ifndef KERNEL_LOAD_ADDRESS
@@ -12,14 +13,96 @@
 #endif
 
 
-boot_info_t boot_info;
-uint8_t buffer[256];
+boot_info_t boot_info; // to pass to the kernel
+char buffer[128];
 static const char *hex_digits = "0123456789abcdef";
 int serial_port_initialized = 0;
 uint8_t _reg8_;
 uint16_t _reg16_;
 uint32_t _reg32_;
 
+// ----------------------------------------------------------
+
+typedef struct menu_item {
+    char text[64];
+    uint32_t data;
+} menu_item;
+typedef struct menu {
+    char *title[64];
+    int items_count;
+    menu_item menu_items[20]; // 1-9, a-k
+} menu;
+
+// -------------------------------------------------------
+
+int strlen(const char* str) {
+	int len = 0;
+	while (str[len]) len++;
+	return len;
+}
+
+void vsnprintf(char *buffer, int size, const char *fmt, va_list vl) {
+    char c, digits[32], pad_char;
+    int pad_width, start, negative;
+
+    while (*fmt != 0 && size > 1) {
+        c = *fmt++;
+        if (c != '%') {
+            *buffer++ = c;
+            size--;
+            continue;
+        }
+        // so we are in a '%'. parse justification, zeros, width
+        pad_char = ' ';
+        pad_width = 0;
+        negative = 0;
+        c = *fmt++;
+        if (c == '0') { pad_char = '0'; c = *fmt++; }
+        while (c >= '0' && c <= '9') { pad_width = (pad_width * 10) + (c - '0'); c = *fmt++; }
+
+        // now apply modifier
+        if (c == 'd') {
+            int d = va_arg(vl, int);
+            start = sizeof(digits) - 1;
+            digits[start] = 0;
+            if (d == 0 && size > 1) {
+                digits[--start] = '0';
+            } else {
+                if (d < 0) { negative = 1; d = -d; }
+                while (d > 0) { digits[--start] = '0' + (d % 10); d /= 10; }
+                if (negative) digits[--start] = '-';
+            }
+            pad_width -= (sizeof(digits) - 1 - start);
+            while (pad_width-- > 0 && size > 1) { *buffer++ = pad_char; size--; }
+            while (digits[start] != 0 && size > 1) { *buffer++ = digits[start++]; size--; }
+            
+        } else if (c == 'x') {
+            unsigned int u = va_arg(vl, int);
+            start = sizeof(digits) - 1;
+            digits[start] = 0;
+            while (u > 0) { digits[--start] = hex_digits[u & 0xF]; u >>= 4; }
+            pad_width -= (sizeof(digits) - 1 - start);
+            while (pad_width-- > 0 && size > 1) { *buffer++ = pad_char; size--; }
+            while (digits[start] != 0 && size > 1) { *buffer++ = digits[start++]; size--; }
+
+        } else if (c == 'c') {
+            char chr = (char)va_arg(vl, int);
+            if (size > 1) { *buffer++ = chr; size--; }
+        } else if (c == 's') {
+            char *str = va_arg(vl, char *);
+            while (*str != 0 && size > 1) { *buffer++ = *str++; size--; pad_width--; }
+            while (pad_width-- > 0 && size > 1) { *buffer++ = pad_char; size--; }
+        } else {
+            if (size > 1) { *buffer++ = c; size--; }
+        }
+    }
+
+    *buffer++ = 0;
+    size--;
+}
+
+
+// -------------------------------------------------------
 
 extern uint32_t asm_return_bp2_arg(uint32_t word1, uint32_t word2);
 extern uint32_t asm_return_bp4_arg(uint32_t word1, uint32_t word2);
@@ -29,8 +112,8 @@ extern uint32_t asm_return_bp10_arg(uint32_t word1, uint32_t word2);
 extern uint32_t asm_return_bp12_arg(uint32_t word1, uint32_t word2);
 
 extern uint8_t vbe_get_ctrl_info_real(void *ptr);
+extern uint8_t vbe_get_mode_info_real(uint16_t mode, void *ptr);
 extern uint8_t vbe_set_mode_real(void);
-extern uint8_t vbe_get_mode_info_real(void);
 extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
 extern void enter_protected_mode(); // make sure arg is uint32_t, a long pointer
 
@@ -128,6 +211,15 @@ static void bios_hex16_dump(void *buffer, int len) {
         buffer += 2;
     }
 }
+static void printf(const char *fmt, ...) {
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, vl);
+    va_end(vl);
+    for (int i = 0; buffer[i] != 0; i++)
+        bios_print_char(buffer[i]);
+}
+
 static inline void panic(char *message) {
     bios_print_str("\r\nPanic: ");
     bios_print_str(message);
@@ -236,37 +328,57 @@ static void discover_keys() {
 
 // -------------------------------------------------------
 
-typedef struct __attribute__((packed)) {
-    char     vbe_signature[4];     /* 'VBE2' */
-    uint16_t vbe_version;          /* BCD, e.g., 0x0200 for VBE 2.0 */
-    uint32_t oem_string_ptr;       /* physical pointer (seg:off) to OEM string */
-    uint8_t  capabilities[4];      /* capability bits */
-    uint32_t video_mode_ptr;       /* pointer to list of supported video modes */
-    uint16_t total_memory;         /* in 64KB blocks */
-    uint16_t oem_software_rev;
-    uint32_t oem_vendor_name_ptr;
-    uint32_t oem_product_name_ptr;
-    uint32_t oem_product_rev_ptr;
-    uint8_t  reserved[222];        /* reserved / padding */
-    uint8_t  oem_data[256];        /* optional OEM scratch area */
-} vbe_ctrl_info_t;
+typedef struct vbe_ctrl_info_t vbe_ctrl_info_t;
+typedef struct vbe_mode_info_t vbe_mode_info_t;
 
-static uint8_t vbe_get_mode_info_c(uint16_t mode, void *buffer) {
-    uint8_t result;
-    uint32_t addr = (uint32_t)buffer;
+struct __attribute__((packed)) vbe_ctrl_info_t {
+    char     vbe_signature[4];     // 'VBE2', 'VESA' in response
+    uint16_t vbe_version;          // BCD, e.g., 0x0200 for VBE 2.0 */
+    uint32_t oem_string_ptr;       // physical pointer (seg:off) to OEM string */
+    uint8_t  capabilities[4];      // capability bits */
+    uint32_t video_mode_ptr;       // pointer to list of supported video modes */
+    uint16_t total_memory;         // in 64KB blocks */
+    uint8_t  reserved[492];
+};
 
-    /* pass linear address in DX to NASM, NASM splits to ES:DI */
-    asm volatile (
-        "movl %[addr], %%edx\n"
-        "movw %[m], %%cx\n"
-        "call vbe_get_mode_info_real\n"
-        "movb %%al, %[r]\n"
-        : [r] "=r"(result)
-        : [addr] "r"(addr), [m] "r"(mode)
-        : "cx", "dx", "ax", "bx", "di", "memory"
-    );
-    return result;
-}
+struct __attribute__((packed)) vbe_mode_info_t {
+	uint16_t attributes;		// deprecated, only bit 7 should be of interest to you, and it indicates the mode supports a linear frame buffer.
+	uint8_t window_a;			// deprecated
+	uint8_t window_b;			// deprecated
+	uint16_t granularity;		// deprecated; used while calculating bank numbers
+	uint16_t window_size;
+	uint16_t segment_a;
+	uint16_t segment_b;
+	uint32_t win_func_ptr;		// deprecated; used to switch banks from protected mode without returning to real mode
+	uint16_t pitch;			// number of bytes per horizontal line
+	uint16_t width;			// width in pixels
+	uint16_t height;			// height in pixels
+	uint8_t w_char;			// unused...
+	uint8_t y_char;			// ...
+	uint8_t planes;
+	uint8_t bpp;			// bits per pixel in this mode
+	uint8_t banks;			// deprecated; total number of banks in this mode
+	uint8_t memory_model;
+	uint8_t bank_size;		// deprecated; size of a bank, almost always 64 KB but may be 16 KB...
+	uint8_t image_pages;
+	uint8_t reserved0;
+
+	uint8_t red_mask;
+	uint8_t red_position;
+	uint8_t green_mask;
+	uint8_t green_position;
+	uint8_t blue_mask;
+	uint8_t blue_position;
+	uint8_t reserved_mask;
+	uint8_t reserved_position;
+	uint8_t direct_color_attributes;
+
+	uint32_t framebuffer;		// physical address of the linear frame buffer; write here to draw to the screen
+	uint32_t off_screen_mem_off;
+	uint16_t off_screen_mem_size;	// size of memory in the framebuffer but not being displayed on the screen
+	uint8_t reserved1[206];
+};
+
 static uint8_t vbe_set_mode_c(uint16_t mode) {
     uint8_t result;
     asm volatile (
@@ -309,34 +421,121 @@ static inline void rect_filled(int x1, int y1, int x2, int y2, uint32_t color) {
 static int setup_graphics() {
 
     vbe_ctrl_info_t vbe_info;
-    bios_print_str("getting vbe ctrl info ");
-    // ((char *)&vbe_ctrl_info)[0] = 'V';
-    // ((char *)&vbe_ctrl_info)[1] = 'B';
-    // ((char *)&vbe_ctrl_info)[2] = 'E';
-    // ((char *)&vbe_ctrl_info)[3] = '2';
-    if (vbe_get_ctrl_info_real(&vbe_info)) {
-        bios_print_str("success\r\n");
-        bios_print_char(vbe_info.vbe_signature[0]);
-        bios_print_char(vbe_info.vbe_signature[1]);
-        bios_print_char(vbe_info.vbe_signature[2]);
-        bios_print_char(vbe_info.vbe_signature[3]);
-        bios_print_char(' ');
-        bios_print_str("addr:"); bios_print_hex32(vbe_info.video_mode_ptr);
-        // bios_hex_dump(&vbe_ctrl_info, sizeof(vbe_ctrl_info_t));
-    } else {
-        bios_print_str("failure\r\n");
+    vbe_mode_info_t mode_info;
+    bios_print_str("getting vbe ctrl info\r\n");
+    
+    if (!vbe_get_ctrl_info_real(&vbe_info))
+        panic("Could not get VBE controller info");
+    
+    if (vbe_info.vbe_signature[0] != 'V' || vbe_info.vbe_signature[1] != 'E' || vbe_info.vbe_signature[2] != 'S' || vbe_info.vbe_signature[3] != 'A')
+        panic("VBE controller did not return VESA information");
+    // bios_hex_dump(&vbe_info, sizeof(vbe_info));
+
+    #define FRAMEBUFFER_SUPPORT_MASK   0x80
+
+    // this is a pointer to an array of 16 bit words, each with one mode number. The last entry has 0xFFFF for value
+    uint16_t *modes_array = (uint16_t *)vbe_info.video_mode_ptr; // in qemu this was 0x000079d4
+    for (; *modes_array != 0xFFFF; modes_array++) {
+        uint16_t mode = *modes_array;
+
+        if (!vbe_get_mode_info_real(mode, &mode_info))
+            panic("cannot get mode info");
+
+        if (mode_info.attributes & 0x80 == 0) { // bit 7 means there's framebuffer
+            // bios_print_str(" (no framebuffer)\r\n");
+            continue;
+        }
+        if (mode_info.memory_model != 6) { 
+            // 0: TEXT_MODE: Standard text mode (character cells, not pixel‑addressable).
+            // 1: CGA: CGA graphics mode memory layout.
+            // 2: HERCULES: Hercules graphics adapter memory layout (monochrome), planar.
+            // 3: PLANAR: Planar graphics mode (like VGA planar 4‑plane modes).
+            // 4: PACKED: Packed pixel (“chunky”) mode where each pixel’s bits are packed consecutively in memory (e.g., 8‑bpp).
+            // 5: NON_CHAIN_4: Non‑chain‑4 mode (a 256‑color mode variant that isn’t VGA “chain 4”).
+            // 6: DIRECT_COLOR: Direct color mode (true color/“direct” — separate red/green/blue bitfields).
+            // 7: YUV: YUV color mode (representing luminance/chrominance formats).
+            // bios_print_str(" (unsupported memory model)\r\n");
+            continue;
+        }
+        if (mode_info.red_mask != 8 || mode_info.green_mask != 8 || mode_info.blue_mask != 8) {
+            // bios_print_str(" (unsupported rgb masks)\r\n");
+            continue;
+        }
+
+        bios_print_str("mode ");
+        bios_print_hex16(mode); 
+        bios_print_str(" (");
+        bios_print_int(mode_info.width);
+        bios_print_str(" x ");
+        bios_print_int(mode_info.height);
+        bios_print_str(" x ");
+        bios_print_int(mode_info.bpp);
+        bios_print_str("bpp)");
+        bios_print_str(" mem model 0x");
+        bios_print_hex8(mode_info.memory_model);
+        bios_print_str(" bits red ");
+        bios_print_int(mode_info.red_mask);
+        bios_print_str(", green ");
+        bios_print_int(mode_info.green_mask);
+        bios_print_str(", blue ");
+        bios_print_int(mode_info.blue_mask);
+
+        bios_print_str("\r\n");
     }
     halt();
 
+    /*
+24bpp x 1152 x 864 (mode 014b)
+24bpp x 1280 x 1024 (mode 011b)
+24bpp x 1280 x 720 (mode 018e)
+24bpp x 1280 x 768 (mode 0176)
+24bpp x 1280 x 800 (mode 0179)
+24bpp x 1280 x 960 (mode 017c)
+24bpp x 1400 x 1050 (mode 0182)
+24bpp x 1440 x 900 (mode 017f)
+24bpp x 1600 x 1200 (mode 011f)
+24bpp x 1600 x 900 (mode 0194)
+24bpp x 1680 x 1050 (mode 0185)
+24bpp x 1920 x 1080 (mode 0191)
+24bpp x 1920 x 1200 (mode 0188)
+24bpp x 2560 x 1440 (mode 0197)
+24bpp x 2560 x 1600 (mode 018b)
+24bpp x 1024 x 768 (mode 0118)
+24bpp x 800 x 600 (mode 0115)
+24bpp x 640 x 480 (mode 0112)
+24bpp x 320 x 200 (mode 010f)
+------------------------------
+32bpp x 1152 x 864 (mode 014c)
+32bpp x 1280 x 1024 (mode 0145)
+32bpp x 1280 x 720 (mode 018f)
+32bpp x 1280 x 768 (mode 0177)
+32bpp x 1280 x 800 (mode 017a)
+32bpp x 1280 x 960 (mode 017d)
+32bpp x 1400 x 1050 (mode 0183)
+32bpp x 1440 x 900 (mode 0180)
+32bpp x 1600 x 1200 (mode 0147)
+32bpp x 1600 x 900 (mode 0195)
+32bpp x 1680 x 1050 (mode 0186)
+32bpp x 1920 x 1080 (mode 0192)
+32bpp x 1920 x 1200 (mode 0189)
+32bpp x 2560 x 1440 (mode 0198)
+32bpp x 2560 x 1600 (mode 018c)
+32bpp x 1024 x 768 (mode 0144)
+32bpp x 800 x 600 (mode 0143)
+32bpp x 640 x 480 (mode 0142)
+32bpp x 640 x 400 (mode 0141)
+32bpp x 320 x 200 (mode 0140)
+
+    */
 
 
-
+    char buffer[512];
     // uint16_t mode = 0x10F;       //  320 x 200 x 24
     uint16_t mode = 0x112;    //  640 x 480 x 24
     // uint16_t mode = 0x115;    //  800 x 600 x 24
     // uint16_t mode = 0x118;    // 1024 x 768 x 24
     // uint16_t mode = 0x11b;    // 1280 x 1024 x 24
-    if (!vbe_get_mode_info_c(mode, buffer)) {
+    if (!vbe_get_mode_info_real(mode, buffer)) {
         bios_print_str("error getting VBE mode info");
         return 0;
     }
@@ -430,6 +629,10 @@ static inline uint32_t get_eip(void) { uint32_t eip; asm volatile ("call 1f\n"  
     \
     asm volatile("mov %%sp,%0":"=r"(_reg16_)); bios_print_str("Words at SP: "); bios_hex16_dump((void *)_reg16_, 16); bios_print_str("\r\n");
     // bios_print_str("Words at BP: "); bios_hex16_dump((void *)(uint32_t)get_bp(), 16); bios_print_str("\r\n");
+
+// -----------------------------------------------------------------
+
+void menu_clear();
 
 // -----------------------------------------------------------------
 
@@ -528,8 +731,9 @@ void stage2_main(void) {
 
     initialize_serial_port(); // for debugging in QEMU, run with "-serial stdio"
 
-    assembly_interface_tests();
+    printf("Hello from printf (d=%d, d=%5d, d=%05d), (x=%x, x=%4x, x=%08x), (c='%c') (s=\"%10s\")\r\n", 0, -123, +123, 0x1, 0xfb, 0xf2b456, '~', "string");
 
+    assembly_interface_tests();
 
     bios_print_str("Loading kernel...\r\n");
     if (!load_kernel()) {
