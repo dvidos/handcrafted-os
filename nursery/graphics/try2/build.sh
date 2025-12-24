@@ -36,6 +36,12 @@ printf "Stage2         %8x    %10d KB     %6d KB       %6d           %8x \n"  $S
 printf "Kernel         %8x    %10d KB     %6d KB       %6d           %8x \n"  $KERNEL_LOAD_ADDRESS $(($KERNEL_LOAD_ADDRESS / 1024)) $KERNEL_SIZE_KB $KERNEL_SECTORS $KERNEL_STACK_TOP
 printf "Kernel first sector LBA: %d\n" $KERNEL_FIRST_SECTOR_LBA
 
+#           Address (hex)    Address (dec)          Size      Sectors    Stack top (hex)
+# Stage1             7c00            31 KB        512  B            1                  0 
+# Stage2              800             2 KB          8 KB           16               7c00 
+# Kernel             8000            32 KB         64 KB          128              90000 
+# Kernel first sector LBA: 17
+
 # ------------------------------------------------------------------
 
 pad_file_to_sectors() {
@@ -60,18 +66,16 @@ nasm src/stage1/stage1.asm \
     -DSTAGE2_SECTORS=$STAGE2_SECTORS \
     -f bin -o build/stage1.bin
 
+
 # Stage 2 bootloader (16 sectors, 8KB)
-nasm src/stage2/stage2.asm \
-    -DSTAGE2_STACK_TOP=$STAGE2_STACK_TOP \
-    -DKERNEL_STACK_TOP=$KERNEL_STACK_TOP \
-    -DKERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS \
-    -f elf32 -o build/stage2_asm.o
-i686-elf-gcc -m16 -ffreestanding -fno-pie -O2 \
-    -DKERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS \
-    -DKERNEL_FIRST_SECTOR_LBA=$KERNEL_FIRST_SECTOR_LBA \
-    -DKERNEL_SECTORS=$KERNEL_SECTORS \
-    -c src/stage2/stage2.c -o build/stage2.o
-i686-elf-ld -Ttext=$STAGE2_LOAD_ADDRESS -e _stage2_start -o build/stage2.elf build/stage2_asm.o build/stage2.o 
+make -B -C src/stage2 \
+    STAGE2_LOAD_ADDRESS=$STAGE2_LOAD_ADDRESS \
+    STAGE2_STACK_TOP=$STAGE2_STACK_TOP \
+    KERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS \
+    KERNEL_STACK_TOP=$KERNEL_STACK_TOP \
+    KERNEL_FIRST_SECTOR_LBA=$KERNEL_FIRST_SECTOR_LBA \
+    KERNEL_SECTORS=$KERNEL_SECTORS
+cp src/stage2/stage2.elf build/stage2.elf
 objcopy -O binary build/stage2.elf build/stage2.bin
 pad_file_to_sectors build/stage2.bin $STAGE2_SECTORS
 
