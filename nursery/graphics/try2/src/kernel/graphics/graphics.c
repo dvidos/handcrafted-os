@@ -143,12 +143,17 @@ int graphics_display_main_buffer() {
     uint8_t *vbe = ggi.fb_address;
     uint32_t *buff_argb = ggi.main_buffer->buffer_argb;
     int count = (ggi.fb_height * ggi.fb_pitch);
-    
-    while (count-- > 0) {
-        // alpha channel is lost here.
-        *vbe++ = color_b(*buff_argb);
-        *vbe++ = color_g(*buff_argb);
-        *vbe++ = color_r(*buff_argb);
-        buff_argb++;
+
+    if (ggi.fb_bpp == 32) {
+        memcpy(vbe, buff_argb, count);
+    } else if (ggi.fb_bpp == 24) {
+        while (count-- > 0) {
+            // alpha channel is lost here.
+            *vbe++ = color_b(*buff_argb);
+            *vbe++ = color_g(*buff_argb);
+            *vbe++ = color_r(*buff_argb);
+            buff_argb++;
+        }
     }
+    
 }

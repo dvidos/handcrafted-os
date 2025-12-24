@@ -14,14 +14,61 @@
 
 
 boot_info_t boot_info; // to pass to the kernel
-char buffer[128];
+char global_buffer[128]; // for printf() and others
 static const char *hex_digits = "0123456789abcdef";
 int serial_port_initialized = 0;
+uint16_t selected_graphics_mode;
 uint8_t _reg8_;
 uint16_t _reg16_;
 uint32_t _reg32_;
 
 // ----------------------------------------------------------
+
+extern uint32_t asm_return_bp2_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp4_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp6_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp8_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp10_arg(uint32_t word1, uint32_t word2);
+extern uint32_t asm_return_bp12_arg(uint32_t word1, uint32_t word2);
+extern uint8_t vbe_get_ctrl_info_real(void *ptr);
+extern uint8_t vbe_get_mode_info_real(uint16_t mode, void *ptr);
+extern uint8_t vbe_set_mode_real(void);
+extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
+extern void enter_protected_mode(); // make sure arg is uint32_t, a long pointer
+
+// -------------------------------------------------------
+
+static inline void halt() {
+    for(;;) asm("hlt");
+}
+static inline void outb(unsigned short port, unsigned char val) {
+    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
+}
+static inline unsigned char inb(unsigned short port) {
+    unsigned char ret;
+    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
+// -------------------------------------------------------
+
+static void initialize_serial_port() {
+    outb(0x3F8 + 1, 0x00); // disable interrupts
+    outb(0x3F8 + 3, 0x80); // enable DLAB
+    outb(0x3F8 + 0, 0x01); // baud divisor low  (115200 / 1 = 115200)
+    outb(0x3F8 + 1, 0x00); // baud divisor high
+    outb(0x3F8 + 3, 0x03); // 8 bits, no parity, 1 stop bit
+    outb(0x3F8 + 2, 0xC7); // enable FIFO
+    outb(0x3F8 + 4, 0x0B); // IRQs disabled, RTS/DSR set
+
+    serial_port_initialized = 1;
+}
+static void serial_print_char(char c) {
+    while ((inb(0x3F8 + 5) & 0x20) == 0); // Wait for transmit buffer empty
+    outb(0x3F8, c);
+}
+
+// -------------------------------------------------------
 
 typedef struct menu_item {
     char text[64];
@@ -40,7 +87,10 @@ int strlen(const char* str) {
 	while (str[len]) len++;
 	return len;
 }
-
+void strcpy(char *target, const char *source) {
+    while (*source != '\0') *target++ = *source++;
+    *target = *source; // final null char
+}
 void vsnprintf(char *buffer, int size, const char *fmt, va_list vl) {
     char c, digits[32], pad_char;
     int pad_width, start, negative;
@@ -100,56 +150,6 @@ void vsnprintf(char *buffer, int size, const char *fmt, va_list vl) {
     *buffer++ = 0;
     size--;
 }
-
-
-// -------------------------------------------------------
-
-extern uint32_t asm_return_bp2_arg(uint32_t word1, uint32_t word2);
-extern uint32_t asm_return_bp4_arg(uint32_t word1, uint32_t word2);
-extern uint32_t asm_return_bp6_arg(uint32_t word1, uint32_t word2);
-extern uint32_t asm_return_bp8_arg(uint32_t word1, uint32_t word2);
-extern uint32_t asm_return_bp10_arg(uint32_t word1, uint32_t word2);
-extern uint32_t asm_return_bp12_arg(uint32_t word1, uint32_t word2);
-
-extern uint8_t vbe_get_ctrl_info_real(void *ptr);
-extern uint8_t vbe_get_mode_info_real(uint16_t mode, void *ptr);
-extern uint8_t vbe_set_mode_real(void);
-extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
-extern void enter_protected_mode(); // make sure arg is uint32_t, a long pointer
-
-
-// -------------------------------------------------------
-
-static inline void halt() {
-    for(;;) asm("hlt");
-}
-static inline void outb(unsigned short port, unsigned char val) {
-    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-static inline unsigned char inb(unsigned short port) {
-    unsigned char ret;
-    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
-
-// -------------------------------------------------------
-
-static void initialize_serial_port() {
-    outb(0x3F8 + 1, 0x00); // disable interrupts
-    outb(0x3F8 + 3, 0x80); // enable DLAB
-    outb(0x3F8 + 0, 0x01); // baud divisor low  (115200 / 1 = 115200)
-    outb(0x3F8 + 1, 0x00); // baud divisor high
-    outb(0x3F8 + 3, 0x03); // 8 bits, no parity, 1 stop bit
-    outb(0x3F8 + 2, 0xC7); // enable FIFO
-    outb(0x3F8 + 4, 0x0B); // IRQs disabled, RTS/DSR set
-
-    serial_port_initialized = 1;
-}
-static void serial_print_char(char c) {
-    while ((inb(0x3F8 + 5) & 0x20) == 0); // Wait for transmit buffer empty
-    outb(0x3F8, c);
-}
-
 
 // -------------------------------------------------------
 
@@ -214,10 +214,10 @@ static void bios_hex16_dump(void *buffer, int len) {
 static void printf(const char *fmt, ...) {
     va_list vl;
     va_start(vl, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, vl);
+    vsnprintf(global_buffer, sizeof(global_buffer), fmt, vl);
     va_end(vl);
-    for (int i = 0; buffer[i] != 0; i++)
-        bios_print_char(buffer[i]);
+    for (int i = 0; global_buffer[i] != 0; i++)
+        bios_print_char(global_buffer[i]);
 }
 
 static inline void panic(char *message) {
@@ -230,26 +230,6 @@ static inline void panic(char *message) {
 // -------------------------------------------------------
 
 #define SCANCODE_ESCAPE    0x01
-#define SCANCODE_NUMROW_1  0x02
-#define SCANCODE_NUMROW_2  0x03
-#define SCANCODE_NUMROW_3  0x04
-#define SCANCODE_NUMROW_4  0x05
-#define SCANCODE_NUMROW_5  0x06
-#define SCANCODE_NUMROW_6  0x07
-#define SCANCODE_NUMROW_7  0x08
-#define SCANCODE_NUMROW_8  0x09
-#define SCANCODE_NUMROW_9  0x0a
-#define SCANCODE_NUMROW_0  0x0b
-#define SCANCODE_KEYPAD_1  0x4f
-#define SCANCODE_KEYPAD_2  0x50
-#define SCANCODE_KEYPAD_3  0x51
-#define SCANCODE_KEYPAD_4  0x4b
-#define SCANCODE_KEYPAD_5  0x4c
-#define SCANCODE_KEYPAD_6  0x4d
-#define SCANCODE_KEYPAD_7  0x47
-#define SCANCODE_KEYPAD_8  0x48
-#define SCANCODE_KEYPAD_9  0x49
-#define SCANCODE_KEYPAD_0  0x52
 
 static uint16_t bios_ticks_low(void)
 {
@@ -305,25 +285,24 @@ static uint16_t get_key_with_timeout(unsigned seconds) {
     }
 }
 
-static void discover_keys() {
-
+static void check_interactive_mode() {
+    printf("Press any key to enter interactive mode...");
     uint32_t key = get_key_with_timeout(1);
-    if (key == 0)
-        return;
+    printf("\r\n");
+    if (key == 0) return;
+    
+    // and now we are in interactive mode.
     while (1) {
-        bios_print_str("Press any key, esc to exit");
+        printf("(interactive, esc=exit) > ");
         key = get_key_with_timeout(0);
-        uint8_t scancode = key >> 8;
-        if (scancode == SCANCODE_ESCAPE)
+        uint8_t scan = key >> 8;
+        char ascii = key & 0xFF;
+        if (scan == SCANCODE_ESCAPE)
             break;
 
-        bios_print_str(": scan code 0x"); bios_print_hex8((key >> 8) & 0xFF);
-        bios_print_str(", ascii 0x"); bios_print_hex8(key & 0xFF);
-        if ((key & 0xFF) >= 32 && (key & 0xFF) < 128) {
-            bios_print_str(" ('"); bios_print_char(key & 0xFF); bios_print_str("')"); 
-        }
-        bios_print_str("\r\n");
+        printf("scan code 0x%02x, ascii 0x%02x (%c)\r\n", scan, ascii, (ascii >= ' ' && ascii <= '~' ? ascii : '*'));
     }
+    printf("\r\n");
 }
 
 // -------------------------------------------------------
@@ -418,12 +397,12 @@ static inline void rect_filled(int x1, int y1, int x2, int y2, uint32_t color) {
     }
 }
 
-static int setup_graphics() {
-
+static int enumerate_graphics_modes() {
     vbe_ctrl_info_t vbe_info;
     vbe_mode_info_t mode_info;
-    bios_print_str("getting vbe ctrl info\r\n");
-    
+    int max_width = 0;
+    int max_bpp = 0;
+
     if (!vbe_get_ctrl_info_real(&vbe_info))
         panic("Could not get VBE controller info");
     
@@ -439,7 +418,7 @@ static int setup_graphics() {
         uint16_t mode = *modes_array;
 
         if (!vbe_get_mode_info_real(mode, &mode_info))
-            panic("cannot get mode info");
+            panic("Failed getting specific mode info");
 
         if (mode_info.attributes & 0x80 == 0) { // bit 7 means there's framebuffer
             // bios_print_str(" (no framebuffer)\r\n");
@@ -462,89 +441,87 @@ static int setup_graphics() {
             continue;
         }
 
-        bios_print_str("mode ");
-        bios_print_hex16(mode); 
-        bios_print_str(" (");
-        bios_print_int(mode_info.width);
-        bios_print_str(" x ");
-        bios_print_int(mode_info.height);
-        bios_print_str(" x ");
-        bios_print_int(mode_info.bpp);
-        bios_print_str("bpp)");
-        bios_print_str(" mem model 0x");
-        bios_print_hex8(mode_info.memory_model);
-        bios_print_str(" bits red ");
-        bios_print_int(mode_info.red_mask);
-        bios_print_str(", green ");
-        bios_print_int(mode_info.green_mask);
-        bios_print_str(", blue ");
-        bios_print_int(mode_info.blue_mask);
+        if (mode_info.width > max_width || mode_info.bpp > max_bpp) {
+            max_width = mode_info.width;
+            max_bpp = mode_info.bpp;
+            selected_graphics_mode = mode;
 
-        bios_print_str("\r\n");
+            boot_info.fb.fb_addr = mode_info.framebuffer;
+            boot_info.fb.bpp = mode_info.bpp;
+            boot_info.fb.pitch = mode_info.pitch;
+            boot_info.fb.width = mode_info.width;
+            boot_info.fb.height = mode_info.height;
+        }
+
+        // printf("mode 0x%04x (%4d x %4d, %2d bpp, RGB masks %d/%d/%d)\r\n", mode, mode_info.width, mode_info.height, mode_info.bpp, mode_info.red_mask, mode_info.green_mask, mode_info.blue_mask);
     }
-    halt();
+    printf("Default graphics mode %04x (%dx%dx%d)\r\n", selected_graphics_mode, boot_info.fb.width, boot_info.fb.height, boot_info.fb.bpp);
 
     /*
-24bpp x 1152 x 864 (mode 014b)
-24bpp x 1280 x 1024 (mode 011b)
-24bpp x 1280 x 720 (mode 018e)
-24bpp x 1280 x 768 (mode 0176)
-24bpp x 1280 x 800 (mode 0179)
-24bpp x 1280 x 960 (mode 017c)
-24bpp x 1400 x 1050 (mode 0182)
-24bpp x 1440 x 900 (mode 017f)
-24bpp x 1600 x 1200 (mode 011f)
-24bpp x 1600 x 900 (mode 0194)
-24bpp x 1680 x 1050 (mode 0185)
-24bpp x 1920 x 1080 (mode 0191)
-24bpp x 1920 x 1200 (mode 0188)
-24bpp x 2560 x 1440 (mode 0197)
-24bpp x 2560 x 1600 (mode 018b)
-24bpp x 1024 x 768 (mode 0118)
-24bpp x 800 x 600 (mode 0115)
-24bpp x 640 x 480 (mode 0112)
-24bpp x 320 x 200 (mode 010f)
-------------------------------
-32bpp x 1152 x 864 (mode 014c)
-32bpp x 1280 x 1024 (mode 0145)
-32bpp x 1280 x 720 (mode 018f)
-32bpp x 1280 x 768 (mode 0177)
-32bpp x 1280 x 800 (mode 017a)
-32bpp x 1280 x 960 (mode 017d)
-32bpp x 1400 x 1050 (mode 0183)
-32bpp x 1440 x 900 (mode 0180)
-32bpp x 1600 x 1200 (mode 0147)
-32bpp x 1600 x 900 (mode 0195)
-32bpp x 1680 x 1050 (mode 0186)
-32bpp x 1920 x 1080 (mode 0192)
-32bpp x 1920 x 1200 (mode 0189)
-32bpp x 2560 x 1440 (mode 0198)
-32bpp x 2560 x 1600 (mode 018c)
-32bpp x 1024 x 768 (mode 0144)
-32bpp x 800 x 600 (mode 0143)
-32bpp x 640 x 480 (mode 0142)
-32bpp x 640 x 400 (mode 0141)
-32bpp x 320 x 200 (mode 0140)
-
+        24bpp x 1152 x 864 (mode 014b)
+        24bpp x 1280 x 1024 (mode 011b)
+        24bpp x 1280 x 720 (mode 018e)
+        24bpp x 1280 x 768 (mode 0176)
+        24bpp x 1280 x 800 (mode 0179)
+        24bpp x 1280 x 960 (mode 017c)
+        24bpp x 1400 x 1050 (mode 0182)
+        24bpp x 1440 x 900 (mode 017f)
+        24bpp x 1600 x 1200 (mode 011f)
+        24bpp x 1600 x 900 (mode 0194)
+        24bpp x 1680 x 1050 (mode 0185)
+        24bpp x 1920 x 1080 (mode 0191)
+        24bpp x 1920 x 1200 (mode 0188)
+        24bpp x 2560 x 1440 (mode 0197)
+        24bpp x 2560 x 1600 (mode 018b)
+        24bpp x 1024 x 768 (mode 0118)
+        24bpp x 800 x 600 (mode 0115)
+        24bpp x 640 x 480 (mode 0112)
+        24bpp x 320 x 200 (mode 010f)
+        ------------------------------
+        32bpp x 1152 x 864 (mode 014c)
+        32bpp x 1280 x 1024 (mode 0145)
+        32bpp x 1280 x 720 (mode 018f)
+        32bpp x 1280 x 768 (mode 0177)
+        32bpp x 1280 x 800 (mode 017a)
+        32bpp x 1280 x 960 (mode 017d)
+        32bpp x 1400 x 1050 (mode 0183)
+        32bpp x 1440 x 900 (mode 0180)
+        32bpp x 1600 x 1200 (mode 0147)
+        32bpp x 1600 x 900 (mode 0195)
+        32bpp x 1680 x 1050 (mode 0186)
+        32bpp x 1920 x 1080 (mode 0192)
+        32bpp x 1920 x 1200 (mode 0189)
+        32bpp x 2560 x 1440 (mode 0198)
+        32bpp x 2560 x 1600 (mode 018c)
+        32bpp x 1024 x 768 (mode 0144)
+        32bpp x 800 x 600 (mode 0143)
+        32bpp x 640 x 480 (mode 0142)
+        32bpp x 640 x 400 (mode 0141)
+        32bpp x 320 x 200 (mode 0140)
     */
+}
 
+static int enable_graphics_mode() {
 
-    char buffer[512];
-    // uint16_t mode = 0x10F;       //  320 x 200 x 24
-    uint16_t mode = 0x112;    //  640 x 480 x 24
-    // uint16_t mode = 0x115;    //  800 x 600 x 24
-    // uint16_t mode = 0x118;    // 1024 x 768 x 24
-    // uint16_t mode = 0x11b;    // 1280 x 1024 x 24
-    if (!vbe_get_mode_info_real(mode, buffer)) {
-        bios_print_str("error getting VBE mode info");
-        return 0;
-    }
+    vbe_mode_info_t mode_info;
+    // Default graphics mode 018c (2560x1600x32)
+    // selected_graphics_mode = 0x10F;       //  320 x 200 x 24
+    // selected_graphics_mode = 0x112;    //  640 x 480 x 24
+    // selected_graphics_mode = 0x115;    //  800 x 600 x 24
+    // selected_graphics_mode = 0x118;    // 1024 x 768 x 24
+    // selected_graphics_mode = 0x11b;    // 1280 x 1024 x 24
+    selected_graphics_mode = 0x192;    // 32bpp x 1920 x 1080 (mode 0192)
+    selected_graphics_mode = 0x191;    // 24bpp x 1920 x 1080 (mode 0191) (works)
+    if (!vbe_get_mode_info_real(selected_graphics_mode, &mode_info))
+        panic("Failed getting selected VBE mode info");
 
-    boot_info.fb.fb_addr = *(uint32_t*)(buffer + 0x28);
-    boot_info.fb.width   = *(uint16_t*)(buffer + 0x12);
-    boot_info.fb.height  = *(uint16_t*)(buffer + 0x14);
-    boot_info.fb.bpp     = *(uint8_t*)(buffer + 0x19);
-    boot_info.fb.pitch   = *(uint16_t*)(buffer + 0x10);
+    printf("Info from mode %x: %dx%dx%d, pitch=%d\r\n", selected_graphics_mode, mode_info.width, mode_info.height, mode_info.bpp, mode_info.pitch);
+
+    boot_info.fb.fb_addr = mode_info.framebuffer;
+    boot_info.fb.width   = mode_info.width;
+    boot_info.fb.height  = mode_info.height;
+    boot_info.fb.bpp     = mode_info.bpp;
+    boot_info.fb.pitch   = mode_info.pitch;
 
     // bios_print_str("VBE mode info\r\n");
     // bios_print_str("bytes:   "); bios_hex_dump(vbe_info, 256); bios_print_str("\r\n");
@@ -555,13 +532,12 @@ static int setup_graphics() {
     // bios_print_str("pitch:   "); bios_print_int(fb_info.pitch); bios_print_str("\r\n");
     // halt();
 
-    if (!vbe_set_mode_c(mode)) {
-        bios_print_str("error setting VBE mode");
-        return 0;
-    }
+    if (!vbe_set_mode_c(selected_graphics_mode))
+        panic("Failed enabling selected VBE mode");
 
     return 1;
 }
+
 static void graphics_demo() {
     // demonstration!
     uint8_t *fb = (uint8_t *)boot_info.fb.fb_addr;
@@ -679,7 +655,7 @@ int load_kernel() {
 
 // -------------------------------------------------------
 
-void assembly_interface_tests() {
+void run_assembly_interface_tests() {
     /*
         It seems gcc still converts everything to 32bit and pushes args as 4 bytes each, despite explicitly prototyped as uint16_t.
         sizeof(void *) is 4
@@ -714,7 +690,6 @@ void assembly_interface_tests() {
     if (asm_return_bp8_arg(0x44332211,  0x88776655) != 0x4433) panic("C assumed to pass 32 bits values, [BP+8] should be high word of 1st argument");
     if (asm_return_bp10_arg(0x44332211, 0x88776655) != 0x6655) panic("C assumed to pass 32 bits values, [BP+10] should be low word of 2nd argument");
     if (asm_return_bp12_arg(0x44332211, 0x88776655) != 0x8877) panic("C assumed to pass 32 bits values, [BP+12] should be high word of 2nd argument");
-
 }
 
 // -------------------------------------------------------
@@ -730,31 +705,22 @@ void stage2_main(void) {
     // - enter protected mode and jump to the kernel entry
 
     initialize_serial_port(); // for debugging in QEMU, run with "-serial stdio"
-
-    printf("Hello from printf (d=%d, d=%5d, d=%05d), (x=%x, x=%4x, x=%08x), (c='%c') (s=\"%10s\")\r\n", 0, -123, +123, 0x1, 0xfb, 0xf2b456, '~', "string");
-
-    assembly_interface_tests();
+    run_assembly_interface_tests();
 
     bios_print_str("Loading kernel...\r\n");
-    if (!load_kernel()) {
-        bios_print_str("FAILED");
-        halt();
-    }
-    
-    bios_print_str("Kernel at 0x"); bios_print_hex32(KERNEL_LOAD_ADDRESS); 
-    bios_print_str(", boot info at 0x"); bios_print_hex32((uint32_t)&boot_info); 
-    bios_print_str("\r\n");
+    if (!load_kernel())
+        panic("Failed loading kernel");
+    printf("Kernel loaded at 0x%x, boot info address 0x%x\r\n", KERNEL_LOAD_ADDRESS, &boot_info);
 
-    bios_print_str("Press a key to discover keys...");
-    discover_keys();
-    bios_print_str("\r\n");
+    // we should already have decided the default graphics mode...
+    enumerate_graphics_modes();
 
-    bios_print_str("Initializing graphics...\r\n");
-    if (!setup_graphics()) {
-        bios_print_str("FAILED");
-        halt();
-    }
+    check_interactive_mode();
 
-    // bios_print_str("Initializing protected mode and jumping to kernel...\r\n");
+    printf("Initializing graphics...\r\n");
+    if (!enable_graphics_mode())
+        panic("Failed initializing graphics");
+
+    // printf("Initializing protected mode and jumping to kernel...\r\n");
     enter_protected_mode();
 }
