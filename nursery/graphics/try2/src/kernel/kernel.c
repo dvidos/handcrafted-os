@@ -280,8 +280,8 @@ void initialize_cpu() {
     // disable everything, enable needed
     pic_disable_all_irqs();
     pic_enable_irq(0);   // timer
-    // pic_enable_irq(2);   // cascade
-    // pic_enable_irq(12);  // mouse
+    pic_enable_irq(2);   // cascade
+    pic_enable_irq(12);  // mouse
 
     // final piece
     asm("sti");
@@ -310,6 +310,7 @@ void kernel_main(boot_info_t* bi) {
     
     // kernel can never return, there's nothing to return to. it's all burned down to the ground.
     log.info("Kernel halted. Close the emulator.");
-    while (1) { log.info("%u\r\n", get_timer_ticks()); }
+    // while (1) { log.info("%u\r\n", get_timer_ticks()); }
+    for(;;);
     for(;;) asm volatile("hlt");
 }
