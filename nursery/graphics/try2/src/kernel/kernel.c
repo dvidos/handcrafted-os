@@ -1,14 +1,18 @@
 #include <stdint.h>
 #include "../boot_info.h"
+#include "cpu/ports.h"
+#include "cpu/pic.h"
+#include "cpu/idt.h"
+#include "cpu/timer.h"
 #include "memory/string.h"
 #include "memory/sprintf.h"
-#include "serial/logger.h"
+#include "aux/logger.h"
 #include "graphics/graphics.h"
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
+#include "devs/mouse.h"
 
 boot_info_t global_boot_info;
-
 
 
 
@@ -266,25 +270,46 @@ void shadows_demo() {
 */
 }
 
+void initialize_cpu() {
+    log.info("Initializing IDT");
+    initialize_idt();
+
+    log.info("Remapping PIC IRQs");
+    pic_remap_irqs();
+
+    // disable everything, enable needed
+    pic_disable_all_irqs();
+    pic_enable_irq(0);   // timer
+    // pic_enable_irq(2);   // cascade
+    // pic_enable_irq(12);  // mouse
+
+    // final piece
+    asm("sti");
+}
+
 void kernel_main(boot_info_t* bi) {
     // preserve boot info, asap
+    asm("cli");
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
     initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
     initialize_logger(LOG_LEVEL_DEBUG);
+
 
     log.info("Kernel starting...");
     // rectangles_borders_demo();
     // blend_demo();
     // fonts_demo();
     // gradient_demo();
-    blur_demo();
+    // blur_demo();
     // shadows_demo();
 
-    for (;;);
-    
-    
+    initialize_cpu();
+
+    initialize_mouse();
+
     
     // kernel can never return, there's nothing to return to. it's all burned down to the ground.
     log.info("Kernel halted. Close the emulator.");
+    while (1) { log.info("%u\r\n", get_timer_ticks()); }
     for(;;) asm volatile("hlt");
 }

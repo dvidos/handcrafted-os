@@ -10,11 +10,17 @@ LDFLAGS=-m elf_i386 -T kernel.ld --defsym KERNEL_LOAD_ADDRESS=$(KERNEL_LOAD_ADDR
 ASM_OBJ=kernel_asm.o
 C_OBJS= \
     kernel.o \
+    aux/logger.o \
+    cpu/exceptions.o \
+    cpu/idt.o \
+    cpu/pic.o \
+    cpu/timer.o \
     memory/string.o \
     memory/malloc.o \
     memory/sprintf.o \
-    serial/serial.o \
-    serial/logger.o \
+    devs/serial.o \
+    devs/mouse.o \
+    devs/keyboard.o \
     graphics/graphics.o \
     graphics/gbuffer.o \
     graphics/color.o \

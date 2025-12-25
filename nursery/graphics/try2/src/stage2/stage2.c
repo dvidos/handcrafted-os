@@ -463,7 +463,7 @@ static int enable_graphics_mode() {
     if (!vbe_get_mode_info_real(selected_graphics_mode, &mode_info))
         panic("Failed getting selected VBE mode info");
 
-    printf("Info from mode %x: %dx%dx%d, pitch=%d\r\n", selected_graphics_mode, mode_info.width, mode_info.height, mode_info.bpp, mode_info.pitch);
+    // printf("Info from mode %x: %dx%dx%d, pitch=%d\r\n", selected_graphics_mode, mode_info.width, mode_info.height, mode_info.bpp, mode_info.pitch);
 
     boot_info.fb.fb_addr = mode_info.framebuffer;
     boot_info.fb.width   = mode_info.width;
@@ -517,13 +517,13 @@ void discover_memory_map() {
     printf("Detected %d memory map entries\r\n", boot_info.mem.count);
     for (int i = 0; i < boot_info.mem.count; i++) {
         e820_memory_entry *entry = &boot_info.mem.entries[i];
-        printf("%d: ", i);
+        // printf("%d: ", i);
         // bios_hex_dump(entry, sizeof(e820_memory_entry));
-        printf("  addr %08x-%08x, len %08x-%08x, type %d", 
-            (uint32_t)(entry->base >> 32), (uint32_t)entry->base,
-            (uint32_t)(entry->length >> 32), (uint32_t)entry->length,
-            entry->type);
-        printf("\r\n");
+        // printf("  addr %08x-%08x, len %08x-%08x, type %d", 
+        //     (uint32_t)(entry->base >> 32), (uint32_t)entry->base,
+        //     (uint32_t)(entry->length >> 32), (uint32_t)entry->length,
+        //     entry->type);
+        // printf("\r\n");
     }
 
     /* example:

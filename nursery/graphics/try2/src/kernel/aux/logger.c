@@ -2,7 +2,8 @@
 #include "../memory/malloc.h"
 #include "../memory/sprintf.h"
 #include "logger.h"
-#include "serial.h"
+#include "../devs/serial.h"
+
 
 static logger_level _curr_log_level = LOG_LEVEL_ERROR;
 static unsigned char *_log_buffer;

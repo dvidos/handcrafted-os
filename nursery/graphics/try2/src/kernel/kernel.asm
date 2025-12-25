@@ -10,3 +10,42 @@ _kernel_start:
 .hang:
     hlt
     jmp .hang
+
+; ----------------------------------------------------
+
+global lidt_asm
+lidt_asm:
+    mov eax, [esp+4]  ; get the pointer argument from the stack
+    lidt [eax]         ; load the IDT from memory
+    ret
+
+; ----------------------------------------------------
+
+global exception_stub_asm
+extern cpu_exception
+exception_stub_asm:
+    pusha
+    call cpu_exception
+    popa
+    iretd
+
+; ----------------------------------------------------
+
+%macro IRQ_STUB 2
+    global %1
+    extern %2
+%1:
+    pusha
+    mov ax, 0x10        ; kernel data segment
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    call %2
+    popa
+    iretd
+%endmacro
+
+IRQ_STUB irq0_stub_asm,  timer_isr
+IRQ_STUB irq12_stub_asm, mouse_isr
+

@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include "../memory/malloc.h"
 #include "../memory/string.h"
-#include "../serial/serial.h"
+#include "../devs/serial.h"
 #include "gbuffer.h"
 
 

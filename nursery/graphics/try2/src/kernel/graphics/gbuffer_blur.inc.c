@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include "gbuffer.h"
-#include "../serial/serial.h"
+#include "../devs/serial.h"
 
 
 typedef struct blur_window {
