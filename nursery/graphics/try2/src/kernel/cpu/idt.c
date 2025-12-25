@@ -27,6 +27,7 @@ void idt_set_gate(uint8_t vec, uint32_t handler) {
 
 extern void lidt_asm(void*);
 extern void irq0_stub_asm(void);
+extern void irq1_stub_asm(void);
 extern void irq12_stub_asm(void);
 extern void exception_stub_asm(void);
 
@@ -40,6 +41,7 @@ void initialize_idt(void) {
 
     // add what irqs we want to be called
     idt_set_gate(0x20, (uint32_t)irq0_stub_asm); // calls timer_isr
+    idt_set_gate(0x21, (uint32_t)irq1_stub_asm); // calls keyboard_isr
     idt_set_gate(0x2C, (uint32_t)irq12_stub_asm); // calls mouse_isr
     
     idt_descriptor.limit = sizeof(idt) - 1;

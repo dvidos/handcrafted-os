@@ -280,6 +280,7 @@ void initialize_cpu() {
     // disable everything, enable needed
     pic_disable_all_irqs();
     pic_enable_irq(0);   // timer
+    pic_enable_irq(1);   // keyboard
     pic_enable_irq(2);   // cascade
     pic_enable_irq(12);  // mouse
 

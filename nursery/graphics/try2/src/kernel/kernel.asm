@@ -47,5 +47,6 @@ exception_stub_asm:
 %endmacro
 
 IRQ_STUB irq0_stub_asm,  timer_isr
+IRQ_STUB irq1_stub_asm,  keyboard_isr
 IRQ_STUB irq12_stub_asm, mouse_isr
 

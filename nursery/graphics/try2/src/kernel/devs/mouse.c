@@ -81,7 +81,7 @@ void mouse_handle_packet(void) {
     //clamp_to_screen(&mouse_x, &mouse_y);
 
     mouse_buttons = mouse_packet[0] & 0x07;
-    log.info("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
+    log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
 }
 
 // ------------------------------------------------------
