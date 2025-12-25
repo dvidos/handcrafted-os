@@ -2,6 +2,36 @@
 #include "../cpu/ports.h"
 #include "../cpu/pic.h"
 #include "../aux/logger.h"
+#include "../aux/events.h"
+
+// -----------------------------------------------------------
+
+#define MOUSE_RING_BUFFER_SIZE 128
+
+static volatile uint8_t mouse_ring_buffer[MOUSE_RING_BUFFER_SIZE];
+static volatile uint8_t mouse_ring_head = 0;
+static volatile uint8_t mouse_ring_tail = 0;
+
+static inline void mouse_queue_push(uint8_t byte) {
+    uint8_t next = (mouse_ring_head + 1) % MOUSE_RING_BUFFER_SIZE;
+    if (next != mouse_ring_tail) {
+        mouse_ring_buffer[mouse_ring_head] = byte;
+        mouse_ring_head = next;
+    }
+}
+
+int mouse_queue_pop(uint8_t *byte) {
+    if (mouse_ring_tail == mouse_ring_head)
+        return 0;
+
+    *byte = mouse_ring_buffer[mouse_ring_tail];
+    mouse_ring_tail = (mouse_ring_tail + 1) % MOUSE_RING_BUFFER_SIZE;
+    return 1;
+}
+
+// ----------------------------------------------
+
+
 
 
 static inline void ps2_wait_read(void) {
@@ -51,14 +81,12 @@ void initialize_mouse(void) {
 }
 
 static int8_t mouse_packet[3];
-static uint8_t packet_cycle = 0;
+static uint8_t packet_index = 0;
 static int mouse_x = 0;
 static int mouse_y = 0;
 static uint8_t mouse_buttons = 0;
 
-void mouse_handle_packet(void) {
-    int dx = (int8_t)mouse_packet[1];
-    int dy = (int8_t)mouse_packet[2];
+void decode_mouse_packet() {
 
     /*  mouse packet:
         byte 0:
@@ -73,40 +101,49 @@ void mouse_handle_packet(void) {
         byte 1: X movement (signed)
         byte 2: Y movement (signed, inverted)
     */
-    dy = -dy; // PS/2 Y is inverted
 
+    int dx = (int8_t)mouse_packet[1];
+    int dy = -(int8_t)mouse_packet[2]; // ps/2 y is inverted
+
+    // should limit those to the screen size
     mouse_x += dx;
     mouse_y += dy;
 
-    //clamp_to_screen(&mouse_x, &mouse_y);
+    mouse_event_t ev;
+    ev.buttons = mouse_packet[0] & 0x07;
+    ev.dx = dx;
+    ev.dy = dy;
+    ev.x = mouse_x;
+    ev.y = mouse_y;
+    // log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
+    enqueue_mouse_event(&ev);  
+}
 
-    mouse_buttons = mouse_packet[0] & 0x07;
-    log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
+void mouse_process() {
+    uint8_t byte;
+
+    while (mouse_queue_pop(&byte)) {
+
+        // First byte must have bit 3 set, resync
+        if (packet_index == 0 && !(byte & 0x08))
+            continue;
+
+        mouse_packet[packet_index++] = byte;
+
+        if (packet_index == 3) {
+            decode_mouse_packet();
+            packet_index = 0;
+        }
+    }
 }
 
 // ------------------------------------------------------
 
-
 void mouse_isr(void) {
+    // keep it as small as possible, don't decode scancodes here
     uint8_t data = inb(0x60);
-
-    switch (packet_cycle) {
-        case 0:
-            if (!(data & 0x08)) break; // resync
-            mouse_packet[0] = data;
-            packet_cycle = 1;
-            break;
-        case 1:
-            mouse_packet[1] = data;
-            packet_cycle = 2;
-            break;
-        case 2:
-            mouse_packet[2] = data;
-            packet_cycle = 0;
-            mouse_handle_packet();
-            break;
-    }
-
+    // log.debug("mouse_isr() data = 0x%02x", data);
+    mouse_queue_push(data);
     pic_send_eoi(12);
 }
 

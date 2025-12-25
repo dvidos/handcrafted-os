@@ -7,10 +7,12 @@
 #include "memory/string.h"
 #include "memory/sprintf.h"
 #include "aux/logger.h"
+#include "aux/events.h"
 #include "graphics/graphics.h"
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
 #include "devs/mouse.h"
+#include "devs/keyboard.h"
 
 boot_info_t global_boot_info;
 
@@ -305,13 +307,25 @@ void kernel_main(boot_info_t* bi) {
     // shadows_demo();
 
     initialize_cpu();
-
     initialize_mouse();
 
     
+    // this might be the idle task, good enough for now
+    for (;;) {
+        // log.debug("looping...");
+        keyboard_process(); // read scancodes, generate events
+        mouse_process(); // read packets, generate events
+
+        // wait for event:
+        if (event_queue_empty(&global_event_queue))
+            continue;
+
+        event_t ev;
+        event_queue_pop(&global_event_queue, &ev);
+        log_event_as_info("kernel loop", &ev);
+    }
+
     // kernel can never return, there's nothing to return to. it's all burned down to the ground.
     log.info("Kernel halted. Close the emulator.");
-    // while (1) { log.info("%u\r\n", get_timer_ticks()); }
-    for(;;);
     for(;;) asm volatile("hlt");
 }

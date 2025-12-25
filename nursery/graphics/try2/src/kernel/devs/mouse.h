@@ -3,4 +3,5 @@
 #include <stdint.h>
 
 
-void initialize_mouse(void);
+void initialize_mouse();
+void mouse_process();

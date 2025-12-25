@@ -11,6 +11,7 @@ ASM_OBJ=kernel_asm.o
 C_OBJS= \
     kernel.o \
     aux/logger.o \
+    aux/events.o \
     cpu/exceptions.o \
     cpu/idt.o \
     cpu/pic.o \
