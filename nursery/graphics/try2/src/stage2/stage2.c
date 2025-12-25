@@ -37,6 +37,7 @@ extern uint8_t vbe_get_ctrl_info_real(void *ptr);
 extern uint8_t vbe_get_mode_info_real(uint16_t mode, void *ptr);
 extern uint8_t vbe_set_mode_real(void);
 extern uint8_t bios_read_sectors_asm(uint32_t dap_ptr);
+extern void get_e820_map(uint32_t *counter, e820_memory_entry *arr);
 extern void enter_protected_mode(); // make sure arg is uint32_t, a long pointer
 
 // -------------------------------------------------------
@@ -70,18 +71,6 @@ static void serial_print_char(char c) {
     while ((inb(0x3F8 + 5) & 0x20) == 0); // Wait for transmit buffer empty
     outb(0x3F8, c);
 }
-
-// -------------------------------------------------------
-
-typedef struct menu_item {
-    char text[64];
-    uint32_t data;
-} menu_item;
-typedef struct menu {
-    char *title[64];
-    int items_count;
-    menu_item menu_items[20]; // 1-9, a-k
-} menu;
 
 // -------------------------------------------------------
 
@@ -295,7 +284,7 @@ typedef struct vbe_ctrl_info_t vbe_ctrl_info_t;
 typedef struct vbe_mode_info_t vbe_mode_info_t;
 
 struct __attribute__((packed)) vbe_ctrl_info_t {
-    char     vbe_signature[4];     // 'VBE2', 'VESA' in response
+    char     vbe_signature[4];     // 'VESA' in response
     uint16_t vbe_version;          // BCD, e.g., 0x0200 for VBE 2.0 */
     uint32_t oem_string_ptr;       // physical pointer (seg:off) to OEM string */
     uint8_t  capabilities[4];      // capability bits */
@@ -515,6 +504,36 @@ static void graphics_demo() {
     rect_border(260, 20, 280, 40, 0xffffff);
     rect_border(280, 20, 300, 40, 0xffffff);
     rect_border(300, 20, 320, 40, 0xffffff);
+}
+
+// -----------------------------------------------------------------
+
+void discover_memory_map() {
+    boot_info.mem.count = 0;
+    get_e820_map(&boot_info.mem.count, boot_info.mem.entries);
+    if (boot_info.mem.count > sizeof(boot_info.mem.entries)/sizeof(boot_info.mem.entries[0]))
+        panic("BIOS has more memory entries than our boot_info supports");
+
+    printf("Detected %d memory map entries\r\n", boot_info.mem.count);
+    for (int i = 0; i < boot_info.mem.count; i++) {
+        e820_memory_entry *entry = &boot_info.mem.entries[i];
+        printf("%d: ", i);
+        // bios_hex_dump(entry, sizeof(e820_memory_entry));
+        printf("  addr %08x-%08x, len %08x-%08x, type %d", 
+            (uint32_t)(entry->base >> 32), (uint32_t)entry->base,
+            (uint32_t)(entry->length >> 32), (uint32_t)entry->length,
+            entry->type);
+        printf("\r\n");
+    }
+
+    /* example:
+        0: addr 00000000-00000000, len 00000000-0009fc00, type 1  (639k at start)
+        1: addr 00000000-0009fc00, len 00000000-00000400, type 2  (1k at 639k..640k)
+        2: addr 00000000-000f0000, len 00000000-00010000, type 2  (64k at 960k)
+        3: addr 00000000-00100000, len 00000000-07ee0000, type 1  (at 1mb, 127mb)
+        4: addr 00000000-07fe0000, len 00000000-00020000, type 2
+        5: addr 00000000-fffc0000, len 00000000-00040000, type 2
+    */
 }
 
 // -----------------------------------------------------------------
@@ -746,6 +765,8 @@ void stage2_main(void) {
 
     // we should already have decided the default graphics mode...
     discover_graphics_modes();
+    discover_memory_map();
+
     possibly_interactive_menu();
 
     printf("Initializing graphics...\r\n");

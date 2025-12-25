@@ -194,6 +194,62 @@ vbe_set_mode_real:
 
 
 
+; ---------------------------------------------------------------------------
+; void get_e820_map(uint16_t far* count, struct e820_entry far* buffer);
+;
+; stack:
+; [BP+6]  = count offset
+; [BP+8]  = count segment
+; [BP+10] = buffer offset
+; [BP+12] = buffer segment
+; ---------------------------------------------------------------------------
+global get_e820_map
+get_e820_map:
+    push bp
+    mov  bp, sp
+    push ds
+    push es
+    push di
+    push si
+    push bx
+    ; ES:DI = buffer
+    mov ax, [bp+12]  
+    mov es, ax
+    mov di, [bp+10]
+    ; DS:SI = &count
+    mov ax, [bp+8]
+    mov ds, ax
+    mov si, [bp+6]
+    mov word [si], 0        ; count = 0
+    xor ebx, ebx            ; continuation value = 0
+.e820_loop:
+    mov eax, 0xE820
+    mov edx, 0x534D4150     ; 'SMAP'
+    mov ecx, 24             ; size of e820 entry
+    int 0x15
+    jc  .done
+    cmp eax, 0x534D4150
+    jne .done
+    ; entry written at ES:DI
+    add di, 24              ; advance buffer
+    ; ++count
+    mov ax, [si]
+    inc ax
+    mov [si], ax
+    ; EBX == 0 => no more entries
+    test ebx, ebx           
+    jne .e820_loop
+.done:
+    pop bx
+    pop si
+    pop di
+    pop es
+    pop ds
+    pop bp
+    ret
+
+
+
 
 
 
@@ -203,7 +259,6 @@ vbe_set_mode_real:
 ; C passes: packet pointer in EDX   (SysV ABI, same as GCC -m16 backend)
 ; Returns: AL = 1 success, AL = 0 failure
 ; ---------------------------------------------------------------------------
-
 bios_read_sectors_asm:
     ; Save registers we will use
     push bx
