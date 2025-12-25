@@ -299,7 +299,7 @@ void kernel_main(boot_info_t* bi) {
 
 
     log.info("Kernel starting...");
-    // rectangles_borders_demo();
+    rectangles_borders_demo();
     // blend_demo();
     // fonts_demo();
     // gradient_demo();

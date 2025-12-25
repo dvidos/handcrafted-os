@@ -71,23 +71,39 @@ void initialize_mouse(void) {
     ps2_wait_write();
     outb(0x60, status);
 
-    // Set defaults
+    // reset to defaults
     mouse_write(0xF6);
     mouse_read(); // ACK
+
+    // --- 4. Enable IntelliMouse wheel (4-byte packets) ---
+    // Sequence required: 200, 100, 80 sample rates
+    mouse_write(0xF3);  // Set sample rate
+    mouse_read();       // ACK
+    mouse_write(200);
+    mouse_read();       // ACK
+    mouse_write(0xF3);
+    mouse_read();
+    mouse_write(100);
+    mouse_read();
+    mouse_write(0xF3);
+    mouse_read();
+    mouse_write(80);
+    mouse_read();
+    // After this, mouse reports 4-byte packets (last byte = wheel)
 
     // Enable packet streaming
     mouse_write(0xF4);
     mouse_read(); // ACK
 }
 
-static int8_t mouse_packet[3];
+#define MOUSE_PACKET_SIZE_BYTES  4
+static int8_t mouse_packet[MOUSE_PACKET_SIZE_BYTES];
 static uint8_t packet_index = 0;
 static int mouse_x = 0;
 static int mouse_y = 0;
 static uint8_t mouse_buttons = 0;
 
 void decode_mouse_packet() {
-
     /*  mouse packet:
         byte 0:
             bit 0: left button
@@ -109,12 +125,14 @@ void decode_mouse_packet() {
     mouse_x += dx;
     mouse_y += dy;
 
+    // maybe we should convert this from buttons=X to actual events MOUSE_LBUTTON_DOWN/UP, wheel events etc
     mouse_event_t ev;
-    ev.buttons = mouse_packet[0] & 0x07;
     ev.dx = dx;
     ev.dy = dy;
     ev.x = mouse_x;
     ev.y = mouse_y;
+    ev.buttons = mouse_packet[0] & 0x07;
+    ev.wheel = (int8_t)mouse_packet[3];
     // log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
     enqueue_mouse_event(&ev);  
 }
@@ -123,14 +141,12 @@ void mouse_process() {
     uint8_t byte;
 
     while (mouse_queue_pop(&byte)) {
-
         // First byte must have bit 3 set, resync
         if (packet_index == 0 && !(byte & 0x08))
             continue;
 
         mouse_packet[packet_index++] = byte;
-
-        if (packet_index == 3) {
+        if (packet_index == MOUSE_PACKET_SIZE_BYTES) {
             decode_mouse_packet();
             packet_index = 0;
         }

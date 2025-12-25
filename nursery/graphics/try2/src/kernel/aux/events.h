@@ -30,6 +30,7 @@ typedef struct mouse_event {
     int16_t dx;       // delta since last event
     int16_t dy;
     uint8_t buttons;  // bitmask: L=1, R=2, M=4
+    int8_t wheel;  // signed change
 } mouse_event_t;
 
 
