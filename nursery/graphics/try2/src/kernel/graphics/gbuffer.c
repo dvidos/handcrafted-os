@@ -187,8 +187,8 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_colo
 
     // copy some zone from the original image, into the aux buffer, 
     // so that vertical passes do not bleed into unknown pixels.
-    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius),           gpoint_of(rect.origin.x, rect.origin.y - radius));
-    gb_copy_area(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
+    gb_copy_area_fast(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius),           gpoint_of(rect.origin.x, rect.origin.y - radius));
+    gb_copy_area_fast(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
 
     blur_window_apply_func *color_applicator = (blur_alpha_instead_of_color ? blur_window_apply_alpha : blur_window_apply_color);
 
@@ -342,8 +342,7 @@ void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr)
     gb_text(gb, "The quick brown fox jumped over the lazy dog!", x, baseline_y, font, clr);
 }
 
-void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
-
+void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
     // if origins outside of boundaries, no point
     if (src_origin.x  >= dest->area.size.width)  return;
     if (src_origin.y  >= dest->area.size.height) return;

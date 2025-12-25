@@ -3,6 +3,7 @@
 #include "../memory/sprintf.h"
 #include "logger.h"
 #include "../devs/serial.h"
+#include "../cpu/timer.h"
 
 
 static logger_level _curr_log_level = LOG_LEVEL_ERROR;
@@ -29,7 +30,7 @@ void logger_set_level(logger_level new_level) {
 
 static void log_something(const char *type, const char *fmt, va_list args) {
     // serial port for now, serial/memory/file/etc appenders later
-    sprintfn(_log_buffer, _log_buffer_size, "%s: ", type); // could add timestamp
+    sprintfn(_log_buffer, _log_buffer_size, "%d %s: ", get_timer_ticks(), type);
     serial_print_str(_log_buffer);
     vsprintfn(_log_buffer, _log_buffer_size, fmt, args);
     serial_print_str(_log_buffer);

@@ -1,12 +1,12 @@
 #include "mouse.h"
 #include "../cpu/ports.h"
 #include "../cpu/pic.h"
-#include "../aux/logger.h"
-#include "../aux/events.h"
+#include "../concepts/logger.h"
+#include "../concepts/events.h"
 
 // -----------------------------------------------------------
 
-#define MOUSE_RING_BUFFER_SIZE 128
+#define MOUSE_RING_BUFFER_SIZE 256
 
 static volatile uint8_t mouse_ring_buffer[MOUSE_RING_BUFFER_SIZE];
 static volatile uint8_t mouse_ring_head = 0;
@@ -31,30 +31,27 @@ int mouse_queue_pop(uint8_t *byte) {
 
 // ----------------------------------------------
 
+static mouse_xy_retrieval_func *mouse_retrieve_xy_func;
+static mouse_xy_update_func *mouse_changed_notifier_func;
+#define MOUSE_PACKET_SIZE_BYTES  4
+static int8_t mouse_packet[MOUSE_PACKET_SIZE_BYTES];
+static uint8_t packet_index = 0;
+static int mouse_x = 0;
+static int mouse_y = 0;
+static uint8_t mouse_buttons = 0;
 
 
 
-static inline void ps2_wait_read(void) {
-    while (!(inb(0x64) & 1));
-}
 
-static inline void ps2_wait_write(void) {
-    while (inb(0x64) & 2);
-}
+// ----------------------------------------------
 
-void mouse_write(uint8_t val) {
-    ps2_wait_write();
-    outb(0x64, 0xD4);
-    ps2_wait_write();
-    outb(0x60, val);
-}
+static inline void ps2_wait_read(void) { while (!(inb(0x64) & 1)); }
+static inline void ps2_wait_write(void) { while (inb(0x64) & 2); }
+void mouse_write(uint8_t val) { ps2_wait_write(); outb(0x64, 0xD4); ps2_wait_write(); outb(0x60, val); }
+uint8_t mouse_read(void) { ps2_wait_read(); return inb(0x60); }
 
-uint8_t mouse_read(void) {
-    ps2_wait_read();
-    return inb(0x60);
-}
 
-void initialize_mouse(void) {
+void initialize_mouse(mouse_xy_retrieval_func *retrieve, mouse_xy_update_func *update) {
 
     // Enable auxiliary device
     ps2_wait_write();
@@ -94,14 +91,13 @@ void initialize_mouse(void) {
     // Enable packet streaming
     mouse_write(0xF4);
     mouse_read(); // ACK
+
+    mouse_retrieve_xy_func = retrieve;
+    mouse_changed_notifier_func = update;
 }
 
-#define MOUSE_PACKET_SIZE_BYTES  4
-static int8_t mouse_packet[MOUSE_PACKET_SIZE_BYTES];
-static uint8_t packet_index = 0;
-static int mouse_x = 0;
-static int mouse_y = 0;
-static uint8_t mouse_buttons = 0;
+// ------------------------------------------------------------------------
+
 
 void decode_mouse_packet() {
     /*  mouse packet:
@@ -121,7 +117,8 @@ void decode_mouse_packet() {
     int dx = (int8_t)mouse_packet[1];
     int dy = -(int8_t)mouse_packet[2]; // ps/2 y is inverted
 
-    // should limit those to the screen size
+    if (mouse_retrieve_xy_func != 0)
+        mouse_retrieve_xy_func(&mouse_x, &mouse_y);
     mouse_x += dx;
     mouse_y += dy;
 
@@ -135,6 +132,9 @@ void decode_mouse_packet() {
     ev.wheel = (int8_t)mouse_packet[3];
     // log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
     enqueue_mouse_event(&ev);  
+
+    if (mouse_changed_notifier_func != 0)
+        mouse_changed_notifier_func(mouse_x, mouse_y);
 }
 
 void mouse_process() {

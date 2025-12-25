@@ -8,8 +8,7 @@
 
 
 typedef struct gbuffer {
-    // origin is always (0,0), to allow operations with nested buffers
-    garea area;
+    garea area; // origin is always (0,0), to allow operations with nested buffers
     int buffer_size;
     uint32_t *buffer_argb;
 } gbuffer;
@@ -62,7 +61,7 @@ void gb_border(gbuffer *gb, garea rect, int radius, int border_width, color clr)
 void gb_blur(gbuffer *gb, garea rect, int radius, int do_blur_alpha);
 int  gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
 void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);
-void gb_copy_area(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
+void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
 void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin, uint8_t global_alpha);
 void gb_copy_area_scaled(gbuffer *gb, ...);
 

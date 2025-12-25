@@ -6,8 +6,9 @@
 #include "cpu/timer.h"
 #include "memory/string.h"
 #include "memory/sprintf.h"
-#include "aux/logger.h"
-#include "aux/events.h"
+#include "concepts/logger.h"
+#include "concepts/events.h"
+#include "concepts/screen_manager.h"
 #include "graphics/graphics.h"
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
@@ -94,7 +95,7 @@ void fonts_demo() {
     gb_text_demo(text_panel, 11, 261, mits7, shadow);
     gb_text_demo(text_panel, 10, 260, mits7, letters);
 
-    gb_copy_area(main, text_panel, text_panel->area.size, gpoint_of(30, 30), gpoint_zero());
+    gb_copy_area_fast(main, text_panel, text_panel->area.size, gpoint_of(30, 30), gpoint_zero());
     graphics_display_main_buffer();
 }
 
@@ -294,21 +295,23 @@ void kernel_main(boot_info_t* bi) {
     // preserve boot info, asap
     asm("cli");
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
-    initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
+    log.info("Kernel starting...");
+
+    // initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
     initialize_logger(LOG_LEVEL_DEBUG);
 
-
-    log.info("Kernel starting...");
-    rectangles_borders_demo();
+    // rectangles_borders_demo();
     // blend_demo();
     // fonts_demo();
     // gradient_demo();
     // blur_demo();
     // shadows_demo();
 
-    initialize_cpu();
-    initialize_mouse();
 
+    initialize_cpu();
+    initialize_mouse(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
+    initialize_screen_manager((void *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
+    
     
     // this might be the idle task, good enough for now
     for (;;) {
@@ -320,9 +323,13 @@ void kernel_main(boot_info_t* bi) {
         if (event_queue_empty(&global_event_queue))
             continue;
 
+        // ideally we'd give this to WM to dispatch
         event_t ev;
         event_queue_pop(&global_event_queue, &ev);
-        log_event_as_info("kernel loop", &ev);
+        // log_event_as_info("kernel loop", &ev);
+
+        // after events dispatched and actions taken, refresh anything needed
+        screen_manager_redraw_screen();
     }
 
     // kernel can never return, there's nothing to return to. it's all burned down to the ground.

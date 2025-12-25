@@ -2,8 +2,8 @@
 #include "keyboard.h"
 #include "../cpu/ports.h"
 #include "../cpu/pic.h"
-#include "../aux/logger.h"
-#include "../aux/events.h"
+#include "../concepts/logger.h"
+#include "../concepts/events.h"
 
 
 // -- scan codes temp buffer ----------------------------------------
