@@ -24,18 +24,18 @@ void rectangles_borders_demo() {
     gb_fill(main, 0x008080);
     gb_text(main, "Rectangles & borders demo", 5, 13, geneva9, color_white());
 
-    gpoint pos = gpoint_of(20, 40);
-    gsize size = gsize_of(150, 130);
+    location pos = location_of(20, 40);
+    size size = size_of(150, 130);
 
     // color_params win = color_params_solid(color_nextstep_win_face());
     color_params win = color_params_gradient(
         color_gray_of(0xdd),
         color_gray_of(0x88),
-        gpoint_zero(), gpoint_of(size.width / 2, size.height),
+        location_zero(), location_of(size.width / 2, size.height),
         ease_linear);
 
     color_params win_dark = color_params_solid(color_nextstep_win_shadow());
-    gbuffer *work = new_gbuffer(main->area.size.width, main->area.size.height);
+    gbuffer *work = new_gbuffer(main->area.width, main->area.height);
 
     int thicknesses[] = { 1, 2, 5 };
     int radii[] = { 0, 8, 16 };
@@ -43,12 +43,12 @@ void rectangles_borders_demo() {
     for (int i = 0; i < 3; i++) {
         gb_clear(work);
 
-        gb_rect(work, garea_with(gpoint_move(pos, 18, 0), size), win_dark, radii[i]);
-        gb_rect(work, garea_with(gpoint_move(pos, 0, 12), size), win, radii[i]);
-        gb_border(work, garea_with(gpoint_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
-        pos = gpoint_move(pos, size.width + 40, 0);
+        gb_rect(work, area_with(location_move(pos, 18, 0), size), win_dark, radii[i]);
+        gb_rect(work, area_with(location_move(pos, 0, 12), size), win, radii[i]);
+        gb_border(work, area_with(location_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
+        pos = location_move(pos, size.width + 40, 0);
     
-        gb_copy_area_with_alpha(main, work, work->area.size, gpoint_zero(), gpoint_zero(), 0xFF);
+        gb_copy_area_with_alpha(main, work, area_size(work->area), location_zero(), location_zero(), 0xFF);
     }
 
     graphics_display_main_buffer();
@@ -67,8 +67,8 @@ void blend_demo() {
             color blended = color_blend(bottom, top);
             gb_fill(tile, blended);
 
-            gpoint pos = gpoint_of(5 + red_alpha * (tile->area.size.width + 3), 25 + blue_alpha * (tile->area.size.height + 3));
-            gb_copy_area_with_alpha(main, tile, tile->area.size, pos, gpoint_zero(), 0xFF);
+            location pos = location_of(5 + red_alpha * (tile->area.width + 3), 25 + blue_alpha * (tile->area.height + 3));
+            gb_copy_area_with_alpha(main, tile, area_size(tile->area), pos, location_zero(), 0xFF);
         }
     }
 
@@ -94,7 +94,7 @@ void fonts_demo() {
     gb_text_demo(text_panel, 11, 261, mits7, shadow);
     gb_text_demo(text_panel, 10, 260, mits7, letters);
 
-    gb_copy_area_fast(main, text_panel, text_panel->area.size, gpoint_of(30, 30), gpoint_zero());
+    gb_copy_area_fast(main, text_panel, area_size(text_panel->area), location_of(30, 30), location_zero());
     graphics_display_main_buffer();
 }
 
@@ -102,10 +102,10 @@ void gradient_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0x008080);
 
-    gsize tile_size = gsize_of(70, 70);
-    gpoint gp1 = gpoint_zero();
-    gpoint gp2 = gpoint_of(0, tile_size.width);
-    gpoint pos = gpoint_of(20, 20);
+    size tile_size = size_of(70, 70);
+    location gp1 = location_zero();
+    location gp2 = location_of(0, tile_size.width);
+    location pos = location_of(20, 20);
     color c1 = color_gray_of(0xcc);
     color c2 = color_gray_of(0x66);
     color text_color = color_gray_of(0x11);
@@ -132,45 +132,45 @@ void gradient_demo() {
     };
 
     // yeah, it'd be nice to have "center alignment"
-    pos = gpoint_of(20, 20);
+    pos = location_of(20, 20);
     for (int i = 0; i < sizeof(names)/sizeof(names[0]); i++) {
         gb_text(main, names[i], pos.x, pos.y, mits7, text_color); 
         pos.x += tile_size.width + 10;
     }
 
     // horiz gradient
-    pos = gpoint_of(20, pos.y + 10);
+    pos = location_of(20, pos.y + 10);
     gp2.x = 0;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, area_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
     // slightly slanted towards diag
-    pos = gpoint_of(20, pos.y + tile_size.height + 10);
+    pos = location_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width / 3;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, area_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
     // 45 deg diag
-    pos = gpoint_of(20, pos.y + tile_size.height + 10);
+    pos = location_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, area_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
     // almost horizontal
-    pos = gpoint_of(20, pos.y + tile_size.height + 10);
-    gp2 = gpoint_of(tile_size.width, tile_size.height / 4);
+    pos = location_of(20, pos.y + tile_size.height + 10);
+    gp2 = location_of(tile_size.width, tile_size.height / 4);
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, garea_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, garea_with(pos, tile_size), 0, 1, border_color);
+        gb_rect(main, area_with(pos, tile_size), color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -185,28 +185,28 @@ void blur_demo() {
     gb_fill(main, 0xFF007777);
     gb_text(main, "Blurring demo (fast boxing algorithm x3)", 5, 13, geneva9, color_white());
     int tile_side = 80;
-    gsize tile_size = gsize_of(tile_side, tile_side);
+    size tile_size = size_of(tile_side, tile_side);
 
     int sq_size[] = { 3, 7, 15, 30 };
     int blur_radii[] = { 0, 1, 2, 4, 8, 16 };
 
     for (int r = 0; r < sizeof(blur_radii)/sizeof(blur_radii[0]); r++) {
-        gpoint p = gpoint_of(12 + r * (tile_side + 10), 30);
+        location p = location_of(12 + r * (tile_side + 10), 30);
         sprintfn(buffer, sizeof(buffer), "r=%d", blur_radii[r]);
         gb_text(main, buffer, p.x, p.y, mits7, color_gray_of(0xcc));
     }
 
     for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
         for (int r = 0; r < sizeof(blur_radii)/sizeof(blur_radii[0]); r++) {
-            gpoint p = gpoint_of(10 + r * (tile_side + 10), 40 + s * (tile_side + 10));
+            location p = location_of(10 + r * (tile_side + 10), 40 + s * (tile_side + 10));
             int offset = (tile_side/2) - sq_size[s] / 2;
 
-            gb_rect(main, garea_with(gpoint_move(p, offset + 3, offset - 3), gsize_of(sq_size[s], sq_size[s])), color_params_solid(0xcccc00), 0);
-            gb_rect(main, garea_with(gpoint_move(p, offset, offset), gsize_of(sq_size[s], sq_size[s])), color_params_solid(0x0000cc), 0);
-            gb_border(main, garea_with(gpoint_move(p, offset - 3, offset + 3), gsize_of(sq_size[s], sq_size[s])), sq_size[s] / 2, 2, 0x00cc0000);
+            gb_rect(main, area_with(location_move(p, offset + 3, offset - 3), size_of(sq_size[s], sq_size[s])), color_params_solid(0xcccc00), 0);
+            gb_rect(main, area_with(location_move(p, offset, offset), size_of(sq_size[s], sq_size[s])), color_params_solid(0x0000cc), 0);
+            gb_border(main, area_with(location_move(p, offset - 3, offset + 3), size_of(sq_size[s], sq_size[s])), sq_size[s] / 2, 2, 0x00cc0000);
 
-            gb_blur(main, garea_with(p, tile_size), blur_radii[r], 0);
-            gb_border(main, garea_with(p, tile_size), 0, 1, color_tango_dark_gray());
+            gb_blur(main, area_with(p, tile_size), blur_radii[r], 0);
+            gb_border(main, area_with(p, tile_size), 0, 1, color_tango_dark_gray());
         }
     }
 
@@ -218,7 +218,7 @@ void shadows_demo() {
     // gb_fill(main, 0x008080); // Windows '95
     color tek_light = 0xFF0482AC;
     color nextstep_bg = 0xFF555577;
-    color_params grad = color_params_gradient(nextstep_bg, color_darken(nextstep_bg, 0.12), gpoint_zero(), garea_bottom_right(main->area), ease_linear);
+    color_params grad = color_params_gradient(nextstep_bg, color_darken(nextstep_bg, 0.12), location_zero(), area_bottom_right(main->area), ease_linear);
     gb_rect(main, main->area, grad, 0);
 
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());

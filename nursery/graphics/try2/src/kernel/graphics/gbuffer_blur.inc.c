@@ -144,7 +144,7 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
 
             if (win_start_pixel >= 0)
                 blur_window_remove(&win, get_slice_pixel(src, slice_num, win_start_pixel));
-            if (win_end_pixel < src->area.size.width)
+            if (win_end_pixel < src->area.width)
                 blur_window_add(&win, get_slice_pixel(src, slice_num, win_end_pixel));
             apply_blur(&win, get_slice_pixel(dest, slice_num, pixel_num));
             DEBUG_BLUR(src, dest, slice_num, pixel_num, slice_start_pixel, slice_end_pixel, radius, &win, "shrinking");

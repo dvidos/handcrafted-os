@@ -11,7 +11,7 @@
 #define clamp01(val)       ((val) > 1.0f) ? 1.0f : (((val) < 0.0f) ? 0.0f : (val))
 #define clamp255(val)      ((val) > 255) ? 255 : (((val) < 0) ? 0 : (val))
 
-static inline uint32_t *_pixel_ptr(const gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->area.size.width) + x; }
+static inline uint32_t *_pixel_ptr(const gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->area.width) + x; }
 static inline uint32_t *_replace_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
 static inline uint32_t *_blend_pixel(uint32_t *ptr, color clr)   { *ptr++ = color_blend(*ptr, clr); return ptr; }
 static inline uint32_t *_set_pixel_row(uint32_t *ptr, uint32_t clr, int length)   { while (length-- > 0) { *ptr++ = clr; } return ptr; }
@@ -23,15 +23,15 @@ static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) { 
 #include "gbuffer_blur.inc.c"
 
 
-static color _location_dependent_color(gpoint p, color_params cp) {
+static color _location_dependent_color(location p, color_params cp) {
     if (cp.fill_type == FILL_TYPE_SOLID)
         return cp.clr;
     
     if (cp.fill_type == FILL_TYPE_LINEAR_GRADIENT) {
         // given a pixel, say p, find dot product to find projected distance along gradient_v
         // then, normalize the distance to the gradient color space
-        gvector pixel_v = gvector_from_to(cp.gradient_p1, p);
-        float proj_distance = gvector_dot(pixel_v, cp.gradient_v);
+        vector pixel_v = vector_from_to(cp.gradient_p1, p);
+        float proj_distance = vector_dot_product(pixel_v, cp.gradient_v);
         float factor = clamp01(proj_distance / cp.gradient_len_sq);
         return color_gradient(cp.clr, cp.clr2, cp.ease(factor));
     }
@@ -39,20 +39,20 @@ static color _location_dependent_color(gpoint p, color_params cp) {
     return 0;
 }
 
-typedef void fill_func(gbuffer *gb, garea rect, color_params cp);
+typedef void fill_func(gbuffer *gb, area rect, color_params cp);
 
-static inline void _fill_rect_fast(gbuffer *gb, garea rect, color_params cp) {
-    int y_end = rect.origin.y + rect.size.height;
-    for (int i = rect.origin.y; i < y_end; i++)
-        _set_pixel_row(_pixel_ptr(gb, rect.origin.x, i), cp.clr, rect.size.width);
+static inline void _fill_rect_fast(gbuffer *gb, area rect, color_params cp) {
+    int y_end = rect.y + rect.height;
+    for (int i = rect.y; i < y_end; i++)
+        _set_pixel_row(_pixel_ptr(gb, rect.x, i), cp.clr, rect.width);
 }
 
-static inline void _fill_rect_slow(gbuffer *gb, garea rect, color_params cp) {
-    int y_end = rect.origin.y + rect.size.height;
-    int x_end = rect.origin.x + rect.size.width;
-    for (int y = rect.origin.y; y < y_end; y++) {
-        for (int x = rect.origin.x; x < x_end; x++) {
-            _replace_pixel(_pixel_ptr(gb, x, y), _location_dependent_color(gpoint_of(x, y), cp));
+static inline void _fill_rect_slow(gbuffer *gb, area rect, color_params cp) {
+    int y_end = rect.y + rect.height;
+    int x_end = rect.x + rect.width;
+    for (int y = rect.y; y < y_end; y++) {
+        for (int x = rect.x; x < x_end; x++) {
+            _replace_pixel(_pixel_ptr(gb, x, y), _location_dependent_color(location_of(x, y), cp));
         }
     }
 }
@@ -73,7 +73,7 @@ void initialize_gbuffer(gbuffer *aux_buffer) {
 
 gbuffer *new_gbuffer(int width, int height) {
     gbuffer *gb = (gbuffer *)kmalloc(sizeof(gbuffer));
-    gb->area = garea_of(0, 0, width, height);
+    gb->area = area_of(0, 0, width, height);
     gb->buffer_size = height * width * sizeof(uint32_t);
     gb->buffer_argb = (uint32_t *)kmalloc(gb->buffer_size);
 
@@ -92,29 +92,29 @@ void gb_clear(gbuffer *gb) {
     memset(gb->buffer_argb, 0, gb->buffer_size);
 }
 
-color gb_get_pixel(gbuffer *gb, gpoint p) {
-    if (!gpoint_is_inside(p, gb->area)) return 0;
+color gb_get_pixel(gbuffer *gb, location p) {
+    if (!location_is_inside(p, gb->area)) return 0;
     return _get_pixel(_pixel_ptr(gb, p.x, p.y));
 }
 
-void gb_paint_pixel(gbuffer *gb, gpoint p, color clr) {
-    if (!gpoint_is_inside(p, gb->area)) return;
+void gb_paint_pixel(gbuffer *gb, location p, color clr) {
+    if (!location_is_inside(p, gb->area)) return;
     _blend_pixel(_pixel_ptr(gb, p.x, p.y), clr);
 }
 
 void gb_fill(gbuffer *gb, color clr) {
-    for (int y = 0; y < gb->area.size.height; y++) {
-        _set_pixel_row(_pixel_ptr(gb, 0, y), clr, gb->area.size.width);
+    for (int y = 0; y < gb->area.height; y++) {
+        _set_pixel_row(_pixel_ptr(gb, 0, y), clr, gb->area.width);
     }
 }
 
-void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
+void gb_rect(gbuffer *gb, area rect, color_params cp, int radius) {
 
-    cp.gradient_p1 = gpoint_to_global(cp.gradient_p1, rect);
-    cp.gradient_p2 = gpoint_to_global(cp.gradient_p2, rect);
+    cp.gradient_p1 = location_to_global(cp.gradient_p1, rect);
+    cp.gradient_p2 = location_to_global(cp.gradient_p2, rect);
 
-    rect = garea_crop(rect, gb->area);
-    if (garea_is_empty(rect))
+    rect = area_crop(rect, gb->area);
+    if (area_is_empty(rect))
         return;
     if (radius < 0)
         return;
@@ -124,16 +124,16 @@ void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
         rect_filler(gb, rect, cp);
     } else if (radius > 0) {
         // three rects, top, bottom, center, leaving the four corners unpainted
-        rect_filler(gb, garea_of(rect.origin.x + radius, rect.origin.y,                             rect.size.width - 2 * radius, radius                       ), cp);
-        rect_filler(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - radius, rect.size.width - 2 * radius, radius                       ), cp);
-        rect_filler(gb, garea_of(rect.origin.x,          rect.origin.y + radius,                    rect.size.width,              rect.size.height - 2 * radius), cp);
+        rect_filler(gb, area_of(rect.x + radius, rect.y,                             rect.width - 2 * radius, radius                       ), cp);
+        rect_filler(gb, area_of(rect.x + radius, rect.y + rect.height - radius, rect.width - 2 * radius, radius                       ), cp);
+        rect_filler(gb, area_of(rect.x,          rect.y + radius,                    rect.width,              rect.height - 2 * radius), cp);
 
         int squared_in_boundary  = (radius - 1) * (radius - 1);
         int squared_out_boundary = (radius - 0) * (radius - 0);
-        int cx1 = rect.origin.x + radius - 1;
-        int cy1 = rect.origin.y + radius - 1;
-        int cx2 = rect.origin.x + rect.size.width - radius;
-        int cy2 = rect.origin.y + rect.size.height - radius;
+        int cx1 = rect.x + radius - 1;
+        int cy1 = rect.y + radius - 1;
+        int cx2 = rect.x + rect.width - radius;
+        int cy2 = rect.y + rect.height - radius;
 
         // we'll need to derive both color and alpha, based on x,y pixel
         for (int dy = 0; dy <= radius; dy++) {
@@ -149,10 +149,10 @@ void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
                 }
 
                 // but the four points may have different color due to gradient
-                gpoint pt_tl = gpoint_of(cx1 - dx, cy1 - dy);
-                gpoint pt_tr = gpoint_of(cx2 + dx, cy1 - dy);
-                gpoint pt_br = gpoint_of(cx2 + dx, cy2 + dy);
-                gpoint pt_bl = gpoint_of(cx1 - dx, cy2 + dy);
+                location pt_tl = location_of(cx1 - dx, cy1 - dy);
+                location pt_tr = location_of(cx2 + dx, cy1 - dy);
+                location pt_br = location_of(cx2 + dx, cy2 + dy);
+                location pt_bl = location_of(cx1 - dx, cy2 + dy);
 
                 color clr_tl = color_with_alpha(alpha, _location_dependent_color(pt_tl, cp));
                 color clr_tr = color_with_alpha(alpha, _location_dependent_color(pt_tr, cp));
@@ -168,9 +168,9 @@ void gb_rect(gbuffer *gb, garea rect, color_params cp, int radius) {
     }
 }
 
-void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_color) {
-    rect = garea_crop(rect, gb->area);
-    if (garea_is_empty(rect))
+void gb_blur(gbuffer *gb, area rect, int radius, int blur_alpha_instead_of_color) {
+    rect = area_crop(rect, gb->area);
+    if (area_is_empty(rect))
         return;
     if (radius <= 0)
         return;
@@ -189,30 +189,30 @@ void gb_blur(gbuffer *gb, garea rect, int radius, int blur_alpha_instead_of_colo
 
     // copy some zone from the original image, into the aux buffer, 
     // so that vertical passes do not bleed into unknown pixels.
-    gb_copy_area_fast(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y - radius),           gpoint_of(rect.origin.x, rect.origin.y - radius));
-    gb_copy_area_fast(global_aux_buffer, gb, gsize_of(rect.size.width, radius), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height), gpoint_of(rect.origin.x, rect.origin.y + rect.size.height));
+    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), location_of(rect.x, rect.y - radius),           location_of(rect.x, rect.y - radius));
+    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), location_of(rect.x, rect.y + rect.height), location_of(rect.x, rect.y + rect.height));
 
     blur_window_apply_func *color_applicator = (blur_alpha_instead_of_color ? blur_window_apply_alpha : blur_window_apply_color);
 
     for (int times = 0; times < 3; times++) {
         blur_window_box_algorithm(
             gb, global_aux_buffer, 
-            rect.origin.y, rect.origin.y + rect.size.height,
-            rect.origin.x, rect.origin.x + rect.size.width,
+            rect.y, rect.y + rect.height,
+            rect.x, rect.x + rect.width,
             radius, blur_get_pixel_horizontal_slices, color_applicator
         );
         blur_window_box_algorithm(
             global_aux_buffer, gb,
-            rect.origin.x, rect.origin.x + rect.size.width,
-            rect.origin.y, rect.origin.y + rect.size.height,
+            rect.x, rect.x + rect.width,
+            rect.y, rect.y + rect.height,
             radius, blur_get_pixel_vertical_slices, color_applicator
         );
     }
 }
 
-void gb_border(gbuffer *gb, garea rect, int radius, int border_width, color clr) {
-    rect = garea_crop(rect, gb->area);
-    if (garea_is_empty(rect))
+void gb_border(gbuffer *gb, area rect, int radius, int border_width, color clr) {
+    rect = area_crop(rect, gb->area);
+    if (area_is_empty(rect))
         return;
     if (radius < 0 || border_width <= 0)
         return;
@@ -220,18 +220,18 @@ void gb_border(gbuffer *gb, garea rect, int radius, int border_width, color clr)
     color_params cp = color_params_solid(clr);
 
     // Draw straight rectangle edges first
-    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y, rect.size.width - 2 * radius, border_width), cp);
-    _fill_rect_fast(gb, garea_of(rect.origin.x + radius, rect.origin.y + rect.size.height - border_width, rect.size.width - 2 * radius, border_width), cp);
-    _fill_rect_fast(gb, garea_of(rect.origin.x, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), cp);
-    _fill_rect_fast(gb, garea_of(rect.origin.x + rect.size.width - border_width, rect.origin.y + radius, border_width, rect.size.height - 2 * radius), cp);
+    _fill_rect_fast(gb, area_of(rect.x + radius, rect.y, rect.width - 2 * radius, border_width), cp);
+    _fill_rect_fast(gb, area_of(rect.x + radius, rect.y + rect.height - border_width, rect.width - 2 * radius, border_width), cp);
+    _fill_rect_fast(gb, area_of(rect.x, rect.y + radius, border_width, rect.height - 2 * radius), cp);
+    _fill_rect_fast(gb, area_of(rect.x + rect.width - border_width, rect.y + radius, border_width, rect.height - 2 * radius), cp);
 
     if (radius == 0)
         return;
     
-    int center_x1 = rect.origin.x + radius - 1;
-    int center_y1 = rect.origin.y + radius - 1;
-    int center_x2 = rect.origin.x + rect.size.width - radius;
-    int center_y2 = rect.origin.y + rect.size.height - radius;
+    int center_x1 = rect.x + radius - 1;
+    int center_y1 = rect.y + radius - 1;
+    int center_x2 = rect.x + rect.width - radius;
+    int center_y2 = rect.y + rect.height - radius;
 
     // there's 5 zones: totally transparent, antialiased, solid, antialiased, transparent
     float inner_radius = radius - border_width;
@@ -274,14 +274,14 @@ void gb_border(gbuffer *gb, garea rect, int radius, int border_width, color clr)
 
 void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params) {
     // make sure we have space to draw
-    if (gb->area.size.width  < object->area.size.width  + params.offset_x + 2 * params.blur_radius ||
-        gb->area.size.height < object->area.size.height + params.offset_y + 2 * params.blur_radius)
+    if (gb->area.width  < object->area.width  + params.offset_x + 2 * params.blur_radius ||
+        gb->area.height < object->area.height + params.offset_y + 2 * params.blur_radius)
         return;
 
     // offset and merge alpha
-    for (int y = 0; y < object->area.size.height; y++) {
+    for (int y = 0; y < object->area.height; y++) {
 
-        for (int x = 0; x < object->area.size.width; x++) {
+        for (int x = 0; x < object->area.width; x++) {
             uint32_t *object_pix = _pixel_ptr(object, x, y);
             uint8_t object_alpha = color_a(*object_pix);
             if (object_alpha == 0)
@@ -345,14 +345,14 @@ void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr)
 }
 
 
-void gb_draw_cursor32_fast(gbuffer *gb, gpoint mouse_pos, const cursor32 *cursor) {
+void gb_draw_cursor32_fast(gbuffer *gb, location mouse_pos, const cursor32 *cursor) {
     // offset by hotspot
     mouse_pos.x -= cursor->hot_x;
     mouse_pos.y -= cursor->hot_y;
 
     for (int y = 0; y < 32; y++) {
         int pixel_y = mouse_pos.y + y;
-        if (pixel_y < 0 || pixel_y >= gb->area.size.height)
+        if (pixel_y < 0 || pixel_y >= gb->area.height)
             continue;
         
         uint32_t *pixel = _pixel_ptr(gb, mouse_pos.x, pixel_y);
@@ -362,7 +362,7 @@ void gb_draw_cursor32_fast(gbuffer *gb, gpoint mouse_pos, const cursor32 *cursor
 
         for (int x = 0; x < 32; x++, bit >>= 1, pixel++) { // note step actions
             int pixel_x = mouse_pos.x + x;
-            if (pixel_x < 0 || pixel_x >= gb->area.size.width)
+            if (pixel_x < 0 || pixel_x >= gb->area.width)
                 continue;
 
             // AND=1, XOR=0 -> transparent
@@ -377,12 +377,12 @@ void gb_draw_cursor32_fast(gbuffer *gb, gpoint mouse_pos, const cursor32 *cursor
     }
 }
 
-void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
+void gb_copy_area_fast(gbuffer *dest, gbuffer *src, size size, location dest_origin, location src_origin) {
     // if origins outside of boundaries, no point
-    if (src_origin.x  >= src->area.size.width)   { return; }
-    if (src_origin.y  >= src->area.size.height)  { return; }
-    if (dest_origin.x >= dest->area.size.width)  { return; }
-    if (dest_origin.y >= dest->area.size.height) { return; }
+    if (src_origin.x  >= src->area.width)   { return; }
+    if (src_origin.y  >= src->area.height)  { return; }
+    if (dest_origin.x >= dest->area.width)  { return; }
+    if (dest_origin.y >= dest->area.height) { return; }
 
     // actually diminish sizes, if in negative values
     if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
@@ -391,10 +391,10 @@ void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_orig
     if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
 
     // shorten size, if bleeding outside
-    if (src_origin.x  + size.width  > src->area.size.width)   size.width  = src->area.size.width   - src_origin.x;
-    if (src_origin.y  + size.height > src->area.size.height)  size.height = src->area.size.height  - src_origin.y;
-    if (dest_origin.x + size.width  > dest->area.size.width)  size.width  = dest->area.size.width  - dest_origin.x;
-    if (dest_origin.y + size.height > dest->area.size.height) size.height = dest->area.size.height - dest_origin.y;
+    if (src_origin.x  + size.width  > src->area.width)   size.width  = src->area.width   - src_origin.x;
+    if (src_origin.y  + size.height > src->area.height)  size.height = src->area.height  - src_origin.y;
+    if (dest_origin.x + size.width  > dest->area.width)  size.width  = dest->area.width  - dest_origin.x;
+    if (dest_origin.y + size.height > dest->area.height) size.height = dest->area.height - dest_origin.y;
 
     // is there anything visible left to copy?
     if (size.width  <= 0) { return; }
@@ -410,13 +410,13 @@ void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_orig
     }
 }
 
-void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin, uint8_t global_alpha) {
+void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, size size, location dest_origin, location src_origin, uint8_t global_alpha) {
 
     // if origins outside of boundaries, no point
-    if (src_origin.x  >= dest->area.size.width)  return;
-    if (src_origin.y  >= dest->area.size.height) return;
-    if (dest_origin.x >= dest->area.size.width)  return;
-    if (dest_origin.y >= dest->area.size.height) return;
+    if (src_origin.x  >= dest->area.width)  return;
+    if (src_origin.y  >= dest->area.height) return;
+    if (dest_origin.x >= dest->area.width)  return;
+    if (dest_origin.y >= dest->area.height) return;
 
     // actually diminish sizes, if in negative values
     if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
@@ -425,10 +425,10 @@ void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint des
     if (dest_origin.y < 0) { int d = -dest_origin.y; size.height -= d; dest_origin.y += d; src_origin.y  += d; }
 
     // shorten size, if bleeding outside
-    if (src_origin.x  + size.width  > src->area.size.width)   size.width  = src->area.size.width   - src_origin.x;
-    if (src_origin.y  + size.height > src->area.size.height)  size.height = src->area.size.height  - src_origin.y;
-    if (dest_origin.x + size.width  > dest->area.size.width)  size.width  = dest->area.size.width  - dest_origin.x;
-    if (dest_origin.y + size.height > dest->area.size.height) size.height = dest->area.size.height - dest_origin.y;
+    if (src_origin.x  + size.width  > src->area.width)   size.width  = src->area.width   - src_origin.x;
+    if (src_origin.y  + size.height > src->area.height)  size.height = src->area.height  - src_origin.y;
+    if (dest_origin.x + size.width  > dest->area.width)  size.width  = dest->area.width  - dest_origin.x;
+    if (dest_origin.y + size.height > dest->area.height) size.height = dest->area.height - dest_origin.y;
 
     // is there anything visible left to copy?
     if (size.width  <= 0) return;
@@ -454,24 +454,24 @@ void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint des
     }
 }
 
-void gb_copy_area_to_framebuffer_with_bpp(gbuffer *gb, garea area, void *dest_buffer, int dest_pitch, int dest_bpp) {
+void gb_copy_area_to_framebuffer_with_bpp(gbuffer *gb, area area, void *dest_buffer, int dest_pitch, int dest_bpp) {
 
     if (dest_bpp == 32) {
         // we can use fast memcpy()
-        for (int y = area.origin.y; y < area.origin.y + area.size.height; y++) {
-            uint8_t *dest_ptr = (uint8_t *)dest_buffer + (y * dest_pitch) + area.origin.x * 4;  // note: 4 bytes per pixel
-            uint32_t *src_ptr = gb->buffer_argb + (y * gb->area.size.width) + area.origin.x;    // note: buffer_argb is a (uint32*) not a (char*)
-            int bytes = area.size.width * 4;
+        for (int y = area.y; y < area.y + area.height; y++) {
+            uint8_t *dest_ptr = (uint8_t *)dest_buffer + (y * dest_pitch) + area.x * 4;  // note: 4 bytes per pixel
+            uint32_t *src_ptr = gb->buffer_argb + (y * gb->area.width) + area.x;    // note: buffer_argb is a (uint32*) not a (char*)
+            int bytes = area.width * 4;
 
             memcpy(dest_ptr, src_ptr, bytes);
         }
 
     } else if (dest_bpp == 24) {
         // we'll have to convert
-        for (int y = area.origin.y; y < area.origin.y + area.size.height; y++) {
-            uint8_t *dest_ptr = (uint8_t *)dest_buffer + (y * dest_pitch) + area.origin.x * 3;  // note: 3 bytes per pixel
-            uint32_t *src_ptr = gb->buffer_argb + (y * gb->area.size.width) + area.origin.x;    // note: buffer_argb is a (uint32*) not a (char*)
-            int pixels = area.size.width;
+        for (int y = area.y; y < area.y + area.height; y++) {
+            uint8_t *dest_ptr = (uint8_t *)dest_buffer + (y * dest_pitch) + area.x * 3;  // note: 3 bytes per pixel
+            uint32_t *src_ptr = gb->buffer_argb + (y * gb->area.width) + area.x;    // note: buffer_argb is a (uint32*) not a (char*)
+            int pixels = area.width;
 
             while (pixels-- > 0) {
                 *dest_ptr++ = color_b(*src_ptr);

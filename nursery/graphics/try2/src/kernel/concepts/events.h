@@ -33,7 +33,6 @@ typedef struct mouse_event {
     int8_t wheel;  // signed change
 } mouse_event_t;
 
-
 typedef enum event_type {
     EVT_KEY,
     EVT_MOUSE

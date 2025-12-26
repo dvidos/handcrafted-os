@@ -10,13 +10,13 @@
 
 
 typedef struct mouse_info {
-    gpoint curr_pos;         // 0,0 is top left, not screen center
-    gsize cursor_size;       // cursor size
-    gpoint hotspot_offset;   // 0,0 is top left of the cursor graphic
+    location curr_pos;         // 0,0 is top left, not screen center
+    size cursor_size;       // cursor size
+    location hotspot_offset;   // 0,0 is top left of the cursor graphic
     gbuffer *pointer;        // masked? alpha? something fast?
     gbuffer *saved_bg;          // saved pixels under cursor
-    gpoint saved_bg_origin;     // where the pixels were saved from (maybe mouse moved since)
-    gpoint restored_bg_origin;  // where we restored, so we can copy to actual framebuffer
+    location saved_bg_origin;     // where the pixels were saved from (maybe mouse moved since)
+    location restored_bg_origin;  // where we restored, so we can copy to actual framebuffer
     int is_visible : 1;
     int needs_redraw : 1;
 } mouse_info_t;
@@ -38,7 +38,7 @@ typedef struct {
     int surface_count;
 
     // dirty areas, only these are painted, for performance
-    garea dirty_areas[MAX_DIRTY_AREAS];
+    area dirty_areas[MAX_DIRTY_AREAS];
     int dirty_area_count;
 
     // to avoid useless processing
@@ -60,16 +60,16 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     uint32_t seed = 123;
     for (int i = 0; i < 10; i++) {
         color c = 0xFF000000 | (rand_r(&seed) & 0xFFFFFF);
-        garea a = garea_of(rand_r(&seed) % width, rand_r(&seed) % height, rand_r(&seed) % 1000, rand_r(&seed) % 700);
+        area a = area_of(rand_r(&seed) % width, rand_r(&seed) % height, rand_r(&seed) % 1000, rand_r(&seed) % 700);
         gb_rect(sm.backbuffer, a, color_params_solid(c), 0);
     }
 
-    sm.mouse.curr_pos = gpoint_of(sm.width / 2, sm.height / 2);
+    sm.mouse.curr_pos = location_of(sm.width / 2, sm.height / 2);
     sm.mouse.is_visible = 1;
-    sm.mouse.cursor_size = gsize_of(32, 32);
+    sm.mouse.cursor_size = size_of(32, 32);
     sm.mouse.saved_bg = new_gbuffer(sm.mouse.cursor_size.width, sm.mouse.cursor_size.height);
-    sm.mouse.saved_bg_origin = gpoint_of(-1, -1); // signal not captured yet.
-    sm.mouse.restored_bg_origin = gpoint_of(-1, -1);
+    sm.mouse.saved_bg_origin = location_of(-1, -1); // signal not captured yet.
+    sm.mouse.restored_bg_origin = location_of(-1, -1);
 
     screen_manager_mark_area_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
 }
@@ -82,7 +82,7 @@ int screen_manager_add_surface(surface_t *s) {
     sm.surfaces[sm.surface_count++] = s;
 
     // mark this area as dirty, to redraw it
-    screen_manager_mark_area_dirty(garea_of(s->x, s->y, s->w, s->h));
+    screen_manager_mark_area_dirty(area_of(s->x, s->y, s->w, s->h));
 
     return 1;
 }
@@ -104,19 +104,19 @@ int screen_manager_remove_surface(surface_t *s) {
     sm.surface_count--;
 
     // mark this area as dirty, to redraw it
-    screen_manager_mark_area_dirty(garea_of(s->x, s->y, s->w, s->h));
+    screen_manager_mark_area_dirty(area_of(s->x, s->y, s->w, s->h));
 
     return 1;
 }
 
-void screen_manager_mark_area_dirty(garea area) {
+void screen_manager_mark_area_dirty(area area) {
     // essentially, this is the only way to get to show something on screen!
     // only if marked dirty, will it be asked to be painted, and will end up on screen!
 
     if (sm.dirty_area_count >= MAX_DIRTY_AREAS) {
         // this should be dynamic but for now, we can do the following, 
         // to force whole screen, even if not performant
-        sm.dirty_areas[MAX_DIRTY_AREAS - 1] = garea_with(gpoint_zero(), gsize_of(sm.width, sm.height));
+        sm.dirty_areas[MAX_DIRTY_AREAS - 1] = area_with(location_zero(), size_of(sm.width, sm.height));
     } else {
         sm.dirty_areas[sm.dirty_area_count++] = area;
     }
@@ -125,8 +125,8 @@ void screen_manager_mark_area_dirty(garea area) {
 
 // --------------------------------------------------------------------------
 
-static inline garea get_mouse_cursor_area(int x, int y) {
-    return garea_of(
+static inline area get_mouse_cursor_area(int x, int y) {
+    return area_of(
         x - sm.mouse.hotspot_offset.x,
         y - sm.mouse.hotspot_offset.y,
         sm.mouse.cursor_size.width,
@@ -172,7 +172,7 @@ static void restore_mouse_cursor_area() {
     }
     
     log.trace("restoring mouse cursor at (%d,%d)", sm.mouse.saved_bg_origin.x, sm.mouse.saved_bg_origin.y);
-    gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, sm.mouse.cursor_size, sm.mouse.saved_bg_origin, gpoint_zero());
+    gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, sm.mouse.cursor_size, sm.mouse.saved_bg_origin, location_zero());
 
     // keep this so we can copy the rectangle from backbuffer to fb
     sm.mouse.restored_bg_origin = sm.mouse.saved_bg_origin;
@@ -182,24 +182,24 @@ static void draw_mouse_cursor() {
     if (!sm.mouse.is_visible)
         return;
     
-    garea mouse_area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
-    log.trace("preserving mouse cursor area at (%d,%d,%d,%d)", mouse_area.origin.x, mouse_area.origin.y, mouse_area.size.width, mouse_area.size.height);
-    gb_copy_area_fast(sm.mouse.saved_bg, sm.backbuffer, mouse_area.size, gpoint_zero(), mouse_area.origin);
-    sm.mouse.saved_bg_origin = mouse_area.origin;
+    area mouse_area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
+    log.trace("preserving mouse cursor area at (%d,%d,%d,%d)", mouse_area.x, mouse_area.y, mouse_area.width, mouse_area.height);
+    gb_copy_area_fast(sm.mouse.saved_bg, sm.backbuffer, area_size(mouse_area), location_zero(), area_location(mouse_area));
+    sm.mouse.saved_bg_origin = area_location(mouse_area);
 
-    log.trace("drawing mouse cursor at (%d,%d)", mouse_area.origin.x, mouse_area.origin.y);
+    log.trace("drawing mouse cursor at (%d,%d)", mouse_area.x, mouse_area.y);
     gb_draw_cursor32_fast(sm.backbuffer, sm.mouse.curr_pos, &windows_cursor); // &triangle_cursor);
 }
 
 // --------------------------------------------------------------------------
 
 static void copy_backbuffer_to_physical_framebuffer() {
-    garea area;
+    area area;
 
 
     // to see what the saved bg contains
-    area = garea_of(5, 5, 32, 32);
-    gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, area.size, area.origin, gpoint_zero());
+    area = area_of(5, 5, 32, 32);
+    gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, area_size(area), area_location(area), location_zero());
     gb_border(sm.backbuffer, area, 0, 1, 0xFFFFFFFF);
     screen_manager_mark_area_dirty(area);
 
@@ -212,13 +212,13 @@ static void copy_backbuffer_to_physical_framebuffer() {
 
     // we also copy the area of the old and new mouse positions
     if (sm.mouse.needs_redraw) {
-        area = garea_with(gpoint_of(sm.mouse.restored_bg_origin.x, sm.mouse.restored_bg_origin.y), sm.mouse.cursor_size);
-        log.trace("copying restored mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
+        area = area_with(location_of(sm.mouse.restored_bg_origin.x, sm.mouse.restored_bg_origin.y), sm.mouse.cursor_size);
+        log.trace("copying restored mouse backbuffer to fb at (%d,%d)", area.x, area.y);
         gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
 
         if (sm.mouse.is_visible) {
             area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
-            log.trace("copying drawn mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
+            log.trace("copying drawn mouse backbuffer to fb at (%d,%d)", area.x, area.y);
             gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
         }
         sm.mouse.needs_redraw = 0;
@@ -243,7 +243,7 @@ static void redraw_dirty_surfaces() {
         s->is_dirty = 0;
 
         // merge onto back buffer (ideally, only the clipped region)
-        gb_copy_area_with_alpha(sm.backbuffer, s->gbuffer, s->gbuffer->area.size, gpoint_of(s->x, s->y), gpoint_zero(), 0xFF);
+        gb_copy_area_with_alpha(sm.backbuffer, s->gbuffer, area_size(s->gbuffer->area), location_of(s->x, s->y), location_zero(), 0xFF);
     }
 }
 
