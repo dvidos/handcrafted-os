@@ -418,3 +418,32 @@ void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint des
         }
     }
 }
+
+void gb_copy_area_to_framebuffer_with_bpp(gbuffer *gb, garea area, void *dest_buffer, int dest_pitch, int dest_bpp) {
+
+    if (dest_bpp == 32) {
+        // we can use fast memcpy()
+        for (int y = area.origin.y; y < area.origin.y + area.size.height; y++) {
+            uint8_t *dest_ptr = (uint8_t *)dest_buffer + (y * dest_pitch) + area.origin.x * 4;  // note: 4 bytes per pixel
+            uint32_t *src_ptr = gb->buffer_argb + (y * gb->area.size.width) + area.origin.x;    // note: buffer_argb is a (uint32*) not a (char*)
+            int bytes = area.size.width * 4;
+
+            memcpy(dest_ptr, src_ptr, bytes);
+        }
+
+    } else if (dest_bpp == 24) {
+        // we'll have to convert
+        for (int y = area.origin.y; y < area.origin.y + area.size.height; y++) {
+            uint8_t *dest_ptr = (uint8_t *)dest_buffer + (y * dest_pitch) + area.origin.x * 3;  // note: 3 bytes per pixel
+            uint32_t *src_ptr = gb->buffer_argb + (y * gb->area.size.width) + area.origin.x;    // note: buffer_argb is a (uint32*) not a (char*)
+            int pixels = area.size.width;
+
+            while (pixels-- > 0) {
+                *dest_ptr++ = color_b(*src_ptr);
+                *dest_ptr++ = color_g(*src_ptr);
+                *dest_ptr++ = color_r(*src_ptr);
+                src_ptr++; // note: pointer to uint32
+            }
+        }
+    }
+}

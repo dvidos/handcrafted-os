@@ -64,8 +64,7 @@ void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);
 void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin);
 void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin, uint8_t global_alpha);
 void gb_copy_area_scaled(gbuffer *gb, ...);
-
-
+void gb_copy_area_to_framebuffer_with_bpp(gbuffer *gb, garea area, void *dest_buffer, int dest_pitch, int dest_bpp);
 void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params);
 
 
@@ -74,15 +73,16 @@ void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params);
 
 
 // ideas to be implemented below...
-void gb_scroll_y(gbuffer *gb, int y_diff);
-void gb_copy_blurred();
-void gb_copy_resized();
-void gb_copy_masked();
-void gb_noise(gbuffer *gb);
-void gb_darken(gbuffer *gb, int radius);
-void gb_lighten(gbuffer *gb, int radius);
-void gb_line(gbuffer *gb, int radius);
-void gb_crop(gbuffer *gb, garea new_area);
-// somehow i may have to make a mask...
+// void gb_scroll_y(gbuffer *gb, int y_diff);
+// void gb_copy_blurred();
+// void gb_copy_resized();
+// void gb_copy_masked();
+// void gb_noise(gbuffer *gb);
+// void gb_darken(gbuffer *gb, int radius);
+// void gb_lighten(gbuffer *gb, int radius);
+// void gb_line(gbuffer *gb, int radius);
+// void gb_crop(gbuffer *gb, garea new_area);
+// somehow i may have to make a mask... 
+// we also *need* a clip rect for performance, in all operations! :-(
 
 

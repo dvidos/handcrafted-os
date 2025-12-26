@@ -1,8 +1,8 @@
 #pragma once
 #include "../graphics/gbuffer.h"
 
-
-// // add position, z-index, flags, to compose a whole screen
+// intermediate structure that represents the position of a gbuffer on screen
+// add position, z-index, flags, to compose a whole screen
 typedef struct surface {
     int x, y;
     int w, h;

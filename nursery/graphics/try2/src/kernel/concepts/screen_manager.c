@@ -2,18 +2,19 @@
 #include "screen_manager.h"
 #include "surface.h"
 
-#define MAX_SURFACES   64  // this will be dynamic one day...
+#define MAX_SURFACES       64  // this will be dynamic one day...
+#define MAX_DIRTY_AREAS    32  // this one too...
 
 
 typedef struct mouse_info {
-    int x;
-    int y;
-    int cursor_size; // 32 for 32x32 square
-    int hotspot_x_offset;   // within the 32x32 graphic
-    int hotspot_y_offset;
-    gbuffer *pointer;
-    gbuffer *background;  // saved pixels under cursor
-    int is_visible;
+    gpoint curr_pos;        // 0,0 is top left, not screen center
+    gsize cursor_size;      // cursor size
+    gpoint hotspot_offset;   // 0,0 is top left of the cursor graphic
+    gbuffer *pointer;       // masked? alpha? something fast?
+    gbuffer *bg;            // saved pixels under cursor
+    gpoint bg_position;     // where the pixels were saved from (maybe mouse moved since)
+    int is_visible : 1;
+    int needs_redraw : 1;
 } mouse_info_t;
 
 
@@ -33,6 +34,10 @@ typedef struct {
     surface_t *surfaces[MAX_SURFACES];
     int surface_count;
 
+    // dirty areas, only these are painted, for performance
+    garea dirty_areas[MAX_DIRTY_AREAS];
+    int dirty_area_count;
+
     // to avoid useless processing
     int needs_repaint;
 } screen_manager_t;
@@ -51,20 +56,26 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     sm.bpp = bpp;
 
     sm.backbuffer = new_gbuffer(width, height);
+    gb_fill(sm.backbuffer, 0x555555);
 
-    sm.mouse.x = (sm.width / 2);
-    sm.mouse.y = (sm.height / 2);
+    sm.mouse.curr_pos = gpoint_of(sm.width / 2, sm.height / 2);
     sm.mouse.is_visible = 1;
-    sm.mouse.cursor_size = 32;
-    sm.mouse.background = new_gbuffer(sm.mouse.cursor_size, sm.mouse.cursor_size);
+    sm.mouse.cursor_size = gsize_of(32, 32);
+    sm.mouse.bg = new_gbuffer(sm.mouse.cursor_size.width, sm.mouse.cursor_size.height);
+
+    screen_manager_mark_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
 }
 
 int screen_manager_add_surface(surface_t *s) {
     if (sm.surface_count >= MAX_SURFACES)
         return 0;
     
-    sm.surfaces[sm.surface_count++] = s;
     // we could keep them in z-order, to avoid sorting every time?
+    sm.surfaces[sm.surface_count++] = s;
+
+    // mark this area as dirty, to redraw it
+    screen_manager_mark_dirty(garea_of(s->x, s->y, s->w, s->h));
+
     return 1;
 }
 
@@ -83,79 +94,105 @@ int screen_manager_remove_surface(surface_t *s) {
     for (int i = index; i < MAX_SURFACES - 1; i++)
         sm.surfaces[i] = sm.surfaces[i + 1];
     sm.surface_count--;
-    return 0;
+
+    // mark this area as dirty, to redraw it
+    screen_manager_mark_dirty(garea_of(s->x, s->y, s->w, s->h));
+
+    return 1;
+}
+
+void screen_manager_mark_dirty(garea area) {
+    // essentially, this is the only way to get to show something on screen!
+    // only if marked dirty, will it be asked to be painted, and will end up on screen!
+
+    if (sm.dirty_area_count >= MAX_DIRTY_AREAS) {
+        // this should be dynamic but for now, we can do the following, 
+        // to force whole screen, even if not performant
+        sm.dirty_areas[MAX_DIRTY_AREAS - 1] = garea_with(gpoint_zero(), gsize_of(sm.width, sm.height));
+    } else {
+        sm.dirty_areas[sm.dirty_area_count++] = area;
+    }
+    sm.needs_repaint = 1;
 }
 
 // --------------------------------------------------------------------------
 
+static inline garea get_mouse_cursor_area(int x, int y) {
+    return garea_of(
+        x - sm.mouse.hotspot_offset.x,
+        y - sm.mouse.hotspot_offset.y,
+        sm.mouse.cursor_size.width,
+        sm.mouse.cursor_size.height
+    );
+}
+
 void screen_manager_set_mouse_position(int x, int y) {
-    sm.mouse.x = x;
-    sm.mouse.y = y;
-    sm.needs_repaint = 1;
+    if (x == sm.mouse.curr_pos.x && y == sm.mouse.curr_pos.y)
+        return;
+    
+    // mark old and new areas as dirty, to repaint them.
+    sm.mouse.curr_pos.x = x;
+    sm.mouse.curr_pos.y = y;
+    sm.mouse.needs_redraw = 1; // we don't mark dirty, as _we_ handle the bg buffer for this
+    sm.needs_repaint = 1; 
 }
 
 void screen_manager_get_mouse_position(int *x, int *y) {
-    *x = sm.mouse.x;
-    *y = sm.mouse.y;
+    *x = sm.mouse.curr_pos.x;
+    *y = sm.mouse.curr_pos.y;
 }
 
 void screen_manager_set_mouse_visible(int visible) {
     sm.mouse.is_visible = visible;
-    sm.needs_repaint = 1;
+    sm.mouse.needs_redraw = 1;
+    sm.needs_repaint = 1; 
 }
 
 int screen_manager_get_mouse_visible() {
     return sm.mouse.is_visible;
 }
 
+static void restore_mouse_cursor() {
+    gb_copy_area_fast(sm.backbuffer, sm.mouse.bg, sm.mouse.cursor_size, sm.mouse.bg_position, gpoint_zero());
+}
+
 static void draw_mouse_cursor() {
     if (!sm.mouse.is_visible)
         return;
     
-    gb_copy_area_fast(sm.mouse.background, sm.backbuffer, gsize_of(sm.mouse.cursor_size, sm.mouse.cursor_size), gpoint_zero(), 
-        gpoint_of(sm.mouse.x - sm.mouse.hotspot_x_offset, sm.mouse.y - sm.mouse.hotspot_y_offset));
-
-    color mouse_color = color_tango_red();
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.x - 1, sm.mouse.y), mouse_color);
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.x + 1, sm.mouse.y), mouse_color);
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.x, sm.mouse.y - 1), mouse_color);
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.x, sm.mouse.y + 1), mouse_color);
-
-    gb_border(sm.backbuffer, garea_with(
-        gpoint_of(sm.mouse.x - sm.mouse.hotspot_x_offset, sm.mouse.y - sm.mouse.hotspot_y_offset),
-        gsize_of(sm.mouse.cursor_size, sm.mouse.cursor_size)
-    ), 0, 1, mouse_color);
-}
-
-static void restore_mouse_cursor_area() {
-    if (!sm.mouse.is_visible)
-        return;
+    garea mouse_area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
+    gb_copy_area_fast(sm.mouse.bg, sm.backbuffer, mouse_area.size, gpoint_zero(), mouse_area.origin);
+    sm.mouse.bg_position = mouse_area.origin;
     
-    gb_copy_area_fast(sm.backbuffer, sm.mouse.background, gsize_of(sm.mouse.cursor_size, sm.mouse.cursor_size), gpoint_zero(), 
-        gpoint_of(sm.mouse.x - sm.mouse.hotspot_x_offset, sm.mouse.y - sm.mouse.hotspot_y_offset));
+    color mouse_color = color_tango_red();
+    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x - 1, sm.mouse.curr_pos.y), mouse_color);
+    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x + 1, sm.mouse.curr_pos.y), mouse_color);
+    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y - 1), mouse_color);
+    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y + 1), mouse_color);
+    gb_border(sm.backbuffer, mouse_area, 0, 1, mouse_color); // temp
 }
 
 // --------------------------------------------------------------------------
 
 static void copy_backbuffer_to_physical_framebuffer() {
-    // we need to convert formats.
-    // our buffers are AARRGGBB, our VBE framebuffer is RRGGBB.
-    uint8_t *vbe = sm.physical_framebuffer;
-    uint32_t *buff_argb = sm.backbuffer->buffer_argb;
-    int count = sm.height * sm.pitch;
+    garea area;
+    
+    // we are only copying what is dirty and has changed
+    // otherwise, copying the entire screen is *too* slow
+    for (int i = 0; i < sm.dirty_area_count; i++)
+        gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, sm.dirty_areas[i], sm.physical_framebuffer, sm.pitch, sm.bpp);        
+    sm.dirty_area_count = 0;
 
-    // this is too slow, we need to track and only paint dirty areas (e.g. mouse)
+    // we also copy the area of the old and new mouse positions
+    if (sm.mouse.needs_redraw) {
+        area = get_mouse_cursor_area(sm.mouse.bg_position.x, sm.mouse.bg_position.y);
+        gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
 
-    if (sm.bpp == 32) {
-        memcpy(vbe, buff_argb, count);
-    } else if (sm.bpp == 24) {
-        while (count-- > 0) {
-            // alpha channel is lost here.
-            *vbe++ = color_b(*buff_argb);
-            *vbe++ = color_g(*buff_argb);
-            *vbe++ = color_r(*buff_argb);
-            buff_argb++;
+        if (sm.mouse.is_visible) {
+            area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
+            gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
         }
+        sm.mouse.needs_redraw = 0;
     }
 }
 
@@ -172,10 +209,11 @@ static void draw_surfaces() {
         if (!s->is_dirty) continue;
 
         // ask the owner of the surface to paint the surface since it's dirty
+        // ideally with a clip region...
         s->draw(s->gbuffer, s->draw_data);
         s->is_dirty = 0;
 
-        // merge onto back buffer (but it says clipped to dirty regions... hmm)
+        // merge onto back buffer (ideally, only the clipped region)
         gb_copy_area_with_alpha(sm.backbuffer, s->gbuffer, s->gbuffer->area.size, gpoint_of(s->x, s->y), gpoint_zero(), 0xFF);
     }
 }
@@ -185,6 +223,8 @@ void screen_manager_redraw_screen() {
     if (!sm.needs_repaint)
         return;
     
+    restore_mouse_cursor();
+
     // ...
     // 1. Clear dirty regions in backbuffer
     // for each dirty_rect:
@@ -198,7 +238,6 @@ void screen_manager_redraw_screen() {
 
     // 4. Present, restore cursor
     copy_backbuffer_to_physical_framebuffer();
-    restore_mouse_cursor_area();
 
     sm.needs_repaint = 0;
 }

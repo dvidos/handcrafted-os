@@ -18,8 +18,6 @@
 boot_info_t global_boot_info;
 
 
-
-
 void rectangles_borders_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0x008080);
