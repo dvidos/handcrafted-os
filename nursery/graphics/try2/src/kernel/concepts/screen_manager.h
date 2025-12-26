@@ -16,7 +16,8 @@ void screen_manager_get_mouse_position(int *x, int *y);
 void screen_manager_set_mouse_visible(int visible);
 int  screen_manager_get_mouse_visible();
 
-
+// FUTURE:
+// void screen_manager_take_screenshot(garea area); 
 
 
 // ------------------------------------------------

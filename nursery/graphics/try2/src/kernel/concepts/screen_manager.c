@@ -56,9 +56,9 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     sm.bpp = bpp;
 
     sm.backbuffer = new_gbuffer(width, height);
-    gb_fill(sm.backbuffer, 0x555555);
+    gb_fill(sm.backbuffer, 0x3f9fbf);
     uint32_t seed = 123;
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < 10; i++) {
         color c = 0xFF000000 | (rand_r(&seed) & 0xFFFFFF);
         garea a = garea_of(rand_r(&seed) % width, rand_r(&seed) % height, rand_r(&seed) % 1000, rand_r(&seed) % 700);
         gb_rect(sm.backbuffer, a, color_params_solid(c), 0);
@@ -223,7 +223,6 @@ static void copy_backbuffer_to_physical_framebuffer() {
         }
         sm.mouse.needs_redraw = 0;
     }
-
 }
 
 static void redraw_dirty_surfaces() {
