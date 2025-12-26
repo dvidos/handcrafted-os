@@ -9,12 +9,13 @@
 
 
 typedef struct mouse_info {
-    gpoint curr_pos;        // 0,0 is top left, not screen center
-    gsize cursor_size;      // cursor size
+    gpoint curr_pos;         // 0,0 is top left, not screen center
+    gsize cursor_size;       // cursor size
     gpoint hotspot_offset;   // 0,0 is top left of the cursor graphic
-    gbuffer *pointer;       // masked? alpha? something fast?
-    gbuffer *saved_bg;            // saved pixels under cursor
+    gbuffer *pointer;        // masked? alpha? something fast?
+    gbuffer *saved_bg;          // saved pixels under cursor
     gpoint saved_bg_origin;     // where the pixels were saved from (maybe mouse moved since)
+    gpoint restored_bg_origin;  // where we restored, so we can copy to actual framebuffer
     int is_visible : 1;
     int needs_redraw : 1;
 } mouse_info_t;
@@ -61,6 +62,7 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     sm.mouse.cursor_size = gsize_of(32, 32);
     sm.mouse.saved_bg = new_gbuffer(sm.mouse.cursor_size.width, sm.mouse.cursor_size.height);
     sm.mouse.saved_bg_origin = gpoint_of(-1, -1); // signal not captured yet.
+    sm.mouse.restored_bg_origin = gpoint_of(-1, -1);
 
     screen_manager_mark_area_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
 }
@@ -164,6 +166,9 @@ static void restore_mouse_cursor_area() {
     
     log.debug("restoring mouse cursor at (%d,%d)", sm.mouse.saved_bg_origin.x, sm.mouse.saved_bg_origin.y);
     gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, sm.mouse.cursor_size, sm.mouse.saved_bg_origin, gpoint_zero());
+
+    // keep this so we can copy the rectangle from backbuffer to fb
+    sm.mouse.restored_bg_origin = sm.mouse.saved_bg_origin;
 }
 
 static void draw_mouse_cursor() {
@@ -199,13 +204,13 @@ static void copy_backbuffer_to_physical_framebuffer() {
 
     // we also copy the area of the old and new mouse positions
     if (sm.mouse.needs_redraw) {
-        area = get_mouse_cursor_area(sm.mouse.saved_bg_origin.x, sm.mouse.saved_bg_origin.y);
-        log.debug("copying mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
+        area = garea_with(gpoint_of(sm.mouse.restored_bg_origin.x, sm.mouse.restored_bg_origin.y), sm.mouse.cursor_size);
+        log.debug("copying restored mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
         gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
 
         if (sm.mouse.is_visible) {
             area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
-            log.debug("copying mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
+            log.debug("copying drawn mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
             gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
         }
         sm.mouse.needs_redraw = 0;
@@ -238,6 +243,7 @@ void screen_manager_redraw_screen() {
     if (!sm.needs_repaint)
         return;
     
+    restore_mouse_cursor_area();
 
     // ...
     // 1. Clear dirty regions in backbuffer
@@ -253,7 +259,6 @@ void screen_manager_redraw_screen() {
     // 4. Present, restore cursor
     copy_backbuffer_to_physical_framebuffer();
 
-    restore_mouse_cursor_area();
 
     sm.needs_repaint = 0;
 }
