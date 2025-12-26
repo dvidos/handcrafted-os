@@ -18,7 +18,6 @@ typedef struct {
     // some special glyphs (e.g. W) will have extension glyph, to save space
 } font8x16;
 
-
 extern font8x16 *mits7;
 extern font8x16 *geneva9;
 extern font8x16 *geneva9_bold;

@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "graphics.h"
 #include "color.h"
-#include "font8x16.h"
+#include "fonts/font8x16.h"
 #include "gbuffer.h"
 #include "../memory/string.h"
 

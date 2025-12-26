@@ -9,7 +9,7 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
 void screen_manager_redraw_screen();
 int screen_manager_add_surface(surface_t *s);
 int screen_manager_remove_surface(surface_t *s);
-void screen_manager_mark_dirty(garea area);
+void screen_manager_mark_area_dirty(garea area);
 
 void screen_manager_set_mouse_position(int x, int y);
 void screen_manager_get_mouse_position(int *x, int *y);

@@ -1,9 +1,11 @@
 #include <stdint.h>
 #include <stddef.h>
+#include "../concepts/logger.h"
 #include "../memory/malloc.h"
 #include "../memory/string.h"
 #include "../devs/serial.h"
 #include "gbuffer.h"
+#include "cursors/mouse_cursor.h"
 
 
 #define clamp01(val)       ((val) > 1.0f) ? 1.0f : (((val) < 0.0f) ? 0.0f : (val))
@@ -342,12 +344,45 @@ void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr)
     gb_text(gb, "The quick brown fox jumped over the lazy dog!", x, baseline_y, font, clr);
 }
 
+
+void gb_draw_cursor32_fast(gbuffer *gb, gpoint mouse_pos, const cursor32 *cursor) {
+    // offset by hotspot
+    mouse_pos.x -= cursor->hot_x;
+    mouse_pos.y -= cursor->hot_y;
+
+    for (int y = 0; y < 32; y++) {
+        int pixel_y = mouse_pos.y + y;
+        if (pixel_y < 0 || pixel_y >= gb->area.size.height)
+            continue;
+        
+        uint32_t *pixel = _pixel_ptr(gb, mouse_pos.x, pixel_y);
+        uint32_t and_row = cursor->and_mask[y];
+        uint32_t xor_row = cursor->xor_mask[y];
+        uint32_t bit = 0x80000000u;
+
+        for (int x = 0; x < 32; x++, bit >>= 1, pixel++) { // note step actions
+            int pixel_x = mouse_pos.x + x;
+            if (pixel_x < 0 || pixel_x >= gb->area.size.width)
+                continue;
+
+            // AND=1, XOR=0 -> transparent
+            // AND=0, XOR=0 -> black
+            // AND=0, XOR=1 -> white
+            // AND=1, XOR=1 -> invert (unused)
+
+            uint32_t pixel_and_mask = (and_row & bit) ? 0xFFFFFFFFu : 0xFF000000u;
+            uint32_t pixel_xor_mask = (xor_row & bit) ? 0x00FFFFFFu : 0x00000000u;
+            *pixel = ((*pixel & pixel_and_mask) ^ pixel_xor_mask);
+        }
+    }
+}
+
 void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_origin, gpoint src_origin) {
     // if origins outside of boundaries, no point
-    if (src_origin.x  >= dest->area.size.width)  return;
-    if (src_origin.y  >= dest->area.size.height) return;
-    if (dest_origin.x >= dest->area.size.width)  return;
-    if (dest_origin.y >= dest->area.size.height) return;
+    if (src_origin.x  >= src->area.size.width)   { return; }
+    if (src_origin.y  >= src->area.size.height)  { return; }
+    if (dest_origin.x >= dest->area.size.width)  { return; }
+    if (dest_origin.y >= dest->area.size.height) { return; }
 
     // actually diminish sizes, if in negative values
     if (src_origin.x  < 0) { int d = -src_origin.x;  size.width  -= d; src_origin.x  += d; dest_origin.x += d; }
@@ -362,8 +397,8 @@ void gb_copy_area_fast(gbuffer *dest, gbuffer *src, gsize size, gpoint dest_orig
     if (dest_origin.y + size.height > dest->area.size.height) size.height = dest->area.size.height - dest_origin.y;
 
     // is there anything visible left to copy?
-    if (size.width  <= 0) return;
-    if (size.height <= 0) return;
+    if (size.width  <= 0) { return; }
+    if (size.height <= 0) { return; }
 
     for (int y_offs = 0; y_offs < size.height; y_offs++) {
         int src_y = src_origin.y + y_offs;

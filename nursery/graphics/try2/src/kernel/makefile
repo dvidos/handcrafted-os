@@ -26,11 +26,12 @@ C_OBJS= \
     graphics/graphics.o \
     graphics/gbuffer.o \
     graphics/color.o \
-    graphics/font8x16.o \
-    graphics/font_mits7.o \
-    graphics/font_geneva9.o \
-    graphics/font_geneva9_bold.o \
-    graphics/font_geneva9_mono.o
+    graphics/fonts/font8x16.o \
+    graphics/fonts/font_mits7.o \
+    graphics/fonts/font_geneva9.o \
+    graphics/fonts/font_geneva9_bold.o \
+    graphics/fonts/font_geneva9_mono.o \
+    graphics/cursors/mouse_cursor.o
 
 kernel.elf: $(ASM_OBJ) $(C_OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(ASM_OBJ) $(C_OBJS)

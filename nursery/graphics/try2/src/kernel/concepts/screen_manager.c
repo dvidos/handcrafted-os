@@ -1,6 +1,8 @@
 #include "../memory/string.h"
+#include "../graphics/cursors/mouse_cursor.h"
 #include "screen_manager.h"
 #include "surface.h"
+#include "logger.h"
 
 #define MAX_SURFACES       64  // this will be dynamic one day...
 #define MAX_DIRTY_AREAS    32  // this one too...
@@ -11,12 +13,11 @@ typedef struct mouse_info {
     gsize cursor_size;      // cursor size
     gpoint hotspot_offset;   // 0,0 is top left of the cursor graphic
     gbuffer *pointer;       // masked? alpha? something fast?
-    gbuffer *bg;            // saved pixels under cursor
-    gpoint bg_position;     // where the pixels were saved from (maybe mouse moved since)
+    gbuffer *saved_bg;            // saved pixels under cursor
+    gpoint saved_bg_origin;     // where the pixels were saved from (maybe mouse moved since)
     int is_visible : 1;
     int needs_redraw : 1;
 } mouse_info_t;
-
 
 typedef struct {
     // Framebuffer info
@@ -41,10 +42,7 @@ typedef struct {
     // to avoid useless processing
     int needs_repaint;
 } screen_manager_t;
-
 static screen_manager_t sm;
-
-
 
 void initialize_screen_manager(void *framebuffer, int width, int height, int pitch, int bpp) {
     memset(&sm, 0, sizeof(screen_manager_t));
@@ -61,9 +59,10 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     sm.mouse.curr_pos = gpoint_of(sm.width / 2, sm.height / 2);
     sm.mouse.is_visible = 1;
     sm.mouse.cursor_size = gsize_of(32, 32);
-    sm.mouse.bg = new_gbuffer(sm.mouse.cursor_size.width, sm.mouse.cursor_size.height);
+    sm.mouse.saved_bg = new_gbuffer(sm.mouse.cursor_size.width, sm.mouse.cursor_size.height);
+    sm.mouse.saved_bg_origin = gpoint_of(-1, -1); // signal not captured yet.
 
-    screen_manager_mark_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
+    screen_manager_mark_area_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
 }
 
 int screen_manager_add_surface(surface_t *s) {
@@ -74,7 +73,7 @@ int screen_manager_add_surface(surface_t *s) {
     sm.surfaces[sm.surface_count++] = s;
 
     // mark this area as dirty, to redraw it
-    screen_manager_mark_dirty(garea_of(s->x, s->y, s->w, s->h));
+    screen_manager_mark_area_dirty(garea_of(s->x, s->y, s->w, s->h));
 
     return 1;
 }
@@ -96,12 +95,12 @@ int screen_manager_remove_surface(surface_t *s) {
     sm.surface_count--;
 
     // mark this area as dirty, to redraw it
-    screen_manager_mark_dirty(garea_of(s->x, s->y, s->w, s->h));
+    screen_manager_mark_area_dirty(garea_of(s->x, s->y, s->w, s->h));
 
     return 1;
 }
 
-void screen_manager_mark_dirty(garea area) {
+void screen_manager_mark_area_dirty(garea area) {
     // essentially, this is the only way to get to show something on screen!
     // only if marked dirty, will it be asked to be painted, and will end up on screen!
 
@@ -127,6 +126,11 @@ static inline garea get_mouse_cursor_area(int x, int y) {
 }
 
 void screen_manager_set_mouse_position(int x, int y) {
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x > sm.width - 1) x = sm.width - 1;
+    if (y > sm.height - 1) y = sm.height - 1;
+    
     if (x == sm.mouse.curr_pos.x && y == sm.mouse.curr_pos.y)
         return;
     
@@ -152,8 +156,14 @@ int screen_manager_get_mouse_visible() {
     return sm.mouse.is_visible;
 }
 
-static void restore_mouse_cursor() {
-    gb_copy_area_fast(sm.backbuffer, sm.mouse.bg, sm.mouse.cursor_size, sm.mouse.bg_position, gpoint_zero());
+static void restore_mouse_cursor_area() {
+    if (sm.mouse.saved_bg_origin.x == -1 && sm.mouse.saved_bg_origin.y == -1) {
+        log.debug("not restoring mouse cursor");
+        return; // not captured yet.
+    }
+    
+    log.debug("restoring mouse cursor at (%d,%d)", sm.mouse.saved_bg_origin.x, sm.mouse.saved_bg_origin.y);
+    gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, sm.mouse.cursor_size, sm.mouse.saved_bg_origin, gpoint_zero());
 }
 
 static void draw_mouse_cursor() {
@@ -161,15 +171,19 @@ static void draw_mouse_cursor() {
         return;
     
     garea mouse_area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
-    gb_copy_area_fast(sm.mouse.bg, sm.backbuffer, mouse_area.size, gpoint_zero(), mouse_area.origin);
-    sm.mouse.bg_position = mouse_area.origin;
-    
-    color mouse_color = color_tango_red();
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x - 1, sm.mouse.curr_pos.y), mouse_color);
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x + 1, sm.mouse.curr_pos.y), mouse_color);
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y - 1), mouse_color);
-    gb_paint_pixel(sm.backbuffer, gpoint_of(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y + 1), mouse_color);
-    gb_border(sm.backbuffer, mouse_area, 0, 1, mouse_color); // temp
+    log.debug("preserving mouse cursor area at (%d,%d,%d,%d)", mouse_area.origin.x, mouse_area.origin.y, mouse_area.size.width, mouse_area.size.height);
+    gb_copy_area_fast(sm.mouse.saved_bg, sm.backbuffer, mouse_area.size, gpoint_zero(), mouse_area.origin);
+    log.debug("backbuffer pixels: 0x%08x 0x%08x 0x%08x...", sm.backbuffer->buffer_argb[0], sm.backbuffer->buffer_argb[1], sm.backbuffer->buffer_argb[2]);
+    log.debug("saved bg   pixels: 0x%08x 0x%08x 0x%08x...", sm.mouse.saved_bg->buffer_argb[0], sm.mouse.saved_bg->buffer_argb[1], sm.mouse.saved_bg->buffer_argb[2]);
+    sm.mouse.saved_bg_origin = mouse_area.origin;
+
+    // to see what the saved bg contains
+    gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, sm.mouse.cursor_size, gpoint_of(50, 800), gpoint_zero());
+    gb_border(sm.backbuffer, garea_of(49, 799, 34, 34), 0, 1, color_tango_red());
+
+
+    log.debug("drawing mouse cursor at (%d,%d)", mouse_area.origin.x, mouse_area.origin.y);
+    gb_draw_cursor32_fast(sm.backbuffer, sm.mouse.curr_pos, &arrow_cursor);
 }
 
 // --------------------------------------------------------------------------
@@ -185,18 +199,20 @@ static void copy_backbuffer_to_physical_framebuffer() {
 
     // we also copy the area of the old and new mouse positions
     if (sm.mouse.needs_redraw) {
-        area = get_mouse_cursor_area(sm.mouse.bg_position.x, sm.mouse.bg_position.y);
+        area = get_mouse_cursor_area(sm.mouse.saved_bg_origin.x, sm.mouse.saved_bg_origin.y);
+        log.debug("copying mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
         gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
 
         if (sm.mouse.is_visible) {
             area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
+            log.debug("copying mouse backbuffer to fb at (%d,%d)", area.origin.x, area.origin.y);
             gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
         }
         sm.mouse.needs_redraw = 0;
     }
 }
 
-static void draw_surfaces() {
+static void redraw_dirty_surfaces() {
     // sort surfaces by z_index
     // for each surface:
     //     if visible:
@@ -218,12 +234,10 @@ static void draw_surfaces() {
     }
 }
 
-
 void screen_manager_redraw_screen() {
     if (!sm.needs_repaint)
         return;
     
-    restore_mouse_cursor();
 
     // ...
     // 1. Clear dirty regions in backbuffer
@@ -231,7 +245,7 @@ void screen_manager_redraw_screen() {
     //     fill backbuffer region with background
 
     // 2. Draw surfaces bottom → top
-    draw_surfaces();
+    redraw_dirty_surfaces();
 
     // 3. Draw cursor last
     draw_mouse_cursor();
@@ -239,11 +253,10 @@ void screen_manager_redraw_screen() {
     // 4. Present, restore cursor
     copy_backbuffer_to_physical_framebuffer();
 
+    restore_mouse_cursor_area();
+
     sm.needs_repaint = 0;
 }
-
-
-
 
 // ----------------------------------------------
 
@@ -258,8 +271,6 @@ void screen_manager_redraw_screen() {
 // void screen_manager_draw_surface(surface_t *);
 // void screen_manager_end_frame(void);
 // void screen_manager_present(void);
-
-
 
 // // add position, z-index, flags, to compose a whole screen
 // typedef struct surface {
