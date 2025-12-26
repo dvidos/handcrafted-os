@@ -9,4 +9,5 @@ typedef struct {
     int hot_y;
 } cursor32;
 
-extern const cursor32 arrow_cursor;
+extern const cursor32 triangle_cursor;
+extern const cursor32 windows_cursor;

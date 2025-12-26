@@ -2,7 +2,8 @@
 
 typedef enum logger_level logger_level; 
 enum logger_level {
-    LOG_LEVEL_DEBUG = 1,
+    LOG_LEVEL_TRACE = 1,
+    LOG_LEVEL_DEBUG,
     LOG_LEVEL_INFO,
     LOG_LEVEL_WARN,
     LOG_LEVEL_ERROR,
@@ -10,6 +11,7 @@ enum logger_level {
 };
 
 typedef struct logger_methods {
+    void (*trace)(const char *fmt, ...);
     void (*debug)(const char *fmt, ...);
     void (*info)(const char *fmt, ...);
     void (*warn)(const char *fmt, ...);

@@ -37,6 +37,14 @@ static void log_something(const char *type, const char *fmt, va_list args) {
     serial_print_str("\r\n");
 }
 
+static void _log_trace(const char *fmt, ...) {
+    if (_curr_log_level > LOG_LEVEL_TRACE) return;
+    va_list list;
+    va_start(list, fmt);
+    log_something("TRACE", fmt, list);
+    va_end(list);
+}
+
 static void _log_debug(const char *fmt, ...) {
     if (_curr_log_level > LOG_LEVEL_DEBUG) return;
     va_list list;
@@ -78,9 +86,12 @@ static void _log_panic(const char *fmt, ...) {
 }
 
 logger_methods log = {
+    .trace = _log_trace,
     .debug = _log_debug,
     .info = _log_info,
     .warn = _log_warn,
     .error = _log_error,
     .panic = _log_panic
 };
+
+#define TRACE()  _log_trace2(__FILE__, __LINE__, __function__)

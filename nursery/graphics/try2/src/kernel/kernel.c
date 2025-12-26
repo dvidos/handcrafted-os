@@ -14,6 +14,7 @@
 #include "graphics/color.h"
 #include "devs/mouse.h"
 #include "devs/keyboard.h"
+#include "algorithms/rand.h"
 
 boot_info_t global_boot_info;
 
