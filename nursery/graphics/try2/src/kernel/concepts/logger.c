@@ -94,5 +94,5 @@ logger_methods log = {
     .panic = _log_panic
 };
 
-// this could be a no-cost
+// this could be a no-cost entry
 #define TRACE()  _log_trace2(__FILE__, __LINE__, __function__)
