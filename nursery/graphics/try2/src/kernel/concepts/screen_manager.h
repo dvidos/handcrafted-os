@@ -4,6 +4,7 @@
 
 // screen manager owns the screen. nothing ever draws to screen outside of it.
 // window manager must notify screen manager when surfaces are opened, closed, raised, etc.
+// dock, menu bar, alt-tab switcher, all these are surfaces, not windows.
 
 void initialize_screen_manager(void *framebuffer, int width, int height, int pitch, int bpp);
 void screen_manager_redraw_screen();
@@ -11,6 +12,7 @@ int screen_manager_add_surface(surface_t *s);
 int screen_manager_remove_surface(surface_t *s);
 void screen_manager_mark_area_dirty(area area);
 
+// mouse management
 void screen_manager_set_mouse_position(int x, int y);
 void screen_manager_get_mouse_position(int *x, int *y);
 void screen_manager_set_mouse_visible(int visible);
@@ -21,7 +23,6 @@ int  screen_manager_get_mouse_visible();
 
 
 // ------------------------------------------------
-
 
 // void screen_manager_add_surface(surface_t *);
 // void screen_manager_remove_surface(surface_id);

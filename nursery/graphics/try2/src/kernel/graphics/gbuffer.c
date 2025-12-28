@@ -23,7 +23,7 @@ static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) { 
 #include "gbuffer_blur.inc.c"
 
 
-static color _location_dependent_color(location p, color_params cp) {
+static color _location_dependent_color(point p, color_params cp) {
     if (cp.fill_type == FILL_TYPE_SOLID)
         return cp.clr;
     
@@ -52,7 +52,7 @@ static inline void _fill_rect_slow(gbuffer *gb, area rect, color_params cp) {
     int x_end = rect.x + rect.width;
     for (int y = rect.y; y < y_end; y++) {
         for (int x = rect.x; x < x_end; x++) {
-            _replace_pixel(_pixel_ptr(gb, x, y), _location_dependent_color(location_of(x, y), cp));
+            _replace_pixel(_pixel_ptr(gb, x, y), _location_dependent_color(point_of(x, y), cp));
         }
     }
 }
@@ -92,13 +92,13 @@ void gb_clear(gbuffer *gb) {
     memset(gb->buffer_argb, 0, gb->buffer_size);
 }
 
-color gb_get_pixel(gbuffer *gb, location p) {
-    if (!location_is_inside(p, gb->area)) return 0;
+color gb_get_pixel(gbuffer *gb, point p) {
+    if (!point_is_inside(p, gb->area)) return 0;
     return _get_pixel(_pixel_ptr(gb, p.x, p.y));
 }
 
-void gb_paint_pixel(gbuffer *gb, location p, color clr) {
-    if (!location_is_inside(p, gb->area)) return;
+void gb_paint_pixel(gbuffer *gb, point p, color clr) {
+    if (!point_is_inside(p, gb->area)) return;
     _blend_pixel(_pixel_ptr(gb, p.x, p.y), clr);
 }
 
@@ -110,8 +110,8 @@ void gb_fill(gbuffer *gb, color clr) {
 
 void gb_rect(gbuffer *gb, area rect, color_params cp, int radius) {
 
-    cp.gradient_p1 = location_to_global(cp.gradient_p1, rect);
-    cp.gradient_p2 = location_to_global(cp.gradient_p2, rect);
+    cp.gradient_p1 = point_to_global(cp.gradient_p1, rect);
+    cp.gradient_p2 = point_to_global(cp.gradient_p2, rect);
 
     rect = area_crop(rect, gb->area);
     if (area_is_empty(rect))
@@ -149,10 +149,10 @@ void gb_rect(gbuffer *gb, area rect, color_params cp, int radius) {
                 }
 
                 // but the four points may have different color due to gradient
-                location pt_tl = location_of(cx1 - dx, cy1 - dy);
-                location pt_tr = location_of(cx2 + dx, cy1 - dy);
-                location pt_br = location_of(cx2 + dx, cy2 + dy);
-                location pt_bl = location_of(cx1 - dx, cy2 + dy);
+                point pt_tl = point_of(cx1 - dx, cy1 - dy);
+                point pt_tr = point_of(cx2 + dx, cy1 - dy);
+                point pt_br = point_of(cx2 + dx, cy2 + dy);
+                point pt_bl = point_of(cx1 - dx, cy2 + dy);
 
                 color clr_tl = color_with_alpha(alpha, _location_dependent_color(pt_tl, cp));
                 color clr_tr = color_with_alpha(alpha, _location_dependent_color(pt_tr, cp));
@@ -189,8 +189,8 @@ void gb_blur(gbuffer *gb, area rect, int radius, int blur_alpha_instead_of_color
 
     // copy some zone from the original image, into the aux buffer, 
     // so that vertical passes do not bleed into unknown pixels.
-    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), location_of(rect.x, rect.y - radius),           location_of(rect.x, rect.y - radius));
-    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), location_of(rect.x, rect.y + rect.height), location_of(rect.x, rect.y + rect.height));
+    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), point_of(rect.x, rect.y - radius),           point_of(rect.x, rect.y - radius));
+    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), point_of(rect.x, rect.y + rect.height), point_of(rect.x, rect.y + rect.height));
 
     blur_window_apply_func *color_applicator = (blur_alpha_instead_of_color ? blur_window_apply_alpha : blur_window_apply_color);
 
@@ -345,7 +345,7 @@ void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr)
 }
 
 
-void gb_draw_cursor32_fast(gbuffer *gb, location mouse_pos, const cursor32 *cursor) {
+void gb_draw_cursor32_fast(gbuffer *gb, point mouse_pos, const cursor32 *cursor) {
     // offset by hotspot
     mouse_pos.x -= cursor->hot_x;
     mouse_pos.y -= cursor->hot_y;
@@ -377,7 +377,7 @@ void gb_draw_cursor32_fast(gbuffer *gb, location mouse_pos, const cursor32 *curs
     }
 }
 
-void gb_copy_area_fast(gbuffer *dest, gbuffer *src, size size, location dest_origin, location src_origin) {
+void gb_copy_area_fast(gbuffer *dest, gbuffer *src, size size, point dest_origin, point src_origin) {
     // if origins outside of boundaries, no point
     if (src_origin.x  >= src->area.width)   { return; }
     if (src_origin.y  >= src->area.height)  { return; }
@@ -410,7 +410,7 @@ void gb_copy_area_fast(gbuffer *dest, gbuffer *src, size size, location dest_ori
     }
 }
 
-void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, size size, location dest_origin, location src_origin, uint8_t global_alpha) {
+void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, size size, point dest_origin, point src_origin, uint8_t global_alpha) {
 
     // if origins outside of boundaries, no point
     if (src_origin.x  >= dest->area.width)  return;

@@ -4,7 +4,7 @@
 * ~~some primitive rectangle & filled_rectangle functions~~
 
 * try the scalable font on osdev.org, or [here](https://gitlab.com/bztsrc/scalable-font2)
-* try shadeable rectangles with rounded corners, ala blackbox
+* ~~try shadeable rectangles with rounded corners, ala blackbox~~
 
 
 ## base graphics engine
@@ -17,12 +17,12 @@
 
 ## advanced graphics engine
 
-* rounded corners, antialiased
+* ~~rounded corners, antialiased~~
 * scalable fonts, antialiased, w/shadow
-* shadows
-* gradients
-* alpha / opacity
-* blur (for panes / icons etc)
+* ~~shadows~~
+* ~~gradients~~
+* ~~alpha / opacity~~
+* ~~blur (for panes / icons etc)~~
 * emulated 3d appearance (sunken, raised) with definable curature, height/depth, and distance from the edge
 * show images? icons? at least one format? (e.g. png, webp etc)
 

@@ -23,15 +23,15 @@ typedef struct color_params {
     color_fill_type fill_type;
     color clr;
     color clr2;
-    location gradient_p1;
-    location gradient_p2;
+    point gradient_p1;
+    point gradient_p2;
     ease_function *ease;
     vector gradient_v;
     float gradient_len_sq;
 } color_params;
 
 static color_params color_params_solid(color clr) { return (color_params){.fill_type = FILL_TYPE_SOLID, .clr = clr}; };
-static color_params color_params_gradient(color c1, color c2, location p1, location p2, ease_function ease) { return (color_params){
+static color_params color_params_gradient(color c1, color c2, point p1, point p2, ease_function ease) { return (color_params){
     .fill_type = FILL_TYPE_LINEAR_GRADIENT, .clr = c1, .clr2 = c2, .gradient_p1 = p1, .gradient_p2 = p2, .ease = ease,
     .gradient_v = vector_from_to(p1, p2), 
     .gradient_len_sq = vector_dot_product(vector_from_to(p1, p2), vector_from_to(p1, p2))
@@ -54,18 +54,18 @@ void initialize_gbuffer(gbuffer *aux_buffer); // called from graphics initializa
 gbuffer *new_gbuffer(int width, int height);
 void gb_free(gbuffer *gb);
 void gb_clear(gbuffer *gb);
-color gb_get_pixel(gbuffer *gb, location p);
-void gb_paint_pixel(gbuffer *gb, location p, color clr);
+color gb_get_pixel(gbuffer *gb, point p);
+void gb_paint_pixel(gbuffer *gb, point p, color clr);
 void gb_fill(gbuffer *gb, color clr);
 void gb_rect(gbuffer *gb, area rect, color_params cp, int radius);
 void gb_border(gbuffer *gb, area rect, int radius, int border_width, color clr);
 void gb_blur(gbuffer *gb, area rect, int radius, int do_blur_alpha);
 int  gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
 void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);
-void gb_draw_cursor32_fast(gbuffer *gb, location mouse_pos, const cursor32 *cursor);
+void gb_draw_cursor32_fast(gbuffer *gb, point mouse_pos, const cursor32 *cursor);
 
-void gb_copy_area_fast(gbuffer *dest, gbuffer *src, size size, location dest_origin, location src_origin);
-void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, size size, location dest_origin, location src_origin, uint8_t global_alpha);
+void gb_copy_area_fast(gbuffer *dest, gbuffer *src, size size, point dest_origin, point src_origin);
+void gb_copy_area_with_alpha(gbuffer *dest, gbuffer *src, size size, point dest_origin, point src_origin, uint8_t global_alpha);
 void gb_copy_area_scaled(gbuffer *gb, ...);
 void gb_copy_area_to_framebuffer_with_bpp(gbuffer *gb, area area, void *dest_buffer, int dest_pitch, int dest_bpp);
 void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params);
