@@ -3,6 +3,10 @@
 // origin (top left) is inclusive everywhere, bottom right is exclusive everywhere 
 // e.g. similar to 256 is exclusive and 0xFF is inclusive
 
+
+static inline int min(int a, int b) { return a < b ? a : b; }
+static inline int max(int a, int b) { return a > b ? a : b; }
+
 typedef struct point {
     int x;
     int y;
@@ -41,7 +45,9 @@ static inline int  size_is_empty(size s)                    { return s.width <= 
 static inline size size_grow(size s, int dx, int dy)        { return (size){.width = s.width + dx, .height = s.height + dy}; }
 static inline size size_grow_by(size s, int delta)          { return (size){.width = s.width + delta, .height = s.height + delta}; }
 
+
 static inline area  area_of(int x, int y, int w, int h)     { return (area){.x = x, .y = y, .width = w, .height = h}; }
+static inline area  area_zero()                             { return (area){.x = 0, .y = 0, .width = 0, .height = 0}; }
 static inline area  area_with(point p, size s)              { return (area){.x = p.x, .y = p.y, .width = s.width, .height = s.height}; }
 static inline int   area_is_empty(area a)                   { return a.width <= 0 || a.height <= 0; }
 static inline int   area_contains(area a, point p)          { return p.x >= a.x && p.x < a.x + a.width && p.y >= a.y && p.y < a.y + a.height; }
@@ -60,6 +66,29 @@ static inline point area_bottom_right_exclusive(area a)     { return point_of(a.
 // static inline area area_union(area a, area b);
 // splits backround into zero to four areas, for redrawing, returns number of resulting areas 
 // static inline int area_subtract(area bg, area fg, area out[4]);
+
+static inline area area_intersect(area a, area b) {
+    int x1 = max(a.x, b.x);
+    int y1 = max(a.y, b.y);
+    int x2 = min(a.x + a.width,  b.x + b.width);
+    int y2 = min(a.y + a.height, b.y + b.height);
+
+    // returns empty area if there is no intersection
+    return (x2 <= x1 || y2 <= y1) ? area_zero() : area_of(x1, y1, x2 - x1, y2 - y1);
+}
+
+static inline area area_union(area a, area b) {
+    if (a.width == 0 || a.height == 0) return b;
+    if (b.width == 0 || b.height == 0) return a;
+    int x1 = min(a.x, b.x);
+    int y1 = min(a.y, b.y);
+    int x2 = max(a.x + a.width,  b.x + b.width);
+    int y2 = max(a.y + a.height, b.y + b.height);
+
+    // the smallest rectangle that contains both areas
+    return (area){ x1, y1, x2 - x1, y2 - y1 };
+}
+
 
 static inline int area_is_completely_outside(area a, area container) { 
     return (

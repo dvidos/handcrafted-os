@@ -11,8 +11,6 @@ ASM_OBJ=kernel_asm.o
 C_OBJS= \
     kernel.o \
     concepts/logger.o \
-    concepts/events.o \
-    concepts/screen_manager.o \
     cpu/exceptions.o \
     cpu/idt.o \
     cpu/pic.o \
@@ -31,7 +29,11 @@ C_OBJS= \
     graphics/fonts/font_geneva9.o \
     graphics/fonts/font_geneva9_bold.o \
     graphics/fonts/font_geneva9_mono.o \
-    graphics/cursors/mouse_cursor.o
+    graphics/cursors/mouse_cursor.o \
+    concepts/events.o \
+    concepts/screen_manager.o \
+    app_kit/surface.o \
+    app_kit/graphics_context.o
 
 kernel.elf: $(ASM_OBJ) $(C_OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(ASM_OBJ) $(C_OBJS)

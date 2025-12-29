@@ -1,4 +1,16 @@
-# possible future todos
+# next steps
+
+1. **Surfaces** - Make surface_t a first-class object (buffer, rect, z-order). Everything visible is a surface.
+1. **GraphicsContext** - Introduce a stateless drawing API that renders into a surface buffer.
+1. **Base View** - Define view_t with draw, hit-test, and event handlers (single view, no hierarchy).
+1. **Concrete Views** - Implement Button, Label, TextBox by embedding view_t and overriding behavior.
+1. **View Hierarchy** - Add parent/children to views, recursive draw and hit-testing.
+1. **Window** - Introduce window_t as a thin owner of a surface and a root view.
+1. **Window Manager** - Manage window stacking, focus, movement, and event routing.
+1. **System UI** - Implement desktop, menu bar, dock, and overlays as non-window surfaces with views.
+
+
+## possible future todos
 
 * ~~one small bitmap font for primitive text rendering (maybe embedded in code, i.e. macos style)~~
 * ~~some primitive rectangle & filled_rectangle functions~~

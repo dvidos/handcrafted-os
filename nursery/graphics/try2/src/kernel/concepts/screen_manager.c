@@ -1,7 +1,8 @@
 #include "../memory/string.h"
 #include "../graphics/cursors/mouse_cursor.h"
 #include "screen_manager.h"
-#include "surface.h"
+#include "../app_kit/surface.h"
+#include "../app_kit/graphics_context.h"
 #include "logger.h"
 #include "../algorithms/rand.h"
 
@@ -82,7 +83,7 @@ int screen_manager_add_surface(surface_t *s) {
     sm.surfaces[sm.surface_count++] = s;
 
     // mark this area as dirty, to redraw it
-    screen_manager_mark_area_dirty(area_of(s->x, s->y, s->w, s->h));
+    screen_manager_mark_area_dirty(s->frame);
 
     return 1;
 }
@@ -104,7 +105,7 @@ int screen_manager_remove_surface(surface_t *s) {
     sm.surface_count--;
 
     // mark this area as dirty, to redraw it
-    screen_manager_mark_area_dirty(area_of(s->x, s->y, s->w, s->h));
+    screen_manager_mark_area_dirty(s->frame);
 
     return 1;
 }
@@ -226,24 +227,32 @@ static void copy_backbuffer_to_physical_framebuffer() {
 }
 
 static void redraw_dirty_surfaces() {
-    // sort surfaces by z_index
-    // for each surface:
-    //     if visible:
-    //         blit surface buffer → backbuffer
-    //         clipped to dirty regions
     for (int i = 0; i < sm.surface_count; i++) {
         surface_t *s = sm.surfaces[i];
+        if (!s->is_visible || !s->needs_redraw)
+            continue;
         
-        if (!s->is_visible) continue;
-        if (!s->is_dirty) continue;
+        area dirty = area_intersect(s->dirty_area, area_of(0, 0, s->frame.width, s->frame.height));
+        if (area_is_empty(dirty)) {
+            s->dirty_area = area_zero();
+            s->needs_redraw = false;
+            continue;
+        }
 
         // ask the owner of the surface to paint the surface since it's dirty
-        // ideally with a clip region...
-        s->draw(s->gbuffer, s->draw_data);
-        s->is_dirty = 0;
+        graphics_context_t *ctx = new_graphics_context(s->buffer);
+        surface_begin_draw(s, ctx);
+        s->paint(s, ctx, s->dirty_area);
+        surface_end_draw(s);
 
-        // merge onto back buffer (ideally, only the clipped region)
-        gb_copy_area_with_alpha(sm.backbuffer, s->gbuffer, area_size(s->gbuffer->area), point_of(s->x, s->y), point_zero(), 0xFF);
+        // merge onto back buffer (ideally, only the clipped region for performance)
+        if (s->is_opaque) {
+            gb_copy_area_fast(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area));
+        } else {
+            gb_copy_area_with_alpha(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area), 0xFF);
+        }
+        s->dirty_area = area_zero();
+        s->needs_redraw = false;
     }
 }
 

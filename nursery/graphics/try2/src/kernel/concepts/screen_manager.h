@@ -1,6 +1,6 @@
 #pragma once
 #include "../graphics/gbuffer.h"
-#include "surface.h"
+#include "../app_kit/surface.h"
 
 // screen manager owns the screen. nothing ever draws to screen outside of it.
 // window manager must notify screen manager when surfaces are opened, closed, raised, etc.

@@ -1,6 +1,6 @@
 #include "../concepts/events.h"
+#include "../concepts/surface.h"
 #include "../graphics/geometry.h"
-
 
 // a view is the common behavior exported by all widgets.
 // it can be a desktop, window, panel, button, label, list, icon etc
@@ -11,56 +11,36 @@
 // relations seem to be: view → graphics_context → gbuffer ← surface → screen_manager
 // we can have a common view class with a vtable pointer, and each specific view (e.g. button/textbox) will encapsulate that common view in its attributes.
 
+typedef struct view view_t;
+typedef struct view_vtable view_vtable_t;
 
-typedef struct view_interface {
-    enum ui_type type;
-    area_t frame;              // position + size
-    surface_t *surf;            // backing surface
-    view_t *parent;
-    view_t *children;
-    uint32_t flags;
-
-    void (*draw)(void *view_data);
-    int (*hit_test)(void *view_data, ...);
-    int (*handle_event)(void *view_data, event_t *event);
-    void *data;
-} view_interface_t;
-
-
-typedef struct view_ops {
+struct view_vtable {
     void (*draw)(view_t *view);
     int (*hit_test)(view_t *view, ...);
     int (*handle_event)(view_t *view, event_t *event);
     void (*destroy)(view_t *view);
-} view_ops_t;
+};
 
 typedef struct view {
     area area;
     view_t *parent;
     view_t *children;
     view_t *sibling;
-    view_ops *ops;
+    view_vtable_t *vt;
 } view_t;
 
-typedef struct textbox_view {
-    view_t view;
-    char *buffer;
-} textbox_view_t;
 
-// each discrete view struct
-// has the base view embedded as the first attribute. 
+// each discrete view struct has the base view embedded as the first attribute. 
 // This allows us to pass the pointer around as if it was a base view.
-button_view_t *new_button_view();
-textbox_view_t *new_input_box_view();
-text_view_t *new_text_view();
-slider_view_t *new_slider_view();
-scrolling_view_t *new_scrolling_view();
-list_view_t *new_list_view();
-list_item_view_t *new_list_item_view();
-menu_view_t *new_menu_view();
-menu_item_view_t *new_menu_item_view();
-
-
+//  button_view_t *new_button_view();
+//  textbox_view_t *new_input_box_view();
+//  text_view_t *new_text_view();
+//  slider_view_t *new_slider_view();
+//  scrolling_view_t *new_scrolling_view();
+//  list_view_t *new_list_view();
+//  list_item_view_t *new_list_item_view();
+//  menu_view_t *new_menu_view();
+//  menu_item_view_t *new_menu_item_view();
 
 
 /*
