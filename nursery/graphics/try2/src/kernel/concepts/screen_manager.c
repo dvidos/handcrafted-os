@@ -201,7 +201,7 @@ static void copy_backbuffer_to_physical_framebuffer() {
     // to see what the saved bg contains
     area = area_of(5, 5, 32, 32);
     gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, area_size(area), area_location(area), point_zero());
-    gb_border(sm.backbuffer, area, 0, 1, 0xFFFFFFFF);
+    gb_border(sm.backbuffer, area, area, 0, 1, 0xFFFFFFFF);
     screen_manager_mark_area_dirty(area);
 
     

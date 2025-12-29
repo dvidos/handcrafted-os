@@ -45,7 +45,7 @@ void rectangles_borders_demo() {
 
         gb_rect(work, area_with(point_move(pos, 18, 0), size), work->area, win_dark, radii[i]);
         gb_rect(work, area_with(point_move(pos, 0, 12), size), work->area, win, radii[i]);
-        gb_border(work, area_with(point_move(pos, 12, 25), size), radii[i], thicknesses[i], color_black());
+        gb_border(work, area_with(point_move(pos, 12, 25), size), work->area, radii[i], thicknesses[i], color_black());
         pos = point_move(pos, size.width + 40, 0);
     
         gb_copy_area_with_alpha(main, work, area_size(work->area), point_zero(), point_zero(), 0xFF);
@@ -143,7 +143,7 @@ void gradient_demo() {
     gp2.x = 0;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
         gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
+        gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -152,7 +152,7 @@ void gradient_demo() {
     gp2.x = tile_size.width / 3;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
         gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
+        gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -161,7 +161,7 @@ void gradient_demo() {
     gp2.x = tile_size.width;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
         gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
+        gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -170,7 +170,7 @@ void gradient_demo() {
     gp2 = point_of(tile_size.width, tile_size.height / 4);
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
         gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
-        gb_border(main, area_with(pos, tile_size), 0, 1, border_color);
+        gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -203,10 +203,10 @@ void blur_demo() {
 
             gb_rect(main, area_with(point_move(p, offset + 3, offset - 3), size_of(sq_size[s], sq_size[s])), main->area, color_params_solid(0xcccc00), 0);
             gb_rect(main, area_with(point_move(p, offset, offset), size_of(sq_size[s], sq_size[s])), main->area, color_params_solid(0x0000cc), 0);
-            gb_border(main, area_with(point_move(p, offset - 3, offset + 3), size_of(sq_size[s], sq_size[s])), sq_size[s] / 2, 2, 0x00cc0000);
+            gb_border(main, area_with(point_move(p, offset - 3, offset + 3), size_of(sq_size[s], sq_size[s])), main->area, sq_size[s] / 2, 2, 0x00cc0000);
 
             gb_blur(main, area_with(p, tile_size), blur_radii[r], 0);
-            gb_border(main, area_with(p, tile_size), 0, 1, color_tango_dark_gray());
+            gb_border(main, area_with(p, tile_size), main->area, 0, 1, color_tango_dark_gray());
         }
     }
 

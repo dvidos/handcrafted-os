@@ -65,7 +65,7 @@ color gb_get_pixel(gbuffer *gb, point p);
 void gb_paint_pixel(gbuffer *gb, point p, color clr);
 void gb_fill(gbuffer *gb, color clr);
 void gb_rect(gbuffer *gb, area rect, area clip, color_params clr_prm, int radius);
-void gb_border(gbuffer *gb, area rect, int radius, int border_width, color clr);
+void gb_border(gbuffer *gb, area rect, area clip, int radius, int border_width, color clr);
 void gb_blur(gbuffer *gb, area rect, int radius, int do_blur_alpha);
 int  gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr);
 void gb_text_demo(gbuffer *gb, int x, int base_y, font8x16 *f, color clr);
