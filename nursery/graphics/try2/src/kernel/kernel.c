@@ -22,7 +22,8 @@ boot_info_t global_boot_info;
 void rectangles_borders_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0x008080);
-    gb_text(main, "Rectangles & borders demo", 5, 13, geneva9, color_white());
+    area text_area = area_of(5, 13, 400, 20);
+    gb_text(main, text_area, text_area, "Rectangles & borders demo", text_params_of(geneva9, ALIGN_MIDDLE_LEFT), color_white());
 
     point pos = point_of(20, 40);
     size size = size_of(150, 130);
@@ -57,7 +58,8 @@ void rectangles_borders_demo() {
 void blend_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0x444444);
-    gb_text(main, "Horiz: red alpha, vert: blue alpha, blend(bottom=red, top=blue), alpha 0..255:16", 5, 13, geneva9, color_white());
+    area text_area = area_of(5, 13, 400, 20);
+    gb_text(main, text_area, text_area, "Horiz: red alpha, vert: blue alpha, blend(bottom=red, top=blue), alpha 0..255:16", text_params_of(geneva9, ALIGN_MIDDLE_LEFT), color_white());
     
     gbuffer *tile = new_gbuffer(30, 24);
     for (int red_alpha = 0; red_alpha < 16; red_alpha++) {
@@ -85,14 +87,14 @@ void fonts_demo() {
     
     gbuffer *text_panel = new_gbuffer(450, 320);
     gb_fill(text_panel, bg);
-    gb_text_demo(text_panel, 11, 21, geneva9, shadow);
-    gb_text_demo(text_panel, 10, 20, geneva9, letters);
-    gb_text_demo(text_panel, 11, 101, geneva9_bold, shadow);
-    gb_text_demo(text_panel, 10, 100, geneva9_bold, letters);
-    gb_text_demo(text_panel, 11, 181, geneva9_mono, shadow);
-    gb_text_demo(text_panel, 10, 180, geneva9_mono, letters);
-    gb_text_demo(text_panel, 11, 261, mits7, shadow);
-    gb_text_demo(text_panel, 10, 260, mits7, letters);
+    gb_text_demo(text_panel, area_of(11, 21, 430, 300), geneva9, shadow);
+    gb_text_demo(text_panel, area_of(10, 20, 430, 300), geneva9, letters);
+    gb_text_demo(text_panel, area_of(11, 101, 430, 300), geneva9_bold, shadow);
+    gb_text_demo(text_panel, area_of(10, 100, 430, 300), geneva9_bold, letters);
+    gb_text_demo(text_panel, area_of(11, 181, 430, 300), geneva9_mono, shadow);
+    gb_text_demo(text_panel, area_of(10, 180, 430, 300), geneva9_mono, letters);
+    gb_text_demo(text_panel, area_of(11, 261, 430, 300), mits7, shadow);
+    gb_text_demo(text_panel, area_of(10, 260, 430, 300), mits7, letters);
 
     gb_copy_area_fast(main, text_panel, area_size(text_panel->area), point_of(30, 30), point_zero());
     graphics_display_main_buffer();
@@ -134,7 +136,8 @@ void gradient_demo() {
     // yeah, it'd be nice to have "center alignment"
     pos = point_of(20, 20);
     for (int i = 0; i < sizeof(names)/sizeof(names[0]); i++) {
-        gb_text(main, names[i], pos.x, pos.y, mits7, text_color); 
+        area text_area = area_of(pos.x, pos.y, tile_size.width, 20);
+        gb_text(main, text_area, text_area, names[i], text_params_of(mits7, ALIGN_MIDDLE_LEFT), text_color);
         pos.x += tile_size.width + 10;
     }
 
@@ -183,7 +186,8 @@ void blur_demo() {
 
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0xFF007777);
-    gb_text(main, "Blurring demo (fast boxing algorithm x3)", 5, 13, geneva9, color_white());
+    area text_area = area_of(5, 13, 400, 20);
+    gb_text(main, text_area, text_area, "Blurring demo (fast boxing algorithm x3)", text_params_of(geneva9, ALIGN_MIDDLE_LEFT), color_white());
     int tile_side = 80;
     size tile_size = size_of(tile_side, tile_side);
 
@@ -193,7 +197,9 @@ void blur_demo() {
     for (int r = 0; r < sizeof(blur_radii)/sizeof(blur_radii[0]); r++) {
         point p = point_of(12 + r * (tile_side + 10), 30);
         sprintfn(buffer, sizeof(buffer), "r=%d", blur_radii[r]);
-        gb_text(main, buffer, p.x, p.y, mits7, color_gray_of(0xcc));
+
+        area text_area = area_of(p.x, p.y, tile_side, 20);
+        gb_text(main, text_area, text_area, buffer, text_params_of(mits7, ALIGN_MIDDLE_LEFT), color_white());
     }
 
     for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {

@@ -5,6 +5,7 @@
 #include "../memory/string.h"
 #include "../devs/serial.h"
 #include "gbuffer.h"
+#include "fonts/font8x16.h"
 #include "cursors/mouse_cursor.h"
 
 
@@ -339,7 +340,7 @@ void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params) {
     gb_blur(gb, gb->area, params.blur_radius, 1);
 }
 
-static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, font8x16 *font, uint32_t clr) {
+static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, area clip, font8x16 *font, uint32_t clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);
 
     for (int row_no = 0; row_no < font->num_bitmaps; row_no++) {
@@ -347,43 +348,59 @@ static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, 
         if (bitmap == 0)
             continue;
 
-        uint32_t *pixel = _pixel_ptr(gb, x, baseline_y - font->baseline + row_no);
+        point p = point_of(x, baseline_y - font->baseline + row_no);
+        uint32_t *pixel = _pixel_pt_ptr(gb, p);
         uint8_t mask = 0x80;
         for (int column = 0; column < gl->width; column++) {
-            if (bitmap & mask) {
-                pixel = _replace_pixel(pixel, clr);
-            } else {
-                pixel = _skip_pixel(pixel);
-            }
+            if ((bitmap & mask) && area_contains(clip, p))
+                _replace_pixel(pixel, clr);
+            
+            pixel += 1; // actually 4 bytes
             mask >>= 1;
+            p.x += 1;
         }
     }
 
     return gl->width;
 }
 
-int gb_text(gbuffer *gb, const char *text, int x, int base_y, font8x16 *f, color clr) {
-    int running_x = x;
-    int width = 0;
+void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params params, color clr) {
+    clip = area_intersect(clip, gb->area);
+    if (area_is_empty(clip))
+        return;
 
-    // to make this very performant, maintain 16 pointers and advance them to the right.
+    size text_size = font8x16_get_text_size(params.font, text);
+    area text_area = area_align(rect, text_size, params.align);
+    area text_area_clipped = area_intersect(text_area, clip);
+    if (area_is_empty(text_area_clipped))
+        return;
+
+    int x = text_area.x;
+    int baseline_y = text_area.y + params.font->baseline;
     while (*text) {
-        width = gb_draw_8x16_character(gb, running_x, base_y, *text, f, clr);
-        running_x += width + f->char_spacing;
+        area glyph_area = font8x16_get_glyph_area(params.font, *text, x, baseline_y);
+        if (!area_is_empty(area_intersect(glyph_area, text_area_clipped))) {
+            gb_draw_8x16_character(gb, x, baseline_y, *text, text_area_clipped, params.font, clr);
+        }
+        x += glyph_area.width + params.font->char_spacing;
         text++;
     }
-
-    return running_x - x;
 }
 
-void gb_text_demo(gbuffer *gb, int x, int baseline_y, font8x16 *font, color clr) {
-    gb_text(gb, font->name, x, baseline_y, font, clr);
-    baseline_y += font->line_height;
-    gb_text(gb, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", x, baseline_y, font, clr);
-    baseline_y += font->line_height;
-    gb_text(gb, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", x, baseline_y, font, clr);
-    baseline_y += font->line_height;
-    gb_text(gb, "The quick brown fox jumped over the lazy dog!", x, baseline_y, font, clr);
+
+void gb_text_demo(gbuffer *gb, area rect, font8x16 *font, color clr) {
+    text_params tp = text_params_of(font, ALIGN_TOP_LEFT);
+    gb_text(gb, rect, rect, font->name, tp, clr);
+    rect = area_move(rect, 0, font->line_height);
+
+    gb_text(gb, rect, rect, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", tp, clr);
+    rect = area_move(rect, 0, font->line_height);
+
+    gb_text(gb, rect, rect, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", tp, clr);
+    rect = area_move(rect, 0, font->line_height);
+
+    gb_text(gb, rect, rect, "The quick brown fox jumped over the lazy dog!", tp, clr);
+    rect = area_move(rect, 0, font->line_height);
 }
 
 

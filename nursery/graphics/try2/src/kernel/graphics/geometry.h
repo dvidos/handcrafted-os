@@ -29,6 +29,18 @@ typedef struct area {
     int height;
 } area;
 
+typedef enum alignment {
+    ALIGN_TOP_LEFT,
+    ALIGN_MIDDLE_LEFT,
+    ALIGN_BOTTOM_LEFT,
+    ALIGN_TOP_CENTER,
+    ALIGN_MIDDLE_CENTER,
+    ALIGN_BOTTOM_CENTER,
+    ALIGN_TOP_RIGHT,
+    ALIGN_MIDDLE_RIGHT,
+    ALIGN_BOTTOM_RIGHT,
+} alignment;
+
 static inline point point_of(int x, int y)                   { return (point){.x = x, .y = y}; }
 static inline point point_zero()                             { return (point){.x = 0, .y = 0}; }
 static inline point point_move(point p, int dx, int dy)      { return (point){.x = p.x + dx, .y = p.y + dy}; }
@@ -131,4 +143,27 @@ static inline area area_crop(area a, area viewport) {
     if (a.height < 0) a.height = 0;
 
     return a;
+}
+
+static area area_align(area container, size floaty, alignment align) {
+    int x = 0;
+    int y = 0;
+
+    // horizontal
+    if (align == ALIGN_TOP_LEFT || align == ALIGN_MIDDLE_LEFT || align == ALIGN_BOTTOM_LEFT)
+        x = container.x;
+    else if (align == ALIGN_TOP_CENTER || align == ALIGN_MIDDLE_CENTER || align == ALIGN_BOTTOM_CENTER)
+        x = container.x + (container.width - floaty.width) / 2;
+    else if (align == ALIGN_TOP_RIGHT || align == ALIGN_MIDDLE_RIGHT || align == ALIGN_BOTTOM_RIGHT)
+        x = container.x + container.width - floaty.width;
+
+    // vertical
+    if (align == ALIGN_TOP_LEFT || align == ALIGN_TOP_CENTER || align == ALIGN_TOP_RIGHT)
+        y = container.y;
+    else if (align == ALIGN_MIDDLE_LEFT || align == ALIGN_MIDDLE_CENTER || align == ALIGN_MIDDLE_RIGHT)
+        y = container.y + (container.height - floaty.height) / 2;
+    else if (align == ALIGN_BOTTOM_LEFT || align == ALIGN_BOTTOM_CENTER || align == ALIGN_BOTTOM_RIGHT)
+        y = container.y + container.height - floaty.height;
+
+    return area_of(x, y, floaty.width, floaty.height);
 }

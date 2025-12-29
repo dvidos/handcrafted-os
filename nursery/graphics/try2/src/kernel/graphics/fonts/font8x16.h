@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "../geometry.h"
 
 
 
@@ -23,4 +24,21 @@ extern font8x16 *geneva9;
 extern font8x16 *geneva9_bold;
 extern font8x16 *geneva9_mono;
 
-const glyph8x16 *font8x16_get_glyph(font8x16 *font, char c);
+static inline const glyph8x16 *font8x16_get_glyph(font8x16 *font, char c) {
+    if (c < 32 || c > 127)
+        return &font->glyphs[0];
+    return &font->glyphs[c - 32];
+}
+
+static inline size font8x16_get_glyph_size(font8x16 *font, char c) {
+    const glyph8x16 *gl = font8x16_get_glyph(font, c);
+    return size_of(gl->width, font->line_height);
+}
+
+static inline area font8x16_get_glyph_area(font8x16 *font, char c, int x, int baseline_y) {
+    const glyph8x16 *gl = font8x16_get_glyph(font, c);
+    return area_of(x, baseline_y - font->baseline, gl->width, font->line_height);
+}
+
+size font8x16_get_text_size(font8x16 *font, const char *text);
+

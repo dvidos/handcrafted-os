@@ -197,7 +197,6 @@ static void draw_mouse_cursor() {
 static void copy_backbuffer_to_physical_framebuffer() {
     area area;
 
-
     // to see what the saved bg contains
     area = area_of(5, 5, 32, 32);
     gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, area_size(area), area_location(area), point_zero());
