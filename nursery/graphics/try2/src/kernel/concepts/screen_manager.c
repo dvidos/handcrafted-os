@@ -62,7 +62,7 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     for (int i = 0; i < 10; i++) {
         color c = 0xFF000000 | (rand_r(&seed) & 0xFFFFFF);
         area a = area_of(rand_r(&seed) % width, rand_r(&seed) % height, rand_r(&seed) % 1000, rand_r(&seed) % 700);
-        gb_rect(sm.backbuffer, a, color_params_solid(c), 0);
+        gb_rect(sm.backbuffer, a, sm.backbuffer->area, color_params_solid(c), 0);
     }
 
     sm.mouse.curr_pos = point_of(sm.width / 2, sm.height / 2);

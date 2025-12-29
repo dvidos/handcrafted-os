@@ -67,12 +67,12 @@ void gfx_set_text(graphics_context_t *ctx, text_params text) {
 
 void gfx_draw_rect(graphics_context_t *ctx, area rect) {
     // support transformations first (move, rotate, scale), check noop
-    area draw = area_translate(rect, ctx->state.origin);
-    if (area_is_empty(area_intersect(draw, ctx->state.clip)))
+    area local_rect = area_translate(rect, ctx->state.origin);
+    if (area_is_empty(area_intersect(local_rect, ctx->state.clip)))
         return;
 
-    // now draw it, but pass clipping in explicitly
-    // gb_rect(ctx->buffer, draw, ctx->state.clip, ctx->state.fill, ctx->state.corner_radius);
+    // now draw it, passing in clip explicitly
+    gb_rect(ctx->buffer, local_rect, ctx->state.clip, ctx->state.fill, ctx->state.corner_radius);
 }
 
 void gfx_draw_line(graphics_context_t *ctx, point p1, point p2) {

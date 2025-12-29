@@ -12,6 +12,7 @@
 #define clamp255(val)      ((val) > 255) ? 255 : (((val) < 0) ? 0 : (val))
 
 static inline uint32_t *_pixel_ptr(const gbuffer *gb, int x, int y) { return gb->buffer_argb + (y * gb->area.width) + x; }
+static inline uint32_t *_pixel_pt_ptr(const gbuffer *gb, point p) { return gb->buffer_argb + (p.y * gb->area.width) + p.x; }
 static inline uint32_t *_replace_pixel(uint32_t *ptr, color clr)   { *ptr++ = clr; return ptr; }
 static inline uint32_t *_blend_pixel(uint32_t *ptr, color clr)   { *ptr++ = color_blend(*ptr, clr); return ptr; }
 static inline uint32_t *_set_pixel_row(uint32_t *ptr, uint32_t clr, int length)   { while (length-- > 0) { *ptr++ = clr; } return ptr; }
@@ -108,25 +109,35 @@ void gb_fill(gbuffer *gb, color clr) {
     }
 }
 
-void gb_rect(gbuffer *gb, area rect, color_params cp, int radius) {
-
-    cp.gradient_p1 = point_to_global(cp.gradient_p1, rect);
-    cp.gradient_p2 = point_to_global(cp.gradient_p2, rect);
-
-    rect = area_crop(rect, gb->area);
-    if (area_is_empty(rect))
+void gb_rect(gbuffer *gb, area rect, area clip, color_params clr_prm, int radius) {
+    clip = area_intersect(clip, gb->area);
+    if (area_is_empty(clip))
         return;
+
+    // draw is the final clipped area we'll draw on
+    area rect_clipped = area_intersect(rect, clip); 
+    if (area_is_empty(rect_clipped))
+        return;
+
+    clr_prm.gradient_p1 = point_to_global(clr_prm.gradient_p1, rect);
+    clr_prm.gradient_p2 = point_to_global(clr_prm.gradient_p2, rect);
     if (radius < 0)
         return;
     
-    fill_func *rect_filler = (cp.fill_type == FILL_TYPE_SOLID) ? _fill_rect_fast : _fill_rect_slow;
+    fill_func *rect_filler = (clr_prm.fill_type == FILL_TYPE_SOLID) ? _fill_rect_fast : _fill_rect_slow;
     if (radius == 0) {
-        rect_filler(gb, rect, cp);
+        rect_filler(gb, rect_clipped, clr_prm);
     } else if (radius > 0) {
         // three rects, top, bottom, center, leaving the four corners unpainted
-        rect_filler(gb, area_of(rect.x + radius, rect.y,                             rect.width - 2 * radius, radius                       ), cp);
-        rect_filler(gb, area_of(rect.x + radius, rect.y + rect.height - radius, rect.width - 2 * radius, radius                       ), cp);
-        rect_filler(gb, area_of(rect.x,          rect.y + radius,                    rect.width,              rect.height - 2 * radius), cp);
+        area top = area_of(rect.x + radius, rect.y,                        rect.width - 2 * radius, radius                  );
+        area mid = area_of(rect.x,          rect.y + radius,               rect.width,              rect.height - 2 * radius);
+        area bot = area_of(rect.x + radius, rect.y + rect.height - radius, rect.width - 2 * radius, radius                  );
+        area top_clipped = area_intersect(top, clip);
+        area mid_clipped = area_intersect(mid, clip);
+        area bot_clipped = area_intersect(bot, clip);
+        if (!area_is_empty(top_clipped)) rect_filler(gb, top_clipped, clr_prm);
+        if (!area_is_empty(mid_clipped)) rect_filler(gb, mid_clipped, clr_prm);
+        if (!area_is_empty(bot_clipped)) rect_filler(gb, bot_clipped, clr_prm);
 
         int squared_in_boundary  = (radius - 1) * (radius - 1);
         int squared_out_boundary = (radius - 0) * (radius - 0);
@@ -134,6 +145,8 @@ void gb_rect(gbuffer *gb, area rect, color_params cp, int radius) {
         int cy1 = rect.y + radius - 1;
         int cx2 = rect.x + rect.width - radius;
         int cy2 = rect.y + rect.height - radius;
+        point pt;
+        color clr;
 
         // we'll need to derive both color and alpha, based on x,y pixel
         for (int dy = 0; dy <= radius; dy++) {
@@ -147,22 +160,30 @@ void gb_rect(gbuffer *gb, area rect, color_params cp, int radius) {
                 else {
                     alpha = (squared_out_boundary - squared_distance) * 255 / (squared_out_boundary - squared_in_boundary);
                 }
-
-                // but the four points may have different color due to gradient
-                point pt_tl = point_of(cx1 - dx, cy1 - dy);
-                point pt_tr = point_of(cx2 + dx, cy1 - dy);
-                point pt_br = point_of(cx2 + dx, cy2 + dy);
-                point pt_bl = point_of(cx1 - dx, cy2 + dy);
-
-                color clr_tl = color_with_alpha(alpha, _location_dependent_color(pt_tl, cp));
-                color clr_tr = color_with_alpha(alpha, _location_dependent_color(pt_tr, cp));
-                color clr_br = color_with_alpha(alpha, _location_dependent_color(pt_br, cp));
-                color clr_bl = color_with_alpha(alpha, _location_dependent_color(pt_bl, cp));
-
-                _blend_pixel(_pixel_ptr(gb, cx1 - dx, cy1 - dy), clr_tl); // top left
-                _blend_pixel(_pixel_ptr(gb, cx2 + dx, cy1 - dy), clr_tr); // top right
-                _blend_pixel(_pixel_ptr(gb, cx2 + dx, cy2 + dy), clr_br); // botom right
-                _blend_pixel(_pixel_ptr(gb, cx1 - dx, cy2 + dy), clr_bl); // botom left
+                
+                pt = point_of(cx1 - dx, cy1 - dy);  // top left
+                if (area_contains(rect_clipped, pt)) {
+                    clr = color_with_alpha(alpha, _location_dependent_color(pt, clr_prm));
+                    _blend_pixel(_pixel_pt_ptr(gb, pt), clr);
+                }
+                
+                pt = point_of(cx2 + dx, cy1 - dy); // top right
+                if (area_contains(rect_clipped, pt)) {
+                    clr = color_with_alpha(alpha, _location_dependent_color(pt, clr_prm));
+                    _blend_pixel(_pixel_pt_ptr(gb, pt), clr);
+                }
+                
+                pt = point_of(cx2 + dx, cy2 + dy); // bottom right
+                if (area_contains(rect_clipped, pt)) {
+                    clr = color_with_alpha(alpha, _location_dependent_color(pt, clr_prm));
+                    _blend_pixel(_pixel_pt_ptr(gb, pt), clr);
+                }
+                
+                pt = point_of(cx1 - dx, cy2 + dy);  // bottom left
+                if (area_contains(rect_clipped, pt)) {
+                    clr = color_with_alpha(alpha, _location_dependent_color(pt, clr_prm));
+                    _blend_pixel(_pixel_pt_ptr(gb, pt), clr);
+                }
             }
         }
     }
