@@ -155,5 +155,4 @@ int graphics_display_main_buffer() {
             buff_argb++;
         }
     }
-    
 }

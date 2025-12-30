@@ -2,13 +2,13 @@
 #include "../memory/malloc.h"
 
 
-surface_t *surface_create(int w, int h, surface_role_t role) {
+surface_t *new_surface(int w, int h, surface_role_t role) {
     surface_t *s = kmalloc(sizeof(surface_t));
     memset(s, 0, sizeof(*s));
 
     s->role         = role;
     s->frame        = area_of(0, 0, w, h);
-    s->dirty_area   = area_of(0, 0, 0, 0);
+    s->dirty_area   = area_of(0, 0, w, h);
     s->needs_redraw = true;
 
     s->is_visible = true;
@@ -55,8 +55,6 @@ void surface_set_size(surface_t *s, int w, int h) {
     s->needs_redraw = true;
 }
 
-
-
 void surface_show(surface_t *s) { 
     if (s->is_visible) return;
 
@@ -87,7 +85,6 @@ void surface_damage_all(surface_t *s) {
 void surface_begin_draw(surface_t *s, graphics_context_t *ctx) {
     // ctx is assumed already bound to s->buffer
     // surface only resets damage bookkeeping
-    s->dirty_area = area_zero();
 }
 
 void surface_end_draw(surface_t *s) {
@@ -109,4 +106,3 @@ void surface_set_z(surface_t *s, int z) {
     s->z_order = z;
     s->needs_redraw = true;
 }
-

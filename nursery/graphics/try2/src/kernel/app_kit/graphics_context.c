@@ -26,7 +26,7 @@ void gfx_push_state(graphics_context_t *ctx) {
 void gfx_pop_state(graphics_context_t *ctx) {
     if (ctx->stack_top < 0)
         return;
-    ctx->state = ctx->stack[--ctx->stack_top];
+    ctx->state = ctx->stack[ctx->stack_top--];
 }
 
 void gfx_clip_to_area(graphics_context_t *ctx, area local_clip) {
@@ -93,7 +93,7 @@ void gfx_draw_border(graphics_context_t *ctx, area rect) {
         return;
 
     // now draw it, but pass clipping in explicitly
-    // TO Improve: gb_border(ctx->buffer, draw, ctx->state.clip, ctx->state.stroke, ctx->state.thickness, ctx->state.corner_radius);
+    gb_border(ctx->buffer, draw, ctx->state.clip, ctx->state.corner_radius, ctx->state.thickness, ctx->state.stroke);
 }
 
 void gfx_draw_text(graphics_context_t *ctx, const char *text, area rect) {
@@ -103,5 +103,5 @@ void gfx_draw_text(graphics_context_t *ctx, const char *text, area rect) {
         return;
 
     // now draw it, but pass clipping in explicitly
-    // TO Improve: gb_text(ctx->buffer, draw, ctx->state.clip, ctx->state.fill, ctx->state.corner_radius);
+    gb_text(ctx->buffer, draw, ctx->state.clip, text, ctx->state.text, ctx->state.stroke);
 }

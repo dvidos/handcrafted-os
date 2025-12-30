@@ -24,3 +24,6 @@ logger_level logger_get_level();
 void logger_set_level(logger_level new_level);
 
 extern logger_methods log;
+
+
+#define LOG_TRACE()    log.trace("%s:%d:%s()", __FILE__, __LINE__, __func__)

@@ -16,11 +16,7 @@ typedef enum {
 
 typedef struct surface surface_t;
 
-typedef void (surface_paint_func)(
-    surface_t *s,
-    graphics_context_t *ctx,
-    area dirty
-);
+typedef void (surface_paint_func)(surface_t *s, graphics_context_t *ctx, area dirty);
 
 
 // represents a positioned graphics buffer on screen
@@ -34,8 +30,8 @@ struct surface {
     int is_visible;
     int is_opaque;               // hint for composition optimization
 
-    area dirty_area;             // dirty area is local to surface
-    bool needs_redraw; 
+    area dirty_area;             // dirty area is local to surface, after paint(), it is cleared by screen manager after redrawing
+    bool needs_redraw;           // similar to dirty area. set to flag redraw, cleared by screen manager after redrawing
 
     surface_paint_func *paint;   // may be null
     void *owner;                 // can be WM, SM, window, system UI, etc.
@@ -46,7 +42,7 @@ struct surface {
 };
 
 
-surface_t *surface_create(int w, int h, surface_role_t role);
+surface_t *new_surface(int w, int h, surface_role_t role);
 void surface_destroy(surface_t *s);
 
 void surface_set_position(surface_t *s, int x, int y);

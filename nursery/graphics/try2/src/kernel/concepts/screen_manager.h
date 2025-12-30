@@ -7,6 +7,8 @@
 // dock, menu bar, alt-tab switcher, all these are surfaces, not windows.
 
 void initialize_screen_manager(void *framebuffer, int width, int height, int pitch, int bpp);
+
+size screen_manager_get_screen_size();
 void screen_manager_redraw_screen();
 int screen_manager_add_surface(surface_t *s);
 int screen_manager_remove_surface(surface_t *s);

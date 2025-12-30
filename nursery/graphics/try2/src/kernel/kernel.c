@@ -15,6 +15,7 @@
 #include "devs/mouse.h"
 #include "devs/keyboard.h"
 #include "algorithms/rand.h"
+#include "app_kit/surface.h"
 
 boot_info_t global_boot_info;
 
@@ -77,27 +78,51 @@ void blend_demo() {
     graphics_display_main_buffer();
 }
 
+void paint_fonts_demo(surface_t *s, graphics_context_t *ctx, area dirty) {
+    log.info("paint_fonts_demo()");
+
+    gfx_set_fill(ctx, color_params_solid(color_nextstep_bg()));
+    gfx_draw_rect(ctx, s->buffer->area);
+
+    font8x16 *fonts[] = { mits7, geneva9, geneva9_bold, geneva9_mono };
+    for (int i = 0; i < sizeof(fonts)/sizeof(fonts[0]); i++) {
+        font8x16 *f = fonts[i];
+        area a = area_of(20, 20 + i * 90, 350, 80);
+
+        gfx_push_state(ctx);
+
+        gfx_set_fill(ctx, color_params_solid(color_nextstep_win_face()));
+        gfx_draw_rect(ctx, a);
+
+        gfx_set_stroke(ctx, color_black(), 1);
+        gfx_set_text(ctx, text_params_of(f, ALIGN_TOP_LEFT));
+
+        gfx_move_origin(ctx, 5, 5);
+        gfx_draw_text(ctx, f->name, a); a.y += f->line_height; a.height -= f->line_height;
+        gfx_draw_text(ctx, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", a); a.y += f->line_height; a.height -= f->line_height;
+        gfx_draw_text(ctx, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", a); a.y += f->line_height; a.height -= f->line_height;
+        gfx_draw_text(ctx, "The quick brown fox jumped over the lazy dog!", a); a.y += f->line_height; a.height -= f->line_height;
+
+        gfx_pop_state(ctx);
+    }
+
+    gbuffer *other = new_gbuffer(300, 20);
+    for (int i = 0; i < 9; i++) {
+        area a = area_of(400, 20 + i * 50, 300, 40);
+        gfx_set_fill(ctx, color_params_solid(color_nextstep_win_face()));
+        gfx_draw_rect(ctx, a);
+
+        gfx_set_stroke(ctx, color_black(), 1);
+        gfx_set_text(ctx, text_params_of(geneva9, (alignment)i));
+        gfx_draw_text(ctx, "Hello alignment!", a);
+    }
+}
+
 void fonts_demo() {
-    gbuffer *main = graphics_get_main_buffer();
-    gb_fill(main, 0x008080);
-
-    color bg = color_nextstep_win_face();
-    color shadow = color_darken(bg, 0.15);
-    color letters = color_black();
-    
-    gbuffer *text_panel = new_gbuffer(450, 320);
-    gb_fill(text_panel, bg);
-    gb_text_demo(text_panel, area_of(11, 21, 430, 300), geneva9, shadow);
-    gb_text_demo(text_panel, area_of(10, 20, 430, 300), geneva9, letters);
-    gb_text_demo(text_panel, area_of(11, 101, 430, 300), geneva9_bold, shadow);
-    gb_text_demo(text_panel, area_of(10, 100, 430, 300), geneva9_bold, letters);
-    gb_text_demo(text_panel, area_of(11, 181, 430, 300), geneva9_mono, shadow);
-    gb_text_demo(text_panel, area_of(10, 180, 430, 300), geneva9_mono, letters);
-    gb_text_demo(text_panel, area_of(11, 261, 430, 300), mits7, shadow);
-    gb_text_demo(text_panel, area_of(10, 260, 430, 300), mits7, letters);
-
-    gb_copy_area_fast(main, text_panel, area_size(text_panel->area), point_of(30, 30), point_zero());
-    graphics_display_main_buffer();
+    size scr_size = screen_manager_get_screen_size();
+    surface_t *s = new_surface(scr_size.width, scr_size.height, SURFACE_OVERLAY);
+    s->paint = paint_fonts_demo;
+    screen_manager_add_surface(s);
 }
 
 void gradient_demo() {
@@ -303,20 +328,19 @@ void kernel_main(boot_info_t* bi) {
     log.info("Kernel starting...");
 
     // initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
-    initialize_logger(LOG_LEVEL_DEBUG);
+    initialize_logger(LOG_LEVEL_TRACE);
+    initialize_cpu();
+    initialize_mouse(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
+    initialize_screen_manager((void *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
 
+    
     // rectangles_borders_demo();
     // blend_demo();
-    // fonts_demo();
+    fonts_demo();
     // gradient_demo();
     // blur_demo();
     // shadows_demo();
 
-
-    initialize_cpu();
-    initialize_mouse(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
-    initialize_screen_manager((void *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
-    
     
     // this might be the idle task, good enough for now
     for (;;) {

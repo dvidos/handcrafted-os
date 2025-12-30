@@ -22,7 +22,7 @@ typedef struct mouse_info {
     int needs_redraw : 1;
 } mouse_info_t;
 
-typedef struct {
+typedef struct screen_manager {
     // Framebuffer info
     void *physical_framebuffer;  // physical framebuffer
     int width;
@@ -58,12 +58,6 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
 
     sm.backbuffer = new_gbuffer(width, height);
     gb_fill(sm.backbuffer, 0x3f9fbf);
-    uint32_t seed = 123;
-    for (int i = 0; i < 10; i++) {
-        color c = 0xFF000000 | (rand_r(&seed) & 0xFFFFFF);
-        area a = area_of(rand_r(&seed) % width, rand_r(&seed) % height, rand_r(&seed) % 1000, rand_r(&seed) % 700);
-        gb_rect(sm.backbuffer, a, sm.backbuffer->area, color_params_solid(c), 0);
-    }
 
     sm.mouse.curr_pos = point_of(sm.width / 2, sm.height / 2);
     sm.mouse.is_visible = 1;
@@ -73,6 +67,10 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     sm.mouse.restored_bg_origin = point_of(-1, -1);
 
     screen_manager_mark_area_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
+}
+
+size screen_manager_get_screen_size() {
+    return size_of(sm.width, sm.height);
 }
 
 int screen_manager_add_surface(surface_t *s) {
@@ -198,11 +196,10 @@ static void copy_backbuffer_to_physical_framebuffer() {
     area area;
 
     // to see what the saved bg contains
-    area = area_of(5, 5, 32, 32);
-    gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, area_size(area), area_location(area), point_zero());
-    gb_border(sm.backbuffer, area, area, 0, 1, 0xFFFFFFFF);
-    screen_manager_mark_area_dirty(area);
-
+    // area = area_of(5, 5, 32, 32);
+    // gb_copy_area_fast(sm.backbuffer, sm.mouse.saved_bg, area_size(area), area_location(area), point_zero());
+    // gb_border(sm.backbuffer, area, area, 0, 1, 0xFFFFFFFF);
+    // screen_manager_mark_area_dirty(area);
     
     // we are only copying what is dirty and has changed
     // otherwise, copying the entire screen is *too* slow
@@ -225,12 +222,21 @@ static void copy_backbuffer_to_physical_framebuffer() {
     }
 }
 
+static void blacken_dirty_surfaces() {
+    color_params black = color_params_solid(color_black());
+    for (int i = 0; i < sm.dirty_area_count; i++) {
+        area a = sm.dirty_areas[i];
+        gb_rect(sm.backbuffer, a, a, black, 0);
+    }
+}
+
 static void redraw_dirty_surfaces() {
+    LOG_TRACE();
     for (int i = 0; i < sm.surface_count; i++) {
         surface_t *s = sm.surfaces[i];
         if (!s->is_visible || !s->needs_redraw)
             continue;
-        
+
         area dirty = area_intersect(s->dirty_area, area_of(0, 0, s->frame.width, s->frame.height));
         if (area_is_empty(dirty)) {
             s->dirty_area = area_zero();
@@ -246,10 +252,12 @@ static void redraw_dirty_surfaces() {
 
         // merge onto back buffer (ideally, only the clipped region for performance)
         if (s->is_opaque) {
+            log.debug("dirty area is (%d,%d,%d,%d)", s->dirty_area.x, s->dirty_area.y, s->dirty_area.width, s->dirty_area.height);
             gb_copy_area_fast(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area));
         } else {
             gb_copy_area_with_alpha(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area), 0xFF);
         }
+
         s->dirty_area = area_zero();
         s->needs_redraw = false;
     }
@@ -261,10 +269,8 @@ void screen_manager_redraw_screen() {
     
     restore_mouse_cursor_area();
 
-    // ...
     // 1. Clear dirty regions in backbuffer
-    // for each dirty_rect:
-    //     fill backbuffer region with background
+    blacken_dirty_surfaces();
 
     // 2. Draw surfaces bottom → top
     redraw_dirty_surfaces();
@@ -275,33 +281,5 @@ void screen_manager_redraw_screen() {
     // 4. Present, restore cursor
     copy_backbuffer_to_physical_framebuffer();
 
-
     sm.needs_repaint = 0;
 }
-
-// ----------------------------------------------
-
-
-
-// void screen_manager_add_surface(surface_t *);
-// void screen_manager_remove_surface(surface_id);
-// void screen_manager_set_surface_geometry(surface_id, rect_t);
-// void screen_manager_set_surface_z(surface_id, int z);
-// void screen_manager_mark_dirty(rect_t);
-// void screen_manager_begin_frame(void);
-// void screen_manager_draw_surface(surface_t *);
-// void screen_manager_end_frame(void);
-// void screen_manager_present(void);
-
-// // add position, z-index, flags, to compose a whole screen
-// typedef struct surface {
-//     int x, y;
-//     int width, height;
-//     gbuffer *gbuffer;
-//     bool visible;
-//     uint32_t flags;     // desktop, popup, always_on_top, etc.
-//     int z_index;
-//     rect_t dirty;       // surface-local dirty region
-//     int is_dirty;
-// } surface_t;
-
