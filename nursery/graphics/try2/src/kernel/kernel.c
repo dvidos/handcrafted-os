@@ -78,43 +78,43 @@ void blend_demo() {
     graphics_display_main_buffer();
 }
 
-void paint_fonts_demo(surface_t *s, graphics_context_t *ctx, area dirty) {
+void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
     log.info("paint_fonts_demo()");
 
-    gfx_set_fill(ctx, color_params_solid(color_nextstep_bg()));
-    gfx_draw_rect(ctx, s->buffer->area);
+    gc_set_fill(gc, color_params_solid(color_nextstep_bg()));
+    gc_draw_rect(gc, s->buffer->area);
 
     font8x16 *fonts[] = { mits7, geneva9, geneva9_bold, geneva9_mono };
     for (int i = 0; i < sizeof(fonts)/sizeof(fonts[0]); i++) {
         font8x16 *f = fonts[i];
         area a = area_of(20, 20 + i * 90, 350, 80);
 
-        gfx_push_state(ctx);
+        gc_push_state(gc);
 
-        gfx_set_fill(ctx, color_params_solid(color_nextstep_win_face()));
-        gfx_draw_rect(ctx, a);
+        gc_set_fill(gc, color_params_solid(color_nextstep_win_face()));
+        gc_draw_rect(gc, a);
 
-        gfx_set_stroke(ctx, color_black(), 1);
-        gfx_set_text(ctx, text_params_of(f, ALIGN_TOP_LEFT));
+        gc_set_stroke(gc, color_black(), 1);
+        gc_set_text(gc, text_params_of(f, ALIGN_TOP_LEFT));
 
-        gfx_move_origin(ctx, 5, 5);
-        gfx_draw_text(ctx, f->name, a); a.y += f->line_height; a.height -= f->line_height;
-        gfx_draw_text(ctx, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", a); a.y += f->line_height; a.height -= f->line_height;
-        gfx_draw_text(ctx, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", a); a.y += f->line_height; a.height -= f->line_height;
-        gfx_draw_text(ctx, "The quick brown fox jumped over the lazy dog!", a); a.y += f->line_height; a.height -= f->line_height;
+        gc_move_origin(gc, 5, 5);
+        gc_draw_text(gc, f->name, a); a.y += f->line_height; a.height -= f->line_height;
+        gc_draw_text(gc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", a); a.y += f->line_height; a.height -= f->line_height;
+        gc_draw_text(gc, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", a); a.y += f->line_height; a.height -= f->line_height;
+        gc_draw_text(gc, "The quick brown fox jumped over the lazy dog!", a); a.y += f->line_height; a.height -= f->line_height;
 
-        gfx_pop_state(ctx);
+        gc_pop_state(gc);
     }
 
     gbuffer *other = new_gbuffer(300, 20);
     for (int i = 0; i < 9; i++) {
         area a = area_of(400, 20 + i * 50, 300, 40);
-        gfx_set_fill(ctx, color_params_solid(color_nextstep_win_face()));
-        gfx_draw_rect(ctx, a);
+        gc_set_fill(gc, color_params_solid(color_nextstep_win_face()));
+        gc_draw_rect(gc, a);
 
-        gfx_set_stroke(ctx, color_black(), 1);
-        gfx_set_text(ctx, text_params_of(geneva9, (alignment)i));
-        gfx_draw_text(ctx, "Hello alignment!", a);
+        gc_set_stroke(gc, color_black(), 1);
+        gc_set_text(gc, text_params_of(geneva9, (alignment)i));
+        gc_draw_text(gc, "Hello alignment!", a);
     }
 }
 

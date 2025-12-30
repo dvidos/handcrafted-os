@@ -82,8 +82,8 @@ void surface_damage_all(surface_t *s) {
     s->needs_redraw = true;
 }
 
-void surface_begin_draw(surface_t *s, graphics_context_t *ctx) {
-    // ctx is assumed already bound to s->buffer
+void surface_begin_draw(surface_t *s, graphics_context_t *gc) {
+    // gc is assumed already bound to s->buffer
     // surface only resets damage bookkeeping
 }
 

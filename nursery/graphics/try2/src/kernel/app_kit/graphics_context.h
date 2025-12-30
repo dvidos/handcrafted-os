@@ -26,20 +26,20 @@ struct graphics_context {
 };
 
 graphics_context_t *new_graphics_context(gbuffer *gb);
-void gc_free(graphics_context_t *ctx);
+void gc_free(graphics_context_t *gc);
 
-void gfx_push_state(graphics_context_t *ctx);
-void gfx_pop_state(graphics_context_t *ctx);
+void gc_push_state(graphics_context_t *gc);
+void gc_pop_state(graphics_context_t *gc);
 
-void gfx_clip_to_area(graphics_context_t *ctx, area local_clip);
-void gfx_move_origin(graphics_context_t *ctx, int dx, int dy);
-void gfx_set_fill(graphics_context_t *ctx, color_params fill);
-void gfx_set_stroke(graphics_context_t *ctx, color clr, int thickness);
-void gfx_set_roundness(graphics_context_t *ctx, int corner_radius);
-void gfx_set_shadow(graphics_context_t *ctx, shadow_params shadow);
-void gfx_set_text(graphics_context_t *ctx, text_params text);
+void gc_clip_to_area(graphics_context_t *gc, area local_clip);
+void gc_move_origin(graphics_context_t *gc, int dx, int dy);
+void gc_set_fill(graphics_context_t *gc, color_params fill);
+void gc_set_stroke(graphics_context_t *gc, color clr, int thickness);
+void gc_set_roundness(graphics_context_t *gc, int corner_radius);
+void gc_set_shadow(graphics_context_t *gc, shadow_params shadow);
+void gc_set_text(graphics_context_t *gc, text_params text);
 
-void gfx_draw_rect(graphics_context_t *ctx, area rect);
-void gfx_draw_line(graphics_context_t *ctx, point p1, point p2);
-void gfx_draw_border(graphics_context_t *ctx, area rect);
-void gfx_draw_text(graphics_context_t *ctx, const char *text, area rect);
+void gc_draw_rect(graphics_context_t *gc, area rect);
+void gc_draw_line(graphics_context_t *gc, point p1, point p2);
+void gc_draw_border(graphics_context_t *gc, area rect);
+void gc_draw_text(graphics_context_t *gc, const char *text, area rect);

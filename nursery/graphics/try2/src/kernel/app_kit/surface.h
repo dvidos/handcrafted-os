@@ -16,7 +16,7 @@ typedef enum {
 
 typedef struct surface surface_t;
 
-typedef void (surface_paint_func)(surface_t *s, graphics_context_t *ctx, area dirty);
+typedef void (surface_paint_func)(surface_t *s, graphics_context_t *gc, area dirty);
 
 
 // represents a positioned graphics buffer on screen
@@ -51,7 +51,7 @@ void surface_show(surface_t *s);
 void surface_hide(surface_t *s);
 void surface_damage_area(surface_t *s, area area);
 void surface_damage_all(surface_t *s);
-void surface_begin_draw(surface_t *s, graphics_context_t *ctx);
+void surface_begin_draw(surface_t *s, graphics_context_t *gc);
 void surface_end_draw(surface_t *s);
 void surface_raise(surface_t *s);
 void surface_lower(surface_t *s);

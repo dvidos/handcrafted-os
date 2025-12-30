@@ -245,9 +245,9 @@ static void redraw_dirty_surfaces() {
         }
 
         // ask the owner of the surface to paint the surface since it's dirty
-        graphics_context_t *ctx = new_graphics_context(s->buffer);
-        surface_begin_draw(s, ctx);
-        s->paint(s, ctx, s->dirty_area);
+        graphics_context_t *gc = new_graphics_context(s->buffer);
+        surface_begin_draw(s, gc);
+        s->paint(s, gc, s->dirty_area);
         surface_end_draw(s);
 
         // merge onto back buffer (ideally, only the clipped region for performance)

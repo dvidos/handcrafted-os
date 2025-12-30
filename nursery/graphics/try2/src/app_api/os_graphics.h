@@ -26,7 +26,7 @@ typedef struct app_kit_widget app_kit_widget;
 
 struct app_kit_widget {
     float x, y, w, h;
-    void (*draw)(app_kit_widget *wgt, graphics_context *ctx);
+    void (*draw)(app_kit_widget *wgt, graphics_context *gc);
 };
 
 // or each discrete widget exposes a `get_widget_interface()` to return an interface
@@ -63,19 +63,19 @@ typedef struct graphics_context {
 } graphics_context;
 
 graphics_context *create_graphics_context();
-void gc_destroy_graphics_context(graphics_context *ctx);
+void gc_destroy_graphics_context(graphics_context *gc);
 
-void gc_push_state(graphics_context *ctx); // make it easy for temporarily setting some params, drawing...
-void gc_pop_state(graphics_context *ctx);  // ...and then going back to whatever they were before.
-void gc_set_fill(graphics_context *ctx, paint_info *fill);
-void gc_set_stroke(graphics_context *ctx, paint_info *stroke);
-void gc_set_font(graphics_context *ctx, font_info *font);
-void gc_set_move_transformation(graphics_context *ctx, float dx, float dy);
-void gc_set_scale_transformation(graphics_context *ctx, float sx, float sy);
-void gc_set_rotate_transformation(graphics_context *ctx, float angle_in_radians);
-void gc_fill_rect(graphics_context *ctx, float x, float y, float w, float h);
-void gc_draw_line(graphics_context *ctx, float x1, float y1, float x2, float y2);
-void gc_draw_text(graphics_context *ctx, const char *text, float x, float base_y);
+void gc_push_state(graphics_context *gc); // make it easy for temporarily setting some params, drawing...
+void gc_pop_state(graphics_context *gc);  // ...and then going back to whatever they were before.
+void gc_set_fill(graphics_context *gc, paint_info *fill);
+void gc_set_stroke(graphics_context *gc, paint_info *stroke);
+void gc_set_font(graphics_context *gc, font_info *font);
+void gc_set_move_transformation(graphics_context *gc, float dx, float dy);
+void gc_set_scale_transformation(graphics_context *gc, float sx, float sy);
+void gc_set_rotate_transformation(graphics_context *gc, float angle_in_radians);
+void gc_fill_rect(graphics_context *gc, float x, float y, float w, float h);
+void gc_draw_line(graphics_context *gc, float x1, float y1, float x2, float y2);
+void gc_draw_text(graphics_context *gc, const char *text, float x, float base_y);
 
 // --------------------------------------------------------------
 
@@ -87,12 +87,12 @@ typedef struct event event;
 typedef struct wm_window {
     int id;
     float x, y, w, h;
-    graphics_context *ctx;
+    graphics_context *gc;
     int is_visible: 1;
     int is_full_screen: 1;
 } wm_window;
 
-wm_window *create_wm_window(graphics_context *ctx);
+wm_window *create_wm_window(graphics_context *gc);
 void destroy_wm_window(wm_window *w);
 void wm_raise_window(wm_window *w);
 void wm_lower_window(wm_window *w);

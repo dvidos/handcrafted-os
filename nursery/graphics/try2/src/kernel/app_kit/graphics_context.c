@@ -3,105 +3,105 @@
 
 
 graphics_context_t *new_graphics_context(gbuffer *gb) {
-    graphics_context_t *ctx = kmalloc(sizeof(graphics_context_t));
-    ctx->buffer = gb;
-    ctx->state.origin = point_of(0, 0);
-    ctx->state.clip = gb->area;   // full buffer
-    ctx->state.fill = color_params_solid(color_black());
-    ctx->state.stroke = color_black();
-    ctx->stack_top = -1; // the next place to store things.
-    return ctx;
+    graphics_context_t *gc = kmalloc(sizeof(graphics_context_t));
+    gc->buffer = gb;
+    gc->state.origin = point_of(0, 0);
+    gc->state.clip = gb->area;   // full buffer
+    gc->state.fill = color_params_solid(color_black());
+    gc->state.stroke = color_black();
+    gc->stack_top = -1; // the next place to store things.
+    return gc;
 }
 
-void gc_free(graphics_context_t *ctx) {
-    kfree(ctx);
+void gc_free(graphics_context_t *gc) {
+    kfree(gc);
 }
 
-void gfx_push_state(graphics_context_t *ctx) {
-    if (ctx->stack_top + 1 >= GFX_STACK_MAX)
+void gc_push_state(graphics_context_t *gc) {
+    if (gc->stack_top + 1 >= GFX_STACK_MAX)
         return;
-    ctx->stack[++ctx->stack_top] = ctx->state;
+    gc->stack[++gc->stack_top] = gc->state;
 }
 
-void gfx_pop_state(graphics_context_t *ctx) {
-    if (ctx->stack_top < 0)
+void gc_pop_state(graphics_context_t *gc) {
+    if (gc->stack_top < 0)
         return;
-    ctx->state = ctx->stack[ctx->stack_top--];
+    gc->state = gc->stack[gc->stack_top--];
 }
 
-void gfx_clip_to_area(graphics_context_t *ctx, area local_clip) {
+void gc_clip_to_area(graphics_context_t *gc, area local_clip) {
     // support transformations first (move, rotate, scale)
-    area translated = area_translate(local_clip, ctx->state.origin);
+    area translated = area_translate(local_clip, gc->state.origin);
 
     // each clipping action further restricts what can be drawn
     // a child control will push, restrict, paint, pop.
-    ctx->state.clip = area_intersect(ctx->state.clip, translated);
+    gc->state.clip = area_intersect(gc->state.clip, translated);
 }
 
 // ---------------------------------------
 
-void gfx_move_origin(graphics_context_t *ctx, int dx, int dy) {
+void gc_move_origin(graphics_context_t *gc, int dx, int dy) {
     // this gives the location of a view, so that the view can draw in coordinates relative to itself
-    ctx->state.origin.x += dx;
-    ctx->state.origin.y += dy;
+    gc->state.origin.x += dx;
+    gc->state.origin.y += dy;
 }
 
-void gfx_set_fill(graphics_context_t *ctx, color_params fill) {
-    ctx->state.fill = fill;
+void gc_set_fill(graphics_context_t *gc, color_params fill) {
+    gc->state.fill = fill;
 }
-void gfx_set_stroke(graphics_context_t *ctx, color clr, int thickness) {
-    ctx->state.stroke = clr;
-    ctx->state.thickness = thickness;
+void gc_set_stroke(graphics_context_t *gc, color clr, int thickness) {
+    gc->state.stroke = clr;
+    gc->state.thickness = thickness;
 }
-void gfx_set_roundness(graphics_context_t *ctx, int corner_radius) {
-    ctx->state.corner_radius = corner_radius;
+void gc_set_roundness(graphics_context_t *gc, int corner_radius) {
+    gc->state.corner_radius = corner_radius;
 }
-void gfx_set_shadow(graphics_context_t *ctx, shadow_params shadow) {
-    ctx->state.shadow = shadow;
+void gc_set_shadow(graphics_context_t *gc, shadow_params shadow) {
+    gc->state.shadow = shadow;
 }
-void gfx_set_text(graphics_context_t *ctx, text_params text) {
-    ctx->state.text = text;
+void gc_set_text(graphics_context_t *gc, text_params text) {
+    gc->state.text = text;
 }
 
 // ---------------------------------------
 
-void gfx_draw_rect(graphics_context_t *ctx, area rect) {
+void gc_draw_rect(graphics_context_t *gc, area rect) {
     // support transformations first (move, rotate, scale), check noop
-    area local_rect = area_translate(rect, ctx->state.origin);
-    if (area_is_empty(area_intersect(local_rect, ctx->state.clip)))
+    area local_rect = area_translate(rect, gc->state.origin);
+    if (area_is_empty(area_intersect(local_rect, gc->state.clip)))
         return;
 
     // now draw it, passing in clip explicitly
-    gb_rect(ctx->buffer, local_rect, ctx->state.clip, ctx->state.fill, ctx->state.corner_radius);
+    gb_rect(gc->buffer, local_rect, gc->state.clip, gc->state.fill, gc->state.corner_radius);
 }
 
-void gfx_draw_line(graphics_context_t *ctx, point p1, point p2) {
+void gc_draw_line(graphics_context_t *gc, point p1, point p2) {
     // support transformations first (move, rotate, scale), check noop
-    point p1_translated = point_translate(p1, ctx->state.origin);
-    point p2_translated = point_translate(p2, ctx->state.origin);
-    if (area_is_empty(area_intersect(area_between(p1, p2), ctx->state.clip)))
+    point p1_translated = point_translate(p1, gc->state.origin);
+    point p2_translated = point_translate(p2, gc->state.origin);
+    if (area_is_empty(area_intersect(area_between(p1, p2), gc->state.clip)))
         return;
 
     // now draw it, but pass clipping in explicitly
-    // TO Improve: gb_line(ctx->buffer, p1, p2, ctx->state.clip, ctx->state.stroke, ctx->state.corner_radius);
+    // TO Improve: gb_line(gc->buffer, p1, p2, gc->state.clip, gc->state.stroke, gc->state.corner_radius);
 }
 
-void gfx_draw_border(graphics_context_t *ctx, area rect) {
+void gc_draw_border(graphics_context_t *gc, area rect) {
     // support transformations first (move, rotate, scale), check noop
-    area draw = area_translate(rect, ctx->state.origin);
-    if (area_is_empty(area_intersect(draw, ctx->state.clip)))
+    area draw = area_translate(rect, gc->state.origin);
+    if (area_is_empty(area_intersect(draw, gc->state.clip)))
         return;
 
     // now draw it, but pass clipping in explicitly
-    gb_border(ctx->buffer, draw, ctx->state.clip, ctx->state.corner_radius, ctx->state.thickness, ctx->state.stroke);
+    gb_border(gc->buffer, draw, gc->state.clip, gc->state.corner_radius, gc->state.thickness, gc->state.stroke);
 }
 
-void gfx_draw_text(graphics_context_t *ctx, const char *text, area rect) {
+void gc_draw_text(graphics_context_t *gc, const char *text, area rect) {
     // support transformations first (move, rotate, scale), check noop
-    area draw = area_translate(rect, ctx->state.origin);
-    if (area_is_empty(area_intersect(draw, ctx->state.clip)))
+    area draw = area_translate(rect, gc->state.origin);
+    if (area_is_empty(area_intersect(draw, gc->state.clip)))
         return;
 
     // now draw it, but pass clipping in explicitly
-    gb_text(ctx->buffer, draw, ctx->state.clip, text, ctx->state.text, ctx->state.stroke);
+    gb_text(gc->buffer, draw, gc->state.clip, text, gc->state.text, gc->state.stroke);
 }
