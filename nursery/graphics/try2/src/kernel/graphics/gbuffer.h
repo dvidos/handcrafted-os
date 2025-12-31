@@ -5,6 +5,7 @@
 #include "color.h"
 #include "fonts/font8x16.h"
 #include "cursors/mouse_cursor.h"
+#include "icons/icon32.h"
 #include "geometry.h"
 
 
@@ -76,6 +77,7 @@ void gb_border(gbuffer *gb, area rect, area clip, int radius, int border_width, 
 void gb_blur(gbuffer *gb, area rect, int radius, int do_blur_alpha);
 void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params params, color clr);
 void gb_text_demo(gbuffer *gb, area rect, font8x16 *font, color clr);
+void gb_icon(gbuffer *gb, area rect, area clip, const icon32 *icon, color clr);
 void gb_draw_cursor32_fast(gbuffer *gb, point mouse_pos, const cursor32 *cursor);
 
 void gb_copy_area_fast(gbuffer *dest, gbuffer *src, size size, point dest_origin, point src_origin);

@@ -30,6 +30,7 @@ C_OBJS= \
     graphics/fonts/font_geneva9_bold.o \
     graphics/fonts/font_geneva9_mono.o \
     graphics/cursors/mouse_cursor.o \
+    graphics/icons/icon32.o \
     concepts/events.o \
     concepts/screen_manager.o \
     app_kit/surface.o \

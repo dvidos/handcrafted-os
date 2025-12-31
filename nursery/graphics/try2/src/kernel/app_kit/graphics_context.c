@@ -105,3 +105,13 @@ void gc_draw_text(graphics_context_t *gc, const char *text, area rect) {
     // now draw it, but pass clipping in explicitly
     gb_text(gc->buffer, draw, gc->state.clip, text, gc->state.text, gc->state.stroke);
 }
+
+void gc_draw_icon(graphics_context_t *gc, const icon32 *icon, area rect) {
+    // support transformations first (move, rotate, scale), check noop
+    area draw = area_translate(rect, gc->state.origin);
+    if (area_is_empty(area_intersect(draw, gc->state.clip)))
+        return;
+
+    // now draw it, but pass clipping in explicitly
+    gb_icon(gc->buffer, draw, gc->state.clip, icon, gc->state.stroke);
+}

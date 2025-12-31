@@ -1,5 +1,6 @@
 #pragma once
 #include "../graphics/gbuffer.h"
+#include "../graphics/icons/icon32.h"
 
 
 typedef struct graphics_context graphics_context_t;
@@ -43,3 +44,4 @@ void gc_draw_rect(graphics_context_t *gc, area rect);
 void gc_draw_line(graphics_context_t *gc, point p1, point p2);
 void gc_draw_border(graphics_context_t *gc, area rect);
 void gc_draw_text(graphics_context_t *gc, const char *text, area rect);
+void gc_draw_icon(graphics_context_t *gc, const icon32 *icon, area rect);

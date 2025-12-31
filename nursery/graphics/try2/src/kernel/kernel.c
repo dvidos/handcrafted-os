@@ -12,6 +12,7 @@
 #include "graphics/graphics.h"
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
+#include "graphics/icons/icon32.h"
 #include "devs/mouse.h"
 #include "devs/keyboard.h"
 #include "algorithms/rand.h"
@@ -116,6 +117,11 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
         gc_set_text(gc, text_params_of(geneva9, (alignment)i));
         gc_draw_text(gc, "Hello alignment!", a);
     }
+
+    area a = area_of(20, 400, 16, 16);
+    gc_draw_rect(gc, a); gc_draw_icon(gc, &icon_x16,      a); a = area_move(a, 20, 0);
+    gc_draw_rect(gc, a); gc_draw_icon(gc, &icon_window16, a); a = area_move(a, 20, 0);
+    gc_draw_rect(gc, a); gc_draw_icon(gc, &icon_down16,   a); a = area_move(a, 20, 0);
 }
 
 void fonts_demo() {

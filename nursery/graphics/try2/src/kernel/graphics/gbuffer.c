@@ -6,6 +6,7 @@
 #include "gbuffer.h"
 #include "fonts/font8x16.h"
 #include "cursors/mouse_cursor.h"
+#include "icons/icon32.h"
 
 
 #define clamp01(val)       ((val) > 1.0f) ? 1.0f : (((val) < 0.0f) ? 0.0f : (val))
@@ -386,7 +387,6 @@ void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params pa
     }
 }
 
-
 void gb_text_demo(gbuffer *gb, area rect, font8x16 *font, color clr) {
     text_params tp = text_params_of(font, ALIGN_TOP_LEFT);
     gb_text(gb, rect, rect, font->name, tp, clr);
@@ -402,6 +402,32 @@ void gb_text_demo(gbuffer *gb, area rect, font8x16 *font, color clr) {
     rect = area_move(rect, 0, font->line_height);
 }
 
+void gb_icon(gbuffer *gb, area rect, area clip, const icon32 *icon, color clr) {
+    clip = area_intersect(clip, gb->area);
+    if (area_is_empty(clip))
+        return;
+
+    area rect_clipped = area_intersect(rect, clip); 
+    if (area_is_empty(rect_clipped))
+        return;
+
+    for (int row = 0; row < icon->size; row++) {
+        uint32_t bitmap = icon->bitmaps[row];
+        if (bitmap == 0) continue;
+
+        point p = point_of(rect.x, rect.y + row);
+        uint32_t *pixel = _pixel_pt_ptr(gb, p);
+        uint32_t mask = 0x80000000;
+        for (int col = 0; col < 32; col++) {
+            if ((bitmap & mask) && area_contains(clip, p))
+                _replace_pixel(pixel, clr);
+    
+            pixel += 1; // actually 4 bytes
+            mask >>= 1;
+            p.x += 1;
+        }
+    }
+}
 
 void gb_draw_cursor32_fast(gbuffer *gb, point mouse_pos, const cursor32 *cursor) {
     // offset by hotspot
