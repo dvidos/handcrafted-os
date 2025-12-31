@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "fundamentals.h"
 #include "../boot_info.h"
 #include "cpu/ports.h"
 #include "cpu/pic.h"
@@ -119,9 +119,11 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
 }
 
 void fonts_demo() {
+    // TODO: maybe create a surface and return it.
+    // and the surface is self-contained, in drawing and in receiving events.
     size scr_size = screen_manager_get_screen_size();
-    surface_t *s = new_surface(scr_size.width, scr_size.height, SURFACE_OVERLAY);
-    s->paint = paint_fonts_demo;
+    surface_t *s = new_surface(scr_size.width - 64, scr_size.height, SURFACE_OVERLAY);
+    s->callbacks.paint = paint_fonts_demo;
     screen_manager_add_surface(s);
 }
 
@@ -356,6 +358,11 @@ void kernel_main(boot_info_t* bi) {
         event_t ev;
         event_queue_pop(&global_event_queue, &ev);
         // log_event_as_info("kernel loop", &ev);
+
+        if (ev.type == EVT_KEY)
+            screen_manager_dispatch_key_event(ev.key);
+        else if (ev.type == EVT_MOUSE)
+            screen_manager_dispatch_mouse_event(ev.mouse);
 
         // after events dispatched and actions taken, refresh anything needed
         screen_manager_redraw_screen();

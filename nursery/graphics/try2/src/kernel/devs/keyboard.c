@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "../fundamentals.h"
 #include "keyboard.h"
 #include "../cpu/ports.h"
 #include "../cpu/pic.h"

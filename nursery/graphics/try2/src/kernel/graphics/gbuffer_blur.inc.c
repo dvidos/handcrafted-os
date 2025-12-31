@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "../fundamentals.h"
 #include "gbuffer.h"
 #include "../devs/serial.h"
 

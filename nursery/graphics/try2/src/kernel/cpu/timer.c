@@ -1,5 +1,5 @@
 #include "pic.h"
-#include <stdint.h>
+#include "../fundamentals.h"
 
 
 volatile uint32_t timer_ticks = 0;

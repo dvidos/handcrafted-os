@@ -1,6 +1,7 @@
 #pragma once
-#include <stdint.h>
+#include "../fundamentals.h"
 #include "keycodes.h"
+#include "../graphics/geometry.h"
 
 
 typedef enum {
@@ -25,6 +26,7 @@ typedef struct key_event {
 #define MOUSE_BTN_MIDDLE (1 << 2)
 
 typedef struct mouse_event {
+    point pos;
     int32_t x;        // absolute cursor position
     int32_t y;
     int16_t dx;       // delta since last event

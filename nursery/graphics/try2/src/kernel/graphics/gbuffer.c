@@ -1,5 +1,4 @@
-#include <stdint.h>
-#include <stddef.h>
+#include "../fundamentals.h"
 #include "../concepts/logger.h"
 #include "../memory/malloc.h"
 #include "../memory/string.h"

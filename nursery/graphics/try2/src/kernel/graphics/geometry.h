@@ -1,11 +1,12 @@
 #pragma once
+#include "../fundamentals.h"
 
 // origin (top left) is inclusive everywhere, bottom right is exclusive everywhere 
 // e.g. similar to 256 is exclusive and 0xFF is inclusive
 
 
-static inline int min(int a, int b) { return a < b ? a : b; }
-static inline int max(int a, int b) { return a > b ? a : b; }
+// static inline int min(int a, int b) { return a < b ? a : b; }
+// static inline int max(int a, int b) { return a > b ? a : b; }
 
 typedef struct point {
     int x;

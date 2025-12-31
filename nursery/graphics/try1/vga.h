@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include "../fundamentals.h"
 
 void vga_char(char c);
 void vga_str(const char* str);

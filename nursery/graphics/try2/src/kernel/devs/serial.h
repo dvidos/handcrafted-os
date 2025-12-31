@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include "../fundamentals.h"
 
 
 void initialize_serial_port();

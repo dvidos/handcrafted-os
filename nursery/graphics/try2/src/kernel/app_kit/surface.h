@@ -1,9 +1,10 @@
 #pragma once
 #include <stdbool.h>
-#include <stdint.h>
+#include "../fundamentals.h"
 #include "../graphics/geometry.h"
 #include "../graphics/gbuffer.h"
 #include "graphics_context.h"
+#include "../concepts/events.h"
 
 
 typedef enum {
@@ -16,29 +17,40 @@ typedef enum {
 
 typedef struct surface surface_t;
 
-typedef void (surface_paint_func)(surface_t *s, graphics_context_t *gc, area dirty);
+typedef struct surface_callbacks {
+    // when screen manager asks the view to paint, when it's dirty
+    void (*paint)(surface_t *s, graphics_context_t *gc, area dirty);
 
+    // for handling events
+    void (*on_key_event)(surface_t *s, key_event_t e);
+    void (*on_mouse_event)(surface_t *s, mouse_event_t e);
+
+    // for when keyboard focus is set/pushed/changed
+    void (*on_focus_gained)(surface_t *);
+    void (*on_focus_lost)(surface_t *);
+
+} surface_callbacks_t;
 
 // represents a positioned graphics buffer on screen
-// adds position, z-index, flags
+// adds position, flags, callbacks
 struct surface {
     area frame;                  // position + size in screen coordinates
     gbuffer *buffer;             // drawing, owned by surface
 
     surface_role_t role;         // composition
-    int z_order;                 // relative ordering
     int is_visible;
     int is_opaque;               // hint for composition optimization
 
     area dirty_area;             // dirty area is local to surface, after paint(), it is cleared by screen manager after redrawing
     bool needs_redraw;           // similar to dirty area. set to flag redraw, cleared by screen manager after redrawing
 
-    surface_paint_func *paint;   // may be null
-    void *owner;                 // can be WM, SM, window, system UI, etc.
+    bool accepts_mouse;
+    bool accepts_keyboard;
+    surface_callbacks_t callbacks;
 
     // intrusive list (managed by ScreenManager)
-    struct surface *prev;
-    struct surface *next;
+    struct surface *prev; // upper
+    struct surface *next; // lower
 };
 
 

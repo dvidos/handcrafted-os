@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include "../fundamentals.h"
 
 typedef void mouse_xy_retrieval_func(int *x, int *y);
 typedef void mouse_xy_update_func(int x, int y);

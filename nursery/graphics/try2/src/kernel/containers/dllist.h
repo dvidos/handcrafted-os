@@ -16,14 +16,14 @@
         else if ((tail) == (item))              \
             (tail) = (item)->prev;              \
                                                 \
-        (item)->prev = NULL;                    \
-        (item)->next = NULL;                    \
+        (item)->prev = 0;                    \
+        (item)->next = 0;                    \
     } while (0)
 
 
 #define DLL_PUSH_HEAD(head, tail, item)         \
     do {                                        \
-        (item)->prev = NULL;                    \
+        (item)->prev = 0;                    \
         (item)->next = (head);                  \
                                                 \
         if (head)                               \
@@ -37,7 +37,7 @@
 
 #define DLL_PUSH_TAIL(head, tail, item)         \
     do {                                        \
-        (item)->next = NULL;                    \
+        (item)->next = 0;                    \
         (item)->prev = (tail);                  \
                                                 \
         if (tail)                               \

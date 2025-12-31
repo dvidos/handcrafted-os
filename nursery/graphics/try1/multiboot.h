@@ -1,7 +1,7 @@
 #ifndef MULTIBOOT_HEADER
 #define MULTIBOOT_HEADER 1
 
-#include <stdint.h>
+#include "../fundamentals.h"
 
 /* Multiboot2 magic for GRUB */
 #define MULTIBOOT2_HEADER_MAGIC 0xE85250D6

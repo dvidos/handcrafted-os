@@ -20,7 +20,7 @@ struct graphics_context {
     gbuffer *buffer;
 
     gfx_state stack[GFX_STACK_MAX];
-    int stack_top;
+    int stack_count;
 
     gfx_state state;
 };

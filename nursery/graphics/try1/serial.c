@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "../fundamentals.h"
 
 #define COM1 0x3F8
 

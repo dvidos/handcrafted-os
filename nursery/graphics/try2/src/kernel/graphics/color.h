@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include "../fundamentals.h"
 
 typedef uint32_t color; // first byte = opacity, FF=opaque, 00=transparect
 

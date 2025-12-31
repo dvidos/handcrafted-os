@@ -1,5 +1,6 @@
 #include "surface.h"
 #include "../memory/malloc.h"
+#include "../containers/dllist.h"
 
 
 surface_t *new_surface(int w, int h, surface_role_t role) {
@@ -14,8 +15,6 @@ surface_t *new_surface(int w, int h, surface_role_t role) {
     s->is_visible = true;
     s->is_opaque  = true;
 
-    s->z_order = 0;
-
     s->buffer = new_gbuffer(w, h);
 
     return s;
@@ -26,7 +25,6 @@ void surface_destroy(surface_t *s) {
     gb_free(s->buffer);
     kfree(s);
 }
-
 
 void surface_set_position(surface_t *s, int x, int y) {
     if (s->frame.x == x && s->frame.y == y) return;
@@ -90,19 +88,4 @@ void surface_begin_draw(surface_t *s, graphics_context_t *gc) {
 void surface_end_draw(surface_t *s) {
     // nothing else to do here
     // SM/WM will consume dirty_area + needs_redraw
-}
-
-void surface_raise(surface_t *s) {
-    s->z_order += 1;
-}
-
-void surface_lower(surface_t *s) {
-    s->z_order -= 1;
-}
- 
-void surface_set_z(surface_t *s, int z) {
-    if (s->z_order == z) return;
-
-    s->z_order = z;
-    s->needs_redraw = true;
 }

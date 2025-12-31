@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "../fundamentals.h"
 #include "color.h"
 #include "../memory/malloc.h"
 

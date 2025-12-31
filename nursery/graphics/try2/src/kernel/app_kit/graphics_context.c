@@ -4,12 +4,12 @@
 
 graphics_context_t *new_graphics_context(gbuffer *gb) {
     graphics_context_t *gc = kmalloc(sizeof(graphics_context_t));
+    memset(gc, 0, sizeof(graphics_context_t));
     gc->buffer = gb;
     gc->state.origin = point_of(0, 0);
     gc->state.clip = gb->area;   // full buffer
     gc->state.fill = color_params_solid(color_black());
     gc->state.stroke = color_black();
-    gc->stack_top = -1; // the next place to store things.
     return gc;
 }
 
@@ -18,15 +18,15 @@ void gc_free(graphics_context_t *gc) {
 }
 
 void gc_push_state(graphics_context_t *gc) {
-    if (gc->stack_top + 1 >= GFX_STACK_MAX)
+    if (gc->stack_count >= GFX_STACK_MAX)
         return;
-    gc->stack[++gc->stack_top] = gc->state;
+    gc->stack[gc->stack_count++] = gc->state;
 }
 
 void gc_pop_state(graphics_context_t *gc) {
-    if (gc->stack_top < 0)
+    if (gc->stack_count <= 0)
         return;
-    gc->state = gc->stack[gc->stack_top--];
+    gc->state = gc->stack[--gc->stack_count];
 }
 
 void gc_clip_to_area(graphics_context_t *gc, area local_clip) {

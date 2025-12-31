@@ -1,7 +1,7 @@
 # next steps
 
-1. **Surfaces** - Make surface_t a first-class object (buffer, rect, z-order). Everything visible is a surface.
-1. **GraphicsContext** - Introduce a stateless drawing API that renders into a surface buffer.
+1. ~~**Surfaces** - Make surface_t a first-class object (buffer, rect, z-order). Everything visible is a surface.~~
+1. ~~**GraphicsContext** - Introduce a stateless drawing API that renders into a surface buffer.~~
 1. **Base View** - Define view_t with draw, hit-test, and event handlers (single view, no hierarchy).
 1. **Concrete Views** - Implement Button, Label, TextBox by embedding view_t and overriding behavior.
 1. **View Hierarchy** - Add parent/children to views, recursive draw and hit-testing.

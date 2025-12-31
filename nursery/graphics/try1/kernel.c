@@ -1,7 +1,7 @@
 #include "multiboot2.h"
 #include "vga.h"
 #include "serial.h"
-#include <stdint.h>
+#include "../fundamentals.h"
 
 // --------------------------------------------------------------------------------------
 

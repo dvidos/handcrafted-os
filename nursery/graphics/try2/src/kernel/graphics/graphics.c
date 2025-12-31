@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "../fundamentals.h"
 #include "graphics.h"
 #include "color.h"
 #include "fonts/font8x16.h"

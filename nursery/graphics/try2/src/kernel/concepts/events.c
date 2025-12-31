@@ -20,7 +20,7 @@ void log_event_as_info(char *message, event_t *e) {
     if (e->type == EVT_KEY) {
         sprintfn(ptr, len, "keycode %d, modifiers %d, ascii %c", e->key.keycode, e->key.modifiers, e->key.ascii);
     } else if (e->type == EVT_MOUSE) {
-        sprintfn(ptr, len, "mouse at (%d,%d), delta (%d,%d), buttons %d, wheel %d", e->mouse.x, e->mouse.y, e->mouse.dx, e->mouse.dy, e->mouse.buttons, e->mouse.wheel);
+        sprintfn(ptr, len, "mouse at (%d,%d), delta (%d,%d), buttons %d, wheel %d", e->mouse.pos.x, e->mouse.pos.y, e->mouse.dx, e->mouse.dy, e->mouse.buttons, e->mouse.wheel);
     }
     len -= strlen(ptr);
     ptr += strlen(ptr);

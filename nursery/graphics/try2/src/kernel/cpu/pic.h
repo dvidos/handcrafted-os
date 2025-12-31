@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include "../fundamentals.h"
 
 // programmable interrupt conbtroller
 

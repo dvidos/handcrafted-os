@@ -124,10 +124,9 @@ void decode_mouse_packet() {
 
     // maybe we should convert this from buttons=X to actual events MOUSE_LBUTTON_DOWN/UP, wheel events etc
     mouse_event_t ev;
+    ev.pos = point_of(mouse_x, mouse_y);
     ev.dx = dx;
     ev.dy = dy;
-    ev.x = mouse_x;
-    ev.y = mouse_y;
     ev.buttons = mouse_packet[0] & 0x07;
     ev.wheel = (int8_t)mouse_packet[3];
     // log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);

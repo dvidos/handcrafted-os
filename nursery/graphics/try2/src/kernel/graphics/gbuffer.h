@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include "../fundamentals.h"
 #include "../memory/malloc.h"
 #include "../memory/string.h"
 #include "color.h"
