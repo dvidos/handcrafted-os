@@ -20,9 +20,21 @@ static bool _on_mouse_event(view_t *v, mouse_event_t e) {
     // track clicked or not
     // set clicked = ... then invalidate
     button_view *b = (button_view *)v;
-    b->pressed = !b->pressed;
-    b->base.callbacks->invalidate(v, v->bounds);
-    // TODO: we need to understand BUTTON_DOWN, MOUSE_MOVED etc.
+
+    if (e.type == MOUSE_LBTN_DOWN) {
+        b->pressed = true;
+        view_mark_all_dirty(v);
+
+    } else if (e.type == MOUSE_LBTN_UP) {
+        b->pressed = false;
+        view_mark_all_dirty(v);
+
+        // trigger the event handler
+        b->on_click(b->userdata);
+    }
+
+    // how to detect we moved outside of our bounds?
+    // we need to capture mouse... another chapter.
 }
 
 

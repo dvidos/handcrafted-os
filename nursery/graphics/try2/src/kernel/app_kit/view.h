@@ -1,3 +1,4 @@
+#pragma once
 #include "../concepts/events.h"
 #include "../graphics/geometry.h"
 #include "graphics_context.h"
@@ -50,7 +51,7 @@ struct view_vtable {
 typedef struct view_owner_interface {
     void (*mark_area_dirty)(void *owner_data, area dirty);
     void (*request_focus)(void *owner_data, view_t *v);
-    void (*release_focus)(void *owner_data, view_t *v);    
+    void (*release_focus)(void *owner_data, view_t *v); 
 } view_owner_interface_t;
 
 typedef struct view {
@@ -69,10 +70,10 @@ typedef struct view {
 } view_t;
 
 // to be used by child views
+view_t *new_base_view(); // used by surfaces
 void view_base_initialize(view_t *v);
 bool view_dispatch_mouse_event(view_t *v, mouse_event_t e);
 void view_add_child_view(view_t *parent, view_t *child);
 void view_set_owner_interface(view_t *v, view_owner_interface_t *owner, void *owner_data);
-
-static void view_mark_area_dirty(view_t *v, area local_dirty);
-static void view_mark_all_dirty(view_t *v);
+void view_mark_area_dirty(view_t *v, area local_dirty);
+void view_mark_all_dirty(view_t *v);

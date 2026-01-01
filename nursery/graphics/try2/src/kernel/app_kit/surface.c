@@ -2,6 +2,7 @@
 #include "../memory/malloc.h"
 #include "../containers/dllist.h"
 
+static view_owner_interface_t view_surface_functions;
 
 surface_t *new_surface(int w, int h, surface_role_t role) {
     surface_t *s = kmalloc(sizeof(surface_t));
@@ -16,6 +17,10 @@ surface_t *new_surface(int w, int h, surface_role_t role) {
     s->is_opaque  = true;
 
     s->buffer = new_gbuffer(w, h);
+
+    s->root_view = new_base_view();
+    view_set_owner_interface(s->root_view, &view_surface_functions, s);
+    s->focused_view = NULL;
 
     return s;
 }
@@ -100,14 +105,45 @@ void surface_handle_key(surface_t *s, key_event_t e) {
         s->focused_view->callbacks->on_key_event(s->focused_view, e);
 }
 
+void surface_add_view(surface_t *s, view_t *v) {
+    view_add_child_view(s->root_view, v);
+}
+
 void surface_set_focused_view(surface_t *s, view_t *v) {
     if (s->focused_view == v)
         return;
 
-    if (s->focused_view && s->focused_view->callbacks->on_focus_lost)
-        s->focused_view->callbacks->on_focus_lost(s->focused_view);
+    surface_clear_focused_view(s);
 
     s->focused_view = v;
     if (v && v->callbacks->on_focus_gained)
         v->callbacks->on_focus_gained(v);
 }
+
+void surface_clear_focused_view(surface_t *s) {
+    if (s->focused_view && s->focused_view->callbacks->on_focus_lost)
+        s->focused_view->callbacks->on_focus_lost(s->focused_view);
+    s->focused_view = NULL;
+}
+
+// ------------------------------------------------------------
+
+static void _surface_mark_area_dirty(void *owner_data, area dirty) {
+    surface_t *s = (surface_t *)owner_data;
+    surface_damage_area(s, dirty);
+}
+static void _surface_request_focus(void *owner_data, view_t *v) {
+    surface_t *s = (surface_t *)owner_data;
+    surface_set_focused_view(s, v);
+}
+static void _surface_release_focus(void *owner_data, view_t *v) {
+    surface_t *s = (surface_t *)owner_data;
+    surface_clear_focused_view(s);
+}
+
+static view_owner_interface_t view_surface_functions = {
+    .mark_area_dirty = _surface_mark_area_dirty,
+    .request_focus = _surface_request_focus,
+    .release_focus = _surface_release_focus
+};
+

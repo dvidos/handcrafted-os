@@ -17,6 +17,10 @@
 #include "devices/keyboard_driver.h"
 #include "algorithms/rand.h"
 #include "app_kit/surface.h"
+#include "app_kit/view.h"
+#include "app_kit/views/text_view.h"
+#include "app_kit/views/textbox_view.h"
+#include "app_kit/views/button_view.h"
 
 boot_info_t global_boot_info;
 
@@ -329,6 +333,53 @@ void initialize_cpu() {
     asm("sti");
 }
 
+// -------------------------------------------------------------------------
+
+static void _run_dialog_ok_clicked(void *userdata) {
+    surface_t *s = (surface_t *)userdata;
+
+    log.info("Run dialog OK clicked, should run the cmd line");
+    // ?
+    // well, maybe we need some custom struct, otherwise where are we going to hang our views?
+
+    screen_manager_remove_surface(s);
+}
+
+static void _run_dialog_cancel_clicked(void *userdata) {
+    surface_t *s = (surface_t *)userdata;
+
+    log.info("Run dialog Cancel clicked, should just close the pane");
+    screen_manager_remove_surface(s);
+}
+
+surface_t *create_run_dialog_surface() {
+    surface_t *s = new_surface(500, 250, SURFACE_OVERLAY);
+
+    text_view *prompt = new_text_view("Enter command to run");
+    textbox_view *text = new_textbox_view();
+    button_view *ok = new_button_view("OK", _run_dialog_ok_clicked, s);
+    button_view *cancel = new_button_view("Cancel", _run_dialog_cancel_clicked, s);
+
+    surface_add_view(s, (view_t *)prompt);
+    surface_add_view(s, (view_t *)text);
+    surface_add_view(s, (view_t *)ok);
+    surface_add_view(s, (view_t *)cancel);
+
+    return s;
+}
+
+// -------------------------------------------------------------------------
+
+static bool intercept_kernel_event(event_t ev) {
+    if (ev.type == EVT_KEY && ev.key.keymods & MOD_SUPER && ev.key.keycode == KEY_R) {
+        surface_t *s = create_run_dialog_surface();
+        screen_manager_add_surface(s);
+        return true;
+    }
+
+    return false;
+}
+
 void kernel_main(boot_info_t* bi) {
     // preserve boot info, asap
     asm("cli");
@@ -365,10 +416,12 @@ void kernel_main(boot_info_t* bi) {
         event_queue_pop(&global_event_queue, &ev);
         // log_event_as_debug("Popped event", &ev);
 
-        if (ev.type == EVT_KEY)
-            screen_manager_dispatch_key_event(ev.key);
-        else if (ev.type == EVT_MOUSE)
-            screen_manager_dispatch_mouse_event(ev.mouse);
+        if (!intercept_kernel_event(ev)) {
+            if (ev.type == EVT_KEY)
+                screen_manager_dispatch_key_event(ev.key);
+            else if (ev.type == EVT_MOUSE)
+                screen_manager_dispatch_mouse_event(ev.mouse);
+        }
 
         // after events dispatched and actions taken, refresh anything needed
         screen_manager_redraw_screen();

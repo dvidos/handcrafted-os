@@ -34,6 +34,12 @@ static void _destroy(view_t *view) {
 
 }
 
+view_t *new_base_view() { // used by surfaces, for root view
+    view_t *v = kmalloc(sizeof(view_t));
+    view_base_initialize(v);
+    return v;
+}
+
 void view_base_initialize(view_t *v) {
     memset(v, 0, sizeof(view_t));
     // set base properties...
@@ -77,7 +83,7 @@ void view_set_owner_interface(view_t *v, view_owner_interface_t *owner_interface
     v->owner_data = owner_data;
 }
 
-static void view_mark_area_dirty(view_t *v, area local_dirty) {
+void view_mark_area_dirty(view_t *v, area local_dirty) {
     // dirty area in local coords, bubbles up
     if (!v) return;
 
@@ -87,7 +93,7 @@ static void view_mark_area_dirty(view_t *v, area local_dirty) {
         v->owner_interface->mark_area_dirty(v->owner_data, area_to_global(local_dirty, v->frame));
 }
 
-static void view_mark_all_dirty(view_t *v) {
+void view_mark_all_dirty(view_t *v) {
     if (!v) return;
     view_mark_area_dirty(v, v->bounds);
 }

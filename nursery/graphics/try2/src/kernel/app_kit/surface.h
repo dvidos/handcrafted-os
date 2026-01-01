@@ -74,4 +74,6 @@ void surface_raise(surface_t *s);
 void surface_lower(surface_t *s);
 void surface_set_z(surface_t *s, int z);
 void surface_handle_key(surface_t *s, key_event_t e);
+void surface_add_view(surface_t *s, view_t *v);
 void surface_set_focused_view(surface_t *s, view_t *v);
+void surface_clear_focused_view(surface_t *s);

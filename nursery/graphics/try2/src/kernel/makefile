@@ -19,6 +19,7 @@ C_SOURCES= \
     $(wildcard graphics/cursors/*.c) \
     $(wildcard graphics/icons/*.c) \
     $(wildcard app_kit/*.c) \
+    $(wildcard app_kit/views/*.c) \
 
 C_SOURCES_WITHOUT_INCLUDES=$(filter-out %.inc.c,$(C_SOURCES))
 C_OBJS=$(C_SOURCES_WITHOUT_INCLUDES:.c=.o)

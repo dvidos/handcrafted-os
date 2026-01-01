@@ -20,10 +20,11 @@ static bool _on_key_event(view_t *v, key_event_t e) {
 
     if (e.ascii != 0 && strlen(t->buffer) < sizeof(t->buffer) - 1) {
         t->buffer[strlen(t->buffer)] = e.ascii;
-        v->callbacks->invalidate(v, v->bounds);
+        view_mark_all_dirty(v);
+
     } else if (e.keycode == KEY_BACKSPACE && strlen(t->buffer) > 0) {
         t->buffer[strlen(t->buffer)] = 0;
-        v->callbacks->invalidate(v, v->bounds);
+        view_mark_all_dirty(v);
     }
 }
 
