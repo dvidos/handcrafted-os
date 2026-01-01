@@ -10,12 +10,13 @@ typedef enum keycode {
     KEY_Y, KEY_Z,
 
     // Numbers
-    KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7,
-    KEY_8, KEY_9,
+    KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7,
+    KEY_8, KEY_9, KEY_0,
 
     // Symbols
+    KEY_BACKTICK,
     KEY_MINUS, KEY_EQUAL, KEY_LBRACKET, KEY_RBRACKET,
-    KEY_BACKSLASH, KEY_SEMICOLON, KEY_APOSTROPHE, KEY_GRAVE,
+    KEY_BACKSLASH, KEY_SEMICOLON, KEY_APOSTROPHE,
     KEY_COMMA, KEY_DOT, KEY_SLASH,
 
     // Whitespace / control
@@ -48,3 +49,9 @@ typedef enum {
     MOD_ALT   = 1 << 2,
     MOD_SUPER = 1 << 3,
 } keymods_t;
+
+
+
+const char *keycode_string(keycode_t k);
+const char *keymods_string(keymods_t mods);
+

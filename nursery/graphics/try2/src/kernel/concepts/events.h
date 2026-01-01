@@ -68,11 +68,11 @@ extern event_queue_t global_event_queue;
 static inline int event_queue_empty(event_queue_t* q) { return q->head == q->tail; }
 static inline int event_queue_full(event_queue_t* q) { return ((q->head + 1) % EVENT_QUEUE_SIZE) == q->tail; }
 
-int event_queue_push(event_queue_t* q, const event_t* ev);
+int event_queue_push(event_queue_t* q, const event_t ev);
 int event_queue_pop(event_queue_t* q, event_t* out);
 
-void enqueue_key_event(const key_event_t *event);
-void enqueue_mouse_event(const mouse_event_t *event);
+void enqueue_key_event(const key_event_t event);
+void enqueue_mouse_event(const mouse_event_t event);
 
 void log_event_as_debug(char *message, event_t *e);
 

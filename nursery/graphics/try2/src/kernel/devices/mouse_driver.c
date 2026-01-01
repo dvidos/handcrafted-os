@@ -108,7 +108,7 @@ static void _produce(mouse_event_type type, point pos, vector pos_delta, int8_t 
     ev.buttons = mouse_packet[0] & 0x07;
     ev.wheel_delta = (int8_t)mouse_packet[3];
     // log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
-    enqueue_mouse_event(&ev);  
+    enqueue_mouse_event(ev);
 }
 
 void decode_mouse_packet() {

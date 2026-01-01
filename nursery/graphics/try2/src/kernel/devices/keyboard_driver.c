@@ -38,6 +38,7 @@ static keymods_t current_mods = MOD_NONE;
 
 static const keycode_t scancode_to_keycode[128] = {
     // Numbers
+    [0x29] = KEY_BACKTICK,
     [0x02] = KEY_1, [0x03] = KEY_2, [0x04] = KEY_3, [0x05] = KEY_4,
     [0x06] = KEY_5, [0x07] = KEY_6, [0x08] = KEY_7, [0x09] = KEY_8,
     [0x0A] = KEY_9, [0x0B] = KEY_0,
@@ -54,7 +55,7 @@ static const keycode_t scancode_to_keycode[128] = {
 
     // Symbols / punctuation
     [0x1A] = KEY_LBRACKET, [0x1B] = KEY_RBRACKET,
-    [0x2B] = KEY_BACKSLASH, [0x27] = KEY_APOSTROPHE, [0x28] = KEY_GRAVE,
+    [0x2B] = KEY_BACKSLASH, [0x27] = KEY_SEMICOLON, [0x28] = KEY_APOSTROPHE,
     [0x33] = KEY_COMMA, [0x34] = KEY_DOT, [0x35] = KEY_SLASH,
     [0x39] = KEY_SPACE,
 
@@ -68,8 +69,6 @@ static const keycode_t scancode_to_keycode[128] = {
     [0x36] = KEY_SHIFT, // actually right shift
     [0x1D] = KEY_CTRL,
     [0x38] = KEY_ALT,
-    [0x5B] = KEY_SUPER, // actually left super
-    [0x5C] = KEY_SUPER, // actually right super
 
     // Function keys
     [0x3B] = KEY_F1, [0x3C] = KEY_F2, [0x3D] = KEY_F3, [0x3E] = KEY_F4,
@@ -78,20 +77,51 @@ static const keycode_t scancode_to_keycode[128] = {
 };
 
 static const keycode_t e0_scancode_to_keycode[128] = {
-    [0x1F] = KEY_CTRL, // actually Right Control
+    [0x1F] = KEY_CTRL, // actually Left Control
+    [0x1D] = KEY_CTRL, // actually Right Control
     [0x38] = KEY_ALT, // actually Right Alt
-    [0x47] = KEY_HOME, [0x4F] = KEY_END,
-    [0x49] = KEY_PAGEUP, [0x51] = KEY_PAGEDOWN,
-    [0x52] = KEY_INSERT, [0x53] = KEY_DELETE,
-    [0x48] = KEY_UP, [0x50] = KEY_DOWN,
-    [0x4B] = KEY_LEFT, [0x4D] = KEY_RIGHT,
-    [0x35] = KEY_KP_DIV, [0x37] = KEY_KP_MUL,
-    [0x4A] = KEY_KP_MINUS, [0x4E] = KEY_KP_PLUS,
+    [0x5B] = KEY_SUPER, // actually left super
+    [0x5C] = KEY_SUPER, // actually right super
+    [0x5D] = KEY_NONE, // actually the "right click" key, next to right alt.
+
+    // [0x47] = KEY_HOME,
+    // [0x4F] = KEY_END,
+    // [0x49] = KEY_PAGEUP,
+    // [0x51] = KEY_PAGEDOWN,
+    // [0x52] = KEY_INSERT,
+    // [0x53] = KEY_DELETE,
+    // [0x48] = KEY_UP, 
+    // [0x50] = KEY_DOWN,
+    // [0x4B] = KEY_LEFT,
+    // [0x4D] = KEY_RIGHT,
+
+    [0x52] = KEY_INSERT,
+    [0x4F] = KEY_END,
+    [0x50] = KEY_DOWN,
+    [0x51] = KEY_PAGEDOWN,
+    [0x4B] = KEY_LEFT,
+    [0x4D] = KEY_RIGHT,
+    [0x47] = KEY_HOME,
+    [0x48] = KEY_UP,
+    [0x49] = KEY_PAGEUP,
+    [0x53] = KEY_DELETE,
+
+    // [0x52] = KEY_KP_0,
+    // [0x4F] = KEY_KP_1,
+    // [0x50] = KEY_KP_2,
+    // [0x51] = KEY_KP_3,
+    // [0x4B] = KEY_KP_4,
+    // [0x4C] = KEY_KP_5,
+    // [0x4D] = KEY_KP_6,
+    // [0x47] = KEY_KP_7,
+    // [0x48] = KEY_KP_8,
+    // [0x49] = KEY_KP_9,
+
+    [0x35] = KEY_KP_DIV,
+    [0x37] = KEY_KP_MUL,
+    [0x4A] = KEY_KP_MINUS,
+    [0x4E] = KEY_KP_PLUS,
     [0x1C] = KEY_KP_ENTER,
-    [0x52] = KEY_KP_0, [0x4F] = KEY_KP_1, [0x50] = KEY_KP_2, [0x51] = KEY_KP_3,
-    [0x4B] = KEY_KP_4, [0x4C] = KEY_KP_5, [0x4D] = KEY_KP_6,
-    [0x47] = KEY_KP_7, [0x48] = KEY_KP_8, [0x49] = KEY_KP_9,
-    [0x53] = KEY_KP_DOT,
 };
 
 static void update_modifiers(keycode_t key, int pressed) {
@@ -105,22 +135,23 @@ static void update_modifiers(keycode_t key, int pressed) {
     current_mods = pressed ? (current_mods |= mask) : (current_mods &= ~mask);
 }
 
-char keycode_to_ascii(keycode_t keycode, int modifiers) {
-    int shift = (modifiers & KEY_SHIFT) != 0;
-    int ctrl  = (modifiers & KEY_CTRL) != 0;
-    int alt   = (modifiers & KEY_ALT) != 0;
+static char keycode_to_ascii(keycode_t keycode, keymods_t modifiers) {
+    char c;
+    int shift = (modifiers & MOD_SHIFT);
+    int ctrl  = (modifiers & MOD_CTRL);
+    // int alt   = (modifiers & MOD_ALT);
 
     // Letters
     if (keycode >= KEY_A && keycode <= KEY_Z) {
-        char c = 'a' + (keycode - KEY_A);
+        c = 'a' + (keycode - KEY_A);
         if (shift) c = 'A' + (keycode - KEY_A);
-        // if (ctrl)  return 1 + (keycode - KEY_A); // Ctrl-A .. Ctrl-Z
+        if (ctrl)  c = 1 + (keycode - KEY_A); // Ctrl-A .. Ctrl-Z
         return c;
     }
 
     // Numbers and shifted symbols
     if (keycode >= KEY_1 && keycode <= KEY_0) {
-        char c = "1234567890"[keycode - KEY_1];
+        c = "1234567890"[keycode - KEY_1];
         if (shift)
             c = "!@#$%^&*()"[keycode - KEY_1];
         return c;
@@ -128,11 +159,11 @@ char keycode_to_ascii(keycode_t keycode, int modifiers) {
 
     switch (keycode) {
         // Space, Enter, Tab, Backspace
-        case KEY_SPACE: return ' ';
-        case KEY_ENTER: return '\n';
-        case KEY_TAB:   return '\t';
-        case KEY_BACKSPACE: return 0x08;
-        // Symbols
+        case KEY_SPACE:      return ' ';
+        case KEY_ENTER:      return '\n';
+        case KEY_TAB:        return '\t';
+        case KEY_BACKSPACE:  return 0x08;
+        case KEY_BACKTICK:   return shift ? '~' : '`';
         case KEY_MINUS:      return shift ? '_' : '-';
         case KEY_EQUAL:      return shift ? '+' : '=';
         case KEY_LBRACKET:   return shift ? '{' : '[';
@@ -140,7 +171,6 @@ char keycode_to_ascii(keycode_t keycode, int modifiers) {
         case KEY_BACKSLASH:  return shift ? '|' : '\\';
         case KEY_SEMICOLON:  return shift ? ':' : ';';
         case KEY_APOSTROPHE: return shift ? '"' : '\'';
-        case KEY_GRAVE:      return shift ? '~' : '`';
         case KEY_COMMA:      return shift ? '<' : ',';
         case KEY_DOT:        return shift ? '>' : '.';
         case KEY_SLASH:      return shift ? '?' : '/';
@@ -151,7 +181,10 @@ char keycode_to_ascii(keycode_t keycode, int modifiers) {
 
 void keyboard_driver_process() {
     uint8_t scancode;
-    int pressed;
+    bool pressed;
+    bool was_extended;
+    bool is_modifier;
+    key_event_t e;
 
     while (kbd_queue_pop(&scancode)) {
         if (scancode == 0xE0) {
@@ -161,23 +194,42 @@ void keyboard_driver_process() {
 
         pressed = (scancode & 0x80) == 0;
         scancode = scancode & 0x7F;
+        was_extended = e0_prefix;
+        e.type = pressed ? KEY_PRESSED : KEY_RELEASED;
+        e.keycode = e0_prefix ? e0_scancode_to_keycode[scancode] : scancode_to_keycode[scancode];
+        e0_prefix = false; // release as soon as possible
 
-        keycode_t keycode = e0_prefix ? e0_scancode_to_keycode[scancode] : scancode_to_keycode[scancode];
-        e0_prefix = 0; // reset before continuing
-
-        if (keycode == KEY_CTRL || keycode == KEY_ALT || keycode == KEY_SHIFT || keycode == KEY_SUPER)
-            update_modifiers(keycode, pressed);
-
-        if (!pressed || !keycode)
+        if (!e.keycode) {
+            log.warn("Unknown scan %s: %s0x%02x", pressed ? "pressed" : "released", was_extended ? "0xE0+" : "", scancode);
             continue;
-        
-        key_event_t e;
-        e.type = KEY_PRESSED;
-        e.keycode = keycode;
-        e.keymods = current_mods;
-        e.ascii = keycode_to_ascii(keycode, current_mods);
-        enqueue_key_event(&e);
-        log.debug("Enqueing key event, code %d, mods %d, ascii %c", e.keycode, e.keymods, e.ascii);
+        }
+
+        is_modifier = (e.keycode == KEY_CTRL || e.keycode == KEY_ALT || e.keycode == KEY_SHIFT || e.keycode == KEY_SUPER);
+        if (is_modifier) {
+            if (pressed) {
+                e.keymods = current_mods;
+                update_modifiers(e.keycode, pressed);
+            } else {
+                update_modifiers(e.keycode, pressed);
+                e.keymods = current_mods;
+            }
+            e.ascii = 0;
+        } else {
+            // we only enqueue pressing, not releasing
+            if (!pressed) continue;
+            e.keymods = current_mods;
+            e.ascii = keycode_to_ascii(e.keycode, current_mods);
+        }
+
+        log.debug("Enqueueing event: %s %s%s %c%c%c", 
+            e.type == KEY_PRESSED ? "Pressed" : "Released",
+            keymods_string(e.keymods),
+            keycode_string(e.keycode),
+            e.ascii > 32 && e.ascii <= 127 ? '(' : 0,
+            e.ascii > 32 && e.ascii <= 127 ? e.ascii : 0,
+            e.ascii > 32 && e.ascii <= 127 ? ')' : 0
+        );
+        enqueue_key_event(e);
     }
 }
 

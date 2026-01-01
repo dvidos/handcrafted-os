@@ -63,3 +63,14 @@ void strcpy(char *target, const char *source) {
     }
     *target = *source; // final null char
 }
+
+void strcat(char *target, const char *source) {
+    while (*target) {
+        target++;
+    }
+    while (*source != '\0') {
+        *target++ = *source++;
+    }
+    *target = *source; // final null char
+}
+

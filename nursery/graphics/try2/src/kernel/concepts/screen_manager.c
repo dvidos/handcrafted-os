@@ -349,7 +349,7 @@ void screen_manager_clear_mouse_capture() {
 
 void screen_manager_dispatch_key_event(key_event_t e) {
     if (sm.keyboard_focus_stack_count == 0) {
-        log.debug("No surface found to handle keyboard event");
+        // log.debug("No surface found to handle keyboard event");
         return;
     }
 
