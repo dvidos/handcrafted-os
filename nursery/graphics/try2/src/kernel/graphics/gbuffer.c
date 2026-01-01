@@ -2,7 +2,7 @@
 #include "../concepts/logger.h"
 #include "../memory/malloc.h"
 #include "../memory/string.h"
-#include "../devs/serial.h"
+#include "../devices/serial.h"
 #include "gbuffer.h"
 #include "fonts/font8x16.h"
 #include "cursors/mouse_cursor.h"

@@ -18,9 +18,9 @@ C_OBJS= \
     memory/string.o \
     memory/malloc.o \
     memory/sprintf.o \
-    devs/serial.o \
-    devs/mouse.o \
-    devs/keyboard.o \
+    devices/serial.o \
+    devices/mouse.o \
+    devices/keyboard.o \
     graphics/graphics.o \
     graphics/gbuffer.o \
     graphics/color.o \

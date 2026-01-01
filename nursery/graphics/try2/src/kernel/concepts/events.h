@@ -25,14 +25,23 @@ typedef struct key_event {
 #define MOUSE_BTN_RIGHT  (1 << 1)
 #define MOUSE_BTN_MIDDLE (1 << 2)
 
+typedef enum mouse_event_type {
+    MOUSE_MOVED,
+    MOUSE_LBTN_DOWN,
+    MOUSE_LBTN_UP,
+    MOUSE_MBTN_DOWN,
+    MOUSE_MBTN_UP,
+    MOUSE_RBTN_DOWN,
+    MOUSE_RBTN_UP,
+    MOUSE_WHL_SCROLL
+} mouse_event_type;
+
 typedef struct mouse_event {
+    mouse_event_type type;
     point pos;
-    int32_t x;        // absolute cursor position
-    int32_t y;
-    int16_t dx;       // delta since last event
-    int16_t dy;
+    vector delta;
     uint8_t buttons;  // bitmask: L=1, R=2, M=4
-    int8_t wheel;  // signed change
+    int8_t wheel_delta;  // signed change
 } mouse_event_t;
 
 typedef enum event_type {
@@ -72,3 +81,9 @@ void enqueue_key_event(const key_event_t *event);
 void enqueue_mouse_event(const mouse_event_t *event);
 
 void log_event_as_info(char *message, event_t *e);
+
+static inline mouse_event_t mouse_event_localized(mouse_event_t e, area container) {
+    mouse_event_t localized = e;  // copy values
+    localized.pos = point_to_local(localized.pos, container);
+    return localized;
+}

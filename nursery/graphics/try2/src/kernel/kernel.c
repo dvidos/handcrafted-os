@@ -13,8 +13,8 @@
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
 #include "graphics/icons/icon32.h"
-#include "devs/mouse.h"
-#include "devs/keyboard.h"
+#include "devices/mouse.h"
+#include "devices/keyboard.h"
 #include "algorithms/rand.h"
 #include "app_kit/surface.h"
 
@@ -338,7 +338,7 @@ void kernel_main(boot_info_t* bi) {
     // initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
     initialize_logger(LOG_LEVEL_TRACE);
     initialize_cpu();
-    initialize_mouse(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
+    initialize_mouse_driver(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
     initialize_screen_manager((void *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
 
     
@@ -353,8 +353,8 @@ void kernel_main(boot_info_t* bi) {
     // this might be the idle task, good enough for now
     for (;;) {
         // log.debug("looping...");
-        keyboard_process(); // read scancodes, generate events
-        mouse_process(); // read packets, generate events
+        keyboard_driver_process(); // read scancodes, generate events
+        mouse_driver_process(); // read packets, generate events
 
         // wait for event:
         if (event_queue_empty(&global_event_queue))

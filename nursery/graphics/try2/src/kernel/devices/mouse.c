@@ -6,7 +6,7 @@
 
 // -----------------------------------------------------------
 
-#define MOUSE_RING_BUFFER_SIZE 256
+#define MOUSE_RING_BUFFER_SIZE 128
 
 static volatile uint8_t mouse_ring_buffer[MOUSE_RING_BUFFER_SIZE];
 static volatile uint8_t mouse_ring_head = 0;
@@ -31,7 +31,7 @@ int mouse_queue_pop(uint8_t *byte) {
 
 // ----------------------------------------------
 
-static mouse_xy_retrieval_func *mouse_retrieve_xy_func;
+static mouse_xy_retrieval_func *mouse_retrieve_xy_func; // calls screen_manager, without dependency
 static mouse_xy_update_func *mouse_changed_notifier_func;
 #define MOUSE_PACKET_SIZE_BYTES  4
 static int8_t mouse_packet[MOUSE_PACKET_SIZE_BYTES];
@@ -39,8 +39,6 @@ static uint8_t packet_index = 0;
 static int mouse_x = 0;
 static int mouse_y = 0;
 static uint8_t mouse_buttons = 0;
-
-
 
 
 // ----------------------------------------------
@@ -51,7 +49,7 @@ void mouse_write(uint8_t val) { ps2_wait_write(); outb(0x64, 0xD4); ps2_wait_wri
 uint8_t mouse_read(void) { ps2_wait_read(); return inb(0x60); }
 
 
-void initialize_mouse(mouse_xy_retrieval_func *retrieve, mouse_xy_update_func *update) {
+void initialize_mouse_driver(mouse_xy_retrieval_func *retrieve, mouse_xy_update_func *update) {
 
     // Enable auxiliary device
     ps2_wait_write();
@@ -98,9 +96,19 @@ void initialize_mouse(mouse_xy_retrieval_func *retrieve, mouse_xy_update_func *u
 
 // ------------------------------------------------------------------------
 
+static void _produce(mouse_event_type type, point pos, vector pos_delta, int8_t wheel_delta) {
+    mouse_event_t ev;
+    ev.pos = point_of(mouse_x, mouse_y);
+    ev.delta = pos_delta;
+    ev.buttons = mouse_packet[0] & 0x07;
+    ev.wheel_delta = (int8_t)mouse_packet[3];
+    // log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
+    enqueue_mouse_event(&ev);  
+}
 
 void decode_mouse_packet() {
-    /*  mouse packet:
+    /*  
+        mouse packet:
         byte 0:
             bit 0: left button
             bit 1: right button
@@ -112,31 +120,47 @@ void decode_mouse_packet() {
             bit 7: Y overflow
         byte 1: X movement (signed)
         byte 2: Y movement (signed, inverted)
+        byte 3: scroll wheel
     */
-
-    int dx = (int8_t)mouse_packet[1];
-    int dy = -(int8_t)mouse_packet[2]; // ps/2 y is inverted
 
     if (mouse_retrieve_xy_func != 0)
         mouse_retrieve_xy_func(&mouse_x, &mouse_y);
+    
+    int dx = (int8_t)mouse_packet[1];
+    int dy = -(int8_t)mouse_packet[2]; // ps/2 y is inverted
+
     mouse_x += dx;
     mouse_y += dy;
 
-    // maybe we should convert this from buttons=X to actual events MOUSE_LBUTTON_DOWN/UP, wheel events etc
-    mouse_event_t ev;
-    ev.pos = point_of(mouse_x, mouse_y);
-    ev.dx = dx;
-    ev.dy = dy;
-    ev.buttons = mouse_packet[0] & 0x07;
-    ev.wheel = (int8_t)mouse_packet[3];
-    // log.debug("mouse x=%d, y=%d, buttons=%d", mouse_x, mouse_y, mouse_buttons);
-    enqueue_mouse_event(&ev);  
+    point pos = point_of(mouse_x, mouse_y);
+    vector delta = vector_of(dx, dy);
+    uint8_t new_buttons = (uint8_t)mouse_packet[0] & 0x07;
+    int dwheel = (int8_t)mouse_packet[3];
+
+    if (!vector_is_zero(delta)) {
+        _produce(MOUSE_MOVED, pos, delta, 0);
+    }
+    if ((new_buttons & MOUSE_BTN_LEFT) != (mouse_buttons & MOUSE_BTN_LEFT)) {
+        mouse_event_type type = new_buttons & MOUSE_BTN_LEFT ? MOUSE_LBTN_DOWN : MOUSE_LBTN_UP;
+        _produce(type, pos, vector_zero(), 0);
+    }
+    if ((new_buttons & MOUSE_BTN_MIDDLE) != (mouse_buttons & MOUSE_BTN_MIDDLE)) {
+        mouse_event_type type = new_buttons & MOUSE_BTN_MIDDLE ? MOUSE_MBTN_DOWN : MOUSE_MBTN_UP;
+        _produce(type, pos, vector_zero(), 0);
+    }
+    if ((new_buttons & MOUSE_BTN_RIGHT) != (mouse_buttons & MOUSE_BTN_RIGHT)) {
+        mouse_event_type type = new_buttons & MOUSE_BTN_RIGHT ? MOUSE_RBTN_DOWN : MOUSE_RBTN_UP;
+        _produce(type, pos, vector_zero(), 0);
+    }
+    if (dwheel != 0) {
+        _produce(MOUSE_WHL_SCROLL, pos, vector_zero(), dwheel);
+    }
 
     if (mouse_changed_notifier_func != 0)
         mouse_changed_notifier_func(mouse_x, mouse_y);
 }
 
-void mouse_process() {
+void mouse_driver_process() {
     uint8_t byte;
 
     while (mouse_queue_pop(&byte)) {
@@ -161,4 +185,3 @@ void mouse_isr(void) {
     mouse_queue_push(data);
     pic_send_eoi(12);
 }
-

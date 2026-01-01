@@ -258,8 +258,7 @@ static void redraw_dirty_surfaces() {
             gb_copy_area_with_alpha(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area), 0xFF);
         }
 
-        s->dirty_area = area_zero();
-        s->needs_redraw = false;
+        surface_mark_clean(s);
     }
 }
 
@@ -355,7 +354,7 @@ void screen_manager_dispatch_key_event(key_event_t e) {
     }
 
     surface_t *focused = sm.keyboard_focus_stack[sm.keyboard_focus_stack_count - 1];
-    focused->callbacks.on_key_event(focused, e);
+    surface_handle_key(focused, e);
 }
 
 void screen_manager_dispatch_mouse_event(mouse_event_t e) {
@@ -381,7 +380,5 @@ void screen_manager_dispatch_mouse_event(mouse_event_t e) {
         return;
     }
 
-    e.pos = point_to_local(e.pos, target->frame);
-    target->callbacks.on_mouse_event(target, e);
+    target->callbacks.on_mouse_event(target, mouse_event_localized(e, target->frame));
 }
-

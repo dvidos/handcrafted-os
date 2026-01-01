@@ -9,6 +9,22 @@
 1. **Window Manager** - Manage window stacking, focus, movement, and event routing.
 1. **System UI** - Implement desktop, menu bar, dock, and overlays as non-window surfaces with views.
 
+Work for a complete-end-to-end system first, then a beautiful and performant system.
+
+Also, in technology, checkboxes to tick:
+
+* Shadows, with smaller footprint than the shadowed object
+* Scalable fonts, with antialiasing
+* Resolution independent, take idea from font system, work at points, not pixels (scaling in graphics_context)
+* Blur for frosted glass look of terminals, menus etc.
+
+Proof of concept work:
+
+* UI top or bottom bar, with clock and icons
+* Two windows, movable or tiled, full screenable or not,
+* Menus, nestable, per window and popup menus
+* Alt+Tab searcher or similar, with results list
+
 
 ## possible future todos
 

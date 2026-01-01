@@ -67,10 +67,15 @@ void surface_hide(surface_t *s) {
     s->needs_redraw = true;
 }
 
+void surface_mark_clean(surface_t *s) {
+    s->dirty_area = area_zero();
+    s->needs_redraw = false;
+}
+
 void surface_damage_area(surface_t *s, area a) {
     if (area_is_empty(a)) return;
 
-    // damage area is local to surface
+    // damage area is local to surface, extend current area
     s->dirty_area = area_union(s->dirty_area, a); 
     s->needs_redraw = true;
 }
@@ -88,4 +93,21 @@ void surface_begin_draw(surface_t *s, graphics_context_t *gc) {
 void surface_end_draw(surface_t *s) {
     // nothing else to do here
     // SM/WM will consume dirty_area + needs_redraw
+}
+
+void surface_handle_key(surface_t *s, key_event_t e) {
+    if (s->focused_view && s->focused_view->callbacks->on_key_event)
+        s->focused_view->callbacks->on_key_event(s->focused_view, e);
+}
+
+void surface_set_focused_view(surface_t *s, view_t *v) {
+    if (s->focused_view == v)
+        return;
+
+    if (s->focused_view && s->focused_view->callbacks->on_focus_lost)
+        s->focused_view->callbacks->on_focus_lost(s->focused_view);
+
+    s->focused_view = v;
+    if (v && v->callbacks->on_focus_gained)
+        v->callbacks->on_focus_gained(v);
 }

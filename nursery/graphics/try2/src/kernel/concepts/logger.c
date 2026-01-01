@@ -2,7 +2,7 @@
 #include "../memory/malloc.h"
 #include "../memory/sprintf.h"
 #include "logger.h"
-#include "../devs/serial.h"
+#include "../devices/serial.h"
 #include "../cpu/timer.h"
 
 

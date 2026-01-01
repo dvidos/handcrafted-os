@@ -46,16 +46,19 @@ static inline point point_of(int x, int y)                   { return (point){.x
 static inline point point_zero()                             { return (point){.x = 0, .y = 0}; }
 static inline point point_move(point p, int dx, int dy)      { return (point){.x = p.x + dx, .y = p.y + dy}; }
 static inline point point_translate(point p, point delta)    { return (point){.x = p.x + delta.x, .y = p.y + delta.y}; }
-static inline int   point_is_inside(point p, area a)         { return p.x >= a.x && p.x < a.x + a.width && p.y >= a.y && p.y < a.y + a.height; }
+static inline bool  point_is_inside(point p, area a)         { return p.x >= a.x && p.x < a.x + a.width && p.y >= a.y && p.y < a.y + a.height; }
 static inline point point_to_local(point p, area container)  { return point_of(p.x - container.x, p.y - container.y); }
 static inline point point_to_global(point p, area container) { return point_of(p.x + container.x, p.y + container.y); }
 
+static inline vector vector_of(int dx, int dy)              { return (vector){.dx = dx, .dy = dy}; }
+static inline vector vector_zero()                          { return (vector){.dx = 0, .dy = 0}; }
+static inline bool   vector_is_zero(vector v)               { return (v.dx == 0 && v.dy == 0); }
 static inline vector vector_from_to(point a, point b)       { return (vector){.dx = b.x - a.x, .dy = b.y - a.y}; }
 static inline float  vector_dot_product(vector a, vector b) { return a.dx * b.dx + a.dy * b.dy; }
 
 static inline size size_of(int w, int h)                    { return (size){.width = w, .height = h}; }
 static inline size size_zero()                              { return (size){.width = 0, .height = 0}; }
-static inline int  size_is_empty(size s)                    { return s.width <= 0 || s.height <= 0; }
+static inline bool size_is_empty(size s)                    { return s.width <= 0 || s.height <= 0; }
 static inline size size_grow(size s, int dx, int dy)        { return (size){.width = s.width + dx, .height = s.height + dy}; }
 static inline size size_grow_by(size s, int delta)          { return (size){.width = s.width + delta, .height = s.height + delta}; }
 
@@ -63,8 +66,8 @@ static inline size size_grow_by(size s, int delta)          { return (size){.wid
 static inline area  area_of(int x, int y, int w, int h)     { return (area){.x = x, .y = y, .width = w, .height = h}; }
 static inline area  area_zero()                             { return (area){.x = 0, .y = 0, .width = 0, .height = 0}; }
 static inline area  area_with(point p, size s)              { return (area){.x = p.x, .y = p.y, .width = s.width, .height = s.height}; }
-static inline int   area_is_empty(area a)                   { return a.width <= 0 || a.height <= 0; }
-static inline int   area_contains(area a, point p)          { return p.x >= a.x && p.x < a.x + a.width && p.y >= a.y && p.y < a.y + a.height; }
+static inline bool  area_is_empty(area a)                   { return a.width <= 0 || a.height <= 0; }
+static inline bool  area_contains(area a, point p)          { return p.x >= a.x && p.x < a.x + a.width && p.y >= a.y && p.y < a.y + a.height; }
 static inline area  area_between(point p1, point p2)        { return (area){.x = min(p1.x,p2.x), .y = min(p1.y,p2.y), .width = max(p1.x,p2.x) - min(p1.x,p2.x), .height = max(p1.y,p2.y) - min(p1.y,p2.y)}; }
 static inline area  area_grow(area a, int dx, int dy)       { return (area){.x = a.x - dx, .y = a.y - dy, .width = a.width + 2*dx, .height = a.height + 2*dy}; }
 static inline area  area_move(area a, int dx, int dy)       { return (area){.x = a.x + dx, .y = a.y + dy, .width = a.width, .height = a.height}; }

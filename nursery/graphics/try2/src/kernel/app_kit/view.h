@@ -1,6 +1,6 @@
 #include "../concepts/events.h"
-#include "../concepts/surface.h"
 #include "../graphics/geometry.h"
+#include "graphics_context.h"
 
 // a view is the common behavior exported by all widgets.
 // it can be a desktop, window, panel, button, label, list, icon etc
@@ -15,20 +15,31 @@ typedef struct view view_t;
 typedef struct view_vtable view_vtable_t;
 
 struct view_vtable {
-    void (*draw)(view_t *view);
-    int (*hit_test)(view_t *view, ...);
-    int (*handle_event)(view_t *view, event_t *event);
+    void (*paint)(view_t *v, graphics_context_t *gc, area dirty);
+    bool (*on_key_event)(view_t *v, key_event_t e);
+    bool (*on_mouse_event)(view_t *v, mouse_event_t e);
+    void (*on_focus_gained)(view_t *v);
+    void (*on_focus_lost)(view_t *v);
+    void (*invalidate)(view_t *v, area dirty_area); // local, bubbles up
+
     void (*destroy)(view_t *view);
 };
 
 typedef struct view {
-    area area;
+    area frame;   // relative to parent, for translating and hit testing
+    area bounds;  // relative to zero (0,0,w,h) for dirty tracking, alignment, borders etc
+    bool visible;
+    bool focusable;
+    bool focused;
+
     view_t *parent;
-    view_t *children;
-    view_t *sibling;
-    view_vtable_t *vt;
+    view_t *children_list;
+    view_t *list_next;
+    view_vtable_t *callbacks;
 } view_t;
 
+
+void view_base_initialize(view_t *v);
 
 // each discrete view struct has the base view embedded as the first attribute. 
 // This allows us to pass the pointer around as if it was a base view.
@@ -41,7 +52,6 @@ typedef struct view {
 //  list_item_view_t *new_list_item_view();
 //  menu_view_t *new_menu_view();
 //  menu_item_view_t *new_menu_item_view();
-
 
 /*
     NextStep's App kit NSView objects:

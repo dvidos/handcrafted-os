@@ -67,7 +67,7 @@ static char scancode_to_ascii(uint8_t sc, int shift) {
     return c;
 }
 
-void keyboard_process() {
+void keyboard_driver_process() {
     uint8_t sc;
 
     while (kbd_queue_pop(&sc)) {
