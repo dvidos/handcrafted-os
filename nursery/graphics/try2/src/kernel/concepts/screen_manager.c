@@ -375,10 +375,8 @@ void screen_manager_dispatch_mouse_event(mouse_event_t e) {
         }
     }
 
-    if (!target) {
-        log.info("No surface found to handle mouse event");
+    if (!target)
         return;
-    }
 
     target->callbacks.on_mouse_event(target, mouse_event_localized(e, target->frame));
 }

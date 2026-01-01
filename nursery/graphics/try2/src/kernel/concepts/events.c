@@ -6,7 +6,7 @@
 
 event_queue_t global_event_queue;
 
-void log_event_as_info(char *message, event_t *e) {
+void log_event_as_debug(char *message, event_t *e) {
     char buffer[256] = {0,};
     char *ptr = buffer;
     int len = sizeof(buffer);
@@ -18,9 +18,16 @@ void log_event_as_info(char *message, event_t *e) {
     }
     
     if (e->type == EVT_KEY) {
-        sprintfn(ptr, len, "keycode %d, modifiers %d, ascii %c", e->key.keycode, e->key.modifiers, e->key.ascii);
+        sprintfn(ptr, len, "keycode %d, modifiers %d, ascii %c", e->key.keycode, e->key.keymods, e->key.ascii);
     } else if (e->type == EVT_MOUSE) {
-        sprintfn(ptr, len, "mouse evt %d, at (%d,%d), delta (%d,%d), buttons %d, wheel %d", e->mouse.type, e->mouse.pos.x, e->mouse.pos.y, e->mouse.delta.dx, e->mouse.delta.dy, e->mouse.buttons, e->mouse.wheel_delta);
+        sprintfn(ptr, len, "mouse evt type %d, at (%d,%d), delta (%d,%d), buttons [%c|%c|%c], wheel %d", 
+            e->mouse.type, 
+            e->mouse.pos.x, e->mouse.pos.y, 
+            e->mouse.delta.dx, e->mouse.delta.dy, 
+            e->mouse.buttons & MOUSE_BTN_LEFT ? 'D' : '.', 
+            e->mouse.buttons & MOUSE_BTN_MIDDLE ? 'D' : '.', 
+            e->mouse.buttons & MOUSE_BTN_RIGHT ? 'D' : '.', 
+            e->mouse.wheel_delta);
     }
     len -= strlen(ptr);
     ptr += strlen(ptr);

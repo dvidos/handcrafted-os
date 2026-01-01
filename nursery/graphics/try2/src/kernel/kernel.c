@@ -13,8 +13,8 @@
 #include "graphics/gbuffer.h"
 #include "graphics/color.h"
 #include "graphics/icons/icon32.h"
-#include "devices/mouse.h"
-#include "devices/keyboard.h"
+#include "devices/mouse_driver.h"
+#include "devices/keyboard_driver.h"
 #include "algorithms/rand.h"
 #include "app_kit/surface.h"
 
@@ -363,7 +363,7 @@ void kernel_main(boot_info_t* bi) {
         // ideally we'd give this to WM to dispatch
         event_t ev;
         event_queue_pop(&global_event_queue, &ev);
-        // log_event_as_info("kernel loop", &ev);
+        log_event_as_debug("Popped event", &ev);
 
         if (ev.type == EVT_KEY)
             screen_manager_dispatch_key_event(ev.key);

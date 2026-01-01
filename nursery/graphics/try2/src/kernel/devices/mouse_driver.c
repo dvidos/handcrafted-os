@@ -1,4 +1,5 @@
-#include "mouse.h"
+#include "../memory/string.h"
+#include "mouse_driver.h"
 #include "../cpu/ports.h"
 #include "../cpu/pic.h"
 #include "../concepts/logger.h"
@@ -92,6 +93,10 @@ void initialize_mouse_driver(mouse_xy_retrieval_func *retrieve, mouse_xy_update_
 
     mouse_retrieve_xy_func = retrieve;
     mouse_changed_notifier_func = update;
+
+    memset((void *)&mouse_ring_buffer, 0, sizeof(mouse_ring_buffer));
+    mouse_ring_head = 0;
+    mouse_ring_tail = 0;
 }
 
 // ------------------------------------------------------------------------

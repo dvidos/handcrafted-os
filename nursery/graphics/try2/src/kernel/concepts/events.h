@@ -3,22 +3,16 @@
 #include "keycodes.h"
 #include "../graphics/geometry.h"
 
-
 typedef enum {
-    KEY_UP = 0,
-    KEY_DOWN = 1
+    KEY_PRESSED = 1,
+    KEY_RELEASED = 2
 } key_event_type_t;
-
-#define KEY_MOD_SHIFT  (1 << 0)
-#define KEY_MOD_CTRL   (1 << 1)
-#define KEY_MOD_ALT    (1 << 2)
-#define KEY_MOD_SUPER  (1 << 3)
 
 typedef struct key_event {
     key_event_type_t type;
-    keycode_t keycode;     // logical key (layout-independent)
-    uint8_t  modifiers;   // bitmask: shift/ctrl/alt/super
-    char ascii;           // if printable ascii
+    keycode_t keycode;    // logical key (layout-independent)
+    keymods_t keymods;    // modifiers
+    char ascii;           // printable ascii, else zero
 } key_event_t;
 
 #define MOUSE_BTN_LEFT   (1 << 0)
@@ -80,7 +74,7 @@ int event_queue_pop(event_queue_t* q, event_t* out);
 void enqueue_key_event(const key_event_t *event);
 void enqueue_mouse_event(const mouse_event_t *event);
 
-void log_event_as_info(char *message, event_t *e);
+void log_event_as_debug(char *message, event_t *e);
 
 static inline mouse_event_t mouse_event_localized(mouse_event_t e, area container) {
     mouse_event_t localized = e;  // copy values
