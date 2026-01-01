@@ -86,10 +86,6 @@ void gb_copy_area_scaled(gbuffer *gb, ...);
 void gb_copy_area_to_framebuffer_with_bpp(gbuffer *gb, area area, void *dest_buffer, int dest_pitch, int dest_bpp);
 void gb_drop_shadow(gbuffer *gb, const gbuffer *object, shadow_params params);
 
-
-
-
-
 // ideas to be implemented below...
 // void gb_scroll_y(gbuffer *gb, int y_diff);
 // void gb_copy_blurred();
