@@ -75,6 +75,18 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     screen_manager_mark_area_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
 }
 
+// -----------------------------------------------------------------------
+
+static void _surface_invalidated(void *surface, area dirty) {
+    screen_manager_mark_area_dirty(dirty);
+}
+
+static surface_owner_interface_t surfaces_interface = {
+    .surface_invalidated = _surface_invalidated,
+};
+
+// -----------------------------------------------------------------------
+
 size screen_manager_get_screen_size() {
     return size_of(sm.width, sm.height);
 }
@@ -87,6 +99,7 @@ int screen_manager_add_surface(surface_t *s) {
     DLL_PUSH_HEAD(sm.surface_list_head, sm.surface_list_tail, s);
 
     // need to redraw this area
+    s->owner_interface = &surfaces_interface;
     screen_manager_mark_area_dirty(s->frame);
     return 1;
 }
@@ -96,6 +109,7 @@ int screen_manager_remove_surface(surface_t *s) {
 
     // need to redraw this area
     screen_manager_mark_area_dirty(s->frame);
+    s->owner_interface = NULL;
     return 1;
 }
 
@@ -110,7 +124,7 @@ void screen_manager_mark_area_dirty(area area) {
     } else {
         sm.dirty_areas[sm.dirty_area_count++] = area;
     }
-    sm.needs_repaint = 1;
+    sm.needs_repaint = true;
 }
 
 void screen_manager_bring_surface_to_top(surface_t *s) {
@@ -147,7 +161,7 @@ void screen_manager_set_mouse_position(int x, int y) {
     sm.mouse.curr_pos.x = x;
     sm.mouse.curr_pos.y = y;
     sm.mouse.needs_redraw = 1; // we don't mark dirty, as _we_ handle the bg buffer for this
-    sm.needs_repaint = 1; 
+    sm.needs_repaint = true; 
 }
 
 void screen_manager_get_mouse_position(int *x, int *y) {
@@ -158,7 +172,7 @@ void screen_manager_get_mouse_position(int *x, int *y) {
 void screen_manager_set_mouse_visible(int visible) {
     sm.mouse.is_visible = visible;
     sm.mouse.needs_redraw = 1;
-    sm.needs_repaint = 1; 
+    sm.needs_repaint = true; 
 }
 
 int screen_manager_get_mouse_visible() {
@@ -252,7 +266,7 @@ static void redraw_dirty_surfaces() {
 
         // merge onto back buffer (ideally, only the clipped region for performance)
         if (s->is_opaque) {
-            log.debug("dirty area is (%d,%d,%d,%d)", s->dirty_area.x, s->dirty_area.y, s->dirty_area.width, s->dirty_area.height);
+            // log.debug("dirty area is (%d,%d,%d,%d)", s->dirty_area.x, s->dirty_area.y, s->dirty_area.width, s->dirty_area.height);
             gb_copy_area_fast(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area));
         } else {
             gb_copy_area_with_alpha(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area), 0xFF);
@@ -280,7 +294,7 @@ void screen_manager_redraw_screen() {
     // 4. Present, restore cursor
     copy_backbuffer_to_physical_framebuffer();
 
-    sm.needs_repaint = 0;
+    sm.needs_repaint = false;
 }
 
 // --------------------------------------------------------------------------

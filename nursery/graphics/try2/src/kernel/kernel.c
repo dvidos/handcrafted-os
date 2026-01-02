@@ -341,7 +341,6 @@ static void _run_dialog_ok_clicked(void *userdata) {
     log.info("Run dialog OK clicked, should run the cmd line");
     // ?
     // well, maybe we need some custom struct, otherwise where are we going to hang our views?
-
     screen_manager_remove_surface(s);
 }
 
@@ -354,6 +353,7 @@ static void _run_dialog_cancel_clicked(void *userdata) {
 
 surface_t *create_run_dialog_surface() {
     surface_t *s = new_surface(500, 250, SURFACE_OVERLAY);
+    surface_set_position(s, (screen_manager_get_screen_size().width - 500)/2, (screen_manager_get_screen_size().height-250)/2);
 
     text_view *prompt = new_text_view("Enter command to run");
     textbox_view *text = new_textbox_view();
@@ -361,9 +361,16 @@ surface_t *create_run_dialog_surface() {
     button_view *cancel = new_button_view("Cancel", _run_dialog_cancel_clicked, s);
 
     surface_add_view(s, (view_t *)prompt);
+    view_set_frame((view_t*)prompt, area_of(10, 10, 400, 20));
+
     surface_add_view(s, (view_t *)text);
+    view_set_frame((view_t*)text, area_of(10, 40, 400, 20));
+
     surface_add_view(s, (view_t *)ok);
+    view_set_frame((view_t*)ok, area_of(10, 100, 80, 20));
+
     surface_add_view(s, (view_t *)cancel);
+    view_set_frame((view_t*)cancel, area_of(120, 100, 80, 20));
 
     return s;
 }
@@ -371,7 +378,8 @@ surface_t *create_run_dialog_surface() {
 // -------------------------------------------------------------------------
 
 static bool intercept_kernel_event(event_t ev) {
-    if (ev.type == EVT_KEY && ev.key.keymods & MOD_SUPER && ev.key.keycode == KEY_R) {
+    if (ev.type == EVT_KEY && ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_R) {
+        log.info("creating and inserting run_dialong...");
         surface_t *s = create_run_dialog_surface();
         screen_manager_add_surface(s);
         return true;

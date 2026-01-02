@@ -1,8 +1,33 @@
+#include "../concepts/logger.h"
 #include "surface.h"
 #include "../memory/malloc.h"
 #include "../containers/dllist.h"
 
-static view_owner_interface_t view_surface_functions;
+static void _surface_mark_area_dirty(void *owner_data, area dirty);
+static void _surface_request_focus(void *owner_data, view_t *v);
+static void _surface_release_focus(void *owner_data, view_t *v);
+
+static view_owner_interface_t view_surface_functions = {
+    .mark_area_dirty = _surface_mark_area_dirty,
+    .request_focus = _surface_request_focus,
+    .release_focus = _surface_release_focus
+};
+
+static void _paint(surface_t *s, graphics_context_t *gc, area dirty);
+static void _on_key_event(surface_t *s, key_event_t e);
+static void _on_mouse_event(surface_t *s, mouse_event_t e);
+static void _on_focus_gained(surface_t *);
+static void _on_focus_lost(surface_t *);
+
+static surface_callbacks_t default_surface_callbacks = {
+    .paint = _paint,
+    .on_key_event = _on_key_event,
+    .on_mouse_event = _on_mouse_event,
+    .on_focus_gained = _on_focus_gained,
+    .on_focus_lost = _on_focus_lost
+};
+
+// -----------------------------------------------------------------------
 
 surface_t *new_surface(int w, int h, surface_role_t role) {
     surface_t *s = kmalloc(sizeof(surface_t));
@@ -19,8 +44,13 @@ surface_t *new_surface(int w, int h, surface_role_t role) {
     s->buffer = new_gbuffer(w, h);
 
     s->root_view = new_base_view();
+    view_set_frame(s->root_view, s->frame);
     view_set_owner_interface(s->root_view, &view_surface_functions, s);
     s->focused_view = NULL;
+
+    s->callbacks = default_surface_callbacks;
+    s->accepts_keyboard = true;
+    s->accepts_mouse = true;
 
     return s;
 }
@@ -101,8 +131,8 @@ void surface_end_draw(surface_t *s) {
 }
 
 void surface_handle_key(surface_t *s, key_event_t e) {
-    if (s->focused_view && s->focused_view->callbacks->on_key_event)
-        s->focused_view->callbacks->on_key_event(s->focused_view, e);
+    if (s->focused_view && s->focused_view->callbacks.on_key_event)
+        s->focused_view->callbacks.on_key_event(s->focused_view, e);
 }
 
 void surface_add_view(surface_t *s, view_t *v) {
@@ -116,14 +146,41 @@ void surface_set_focused_view(surface_t *s, view_t *v) {
     surface_clear_focused_view(s);
 
     s->focused_view = v;
-    if (v && v->callbacks->on_focus_gained)
-        v->callbacks->on_focus_gained(v);
+    if (v && v->callbacks.on_focus_gained)
+        v->callbacks.on_focus_gained(v);
 }
 
 void surface_clear_focused_view(surface_t *s) {
-    if (s->focused_view && s->focused_view->callbacks->on_focus_lost)
-        s->focused_view->callbacks->on_focus_lost(s->focused_view);
+    if (s->focused_view && s->focused_view->callbacks.on_focus_lost)
+        s->focused_view->callbacks.on_focus_lost(s->focused_view);
     s->focused_view = NULL;
+}
+
+// ------------------------------------------------------------
+
+static void _paint(surface_t *s, graphics_context_t *gc, area dirty) {
+    LOG_TRACE();
+    s->root_view->callbacks.paint(s->root_view, gc, dirty);
+}
+
+static void _on_key_event(surface_t *s, key_event_t e) {
+    // we could have the tab key move controls?
+    if (s->focused_view)
+        s->focused_view->callbacks.on_key_event(s->focused_view, e);
+}
+
+static void _on_mouse_event(surface_t *s, mouse_event_t e) {
+    view_dispatch_mouse_event(s->root_view, e);
+}
+
+static void _on_focus_gained(surface_t *s) {
+    if (s->focused_view)
+        s->focused_view->callbacks.on_focus_gained(s->focused_view);
+}
+
+static void _on_focus_lost(surface_t *s) {
+    if (s->focused_view)
+        s->focused_view->callbacks.on_focus_lost(s->focused_view);
 }
 
 // ------------------------------------------------------------
@@ -131,19 +188,18 @@ void surface_clear_focused_view(surface_t *s) {
 static void _surface_mark_area_dirty(void *owner_data, area dirty) {
     surface_t *s = (surface_t *)owner_data;
     surface_damage_area(s, dirty);
+
+    if (s->owner_interface && s->owner_interface->surface_invalidated)
+        s->owner_interface->surface_invalidated(s, area_to_global(dirty, s->frame));
 }
+
 static void _surface_request_focus(void *owner_data, view_t *v) {
     surface_t *s = (surface_t *)owner_data;
     surface_set_focused_view(s, v);
 }
+
 static void _surface_release_focus(void *owner_data, view_t *v) {
     surface_t *s = (surface_t *)owner_data;
     surface_clear_focused_view(s);
 }
-
-static view_owner_interface_t view_surface_functions = {
-    .mark_area_dirty = _surface_mark_area_dirty,
-    .request_focus = _surface_request_focus,
-    .release_focus = _surface_release_focus
-};
 

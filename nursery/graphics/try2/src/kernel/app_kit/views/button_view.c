@@ -1,7 +1,10 @@
+#include "../../concepts/logger.h"
 #include "button_view.h"
 
 
-static void _paint(view_t *v, graphics_context_t *gc, area dirty) {
+static void _button_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
+    LOG_TRACE();
+    
     // draw the button, different if focused and if pressed
     button_view *b = (button_view *)v;
 
@@ -16,7 +19,7 @@ static void _paint(view_t *v, graphics_context_t *gc, area dirty) {
     gc_draw_border(gc, v->bounds);
 }
 
-static bool _on_mouse_event(view_t *v, mouse_event_t e) {
+static bool _button_view_on_mouse_event(view_t *v, mouse_event_t e) {
     // track clicked or not
     // set clicked = ... then invalidate
     button_view *b = (button_view *)v;
@@ -37,13 +40,12 @@ static bool _on_mouse_event(view_t *v, mouse_event_t e) {
     // we need to capture mouse... another chapter.
 }
 
-
 button_view *new_button_view(const char *label, click_handling_func *on_click, void *userdata) {
     button_view *b = (button_view *)kmalloc(sizeof(button_view));
 
     view_base_initialize(&b->base);
-    b->base.callbacks->paint = _paint;
-    b->base.callbacks->on_mouse_event = _on_mouse_event;
+    b->base.callbacks.paint = _button_view_paint;
+    b->base.callbacks.on_mouse_event = _button_view_on_mouse_event;
     b->base.focusable = true;
 
     b->label = label;

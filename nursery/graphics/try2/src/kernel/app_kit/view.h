@@ -37,7 +37,7 @@
 
 
 typedef struct view view_t;
-typedef struct view_vtable view_vtable_t;
+typedef struct view_vtable view_callbacks_t;
 
 struct view_vtable {
     void (*paint)(view_t *v, graphics_context_t *gc, area dirty);
@@ -64,13 +64,16 @@ typedef struct view {
     view_t *parent;
     view_t *children_list;
     view_t *list_next;
-    view_vtable_t *callbacks;
+    view_callbacks_t callbacks;
+    
     view_owner_interface_t *owner_interface; // allows bubbling up events without depending on surfaces.
     void *owner_data;
 } view_t;
 
 // to be used by child views
 view_t *new_base_view(); // used by surfaces
+void view_set_frame(view_t *v, area frame);
+
 void view_base_initialize(view_t *v);
 bool view_dispatch_mouse_event(view_t *v, mouse_event_t e);
 void view_add_child_view(view_t *parent, view_t *child);

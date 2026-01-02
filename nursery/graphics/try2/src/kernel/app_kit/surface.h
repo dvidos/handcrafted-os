@@ -18,6 +18,11 @@ typedef enum {
 
 typedef struct surface surface_t;
 
+typedef struct surface_owner_interface_t {
+    void (*surface_invalidated)(void *surface, area dirty);
+} surface_owner_interface_t;
+
+
 typedef struct surface_callbacks {
     // when screen manager asks the view to paint, when it's dirty
     void (*paint)(surface_t *s, graphics_context_t *gc, area dirty);
@@ -55,6 +60,8 @@ struct surface {
     // intrusive list (managed by ScreenManager)
     struct surface *prev; // upper
     struct surface *next; // lower
+
+    surface_owner_interface_t *owner_interface;
 };
 
 
