@@ -98,7 +98,7 @@ int graphics_draw_8x16_character(int x, int baseline_y, char chr, font8x16 *font
             if ((bitmap & (0x80 >> column)) == 0)
                 continue;
           
-            graphics_pixel(x + column, baseline_y - font->baseline + row_no, clr);
+            graphics_pixel(x + column, baseline_y - font->ascend + row_no, clr);
         }
     }
 

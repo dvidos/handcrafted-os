@@ -256,7 +256,8 @@ static void blacken_dirty_surfaces() {
 
 static void redraw_dirty_surfaces() {
     LOG_TRACE();
-    for (surface_t *s = sm.surface_list_head; s != 0; s = s->next) {
+    // we go from bottom up...
+    for (surface_t *s = sm.surface_list_tail; s != 0; s = s->prev) {
         if (!s->is_visible || !s->needs_redraw)
             continue;
 

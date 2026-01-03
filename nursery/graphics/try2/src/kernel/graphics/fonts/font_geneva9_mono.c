@@ -1365,9 +1365,10 @@ static glyph8x16 geneva12_mono_glyphs[] = {
 static font8x16 _geneva9_mono = {
   .name = "Geneva Mono 9px",
   .num_bitmaps = 12,
-  .line_height = 15,
-  .baseline = 8,
+  .ascend = 9,
+  .descend = 3,
   .char_spacing = 1,
+  .line_advance = 15,
   .glyphs = geneva12_mono_glyphs,
 };
 

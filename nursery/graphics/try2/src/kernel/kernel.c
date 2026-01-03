@@ -88,7 +88,7 @@ void blend_demo() {
 void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
     log.info("paint_fonts_demo()");
 
-    gc_set_fill(gc, fill_params_solid(color_nextstep_bg()));
+    gc_set_fill(gc, fill_params_solid(color_gray_of(0x66)));
     gc_draw_rect(gc, s->buffer->area);
 
     font8x16 *fonts[] = { mits7, geneva9, geneva9_bold, geneva9_mono };
@@ -104,10 +104,10 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
         gc_set_text(gc, text_params_of(f, ALIGN_TOP_LEFT, color_black()));
 
         gc_move_origin(gc, 5, 5);
-        gc_draw_text(gc, f->name, a); a.y += f->line_height; a.height -= f->line_height;
-        gc_draw_text(gc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", a); a.y += f->line_height; a.height -= f->line_height;
-        gc_draw_text(gc, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", a); a.y += f->line_height; a.height -= f->line_height;
-        gc_draw_text(gc, "The quick brown fox jumped over the lazy dog!", a); a.y += f->line_height; a.height -= f->line_height;
+        gc_draw_text(gc, f->name, a); a.y += f->line_advance; a.height -= f->line_advance;
+        gc_draw_text(gc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", a); a.y += f->line_advance; a.height -= f->line_advance;
+        gc_draw_text(gc, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", a); a.y += f->line_advance; a.height -= f->line_advance;
+        gc_draw_text(gc, "The quick brown fox jumped over the lazy dog!", a); a.y += f->line_advance; a.height -= f->line_advance;
 
         gc_pop_state(gc);
     }
@@ -423,7 +423,7 @@ void kernel_main(boot_info_t* bi) {
     screen_manager_add_surface(create_wallpaper_surface());
     // rectangles_borders_demo();
     // blend_demo();
-    // fonts_demo();
+    fonts_demo();
     // gradient_demo();
     // blur_demo();
     // shadows_demo();

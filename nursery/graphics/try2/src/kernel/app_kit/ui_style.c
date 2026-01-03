@@ -26,14 +26,14 @@ void initialize_ui_style() {
         },
         .control = {
             .bg = fill_params_solid(base_gray),
-            .text = text_params_of(base_font, ALIGN_MIDDLE_LEFT, base_text),
+            .text = text_params_of(base_font, ALIGN_MIDDLE_CENTER, base_text),
             .input_bg = fill_params_solid(color_lighten(base_gray, 0.85)),
             .light = color_darken(base_gray, contrast),
             .dark = color_darken(base_gray, contrast),
             .border_color = base_text,
             .border_thickness = 1,
             .height = 20,
-            .button_min_width = 100,
+            .button_min_width = 80,
         },
         .menu = {
             .bg = fill_params_solid(base_gray),

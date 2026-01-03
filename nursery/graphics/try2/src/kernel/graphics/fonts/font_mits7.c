@@ -1083,9 +1083,10 @@ static glyph8x16 mits7_glyphs[] = {
 static font8x16 _mits7 = {
   .name = "Mits 7px",
   .num_bitmaps = 9,
-  .line_height = 13,
-  .baseline = 8,
+  .ascend = 7,
+  .descend = 2,
   .char_spacing = 1,
+  .line_advance = 13,
   .glyphs = mits7_glyphs,
 };
 

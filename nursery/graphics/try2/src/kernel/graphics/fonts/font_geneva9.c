@@ -1367,9 +1367,10 @@ static glyph8x16 geneva9_glyphs[] = {
 
 static font8x16 _geneva9 = {
   .name = "Geneva 9px",
+  .ascend = 9,
+  .descend = 3,
   .num_bitmaps = 12, // 7 x-height, 9 cap-height + 3px descenders
-  .line_height = 15,
-  .baseline = 8,
+  .line_advance = 15,
   .char_spacing = 1,
   .glyphs = geneva9_glyphs,
 };
