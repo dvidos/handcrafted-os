@@ -7,18 +7,29 @@ vert_layout_t new_vert_layout(int content_width, int padding, int spacing) {
         .content_width = content_width,
         .padding = padding,
         .spacing = spacing,
-        .count = 0,
+        .rows_count = 0,
         .cursor_x = padding,
         .cursor_y = padding,
     };
 }
 
 void vert_layout_add(vert_layout_t *l, view_t *v, int height) {
-    if (l->count > 0)
+    if (l->rows_count > 0)
         l->cursor_y += l->spacing;
     view_set_frame(v, area_of(l->cursor_x, l->cursor_y, l->content_width, height));
     l->cursor_y += height;
-    l->count++;
+    l->rows_count++;
+}
+
+void vert_layout_add_split(vert_layout_t *l, view_t *v1, view_t *v2, int height, float split_factor) {
+    int available = l->content_width - l->spacing;
+    int left_width = factor_scale_into_range(split_factor, 0, available);
+    int right_width = available - left_width;
+    
+    view_set_frame(v1, area_of(l->cursor_x, l->cursor_y, left_width, height));
+    view_set_frame(v1, area_of(l->cursor_x + l->spacing + left_width, l->cursor_y, right_width, height));
+    l->cursor_y += height;
+    l->rows_count++;
 }
 
 area vert_layout_boundaries(vert_layout_t *l) {
@@ -31,18 +42,18 @@ horiz_layout_t new_horiz_layout(int content_height, int padding, int spacing) {
         .content_height = content_height,
         .padding = padding,
         .spacing = spacing,
-        .count = 0,
+        .columns_count = 0,
         .cursor_x = padding,
         .cursor_y = padding,
     };
 }
 
 void horiz_layout_add(horiz_layout_t *l, view_t *v, int width) {
-    if (l->count > 0)
+    if (l->columns_count > 0)
         l->cursor_x += l->spacing;
     view_set_frame(v, area_of(l->cursor_x, l->cursor_y, width, l->content_height));
     l->cursor_x += width;
-    l->count++;
+    l->columns_count++;
 }
 
 area horiz_layout_boundaries(horiz_layout_t *l) {

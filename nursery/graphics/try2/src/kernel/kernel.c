@@ -381,11 +381,16 @@ surface_t *create_run_dialog_surface() {
     surface_add_view(s, (view_t *)text);
     vert_layout_add(&vl, (view_t *)text, ui_style()->control.height);
 
-    surface_add_view(s, (view_t *)ok);
-    vert_layout_add(&vl, (view_t *)ok, ui_style()->control.height);
 
+    // surface_add_view(s, (view_t *)ok);
+    // vert_layout_add(&vl, (view_t *)ok, ui_style()->control.height);
+
+    // surface_add_view(s, (view_t *)cancel);
+    // vert_layout_add(&vl, (view_t *)cancel, ui_style()->control.height);
+
+    surface_add_view(s, (view_t *)ok);
     surface_add_view(s, (view_t *)cancel);
-    vert_layout_add(&vl, (view_t *)cancel, ui_style()->control.height);
+    vert_layout_add_split(&vl, (view_t *)ok, (view_t *)cancel, ui_style()->control.height, 0.5f);
 
     area boundaries = vert_layout_boundaries(&vl);
     boundaries = screen_manager_center_on_screen(boundaries);
@@ -401,8 +406,7 @@ surface_t *create_run_dialog_surface() {
 static bool intercept_kernel_event(event_t ev) {
     if (ev.type == EVT_KEY && ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_R) {
         log.info("creating and inserting run_dialong...");
-        surface_t *s = create_run_dialog_surface();
-        screen_manager_add_surface(s);
+        screen_manager_add_surface(create_run_dialog_surface());
         return true;
     }
 

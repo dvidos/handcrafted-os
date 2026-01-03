@@ -30,6 +30,8 @@ typedef struct area {
     int height;
 } area;
 
+typedef float factor; // in range [0..1], inclusively
+
 typedef enum alignment {
     ALIGN_TOP_LEFT,
     ALIGN_MIDDLE_LEFT,
@@ -171,3 +173,21 @@ static area area_align(area container, size floaty, alignment align) {
 
     return area_of(x, y, floaty.width, floaty.height);
 }
+
+// ------------------------------------------------------------------------------------------
+
+static inline factor   factor_clamp(factor n)           { return (n < 0.0f) ? 0.0f : (n > 1.0f ? 1.0f : n); }
+static inline factor   factor_from_u8(uint8_t v)        { return (factor)v / 255.0f; }
+static inline factor   factor_from_u16(uint16_t v)      { return (factor)v / 65535.0f; }
+static inline factor   factor_from_u32(uint32_t v)      { return (factor)v / 4294967295.0f; }
+static inline factor   factor_from_percent(int percent) { return factor_clamp(percent / 100.0f); }
+static inline uint8_t  factor_to_u8(factor n)           { return (uint8_t)(factor_clamp(n) * 255.0f + 0.5f); }
+static inline uint16_t factor_to_u16(factor n)          { return (uint16_t)(factor_clamp(n) * 65535.0f + 0.5f); }
+static inline uint32_t factor_to_u32(factor n)          { return (uint32_t)(factor_clamp(n) * 4294967295.0f + 0.5f); }
+static inline factor   factor_invert(factor n)          { return 1.0f - factor_clamp(n); }
+static inline factor   factor_mul(factor a, factor b)   { return factor_clamp(a * b); }
+static inline int      factor_scale_into_range(factor n, int min, int max)       { return min + (int)(factor_clamp(n) * (max - min) + 0.5f); }
+static inline float    factor_scale_into_rangef(factor n, float min, float max)  { return min + factor_clamp(n) * (max - min); }
+static inline float    factor_interpolate(float a, float b, factor t)            { return a + factor_clamp(t) * (b - a); }
+
+// ------------------------------------------------------------------------------------------
