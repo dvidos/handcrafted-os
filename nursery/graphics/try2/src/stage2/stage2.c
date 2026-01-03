@@ -425,11 +425,11 @@ static int discover_graphics_modes() {
         if (supported_vbe_modes_count < sizeof(supported_vbe_modes)/sizeof(supported_vbe_modes[0]))
             supported_vbe_modes[supported_vbe_modes_count++] = mode;
 
-        if      (mode_info.width == 1920 && mode_info.height == 1080 && mode_info.bpp == 32) mode1920x1080x32 = mode;
-        else if (mode_info.width == 1920 && mode_info.height == 1080 && mode_info.bpp == 24) mode1920x1080x24 = mode;
-        else if (mode_info.width == 1280 && mode_info.height ==  720 && mode_info.bpp == 32) mode1280x720x32  = mode;
-        else if (mode_info.width == 1280 && mode_info.height ==  720 && mode_info.bpp == 24) mode1280x720x24  = mode;
-        else if (mode_info.width == 1024 && mode_info.height ==  768 && mode_info.bpp == 32) mode1024x768x32  = mode;
+        // if      (mode_info.width == 1920 && mode_info.height == 1080 && mode_info.bpp == 32) mode1920x1080x32 = mode;
+        // else if (mode_info.width == 1920 && mode_info.height == 1080 && mode_info.bpp == 24) mode1920x1080x24 = mode;
+        // else if (mode_info.width == 1280 && mode_info.height ==  720 && mode_info.bpp == 32) mode1280x720x32  = mode;
+        // else if (mode_info.width == 1280 && mode_info.height ==  720 && mode_info.bpp == 24) mode1280x720x24  = mode;
+        if      (mode_info.width == 1024 && mode_info.height ==  768 && mode_info.bpp == 32) mode1024x768x32  = mode;
         else if (mode_info.width == 1024 && mode_info.height ==  768 && mode_info.bpp == 24) mode1024x768x24  = mode;
         else if (mode_info.width ==  800 && mode_info.height ==  600)                        mode800x600      = mode;
         else if (mode_info.width ==  640 && mode_info.height ==  480)                        mode640x480      = mode;

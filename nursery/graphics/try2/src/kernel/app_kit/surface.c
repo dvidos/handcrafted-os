@@ -2,6 +2,7 @@
 #include "surface.h"
 #include "../memory/malloc.h"
 #include "../containers/dllist.h"
+#include "views/background_view.h"
 
 static void _surface_mark_area_dirty(void *owner_data, area dirty);
 static void _surface_request_focus(void *owner_data, view_t *v);
@@ -43,7 +44,7 @@ surface_t *new_surface(int w, int h, surface_role_t role) {
 
     s->buffer = new_gbuffer(w, h);
 
-    s->root_view = new_base_view();
+    s->root_view = (view_t *)new_background_view();
     view_set_frame(s->root_view, s->frame);
     view_set_owner_interface(s->root_view, &view_surface_functions, s);
     s->focused_view = NULL;
@@ -142,9 +143,7 @@ void surface_add_view(surface_t *s, view_t *v) {
 void surface_set_focused_view(surface_t *s, view_t *v) {
     if (s->focused_view == v)
         return;
-
     surface_clear_focused_view(s);
-
     s->focused_view = v;
     if (v && v->callbacks.on_focus_gained)
         v->callbacks.on_focus_gained(v);

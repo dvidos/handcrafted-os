@@ -95,6 +95,15 @@ area screen_manager_get_screen_area() {
     return area_of(0, 0, sm.width, sm.height);
 }
 
+area screen_manager_center_on_screen(area a) {
+    return area_of(
+        (sm.width - a.width) / 2,
+        (sm.height - a.height) / 2,
+        a.width,
+        a.height
+    );
+}
+
 int screen_manager_add_surface(surface_t *s) {
     DLL_PUSH_HEAD(sm.surface_list_head, sm.surface_list_tail, s);
 
@@ -238,7 +247,7 @@ static void copy_backbuffer_to_physical_framebuffer() {
 }
 
 static void blacken_dirty_surfaces() {
-    color_params black = color_params_solid(color_black());
+    fill_params black = fill_params_solid(color_black());
     for (int i = 0; i < sm.dirty_area_count; i++) {
         area a = sm.dirty_areas[i];
         gb_rect(sm.backbuffer, a, a, black, 0);
@@ -359,38 +368,40 @@ void screen_manager_clear_mouse_capture() {
     sm.mouse_capture = 0;
 }
 
-// --------------------------------------------------------------
 
 void screen_manager_dispatch_key_event(key_event_t e) {
     if (sm.keyboard_focus_stack_count == 0) {
         // log.debug("No surface found to handle keyboard event");
         return;
     }
-
+    
     surface_t *focused = sm.keyboard_focus_stack[sm.keyboard_focus_stack_count - 1];
     surface_handle_key(focused, e);
 }
 
 void screen_manager_dispatch_mouse_event(mouse_event_t e) {
     surface_t *target = 0;
-
+    
     if (sm.mouse_capture) {
         target = sm.mouse_capture;
     } else {
         // perform hit test, top to bottom
         for (surface_t *s = sm.surface_list_head; s != 0; s = s->next) {
             if (!area_contains(s->frame, e.pos))
-                continue;
+            continue;
             if (!s->is_visible || !s->accepts_mouse) 
-                continue;
-
+            continue;
+            
             target = s;
             break;
         }
     }
 
     if (!target)
-        return;
+    return;
 
     target->callbacks.on_mouse_event(target, mouse_event_localized(e, target->frame));
 }
+
+// --------------------------------------------------------------
+

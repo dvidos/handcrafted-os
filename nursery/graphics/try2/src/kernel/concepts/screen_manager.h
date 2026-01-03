@@ -9,6 +9,8 @@
 void initialize_screen_manager(void *framebuffer, int width, int height, int pitch, int bpp);
 
 size screen_manager_get_screen_size();
+area screen_manager_get_screen_area();
+area screen_manager_center_on_screen(area a);
 void screen_manager_redraw_screen();
 int  screen_manager_add_surface(surface_t *s);
 int  screen_manager_remove_surface(surface_t *s);

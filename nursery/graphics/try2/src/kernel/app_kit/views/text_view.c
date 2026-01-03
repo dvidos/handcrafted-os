@@ -4,10 +4,12 @@
 
 static void _text_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     LOG_TRACE();
-    
-    // draw the button, different if focused and if pressed
+
     text_view *t = (text_view *)v;
-    gc_draw_text(gc, t->text, t->base.bounds);
+    const ui_style_t *style = ui_style();
+    
+    gc_set_text(gc, style->control.text);
+    gc_draw_text(gc, t->text, v->bounds);
 }
 
 text_view *new_text_view(const char *text) {

@@ -1,6 +1,5 @@
 #pragma once
 #include "../view.h"
-#include "../../memory/malloc.h"
 
 typedef void (click_handling_func)(void *);
 

@@ -4,15 +4,16 @@
 
 static void _textbox_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     textbox_view *t = (textbox_view *)v;
+    const ui_style_t *style = ui_style();
 
-    color c = t->focused ? color_gray_of(0xFF) : color_gray_of(0xCC);
-    gc_set_fill(gc, color_params_solid(c));
+    fill_params bg = t->focused ? style->control.input_bg : style->window.bg;
+    gc_set_fill(gc, bg);
     gc_draw_rect(gc, v->bounds);
 
-    gc_set_text(gc, text_params_of(geneva9, ALIGN_MIDDLE_CENTER));
+    gc_set_text(gc, style->control.text);
     gc_draw_text(gc, t->buffer, v->bounds);
 
-    gc_set_stroke(gc, color_gray_of(0x55), 1);
+    gc_set_stroke(gc, style->control.border_color, style->control.border_thickness);
     gc_draw_border(gc, v->bounds);
 }
 

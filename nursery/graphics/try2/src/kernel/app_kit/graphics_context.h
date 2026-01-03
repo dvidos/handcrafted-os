@@ -9,7 +9,7 @@ typedef struct graphics_context graphics_context_t;
 typedef struct gfx_state {
     area clip;        // clip in buffer coordinates
     point origin;
-    color_params fill;
+    fill_params fill;
     color stroke;
     int thickness;
     int corner_radius;
@@ -34,7 +34,7 @@ void gc_pop_state(graphics_context_t *gc);
 
 void gc_clip_to_area(graphics_context_t *gc, area local_clip);
 void gc_move_origin(graphics_context_t *gc, int dx, int dy);
-void gc_set_fill(graphics_context_t *gc, color_params fill);
+void gc_set_fill(graphics_context_t *gc, fill_params fill);
 void gc_set_stroke(graphics_context_t *gc, color clr, int thickness);
 void gc_set_roundness(graphics_context_t *gc, int corner_radius);
 void gc_set_shadow(graphics_context_t *gc, shadow_params shadow);

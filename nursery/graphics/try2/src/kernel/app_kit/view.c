@@ -89,21 +89,24 @@ void view_mark_all_dirty(view_t *v) {
     view_mark_area_dirty(v, v->bounds);
 }
 
+void view_paint_children(view_t *v, graphics_context_t *gc, area dirty) {
+    for (view_t *child = v->children_list; child; child = child->list_next) {
+        area child_dirty = area_to_local(dirty, child->frame);
+        if (area_is_empty(child_dirty))
+            continue;
+
+        gc_push_state(gc);
+        gc_move_origin(gc, child->frame.x, child->frame.y);
+        child->callbacks.paint(child, gc, child_dirty);
+        gc_pop_state(gc);
+    }
+}
+
 // -------------------------------------------------------------
 
 static void _base_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     LOG_TRACE();
-
-    // this rect, for debugging purposes only.
-    gc_set_fill(gc, color_params_solid(color_nextstep_win_face()));
-    gc_draw_rect(gc, v->bounds);
-
-    for (view_t *child = v->children_list; child; child = child->list_next) {
-        gc_push_state(gc);
-        gc_move_origin(gc, child->frame.x, child->frame.y);
-        child->callbacks.paint(child, gc, area_to_local(dirty, child->frame));
-        gc_pop_state(gc);
-    }
+    view_paint_children(v, gc, dirty);
 }
 
 static bool _base_view_on_key_event(view_t *v, key_event_t e) {

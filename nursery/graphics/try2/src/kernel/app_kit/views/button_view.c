@@ -1,3 +1,4 @@
+#include "../../memory/malloc.h"
 #include "../../concepts/logger.h"
 #include "button_view.h"
 
@@ -7,15 +8,15 @@ static void _button_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     
     // draw the button, different if focused and if pressed
     button_view *b = (button_view *)v;
+    const ui_style_t *style = ui_style();
 
-    color c = b->pressed ? color_gray_of(0xAA) : color_gray_of(0xCC);
-    gc_set_fill(gc, color_params_solid(c));
+    gc_set_fill(gc, fill_params_solid(b->pressed ? style->control.light : style->control.dark));
     gc_draw_rect(gc, v->bounds);
 
-    gc_set_text(gc, text_params_of(geneva9, ALIGN_MIDDLE_CENTER));
+    gc_set_text(gc, style->control.text);
     gc_draw_text(gc, b->label, v->bounds);
 
-    gc_set_stroke(gc, color_gray_of(0x55), v->focused ? 2 : 1);
+    gc_set_stroke(gc, style->control.border_color, v->focused ? 2 : 1);
     gc_draw_border(gc, v->bounds);
 }
 

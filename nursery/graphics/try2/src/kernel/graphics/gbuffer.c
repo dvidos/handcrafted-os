@@ -25,7 +25,7 @@ static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) { 
 #include "gbuffer_blur.inc.c"
 
 
-static color _location_dependent_color(point p, color_params cp) {
+static color _location_dependent_color(point p, fill_params cp) {
     if (cp.fill_type == FILL_TYPE_SOLID)
         return cp.clr;
     
@@ -41,15 +41,15 @@ static color _location_dependent_color(point p, color_params cp) {
     return 0;
 }
 
-typedef void fill_func(gbuffer *gb, area rect, color_params cp);
+typedef void fill_func(gbuffer *gb, area rect, fill_params cp);
 
-static inline void _fill_rect_fast(gbuffer *gb, area rect, color_params cp) {
+static inline void _fill_rect_fast(gbuffer *gb, area rect, fill_params cp) {
     int y_end = rect.y + rect.height;
     for (int i = rect.y; i < y_end; i++)
         _set_pixel_row(_pixel_ptr(gb, rect.x, i), cp.clr, rect.width);
 }
 
-static inline void _fill_rect_slow(gbuffer *gb, area rect, color_params cp) {
+static inline void _fill_rect_slow(gbuffer *gb, area rect, fill_params cp) {
     int y_end = rect.y + rect.height;
     int x_end = rect.x + rect.width;
     for (int y = rect.y; y < y_end; y++) {
@@ -110,7 +110,7 @@ void gb_fill(gbuffer *gb, color clr) {
     }
 }
 
-void gb_rect(gbuffer *gb, area rect, area clip, color_params clr_prm, int radius) {
+void gb_rect(gbuffer *gb, area rect, area clip, fill_params clr_prm, int radius) {
     clip = area_intersect(clip, gb->area);
     if (area_is_empty(clip))
         return;
@@ -201,7 +201,7 @@ void gb_border(gbuffer *gb, area rect, area clip, int radius, int border_width, 
     if (radius < 0 || border_width <= 0)
         return;
 
-    color_params clr_prm = color_params_solid(clr);
+    fill_params clr_prm = fill_params_solid(clr);
 
     // Draw straight rectangle edges first
     area top_border = area_of(rect.x + radius, rect.y, rect.width - 2 * radius, border_width);
@@ -364,7 +364,7 @@ static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, 
     return gl->width;
 }
 
-void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params params, color clr) {
+void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params params) {
     clip = area_intersect(clip, gb->area);
     if (area_is_empty(clip))
         return;
@@ -380,7 +380,7 @@ void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params pa
     while (*text) {
         area glyph_area = font8x16_get_glyph_area(params.font, *text, x, baseline_y);
         if (!area_is_empty(area_intersect(glyph_area, text_area_clipped))) {
-            gb_draw_8x16_character(gb, x, baseline_y, *text, text_area_clipped, params.font, clr);
+            gb_draw_8x16_character(gb, x, baseline_y, *text, text_area_clipped, params.font, params.color);
         }
         x += glyph_area.width + params.font->char_spacing;
         text++;
@@ -388,17 +388,17 @@ void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params pa
 }
 
 void gb_text_demo(gbuffer *gb, area rect, font8x16 *font, color clr) {
-    text_params tp = text_params_of(font, ALIGN_TOP_LEFT);
-    gb_text(gb, rect, rect, font->name, tp, clr);
+    text_params tp = text_params_of(font, ALIGN_TOP_LEFT, clr);
+    gb_text(gb, rect, rect, font->name, tp);
     rect = area_move(rect, 0, font->line_height);
 
-    gb_text(gb, rect, rect, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", tp, clr);
+    gb_text(gb, rect, rect, "ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 {[(<>)]} \\|/", tp);
     rect = area_move(rect, 0, font->line_height);
 
-    gb_text(gb, rect, rect, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", tp, clr);
+    gb_text(gb, rect, rect, "abcdefghijklmnopqrstuvwxyz `~!@#$%^&*-_=+;':\",.?", tp);
     rect = area_move(rect, 0, font->line_height);
 
-    gb_text(gb, rect, rect, "The quick brown fox jumped over the lazy dog!", tp, clr);
+    gb_text(gb, rect, rect, "The quick brown fox jumped over the lazy dog!", tp);
     rect = area_move(rect, 0, font->line_height);
 }
 

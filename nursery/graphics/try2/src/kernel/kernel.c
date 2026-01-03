@@ -16,11 +16,13 @@
 #include "devices/mouse_driver.h"
 #include "devices/keyboard_driver.h"
 #include "algorithms/rand.h"
+#include "app_kit/ui_style.h"
 #include "app_kit/surface.h"
 #include "app_kit/view.h"
 #include "app_kit/views/text_view.h"
 #include "app_kit/views/textbox_view.h"
 #include "app_kit/views/button_view.h"
+#include "app_kit/layout_helper.h"
 
 boot_info_t global_boot_info;
 
@@ -29,19 +31,19 @@ void rectangles_borders_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0x008080);
     area text_area = area_of(5, 13, 400, 20);
-    gb_text(main, text_area, text_area, "Rectangles & borders demo", text_params_of(geneva9, ALIGN_MIDDLE_LEFT), color_white());
+    gb_text(main, text_area, text_area, "Rectangles & borders demo", text_params_of(geneva9, ALIGN_MIDDLE_LEFT, color_white()));
 
     point pos = point_of(20, 40);
     size size = size_of(150, 130);
 
-    // color_params win = color_params_solid(color_nextstep_win_face());
-    color_params win = color_params_gradient(
+    // fill_params win = fill_params_solid(color_nextstep_win_face());
+    fill_params win = fill_params_gradient(
         color_gray_of(0xdd),
         color_gray_of(0x88),
         point_zero(), point_of(size.width / 2, size.height),
         ease_linear);
 
-    color_params win_dark = color_params_solid(color_nextstep_win_shadow());
+    fill_params win_dark = fill_params_solid(color_nextstep_win_shadow());
     gbuffer *work = new_gbuffer(main->area.width, main->area.height);
 
     int thicknesses[] = { 1, 2, 5 };
@@ -65,7 +67,7 @@ void blend_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0x444444);
     area text_area = area_of(5, 13, 400, 20);
-    gb_text(main, text_area, text_area, "Horiz: red alpha, vert: blue alpha, blend(bottom=red, top=blue), alpha 0..255:16", text_params_of(geneva9, ALIGN_MIDDLE_LEFT), color_white());
+    gb_text(main, text_area, text_area, "Horiz: red alpha, vert: blue alpha, blend(bottom=red, top=blue), alpha 0..255:16", text_params_of(geneva9, ALIGN_MIDDLE_LEFT, color_white()));
     
     gbuffer *tile = new_gbuffer(30, 24);
     for (int red_alpha = 0; red_alpha < 16; red_alpha++) {
@@ -86,7 +88,7 @@ void blend_demo() {
 void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
     log.info("paint_fonts_demo()");
 
-    gc_set_fill(gc, color_params_solid(color_nextstep_bg()));
+    gc_set_fill(gc, fill_params_solid(color_nextstep_bg()));
     gc_draw_rect(gc, s->buffer->area);
 
     font8x16 *fonts[] = { mits7, geneva9, geneva9_bold, geneva9_mono };
@@ -96,11 +98,10 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
 
         gc_push_state(gc);
 
-        gc_set_fill(gc, color_params_solid(color_nextstep_win_face()));
+        gc_set_fill(gc, fill_params_solid(color_nextstep_win_face()));
         gc_draw_rect(gc, a);
 
-        gc_set_stroke(gc, color_black(), 1);
-        gc_set_text(gc, text_params_of(f, ALIGN_TOP_LEFT));
+        gc_set_text(gc, text_params_of(f, ALIGN_TOP_LEFT, color_black()));
 
         gc_move_origin(gc, 5, 5);
         gc_draw_text(gc, f->name, a); a.y += f->line_height; a.height -= f->line_height;
@@ -114,11 +115,10 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
     gbuffer *other = new_gbuffer(300, 20);
     for (int i = 0; i < 9; i++) {
         area a = area_of(400, 20 + i * 50, 300, 40);
-        gc_set_fill(gc, color_params_solid(color_nextstep_win_face()));
+        gc_set_fill(gc, fill_params_solid(color_nextstep_win_face()));
         gc_draw_rect(gc, a);
 
-        gc_set_stroke(gc, color_black(), 1);
-        gc_set_text(gc, text_params_of(geneva9, (alignment)i));
+        gc_set_text(gc, text_params_of(geneva9, (alignment)i, color_black()));
         gc_draw_text(gc, "Hello alignment!", a);
     }
 
@@ -135,6 +135,19 @@ void fonts_demo() {
     surface_t *s = new_surface(scr_size.width - 64, scr_size.height, SURFACE_OVERLAY);
     s->callbacks.paint = paint_fonts_demo;
     screen_manager_add_surface(s);
+}
+
+static void _paint_wallpaper(surface_t *s, graphics_context_t *gc, area dirty) {
+    const ui_style_t *style = ui_style();
+    gc_set_fill(gc, style->wallpaper.fill);
+    gc_draw_rect(gc, s->frame);
+}
+
+surface_t *create_wallpaper_surface() {
+    size scr_size = screen_manager_get_screen_size();
+    surface_t *s = new_surface(scr_size.width, scr_size.height, SURFACE_DESKTOP);
+    s->callbacks.paint = _paint_wallpaper;
+    return s;
 }
 
 void gradient_demo() {
@@ -174,7 +187,7 @@ void gradient_demo() {
     pos = point_of(20, 20);
     for (int i = 0; i < sizeof(names)/sizeof(names[0]); i++) {
         area text_area = area_of(pos.x, pos.y, tile_size.width, 20);
-        gb_text(main, text_area, text_area, names[i], text_params_of(mits7, ALIGN_MIDDLE_LEFT), text_color);
+        gb_text(main, text_area, text_area, names[i], text_params_of(mits7, ALIGN_MIDDLE_LEFT, text_color));
         pos.x += tile_size.width + 10;
     }
 
@@ -182,7 +195,7 @@ void gradient_demo() {
     pos = point_of(20, pos.y + 10);
     gp2.x = 0;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_rect(main, area_with(pos, tile_size), main->area, fill_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
         gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
@@ -191,7 +204,7 @@ void gradient_demo() {
     pos = point_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width / 3;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_rect(main, area_with(pos, tile_size), main->area, fill_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
         gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
@@ -200,7 +213,7 @@ void gradient_demo() {
     pos = point_of(20, pos.y + tile_size.height + 10);
     gp2.x = tile_size.width;
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_rect(main, area_with(pos, tile_size), main->area, fill_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
         gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
@@ -209,7 +222,7 @@ void gradient_demo() {
     pos = point_of(20, pos.y + tile_size.height + 10);
     gp2 = point_of(tile_size.width, tile_size.height / 4);
     for (int i = 0; i < sizeof(eases)/sizeof(eases[0]); i++) {
-        gb_rect(main, area_with(pos, tile_size), main->area, color_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
+        gb_rect(main, area_with(pos, tile_size), main->area, fill_params_gradient(c1, c2, gp1, gp2, eases[i]), 0);
         gb_border(main, area_with(pos, tile_size), main->area, 0, 1, border_color);
         pos.x += tile_size.width + 10;
     }
@@ -224,7 +237,7 @@ void blur_demo() {
     gbuffer *main = graphics_get_main_buffer();
     gb_fill(main, 0xFF007777);
     area text_area = area_of(5, 13, 400, 20);
-    gb_text(main, text_area, text_area, "Blurring demo (fast boxing algorithm x3)", text_params_of(geneva9, ALIGN_MIDDLE_LEFT), color_white());
+    gb_text(main, text_area, text_area, "Blurring demo (fast boxing algorithm x3)", text_params_of(geneva9, ALIGN_MIDDLE_LEFT, color_white()));
     int tile_side = 80;
     size tile_size = size_of(tile_side, tile_side);
 
@@ -236,7 +249,7 @@ void blur_demo() {
         sprintfn(buffer, sizeof(buffer), "r=%d", blur_radii[r]);
 
         area text_area = area_of(p.x, p.y, tile_side, 20);
-        gb_text(main, text_area, text_area, buffer, text_params_of(mits7, ALIGN_MIDDLE_LEFT), color_white());
+        gb_text(main, text_area, text_area, buffer, text_params_of(mits7, ALIGN_MIDDLE_LEFT, color_white()));
     }
 
     for (int s = 0; s < sizeof(sq_size)/sizeof(sq_size[0]); s++) {
@@ -244,8 +257,8 @@ void blur_demo() {
             point p = point_of(10 + r * (tile_side + 10), 40 + s * (tile_side + 10));
             int offset = (tile_side/2) - sq_size[s] / 2;
 
-            gb_rect(main, area_with(point_move(p, offset + 3, offset - 3), size_of(sq_size[s], sq_size[s])), main->area, color_params_solid(0xcccc00), 0);
-            gb_rect(main, area_with(point_move(p, offset, offset), size_of(sq_size[s], sq_size[s])), main->area, color_params_solid(0x0000cc), 0);
+            gb_rect(main, area_with(point_move(p, offset + 3, offset - 3), size_of(sq_size[s], sq_size[s])), main->area, fill_params_solid(0xcccc00), 0);
+            gb_rect(main, area_with(point_move(p, offset, offset), size_of(sq_size[s], sq_size[s])), main->area, fill_params_solid(0x0000cc), 0);
             gb_border(main, area_with(point_move(p, offset - 3, offset + 3), size_of(sq_size[s], sq_size[s])), main->area, sq_size[s] / 2, 2, 0x00cc0000);
 
             gb_blur(main, area_with(p, tile_size), blur_radii[r], 0);
@@ -261,7 +274,7 @@ void shadows_demo() {
     // gb_fill(main, 0x008080); // Windows '95
     color tek_light = 0xFF0482AC;
     color nextstep_bg = 0xFF555577;
-    color_params grad = color_params_gradient(nextstep_bg, color_darken(nextstep_bg, 0.12), point_zero(), area_bottom_right(main->area), ease_linear);
+    fill_params grad = fill_params_gradient(nextstep_bg, color_darken(nextstep_bg, 0.12), point_zero(), area_bottom_right(main->area), ease_linear);
     gb_rect(main, main->area, main->area, grad, 0);
 
     // gb_fill_rect(main, garea_of(0, 0, 30, 10), color_white());
@@ -352,8 +365,10 @@ static void _run_dialog_cancel_clicked(void *userdata) {
 }
 
 surface_t *create_run_dialog_surface() {
+    const ui_style_t *style = ui_style();
+    vert_layout_t vl = new_vert_layout(300, ui_style()->window.padding, ui_style()->window.spacing);
+
     surface_t *s = new_surface(500, 250, SURFACE_OVERLAY);
-    surface_set_position(s, (screen_manager_get_screen_size().width - 500)/2, (screen_manager_get_screen_size().height-250)/2);
 
     text_view *prompt = new_text_view("Enter command to run");
     textbox_view *text = new_textbox_view();
@@ -361,16 +376,22 @@ surface_t *create_run_dialog_surface() {
     button_view *cancel = new_button_view("Cancel", _run_dialog_cancel_clicked, s);
 
     surface_add_view(s, (view_t *)prompt);
-    view_set_frame((view_t*)prompt, area_of(10, 10, 400, 20));
+    vert_layout_add(&vl, (view_t *)prompt, ui_style()->control.height);
 
     surface_add_view(s, (view_t *)text);
-    view_set_frame((view_t*)text, area_of(10, 40, 400, 20));
+    vert_layout_add(&vl, (view_t *)text, ui_style()->control.height);
 
     surface_add_view(s, (view_t *)ok);
-    view_set_frame((view_t*)ok, area_of(10, 100, 80, 20));
+    vert_layout_add(&vl, (view_t *)ok, ui_style()->control.height);
 
     surface_add_view(s, (view_t *)cancel);
-    view_set_frame((view_t*)cancel, area_of(120, 100, 80, 20));
+    vert_layout_add(&vl, (view_t *)cancel, ui_style()->control.height);
+
+    area boundaries = vert_layout_boundaries(&vl);
+    boundaries = screen_manager_center_on_screen(boundaries);
+
+    surface_set_size(s, boundaries.width, boundaries.height);
+    surface_set_position(s, boundaries.x, boundaries.y);
 
     return s;
 }
@@ -398,12 +419,14 @@ void kernel_main(boot_info_t* bi) {
     initialize_logger(LOG_LEVEL_TRACE);
     initialize_cpu();
     initialize_mouse_driver(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
+    initialize_ui_style();
     initialize_screen_manager((void *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
-
     
+    
+    screen_manager_add_surface(create_wallpaper_surface());
     // rectangles_borders_demo();
     // blend_demo();
-    fonts_demo();
+    // fonts_demo();
     // gradient_demo();
     // blur_demo();
     // shadows_demo();

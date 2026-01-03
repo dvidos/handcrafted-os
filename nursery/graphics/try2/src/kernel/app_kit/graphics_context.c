@@ -8,7 +8,7 @@ graphics_context_t *new_graphics_context(gbuffer *gb) {
     gc->buffer = gb;
     gc->state.origin = point_of(0, 0);
     gc->state.clip = gb->area;   // full buffer
-    gc->state.fill = color_params_solid(color_black());
+    gc->state.fill = fill_params_solid(color_black());
     gc->state.stroke = color_black();
     return gc;
 }
@@ -46,7 +46,7 @@ void gc_move_origin(graphics_context_t *gc, int dx, int dy) {
     gc->state.origin.y += dy;
 }
 
-void gc_set_fill(graphics_context_t *gc, color_params fill) {
+void gc_set_fill(graphics_context_t *gc, fill_params fill) {
     gc->state.fill = fill;
 }
 void gc_set_stroke(graphics_context_t *gc, color clr, int thickness) {
@@ -103,7 +103,7 @@ void gc_draw_text(graphics_context_t *gc, const char *text, area rect) {
         return;
 
     // now draw it, but pass clipping in explicitly
-    gb_text(gc->buffer, draw, gc->state.clip, text, gc->state.text, gc->state.stroke);
+    gb_text(gc->buffer, draw, gc->state.clip, text, gc->state.text);
 }
 
 void gc_draw_icon(graphics_context_t *gc, const icon32 *icon, area rect) {

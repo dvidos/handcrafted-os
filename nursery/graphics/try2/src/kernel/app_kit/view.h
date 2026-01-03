@@ -2,6 +2,8 @@
 #include "../concepts/events.h"
 #include "../graphics/geometry.h"
 #include "graphics_context.h"
+#include "ui_style.h" // all views shall need this...
+
 
 // a view is the common behavior exported by all widgets.
 // it can be a desktop, window, panel, button, label, list, icon etc
@@ -80,3 +82,4 @@ void view_add_child_view(view_t *parent, view_t *child);
 void view_set_owner_interface(view_t *v, view_owner_interface_t *owner, void *owner_data);
 void view_mark_area_dirty(view_t *v, area local_dirty);
 void view_mark_all_dirty(view_t *v);
+void view_paint_children(view_t *v, graphics_context_t *gc, area dirty);
