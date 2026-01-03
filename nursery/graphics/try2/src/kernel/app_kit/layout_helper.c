@@ -21,13 +21,30 @@ void vert_layout_add(vert_layout_t *l, view_t *v, int height) {
     l->rows_count++;
 }
 
-void vert_layout_add_split(vert_layout_t *l, view_t *v1, view_t *v2, int height, float split_factor) {
+void vert_layout_add_split(vert_layout_t *l, view_t *v1, view_t *v2, float split_factor, int height) {
+    if (l->rows_count > 0)
+        l->cursor_y += l->spacing;
+    
     int available = l->content_width - l->spacing;
     int left_width = factor_scale_into_range(split_factor, 0, available);
     int right_width = available - left_width;
-    
+
     view_set_frame(v1, area_of(l->cursor_x, l->cursor_y, left_width, height));
-    view_set_frame(v1, area_of(l->cursor_x + l->spacing + left_width, l->cursor_y, right_width, height));
+    view_set_frame(v2, area_of(l->cursor_x + left_width + l->spacing, l->cursor_y, right_width, height));
+
+    l->cursor_y += height;
+    l->rows_count++;
+}
+
+void vert_layout_add_two_buttons(vert_layout_t *l, view_t *v1, view_t *v2, int width, int height) {
+    if (l->rows_count > 0)
+        l->cursor_y += l->spacing;
+    
+    int right_x = l->cursor_x + l->content_width - width;
+    int left_x = right_x - l->spacing - width;
+    view_set_frame(v1, area_of(left_x, l->cursor_y, width, height));
+    view_set_frame(v2, area_of(right_x, l->cursor_y, width, height));
+
     l->cursor_y += height;
     l->rows_count++;
 }

@@ -11,7 +11,8 @@ typedef struct vert_layout_t {
 } vert_layout_t;
 vert_layout_t new_vert_layout(int views_width, int padding, int spacing);
 void vert_layout_add(vert_layout_t *l, view_t *v, int height);
-void vert_layout_add_split(vert_layout_t *l, view_t *v1, view_t *v2, int height, float split_factor);
+void vert_layout_add_split(vert_layout_t *l, view_t *v1, view_t *v2, float split_factor, int height);
+void vert_layout_add_two_buttons(vert_layout_t *l, view_t *v1, view_t *v2, int width, int height);
 area vert_layout_boundaries(vert_layout_t *l);
 
 

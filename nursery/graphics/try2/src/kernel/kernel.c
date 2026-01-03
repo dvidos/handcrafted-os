@@ -381,16 +381,9 @@ surface_t *create_run_dialog_surface() {
     surface_add_view(s, (view_t *)text);
     vert_layout_add(&vl, (view_t *)text, ui_style()->control.height);
 
-
-    // surface_add_view(s, (view_t *)ok);
-    // vert_layout_add(&vl, (view_t *)ok, ui_style()->control.height);
-
-    // surface_add_view(s, (view_t *)cancel);
-    // vert_layout_add(&vl, (view_t *)cancel, ui_style()->control.height);
-
     surface_add_view(s, (view_t *)ok);
     surface_add_view(s, (view_t *)cancel);
-    vert_layout_add_split(&vl, (view_t *)ok, (view_t *)cancel, ui_style()->control.height, 0.5f);
+    vert_layout_add_two_buttons(&vl, (view_t *)cancel, (view_t *)ok, ui_style()->control.button_min_width, ui_style()->control.height);
 
     area boundaries = vert_layout_boundaries(&vl);
     boundaries = screen_manager_center_on_screen(boundaries);

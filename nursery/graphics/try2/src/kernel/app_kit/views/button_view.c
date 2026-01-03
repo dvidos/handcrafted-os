@@ -10,7 +10,7 @@ static void _button_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     button_view *b = (button_view *)v;
     const ui_style_t *style = ui_style();
 
-    gc_set_fill(gc, fill_params_solid(b->pressed ? style->control.light : style->control.dark));
+    gc_set_fill(gc, b->pressed ? fill_params_solid(style->control.dark) : style->control.bg);
     gc_draw_rect(gc, v->bounds);
 
     gc_set_text(gc, style->control.text);
