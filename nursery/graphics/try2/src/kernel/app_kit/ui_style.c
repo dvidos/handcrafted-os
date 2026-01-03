@@ -26,7 +26,7 @@ void initialize_ui_style() {
         },
         .control = {
             .bg = fill_params_solid(base_gray),
-            .text = text_params_of(base_font, ALIGN_MIDDLE_CENTER, base_text),
+            .text = text_params_of(base_font, ALIGN_MIDDLE_LEFT, base_text),
             .input_bg = fill_params_solid(color_lighten(base_gray, 0.85)),
             .light = color_darken(base_gray, contrast),
             .dark = color_darken(base_gray, contrast),
