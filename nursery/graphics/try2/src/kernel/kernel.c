@@ -423,7 +423,7 @@ void kernel_main(boot_info_t* bi) {
     screen_manager_add_surface(create_wallpaper_surface());
     // rectangles_borders_demo();
     // blend_demo();
-    fonts_demo();
+    // fonts_demo();
     // gradient_demo();
     // blur_demo();
     // shadows_demo();
