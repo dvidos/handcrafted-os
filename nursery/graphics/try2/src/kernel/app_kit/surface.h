@@ -6,6 +6,8 @@
 #include "graphics_context.h"
 #include "../concepts/events.h"
 #include "view.h"
+#include "../containers/dllist.h"
+
 
 
 typedef enum {
@@ -19,9 +21,8 @@ typedef enum {
 typedef struct surface surface_t;
 
 typedef struct surface_owner_interface_t {
-    void (*surface_invalidated)(void *surface, area dirty);
+    void (*surface_invalidated)(surface_t *surface, area dirty);
 } surface_owner_interface_t;
-
 
 typedef struct surface_callbacks {
     // when screen manager asks the view to paint, when it's dirty
@@ -49,27 +50,39 @@ struct surface {
     surface_role_t role;         // composition
     int is_visible;
     int is_opaque;               // hint for composition optimization
-
-    area dirty_area;             // dirty area is local to surface, after paint(), it is cleared by screen manager after redrawing
-    bool needs_redraw;           // similar to dirty area. set to flag redraw, cleared by screen manager after redrawing
-    
     bool focusable;              // it can accept keyboard events
     bool accepts_mouse;
+    bool needs_redraw;           // similar to dirty area. set to flag redraw, cleared by screen manager after redrawing
+    area dirty_area;             // dirty area is local to surface, after paint(), it is cleared by screen manager after redrawing
+    
     surface_callbacks_t callbacks;
-
+    
     view_t *root_view;
     view_t *focused_view;
 
-    // intrusive list (managed by ScreenManager)
-    struct surface *prev; // upper
-    struct surface *next; // lower
+    dlist_node_t dlist_node; // embedded, managed by screen managed by offset
 
     surface_owner_interface_t *owner_interface;
 };
 
 
+int surface_get_dlist_node_offset();
 surface_t *new_surface(int w, int h, surface_role_t role);
 void surface_destroy(surface_t *s);
+
+area surface_get_frame(surface_t *s);
+size surface_get_size(surface_t *s);
+point surface_get_location(surface_t *s);
+gbuffer *surface_get_buffer(surface_t *s);
+area surface_get_dirty_area(surface_t *s);
+
+bool surface_is_focusable(surface_t *s);
+bool surface_is_visible(surface_t *s);
+bool surface_is_opaque(surface_t *s);
+bool surface_needs_redraw(surface_t *s);
+bool surface_accepts_mouse(surface_t *s);
+void surface_mark_clean(surface_t *s);
+
 
 void surface_set_position(surface_t *s, int x, int y);
 void surface_set_size(surface_t *s, int w, int h);   // realloc buffer

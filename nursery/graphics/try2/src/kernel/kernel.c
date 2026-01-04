@@ -89,7 +89,7 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
     log.info("paint_fonts_demo()");
 
     gc_set_fill(gc, fill_params_solid(color_gray_of(0x66)));
-    gc_draw_rect(gc, s->buffer->area);
+    gc_draw_rect(gc, area_of(0, 0, surface_get_size(s).width, surface_get_size(s).height));
 
     font8x16 *fonts[] = { mits7, geneva9, geneva9_bold, geneva9_mono };
     for (int i = 0; i < sizeof(fonts)/sizeof(fonts[0]); i++) {
@@ -129,8 +129,6 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
 }
 
 void fonts_demo() {
-    // TODO: maybe create a surface and return it.
-    // and the surface is self-contained, in drawing and in receiving events.
     size scr_size = screen_manager_get_screen_size();
     surface_t *s = new_surface(scr_size.width - 64, scr_size.height, SURFACE_OVERLAY);
     s->callbacks.paint = paint_fonts_demo;
@@ -140,7 +138,7 @@ void fonts_demo() {
 static void _paint_wallpaper(surface_t *s, graphics_context_t *gc, area dirty) {
     const ui_style_t *style = ui_style();
     gc_set_fill(gc, style->wallpaper.fill);
-    gc_draw_rect(gc, s->frame);
+    gc_draw_rect(gc, surface_get_frame(s));
 }
 
 surface_t *create_wallpaper_surface() {

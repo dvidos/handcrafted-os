@@ -30,11 +30,16 @@ static surface_callbacks_t default_surface_callbacks = {
 
 // -----------------------------------------------------------------------
 
+int surface_get_dlist_node_offset() {
+    return offsetof(surface_t, dlist_node);
+}
+
 surface_t *new_surface(int w, int h, surface_role_t role) {
     surface_t *s = kmalloc(sizeof(surface_t));
     memset(s, 0, sizeof(*s));
 
     s->role         = role;
+    s->owner_interface = NULL;
     s->frame        = area_of(0, 0, w, h);
     s->dirty_area   = area_of(0, 0, w, h);
     s->needs_redraw = true;
@@ -61,6 +66,52 @@ void surface_destroy(surface_t *s) {
     gb_free(s->buffer);
     kfree(s);
 }
+
+area surface_get_frame(surface_t *s) {
+    return s->frame;
+}
+
+size surface_get_size(surface_t *s) {
+    return size_of(s->frame.width, s->frame.height);
+}
+
+point surface_get_location(surface_t *s) {
+    return point_of(s->frame.x, s->frame.y);
+}
+
+gbuffer *surface_get_buffer(surface_t *s) {
+    return s->buffer;
+}
+
+area surface_get_dirty_area(surface_t *s) {
+    return s->dirty_area;
+}
+
+bool surface_is_focusable(surface_t *s) {
+    return s->focusable;
+}
+
+bool surface_is_visible(surface_t *s) {
+    return s->is_visible;
+}
+
+bool surface_is_opaque(surface_t *s) {
+    return s->is_opaque;
+}
+
+bool surface_needs_redraw(surface_t *s) {
+    return s->needs_redraw;
+}
+
+bool surface_accepts_mouse(surface_t *s) {
+    return s->accepts_mouse;
+}
+
+void surface_mark_clean(surface_t *s) {
+    s->dirty_area = area_zero();
+    s->needs_redraw = false;
+}
+
 
 void surface_set_position(surface_t *s, int x, int y) {
     if (s->frame.x == x && s->frame.y == y) return;
@@ -101,11 +152,6 @@ void surface_hide(surface_t *s) {
 
     s->is_visible = false;
     s->needs_redraw = true;
-}
-
-void surface_mark_clean(surface_t *s) {
-    s->dirty_area = area_zero();
-    s->needs_redraw = false;
 }
 
 void surface_invalidate_area(surface_t *s, area a) {

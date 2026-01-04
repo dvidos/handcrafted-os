@@ -26,13 +26,17 @@ typedef struct mouse_info {
     bool needs_redraw;
 } mouse_info_t;
 
-typedef struct screen_manager {
-    // Framebuffer info
-    void *physical_framebuffer;  // physical framebuffer
+typedef struct screen_info {
+    void *fb_address;
     int width;
     int height;
     int pitch;
     int bpp;
+} screen_info_t;
+
+typedef struct screen_manager {
+    // Framebuffer info
+    screen_info_t screen;
 
     // what we draw to
     gbuffer *backbuffer;
@@ -44,6 +48,7 @@ typedef struct screen_manager {
     int dirty_area_count;
 
     // event distribution:
+    dlist_t surfaces_list; // head = top
     surface_t *surface_list_head;  // z-order top
     surface_t *surface_list_tail;
     surface_t *mouse_capture; // nullable
@@ -55,28 +60,33 @@ static screen_manager_t sm;
 void initialize_screen_manager(void *framebuffer, int width, int height, int pitch, int bpp) {
     memset(&sm, 0, sizeof(screen_manager_t));
 
-    sm.physical_framebuffer = framebuffer;
-    sm.width = width;
-    sm.height = height;
-    sm.pitch = pitch;
-    sm.bpp = bpp;
+    sm.screen.fb_address = framebuffer;
+    sm.screen.width = width;
+    sm.screen.height = height;
+    sm.screen.pitch = pitch;
+    sm.screen.bpp = bpp;
 
     sm.backbuffer = new_gbuffer(width, height);
     gb_fill(sm.backbuffer, 0x3f9fbf);
 
-    sm.mouse.curr_pos = point_of(sm.width / 2, sm.height / 2);
+    sm.mouse.curr_pos = point_of(sm.screen.width / 2, sm.screen.height / 2);
     sm.mouse.is_visible = 1;
     sm.mouse.cursor_size = size_of(32, 32);
     sm.mouse.saved_bg = new_gbuffer(sm.mouse.cursor_size.width, sm.mouse.cursor_size.height);
     sm.mouse.saved_bg_origin = point_of(-1, -1); // signal not captured yet.
     sm.mouse.restored_bg_origin = point_of(-1, -1);
 
+    // have list of surfaces, without knowing their internals
+    dlist_init(&sm.surfaces_list, surface_get_dlist_node_offset());
+
     screen_manager_mark_area_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
 }
 
 // -----------------------------------------------------------------------
 
-static void _surface_invalidated(void *surface, area dirty) {
+static void _surface_invalidated(surface_t *surface, area dirty) {
+    if (!surface_is_visible(surface))
+        return;
     screen_manager_mark_area_dirty(dirty);
 }
 
@@ -87,17 +97,17 @@ static surface_owner_interface_t surfaces_interface = {
 // -----------------------------------------------------------------------
 
 size screen_manager_get_screen_size() {
-    return size_of(sm.width, sm.height);
+    return size_of(sm.screen.width, sm.screen.height);
 }
 
 area screen_manager_get_screen_area() {
-    return area_of(0, 0, sm.width, sm.height);
+    return area_of(0, 0, sm.screen.width, sm.screen.height);
 }
 
 area screen_manager_center_on_screen(area a) {
     return area_of(
-        (sm.width - a.width) / 2,
-        (sm.height - a.height) / 2,
+        (sm.screen.width - a.width) / 2,
+        (sm.screen.height - a.height) / 2,
         a.width,
         a.height
     );
@@ -107,8 +117,8 @@ area screen_manager_center_on_screen(area a) {
 
 static surface_t *screen_manager_get_top_focusable_surface() {
     // from top to bottom
-    for (surface_t *s = sm.surface_list_head; s != 0; s = s->next) {
-        if (!s->is_visible || !s->focusable) 
+    dlist_foreach(&sm.surfaces_list, surface_t, s) {
+        if (!surface_is_visible(s) || !surface_is_focusable(s)) 
             continue;
         
         return s;
@@ -117,7 +127,7 @@ static surface_t *screen_manager_get_top_focusable_surface() {
 }
 
 static void screen_manager_focus_surface(surface_t *s) {
-    if (sm.focused_surface == s || !s->focusable)
+    if (sm.focused_surface == s || !surface_is_focusable(s))
         return;
 
     // if previous exist, notify
@@ -130,29 +140,29 @@ static void screen_manager_focus_surface(surface_t *s) {
 }
 
 bool screen_manager_add_surface(surface_t *s) {
-    DLL_PUSH_HEAD(sm.surface_list_head, sm.surface_list_tail, s);
+    dlist_append(&sm.surfaces_list, s);
 
     // need to redraw this area
     s->owner_interface = &surfaces_interface;
-    screen_manager_mark_area_dirty(s->frame);
+    screen_manager_mark_area_dirty(surface_get_frame(s));
 
     if (s->callbacks.on_shown)
         s->callbacks.on_shown(s);
 
-    if (s->focusable)
+    if (surface_is_focusable(s))
         screen_manager_focus_surface(s);
     
     return true;
 }
 
 bool screen_manager_remove_surface(surface_t *s) {
-    DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
+    dlist_remove(&sm.surfaces_list, s);
 
     if (s->callbacks.on_hidden)
         s->callbacks.on_hidden(s);
     
     // need to redraw this area
-    screen_manager_mark_area_dirty(s->frame);
+    screen_manager_mark_area_dirty(surface_get_frame(s));
     s->owner_interface = NULL;
 
     // remember to clear/move the focus
@@ -163,16 +173,14 @@ bool screen_manager_remove_surface(surface_t *s) {
 }
 
 void screen_manager_bring_surface_to_top(surface_t *s) {
-    DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
-    DLL_PUSH_HEAD(sm.surface_list_head, sm.surface_list_tail, s);
+    dlist_move_to_head(&sm.surfaces_list, s);
 
-    if (s->focusable)
+    if (surface_is_focusable(s))
         screen_manager_focus_surface(s);
 }
 
 void screen_manager_push_surface_to_bottom(surface_t *s) {
-    DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
-    DLL_PUSH_TAIL(sm.surface_list_head, sm.surface_list_tail, s);
+    dlist_move_to_tail(&sm.surfaces_list, s);
 
     // remember to clear/move the focus
     surface_t * top_focusable = screen_manager_get_top_focusable_surface();
@@ -208,8 +216,8 @@ static inline area get_mouse_cursor_area(int x, int y) {
 void screen_manager_set_mouse_position(int x, int y) {
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    if (x > sm.width - 1) x = sm.width - 1;
-    if (y > sm.height - 1) y = sm.height - 1;
+    if (x > sm.screen.width - 1) x = sm.screen.width - 1;
+    if (y > sm.screen.height - 1) y = sm.screen.height - 1;
     
     if (x == sm.mouse.curr_pos.x && y == sm.mouse.curr_pos.y)
         return;
@@ -276,19 +284,19 @@ static void copy_backbuffer_to_physical_framebuffer() {
     // we are only copying what is dirty and has changed
     // otherwise, copying the entire screen is *too* slow
     for (int i = 0; i < sm.dirty_area_count; i++)
-        gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, sm.dirty_areas[i], sm.physical_framebuffer, sm.pitch, sm.bpp);        
+        gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, sm.dirty_areas[i], sm.screen.fb_address, sm.screen.pitch, sm.screen.bpp);        
     sm.dirty_area_count = 0;
 
     // we also copy the area of the old and new mouse positions
     if (sm.mouse.needs_redraw) {
         area = area_with(point_of(sm.mouse.restored_bg_origin.x, sm.mouse.restored_bg_origin.y), sm.mouse.cursor_size);
         log.trace("copying restored mouse backbuffer to fb at (%d,%d)", area.x, area.y);
-        gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
+        gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.screen.fb_address, sm.screen.pitch, sm.screen.bpp);        
 
         if (sm.mouse.is_visible) {
             area = get_mouse_cursor_area(sm.mouse.curr_pos.x, sm.mouse.curr_pos.y);
             log.trace("copying drawn mouse backbuffer to fb at (%d,%d)", area.x, area.y);
-            gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.physical_framebuffer, sm.pitch, sm.bpp);        
+            gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, area, sm.screen.fb_address, sm.screen.pitch, sm.screen.bpp);        
         }
         sm.mouse.needs_redraw = 0;
     }
@@ -305,29 +313,29 @@ static void blacken_dirty_surfaces() {
 static void redraw_dirty_surfaces() {
     LOG_TRACE();
     // we go from bottom up...
-    for (surface_t *s = sm.surface_list_tail; s != 0; s = s->prev) {
-        if (!s->is_visible || !s->needs_redraw)
+    dlist_foreach_reverse(&sm.surfaces_list, surface_t, s) {
+        if (!surface_is_visible(s) || !surface_needs_redraw(s))
             continue;
 
-        area dirty = area_intersect(s->dirty_area, area_of(0, 0, s->frame.width, s->frame.height));
+        area surface_dirty_area = surface_get_dirty_area(s);
+        area dirty = area_intersect(surface_dirty_area, area_of(0, 0, surface_get_frame(s).width, surface_get_frame(s).height));
         if (area_is_empty(dirty)) {
-            s->dirty_area = area_zero();
-            s->needs_redraw = false;
+            surface_mark_clean(s);
             continue;
         }
 
         // ask the owner of the surface to paint the surface since it's dirty
-        graphics_context_t *gc = new_graphics_context(s->buffer);
+        gbuffer *buff = surface_get_buffer(s);
+        graphics_context_t *gc = new_graphics_context(buff);
         surface_begin_draw(s, gc);
-        s->callbacks.paint(s, gc, s->dirty_area);
+        s->callbacks.paint(s, gc, surface_dirty_area);
         surface_end_draw(s);
 
         // merge onto back buffer (ideally, only the clipped region for performance)
-        if (s->is_opaque) {
-            // log.debug("dirty area is (%d,%d,%d,%d)", s->dirty_area.x, s->dirty_area.y, s->dirty_area.width, s->dirty_area.height);
-            gb_copy_area_fast(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area));
+        if (surface_is_opaque(s)) {
+            gb_copy_area_fast(sm.backbuffer, buff, area_size(surface_dirty_area), point_to_global(area_location(surface_dirty_area), surface_get_frame(s)), area_location(surface_dirty_area));
         } else {
-            gb_copy_area_with_alpha(sm.backbuffer, s->buffer, area_size(s->dirty_area), point_to_global(area_location(s->dirty_area), s->frame), area_location(s->dirty_area), 0xFF);
+            gb_copy_area_with_alpha(sm.backbuffer, buff, area_size(surface_dirty_area), point_to_global(area_location(surface_dirty_area), surface_get_frame(s)), area_location(surface_dirty_area), 0xFF);
         }
 
         surface_mark_clean(s);
@@ -387,13 +395,13 @@ void screen_manager_dispatch_key_event(key_event_t e) {
 
 surface_t *screen_manager_hit_test(point mouse_pos) {
     // from top to bottom
-    for (surface_t *s = sm.surface_list_head; s != 0; s = s->next) {
-        if (!s->is_visible)
+    dlist_foreach(&sm.surfaces_list, surface_t, s) {
+        if (!surface_is_visible(s))
             continue;
-        if (!point_is_inside(mouse_pos, s->frame))
+        if (!point_is_inside(mouse_pos, surface_get_frame(s)))
             continue;
         
-        if (!s->is_visible || !s->accepts_mouse) 
+        if (!surface_is_visible(s) || !surface_accepts_mouse(s)) 
             continue;
         
         return s;
@@ -402,15 +410,14 @@ surface_t *screen_manager_hit_test(point mouse_pos) {
 }
 
 void screen_manager_dispatch_mouse_event(mouse_event_t e) {
-    surface_t *target = NULL;
+    surface_t *s = NULL;
     if (sm.mouse_capture)
-        target = sm.mouse_capture;
+        s = sm.mouse_capture;
     else
-        target = screen_manager_hit_test(e.pos);
+        s = screen_manager_hit_test(e.pos);
 
-    if (target != NULL) {
-        target->callbacks.on_mouse_event(target, mouse_event_localized(e, target->frame));
-    }
+    if (s != NULL)
+        s->callbacks.on_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
 }
 
 // --------------------------------------------------------------
