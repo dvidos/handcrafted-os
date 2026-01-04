@@ -17,6 +17,7 @@ text_view *new_text_view(const char *text) {
 
     view_base_initialize(&v->base);
     v->base.callbacks.paint = _text_view_paint;
+    v->base.focusable = false;
     v->text = text;
 
     return v;

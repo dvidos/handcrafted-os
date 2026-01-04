@@ -27,11 +27,11 @@ static bool _button_view_on_mouse_event(view_t *v, mouse_event_t e) {
 
     if (e.type == MOUSE_LBTN_DOWN) {
         b->pressed = true;
-        view_mark_all_dirty(v);
+        view_invalidate(v);
 
     } else if (e.type == MOUSE_LBTN_UP) {
         b->pressed = false;
-        view_mark_all_dirty(v);
+        view_invalidate(v);
 
         // trigger the event handler
         b->on_click(b->userdata);

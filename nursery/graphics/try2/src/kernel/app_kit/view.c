@@ -30,7 +30,7 @@ view_t *new_base_view() { // used by surfaces, for root view
 void view_set_frame(view_t *v, area frame) {
     v->frame = frame;
     v->bounds = area_of(0, 0, frame.width, frame.height);
-    view_mark_all_dirty(v);
+    view_invalidate(v);
 }
 
 void view_base_initialize(view_t *v) {
@@ -42,7 +42,7 @@ void view_base_initialize(view_t *v) {
     v->visible = true;
 }
 
-bool view_dispatch_mouse_event(view_t *v, mouse_event_t e) {
+bool view_dispatch_mouse_event_deprecated(view_t *v, mouse_event_t e) {
     if (!v->visible)
         return false;
 
@@ -51,7 +51,7 @@ bool view_dispatch_mouse_event(view_t *v, mouse_event_t e) {
         if (!area_contains(child->frame, e.pos))
             continue;
 
-        if (view_dispatch_mouse_event(child, mouse_event_localized(e, child->frame)))
+        if (view_dispatch_mouse_event_deprecated(child, mouse_event_localized(e, child->frame)))
             return true;
     }
 
@@ -70,12 +70,12 @@ void view_set_owner_interface(view_t *v, view_owner_interface_t *owner_interface
     v->owner_data = owner_data;
 }
 
-void view_mark_area_dirty(view_t *v, area local_dirty) {
+void view_invalidate_area(view_t *v, area local_dirty) {
     // dirty area in local coords, bubbles up
     if (!v) return;
 
     if (v->parent) {
-        view_mark_area_dirty(v->parent, area_to_global(local_dirty, v->frame));
+        view_invalidate_area(v->parent, area_to_global(local_dirty, v->frame));
         log.debug("view bubbling to parent");
     }
     else if (v->owner_interface) {
@@ -84,9 +84,9 @@ void view_mark_area_dirty(view_t *v, area local_dirty) {
     }
 }
 
-void view_mark_all_dirty(view_t *v) {
+void view_invalidate(view_t *v) {
     if (!v) return;
-    view_mark_area_dirty(v, v->bounds);
+    view_invalidate_area(v, v->bounds);
 }
 
 void view_paint_children(view_t *v, graphics_context_t *gc, area dirty) {
@@ -100,6 +100,64 @@ void view_paint_children(view_t *v, graphics_context_t *gc, area dirty) {
         child->callbacks.paint(child, gc, child_dirty);
         gc_pop_state(gc);
     }
+}
+
+view_t *view_hit_test(view_t *v, point p_local) {
+    if (!point_is_inside(p_local, v->bounds))
+        return NULL;
+
+    for (view_t *child = v->children_list; child; child = child->list_next) {
+        if (!child->visible)
+            continue;
+        
+        point point_in_child = point_to_local(p_local, child->frame);
+        view_t *hit = view_hit_test(child, point_in_child);
+        if (hit)
+            return hit;
+    }
+
+    return v;
+}
+
+view_t *view_find_first_focusable(view_t *root) {
+    view_t *target;
+    for (view_t *child = root->children_list; child; child = child->list_next) {
+        if (child->focusable)
+            return child;
+
+        target = view_find_first_focusable(child);
+        if (target != NULL)
+            return target;
+    }
+
+    return NULL;
+}
+
+static view_t *_next_focusable_after_current_recursively(view_t *root, view_t *current, bool *seen_current) {
+    // returns the (recursively) first view after the current
+    for (view_t *child = root->children_list; child; child = child->list_next) {
+        
+        if (*seen_current && child->focusable)
+            return child;
+
+        if (child == current)
+            *seen_current = true;
+
+        view_t *v = _next_focusable_after_current_recursively(child, current, seen_current);
+        if (v)
+            return v;
+    }
+    return NULL;
+}
+
+view_t *view_find_next_focusable(view_t *root, view_t *focused) {
+    bool seen_current = false;
+    view_t *next = _next_focusable_after_current_recursively(root, focused, &seen_current);
+    if (next)
+        return next;
+    
+    // wrap around
+    return view_find_first_focusable(root);
 }
 
 // -------------------------------------------------------------
@@ -122,14 +180,14 @@ static void _base_view_on_focus_gained(view_t *v) {
     if (v && v->focused) return;
 
     v->focused = true;
-    view_mark_all_dirty(v);
+    view_invalidate(v);
 }
 
 static void _base_view_on_focus_lost(view_t *v) {
     if (!v || !v->focused) return;
 
     v->focused = false;
-    view_mark_all_dirty(v);
+    view_invalidate(v);
 }
 
 

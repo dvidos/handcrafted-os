@@ -5,7 +5,6 @@
 typedef struct {
     view_t base;
     char buffer[256];
-    bool focused;
 } textbox_view;
 
 

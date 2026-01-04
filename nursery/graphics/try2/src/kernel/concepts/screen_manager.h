@@ -12,17 +12,19 @@ size screen_manager_get_screen_size();
 area screen_manager_get_screen_area();
 area screen_manager_center_on_screen(area a);
 void screen_manager_redraw_screen();
-int  screen_manager_add_surface(surface_t *s);
-int  screen_manager_remove_surface(surface_t *s);
-void screen_manager_mark_area_dirty(area area);
+
+// surface management
+bool screen_manager_add_surface(surface_t *s);    // main entry point
+bool screen_manager_remove_surface(surface_t *s); // main exit point
 void screen_manager_bring_surface_to_top(surface_t *s);
-void screen_manager_push_surface_to_bottm(surface_t *s);
+void screen_manager_push_surface_to_bottom(surface_t *s);
+void screen_manager_mark_area_dirty(area area);
 
 // mouse pointer management
 void screen_manager_set_mouse_position(int x, int y);
 void screen_manager_get_mouse_position(int *x, int *y);
-void screen_manager_set_mouse_visible(int visible);
-int  screen_manager_get_mouse_visible();
+void screen_manager_set_mouse_visible(bool visible);
+bool screen_manager_get_mouse_visible();
 
 // FUTURE:
 // void screen_manager_take_screenshot(garea area); 
@@ -30,9 +32,6 @@ int  screen_manager_get_mouse_visible();
 
 // ------------------------------------------------
 
-void screen_manager_push_keyboard_focus(surface_t *s);
-void screen_manager_pop_keyboard_focus();
-void screen_manager_set_keyboard_focus(surface_t *s);
 void screen_manager_set_mouse_capture(surface_t *s);
 void screen_manager_clear_mouse_capture();
 

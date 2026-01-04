@@ -31,10 +31,13 @@ typedef struct surface_callbacks {
     void (*on_key_event)(surface_t *s, key_event_t e);
     void (*on_mouse_event)(surface_t *s, mouse_event_t e);
 
-    // for when keyboard focus is set/pushed/changed
+    // this surface got/lost the focus
     void (*on_focus_gained)(surface_t *);
     void (*on_focus_lost)(surface_t *);
 
+    // surface got shown/hidden 
+    void (*on_shown)(surface_t *);
+    void (*on_hidden)(surface_t *);    
 } surface_callbacks_t;
 
 // represents a positioned graphics buffer on screen
@@ -49,9 +52,9 @@ struct surface {
 
     area dirty_area;             // dirty area is local to surface, after paint(), it is cleared by screen manager after redrawing
     bool needs_redraw;           // similar to dirty area. set to flag redraw, cleared by screen manager after redrawing
-
+    
+    bool focusable;              // it can accept keyboard events
     bool accepts_mouse;
-    bool accepts_keyboard;
     surface_callbacks_t callbacks;
 
     view_t *root_view;
@@ -73,8 +76,8 @@ void surface_set_size(surface_t *s, int w, int h);   // realloc buffer
 void surface_show(surface_t *s);
 void surface_hide(surface_t *s);
 void surface_mark_clean(surface_t *s);
-void surface_damage_area(surface_t *s, area area);
-void surface_damage_all(surface_t *s);
+void surface_invalidate_area(surface_t *s, area area);
+void surface_invalidate(surface_t *s);
 void surface_begin_draw(surface_t *s, graphics_context_t *gc);
 void surface_end_draw(surface_t *s);
 void surface_raise(surface_t *s);
@@ -83,4 +86,3 @@ void surface_set_z(surface_t *s, int z);
 void surface_handle_key(surface_t *s, key_event_t e);
 void surface_add_view(surface_t *s, view_t *v);
 void surface_set_focused_view(surface_t *s, view_t *v);
-void surface_clear_focused_view(surface_t *s);

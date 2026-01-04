@@ -9,9 +9,9 @@
 #include "../algorithms/rand.h"
 #include "../containers/dllist.h"
 
-#define MAX_SURFACES          64  // this will be dynamic one day...
-#define KBD_FOCUS_STACK_SIZE  16  // stack of modal focused surfaces
-#define MAX_DIRTY_AREAS       32  // this one too...
+#define MAX_SURFACES                 64  // this will be dynamic one day...
+#define FOCUSED_SURFACES_STACK_SIZE  16  // stack of modal focused surfaces
+#define MAX_DIRTY_AREAS              32  // this one too...
 
 
 typedef struct mouse_info {
@@ -22,8 +22,8 @@ typedef struct mouse_info {
     gbuffer *saved_bg;          // saved pixels under cursor
     point saved_bg_origin;     // where the pixels were saved from (maybe mouse moved since)
     point restored_bg_origin;  // where we restored, so we can copy to actual framebuffer
-    int is_visible : 1;
-    int needs_redraw : 1;
+    bool is_visible;
+    bool needs_redraw;
 } mouse_info_t;
 
 typedef struct screen_manager {
@@ -47,8 +47,7 @@ typedef struct screen_manager {
     surface_t *surface_list_head;  // z-order top
     surface_t *surface_list_tail;
     surface_t *mouse_capture; // nullable
-    surface_t *keyboard_focus_stack[KBD_FOCUS_STACK_SIZE]; // nullable
-    int keyboard_focus_stack_count;
+    surface_t *focused_surface; // nullable
 
 } screen_manager_t;
 static screen_manager_t sm;
@@ -104,23 +103,82 @@ area screen_manager_center_on_screen(area a) {
     );
 }
 
-int screen_manager_add_surface(surface_t *s) {
+// ----------------------------------------------------------------------
+
+static surface_t *screen_manager_get_top_focusable_surface() {
+    // from top to bottom
+    for (surface_t *s = sm.surface_list_head; s != 0; s = s->next) {
+        if (!s->is_visible || !s->focusable) 
+            continue;
+        
+        return s;
+    }
+    return NULL;
+}
+
+static void screen_manager_focus_surface(surface_t *s) {
+    if (sm.focused_surface == s || !s->focusable)
+        return;
+
+    // if previous exist, notify
+    if (sm.focused_surface && sm.focused_surface->callbacks.on_focus_lost)
+        sm.focused_surface->callbacks.on_focus_lost(sm.focused_surface);
+
+    sm.focused_surface = s;
+    if (s != NULL && s->callbacks.on_focus_gained)
+        s->callbacks.on_focus_gained(s);
+}
+
+bool screen_manager_add_surface(surface_t *s) {
     DLL_PUSH_HEAD(sm.surface_list_head, sm.surface_list_tail, s);
 
     // need to redraw this area
     s->owner_interface = &surfaces_interface;
     screen_manager_mark_area_dirty(s->frame);
-    return 1;
+
+    if (s->callbacks.on_shown)
+        s->callbacks.on_shown(s);
+
+    if (s->focusable)
+        screen_manager_focus_surface(s);
+    
+    return true;
 }
 
-int screen_manager_remove_surface(surface_t *s) {
+bool screen_manager_remove_surface(surface_t *s) {
     DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
 
+    if (s->callbacks.on_hidden)
+        s->callbacks.on_hidden(s);
+    
     // need to redraw this area
     screen_manager_mark_area_dirty(s->frame);
     s->owner_interface = NULL;
-    return 1;
+
+    // remember to clear/move the focus
+    surface_t * top_focusable = screen_manager_get_top_focusable_surface();
+    screen_manager_focus_surface(top_focusable); // even if none
+
+    return true;
 }
+
+void screen_manager_bring_surface_to_top(surface_t *s) {
+    DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
+    DLL_PUSH_HEAD(sm.surface_list_head, sm.surface_list_tail, s);
+
+    if (s->focusable)
+        screen_manager_focus_surface(s);
+}
+
+void screen_manager_push_surface_to_bottom(surface_t *s) {
+    DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
+    DLL_PUSH_TAIL(sm.surface_list_head, sm.surface_list_tail, s);
+
+    // remember to clear/move the focus
+    surface_t * top_focusable = screen_manager_get_top_focusable_surface();
+    screen_manager_focus_surface(top_focusable); // even if none
+}
+
 
 void screen_manager_mark_area_dirty(area area) {
     // essentially, this is the only way to get to show something on screen!
@@ -134,16 +192,6 @@ void screen_manager_mark_area_dirty(area area) {
         sm.dirty_areas[sm.dirty_area_count++] = area;
     }
     sm.needs_repaint = true;
-}
-
-void screen_manager_bring_surface_to_top(surface_t *s) {
-    DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
-    DLL_PUSH_HEAD(sm.surface_list_head, sm.surface_list_tail, s);
-}
-
-void screen_manager_push_surface_to_bottm(surface_t *s) {
-    DLL_REMOVE(sm.surface_list_head, sm.surface_list_tail, s);
-    DLL_PUSH_TAIL(sm.surface_list_head, sm.surface_list_tail, s);
 }
 
 // --------------------------------------------------------------------------
@@ -169,7 +217,7 @@ void screen_manager_set_mouse_position(int x, int y) {
     // mark old and new areas as dirty, to repaint them.
     sm.mouse.curr_pos.x = x;
     sm.mouse.curr_pos.y = y;
-    sm.mouse.needs_redraw = 1; // we don't mark dirty, as _we_ handle the bg buffer for this
+    sm.mouse.needs_redraw = true; // we don't mark dirty, as _we_ handle the bg buffer for this
     sm.needs_repaint = true; 
 }
 
@@ -178,13 +226,13 @@ void screen_manager_get_mouse_position(int *x, int *y) {
     *y = sm.mouse.curr_pos.y;
 }
 
-void screen_manager_set_mouse_visible(int visible) {
+void screen_manager_set_mouse_visible(bool visible) {
     sm.mouse.is_visible = visible;
-    sm.mouse.needs_redraw = 1;
+    sm.mouse.needs_redraw = true;
     sm.needs_repaint = true; 
 }
 
-int screen_manager_get_mouse_visible() {
+bool screen_manager_get_mouse_visible() {
     return sm.mouse.is_visible;
 }
 
@@ -309,48 +357,6 @@ void screen_manager_redraw_screen() {
 
 // --------------------------------------------------------------------------
 
-void screen_manager_push_keyboard_focus(surface_t *s) {
-    if (sm.keyboard_focus_stack_count >= KBD_FOCUS_STACK_SIZE) {
-        log.error("key_capture push request, while stack full, failing this request");
-        return;
-    }
-
-    sm.keyboard_focus_stack[sm.keyboard_focus_stack_count++] = s;
-    if (s->callbacks.on_focus_gained)
-        s->callbacks.on_focus_gained(s);
-}
-
-void screen_manager_pop_keyboard_focus() {
-    if (sm.keyboard_focus_stack_count < 1) {
-        log.warn("key_capture pop requested with no surfaces on focus stack");
-        return;
-    }
-    surface_t *s = sm.keyboard_focus_stack[sm.keyboard_focus_stack_count - 1];
-    if (s->callbacks.on_focus_lost)
-        s->callbacks.on_focus_lost(s);
-    
-    sm.keyboard_focus_stack[sm.keyboard_focus_stack_count - 1] = 0;
-    sm.keyboard_focus_stack_count--;
-}
-
-void screen_manager_set_keyboard_focus(surface_t *s) {
-    if (sm.keyboard_focus_stack_count > 1)
-        log.warn("key_capture set, while %d surfaces on stack", sm.keyboard_focus_stack_count);
-    
-    if (sm.keyboard_focus_stack_count > 0) {
-        // if something is there, at least unfocus it.
-        surface_t *old_s = sm.keyboard_focus_stack[sm.keyboard_focus_stack_count - 1];
-        if (old_s->callbacks.on_focus_lost)
-            old_s->callbacks.on_focus_lost(old_s);
-    } else if (sm.keyboard_focus_stack_count == 0) {
-        sm.keyboard_focus_stack_count = 1;
-    }
-    
-    sm.keyboard_focus_stack[sm.keyboard_focus_stack_count - 1] = s;
-    if (s->callbacks.on_focus_gained)
-        s->callbacks.on_focus_gained(s);
-} 
-
 void screen_manager_set_mouse_capture(surface_t *s) {
     if (sm.mouse_capture == s)
         return;
@@ -371,37 +377,40 @@ void screen_manager_clear_mouse_capture() {
 
 
 void screen_manager_dispatch_key_event(key_event_t e) {
-    if (sm.keyboard_focus_stack_count == 0) {
+    if (sm.focused_surface == NULL) {
         // log.debug("No surface found to handle keyboard event");
         return;
     }
     
-    surface_t *focused = sm.keyboard_focus_stack[sm.keyboard_focus_stack_count - 1];
-    surface_handle_key(focused, e);
+    sm.focused_surface->callbacks.on_key_event(sm.focused_surface, e);
+}
+
+surface_t *screen_manager_hit_test(point mouse_pos) {
+    // from top to bottom
+    for (surface_t *s = sm.surface_list_head; s != 0; s = s->next) {
+        if (!s->is_visible)
+            continue;
+        if (!point_is_inside(mouse_pos, s->frame))
+            continue;
+        
+        if (!s->is_visible || !s->accepts_mouse) 
+            continue;
+        
+        return s;
+    }
+    return NULL;
 }
 
 void screen_manager_dispatch_mouse_event(mouse_event_t e) {
-    surface_t *target = 0;
-    
-    if (sm.mouse_capture) {
+    surface_t *target = NULL;
+    if (sm.mouse_capture)
         target = sm.mouse_capture;
-    } else {
-        // perform hit test, top to bottom
-        for (surface_t *s = sm.surface_list_head; s != 0; s = s->next) {
-            if (!area_contains(s->frame, e.pos))
-            continue;
-            if (!s->is_visible || !s->accepts_mouse) 
-            continue;
-            
-            target = s;
-            break;
-        }
+    else
+        target = screen_manager_hit_test(e.pos);
+
+    if (target != NULL) {
+        target->callbacks.on_mouse_event(target, mouse_event_localized(e, target->frame));
     }
-
-    if (!target)
-    return;
-
-    target->callbacks.on_mouse_event(target, mouse_event_localized(e, target->frame));
 }
 
 // --------------------------------------------------------------
