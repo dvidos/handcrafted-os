@@ -64,8 +64,9 @@ typedef struct view {
     bool focused;
 
     view_t *parent;
-    view_t *children_list;
-    view_t *list_next;
+    view_t *children_head;
+    view_t *children_tail;
+    view_t *next;
     view_callbacks_t callbacks;
     
     view_owner_interface_t *owner_interface; // allows bubbling up events without depending on surfaces.

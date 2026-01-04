@@ -47,7 +47,7 @@ bool view_dispatch_mouse_event_deprecated(view_t *v, mouse_event_t e) {
         return false;
 
     // check children first
-    for (view_t *child = v->children_list; child; child = child->list_next) {
+    for (view_t *child = v->children_head; child; child = child->next) {
         if (!area_contains(child->frame, e.pos))
             continue;
 
@@ -60,9 +60,17 @@ bool view_dispatch_mouse_event_deprecated(view_t *v, mouse_event_t e) {
 }
 
 void view_add_child_view(view_t *parent, view_t *child) {
-    child->list_next = parent->children_list;
-    parent->children_list = child;
-    child->parent = parent;
+    if (parent->children_tail == NULL) {
+        // no children so far, add to both
+        parent->children_head = child;
+        parent->children_tail = child;
+        child->next = NULL;
+    } else {
+        // add to tail, to maintain tab sequence
+        parent->children_tail->next = child;
+        parent->children_tail = child;
+        child->next = NULL;
+    }
 }
 
 void view_set_owner_interface(view_t *v, view_owner_interface_t *owner_interface, void *owner_data) {
@@ -90,7 +98,7 @@ void view_invalidate(view_t *v) {
 }
 
 void view_paint_children(view_t *v, graphics_context_t *gc, area dirty) {
-    for (view_t *child = v->children_list; child; child = child->list_next) {
+    for (view_t *child = v->children_head; child; child = child->next) {
         area child_dirty = area_to_local(dirty, child->frame);
         if (area_is_empty(child_dirty))
             continue;
@@ -106,7 +114,7 @@ view_t *view_hit_test(view_t *v, point p_local) {
     if (!point_is_inside(p_local, v->bounds))
         return NULL;
 
-    for (view_t *child = v->children_list; child; child = child->list_next) {
+    for (view_t *child = v->children_head; child; child = child->next) {
         if (!child->visible)
             continue;
         
@@ -119,23 +127,9 @@ view_t *view_hit_test(view_t *v, point p_local) {
     return v;
 }
 
-view_t *view_find_first_focusable(view_t *root) {
-    view_t *target;
-    for (view_t *child = root->children_list; child; child = child->list_next) {
-        if (child->focusable)
-            return child;
-
-        target = view_find_first_focusable(child);
-        if (target != NULL)
-            return target;
-    }
-
-    return NULL;
-}
-
 static view_t *_next_focusable_after_current_recursively(view_t *root, view_t *current, bool *seen_current) {
     // returns the (recursively) first view after the current
-    for (view_t *child = root->children_list; child; child = child->list_next) {
+    for (view_t *child = root->children_head; child; child = child->next) {
         
         if (*seen_current && child->focusable)
             return child;
@@ -147,6 +141,20 @@ static view_t *_next_focusable_after_current_recursively(view_t *root, view_t *c
         if (v)
             return v;
     }
+    return NULL;
+}
+
+view_t *view_find_first_focusable(view_t *root) {
+    view_t *target;
+    for (view_t *child = root->children_head; child; child = child->next) {
+        if (child->focusable)
+            return child;
+
+        target = view_find_first_focusable(child);
+        if (target != NULL)
+            return target;
+    }
+
     return NULL;
 }
 
