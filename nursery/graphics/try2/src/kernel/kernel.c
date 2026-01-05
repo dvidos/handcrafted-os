@@ -131,7 +131,7 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
 void fonts_demo() {
     size scr_size = screen_manager_get_screen_size();
     surface_t *s = new_surface(scr_size.width - 64, scr_size.height, SURFACE_OVERLAY);
-    s->callbacks.paint = paint_fonts_demo;
+    surface_set_on_paint_behavior(s, paint_fonts_demo);
     screen_manager_add_surface(s);
 }
 
@@ -144,7 +144,7 @@ static void _paint_wallpaper(surface_t *s, graphics_context_t *gc, area dirty) {
 surface_t *create_wallpaper_surface() {
     size scr_size = screen_manager_get_screen_size();
     surface_t *s = new_surface(scr_size.width, scr_size.height, SURFACE_DESKTOP);
-    s->callbacks.paint = _paint_wallpaper;
+    surface_set_on_paint_behavior(s, _paint_wallpaper);
     return s;
 }
 

@@ -162,7 +162,7 @@ void surface_invalidate_area(surface_t *s, area a) {
     s->needs_redraw = true;
 }
 
-void surface_invalidate(surface_t *s) {
+void surface_invalidate_all(surface_t *s) {
     s->dirty_area = s->frame;
     s->needs_redraw = true;
 }
@@ -267,3 +267,36 @@ static void _surface_release_focus(void *owner_data, view_t *v) {
     surface_set_focused_view(s, NULL);
 }
 
+// ------------------------------------------------------------
+
+void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty) {
+    s->callbacks.paint(s, gc, dirty);
+}
+
+void surface_on_key_event(surface_t *s, key_event_t e) {
+    s->callbacks.on_key_event(s, e);
+}
+
+void surface_on_mouse_event(surface_t *s, mouse_event_t e) {
+    s->callbacks.on_mouse_event(s, e);
+}
+
+void surface_on_focus_gained(surface_t *s) {
+    s->callbacks.on_focus_gained(s);
+}
+
+void surface_on_focus_lost(surface_t *s) {
+    s->callbacks.on_focus_lost(s);
+}
+
+void surface_on_shown(surface_t *s) {
+    s->callbacks.on_shown(s);
+}
+
+void surface_on_hidden(surface_t *s) {
+    s->callbacks.on_hidden(s);
+}
+
+void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior) {
+    s->callbacks.paint = behavior;
+}

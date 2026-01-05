@@ -131,12 +131,12 @@ static void screen_manager_focus_surface(surface_t *s) {
         return;
 
     // if previous exist, notify
-    if (sm.focused_surface && sm.focused_surface->callbacks.on_focus_lost)
-        sm.focused_surface->callbacks.on_focus_lost(sm.focused_surface);
+    if (sm.focused_surface)
+        surface_on_focus_lost(sm.focused_surface);
 
     sm.focused_surface = s;
-    if (s != NULL && s->callbacks.on_focus_gained)
-        s->callbacks.on_focus_gained(s);
+    if (sm.focused_surface != NULL)
+        surface_on_focus_gained(sm.focused_surface);
 }
 
 bool screen_manager_add_surface(surface_t *s) {
@@ -146,8 +146,7 @@ bool screen_manager_add_surface(surface_t *s) {
     s->owner_interface = &surfaces_interface;
     screen_manager_mark_area_dirty(surface_get_frame(s));
 
-    if (s->callbacks.on_shown)
-        s->callbacks.on_shown(s);
+    surface_on_shown(s);
 
     if (surface_is_focusable(s))
         screen_manager_focus_surface(s);
@@ -158,8 +157,7 @@ bool screen_manager_add_surface(surface_t *s) {
 bool screen_manager_remove_surface(surface_t *s) {
     dlist_remove(&sm.surfaces_list, s);
 
-    if (s->callbacks.on_hidden)
-        s->callbacks.on_hidden(s);
+    surface_on_hidden(s);
     
     // need to redraw this area
     screen_manager_mark_area_dirty(surface_get_frame(s));
@@ -328,7 +326,7 @@ static void redraw_dirty_surfaces() {
         gbuffer *buff = surface_get_buffer(s);
         graphics_context_t *gc = new_graphics_context(buff);
         surface_begin_draw(s, gc);
-        s->callbacks.paint(s, gc, surface_dirty_area);
+        surface_on_paint(s, gc, dirty);
         surface_end_draw(s);
 
         // merge onto back buffer (ideally, only the clipped region for performance)
@@ -390,7 +388,8 @@ void screen_manager_dispatch_key_event(key_event_t e) {
         return;
     }
     
-    sm.focused_surface->callbacks.on_key_event(sm.focused_surface, e);
+    // by definition, the focused surface is the one to receive the keys events (hence the "focus" noun)
+    surface_on_key_event(sm.focused_surface, e);
 }
 
 surface_t *screen_manager_hit_test(point mouse_pos) {
@@ -417,7 +416,7 @@ void screen_manager_dispatch_mouse_event(mouse_event_t e) {
         s = screen_manager_hit_test(e.pos);
 
     if (s != NULL)
-        s->callbacks.on_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
+        surface_on_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
 }
 
 // --------------------------------------------------------------
