@@ -4,6 +4,42 @@
 #include "../containers/dllist.h"
 #include "views/background_view.h"
 
+// ------------------------------------------------------------------------------
+
+// represents a positioned graphics buffer on screen
+// adds position, flags, callbacks
+struct surface {
+    area frame;                  // position + size in screen coordinates
+    gbuffer *buffer;             // drawing, owned by surface
+
+    surface_role_t role;         // composition
+    int is_visible;
+    int is_opaque;               // hint for composition optimization
+    bool focusable;              // it can accept keyboard events
+    bool accepts_mouse;
+    bool needs_redraw;           // similar to dirty area. set to flag redraw, cleared by screen manager after redrawing
+    area dirty_area;             // dirty area is local to surface, after paint(), it is cleared by screen manager after redrawing
+    
+    struct surface_callbacks {
+        surface_paint_func *paint;
+
+        void (*on_key_event)(surface_t *s, key_event_t e);
+        void (*on_mouse_event)(surface_t *s, mouse_event_t e);
+        void (*on_focus_gained)(surface_t *);
+        void (*on_focus_lost)(surface_t *);
+        void (*on_shown)(surface_t *);
+        void (*on_hidden)(surface_t *);    
+    } callbacks;
+
+    view_t *root_view;
+    view_t *focused_view;
+
+    dlist_node_t dlist_node; // embedded, managed by screen managed by offset
+    surface_owner_interface_t *owner_interface; // screen manager, without dependency
+};
+
+// ------------------------------------------------------------------------------
+
 static void _surface_mark_area_dirty(void *owner_data, area dirty);
 static void _surface_request_focus(void *owner_data, view_t *v);
 static void _surface_release_focus(void *owner_data, view_t *v);
@@ -198,6 +234,10 @@ static void _surface_release_focus(void *owner_data, view_t *v) {
 }
 
 // ------------------------------------------------------------
+
+void surface_set_owner_interface(surface_t *s, surface_owner_interface_t *interface) {
+    s->owner_interface = interface;
+}
 
 void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior) {
     s->callbacks.paint = behavior;

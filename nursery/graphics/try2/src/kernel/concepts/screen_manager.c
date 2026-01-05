@@ -139,12 +139,10 @@ static void screen_manager_focus_surface(surface_t *s) {
 
 bool screen_manager_add_surface(surface_t *s) {
     LOG_TRACE();
-    log.debug("surfaces list has %d items", dlist_count(&sm.surfaces));
     dlist_append(&sm.surfaces, s);
-    log.debug("surfaces list now has %d items", dlist_count(&sm.surfaces));
 
     // need to redraw this area
-    s->owner_interface = &surfaces_interface;
+    surface_set_owner_interface(s, &surfaces_interface);
     screen_manager_mark_area_dirty(surface_get_frame(s));
 
     surface_on_shown(s); // actually will be painted in a bit.
@@ -162,7 +160,7 @@ bool screen_manager_remove_surface(surface_t *s) {
     
     // need to redraw this area
     screen_manager_mark_area_dirty(surface_get_frame(s));
-    s->owner_interface = NULL;
+    surface_set_owner_interface(s, NULL);
 
     // remember to clear/move the focus
     surface_t * top_focusable = screen_manager_get_top_focusable_surface();

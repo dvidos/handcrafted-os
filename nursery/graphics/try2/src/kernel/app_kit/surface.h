@@ -26,47 +26,6 @@ typedef struct surface_owner_interface_t {
 
 typedef void (surface_paint_func)(surface_t *s, graphics_context_t *gc, area dirty);
 
-typedef struct surface_callbacks {
-    // when screen manager asks the view to paint, when it's dirty
-    void (*paint)(surface_t *s, graphics_context_t *gc, area dirty);
-
-    // for handling events
-    void (*on_key_event)(surface_t *s, key_event_t e);
-    void (*on_mouse_event)(surface_t *s, mouse_event_t e);
-
-    // this surface got/lost the focus
-    void (*on_focus_gained)(surface_t *);
-    void (*on_focus_lost)(surface_t *);
-
-    // surface got shown/hidden 
-    void (*on_shown)(surface_t *);
-    void (*on_hidden)(surface_t *);    
-} surface_callbacks_t;
-
-// represents a positioned graphics buffer on screen
-// adds position, flags, callbacks
-struct surface {
-    area frame;                  // position + size in screen coordinates
-    gbuffer *buffer;             // drawing, owned by surface
-
-    surface_role_t role;         // composition
-    int is_visible;
-    int is_opaque;               // hint for composition optimization
-    bool focusable;              // it can accept keyboard events
-    bool accepts_mouse;
-    bool needs_redraw;           // similar to dirty area. set to flag redraw, cleared by screen manager after redrawing
-    area dirty_area;             // dirty area is local to surface, after paint(), it is cleared by screen manager after redrawing
-    
-    surface_callbacks_t callbacks;
-    
-    view_t *root_view;
-    view_t *focused_view;
-
-    dlist_node_t dlist_node; // embedded, managed by screen managed by offset
-
-    surface_owner_interface_t *owner_interface;
-};
-
 
 int surface_get_dlist_node_offset();
 surface_t *new_surface(int w, int h, surface_role_t role);
@@ -99,6 +58,9 @@ void surface_handle_key(surface_t *s, key_event_t e);
 void surface_add_view(surface_t *s, view_t *v);
 void surface_set_focused_view(surface_t *s, view_t *v);
 
+void surface_set_owner_interface(surface_t *s, surface_owner_interface_t *interface);
+void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior);
+
 void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty);
 void surface_on_key_event(surface_t *s, key_event_t e);
 void surface_on_mouse_event(surface_t *s, mouse_event_t e);
@@ -106,5 +68,3 @@ void surface_on_focus_gained(surface_t *s);
 void surface_on_focus_lost(surface_t *s);
 void surface_on_shown(surface_t *s);
 void surface_on_hidden(surface_t *s);
-
-void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior);
