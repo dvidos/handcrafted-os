@@ -136,12 +136,14 @@ void fonts_demo() {
 }
 
 static void _paint_wallpaper(surface_t *s, graphics_context_t *gc, area dirty) {
+    LOG_TRACE();
     const ui_style_t *style = ui_style();
     gc_set_fill(gc, style->wallpaper.fill);
     gc_draw_rect(gc, surface_get_frame(s));
 }
 
 surface_t *create_wallpaper_surface() {
+    LOG_TRACE();
     size scr_size = screen_manager_get_screen_size();
     surface_t *s = new_surface(scr_size.width, scr_size.height, SURFACE_DESKTOP);
     surface_set_on_paint_behavior(s, _paint_wallpaper);
@@ -426,16 +428,21 @@ void kernel_main(boot_info_t* bi) {
     // blur_demo();
     // shadows_demo();
 
+    LOG_TRACE();
+    screen_manager_redraw_screen();
+    LOG_TRACE();
     
     // this might be the idle task, good enough for now
     for (;;) {
         // log.debug("looping...");
         keyboard_driver_process(); // read scancodes, generate events
         mouse_driver_process(); // read packets, generate events
-
+        
         // wait for event:
         if (event_queue_empty(&global_event_queue))
             continue;
+        
+        LOG_TRACE();
 
         // ideally we'd give this to WM to dispatch
         event_t ev;
@@ -448,6 +455,8 @@ void kernel_main(boot_info_t* bi) {
             else if (ev.type == EVT_MOUSE)
                 screen_manager_dispatch_mouse_event(ev.mouse);
         }
+
+        LOG_TRACE();
 
         // after events dispatched and actions taken, refresh anything needed
         screen_manager_redraw_screen();

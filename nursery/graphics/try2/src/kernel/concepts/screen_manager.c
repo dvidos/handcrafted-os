@@ -48,9 +48,7 @@ typedef struct screen_manager {
     int dirty_area_count;
 
     // event distribution:
-    dlist_t surfaces_list; // head = top
-    surface_t *surface_list_head;  // z-order top
-    surface_t *surface_list_tail;
+    dlist_t surfaces; // head = top
     surface_t *mouse_capture; // nullable
     surface_t *focused_surface; // nullable
 
@@ -77,7 +75,7 @@ void initialize_screen_manager(void *framebuffer, int width, int height, int pit
     sm.mouse.restored_bg_origin = point_of(-1, -1);
 
     // have list of surfaces, without knowing their internals
-    dlist_init(&sm.surfaces_list, surface_get_dlist_node_offset());
+    dlist_init(&sm.surfaces, surface_get_dlist_node_offset());
 
     screen_manager_mark_area_dirty(sm.backbuffer->area); // for first drawing, this should move to desktop composer
 }
@@ -117,7 +115,7 @@ area screen_manager_center_on_screen(area a) {
 
 static surface_t *screen_manager_get_top_focusable_surface() {
     // from top to bottom
-    dlist_foreach(&sm.surfaces_list, surface_t, s) {
+    dlist_foreach(&sm.surfaces, surface_t, s) {
         if (!surface_is_visible(s) || !surface_is_focusable(s)) 
             continue;
         
@@ -140,22 +138,25 @@ static void screen_manager_focus_surface(surface_t *s) {
 }
 
 bool screen_manager_add_surface(surface_t *s) {
-    dlist_append(&sm.surfaces_list, s);
+    LOG_TRACE();
+    log.debug("surfaces list has %d items", dlist_count(&sm.surfaces));
+    dlist_append(&sm.surfaces, s);
+    log.debug("surfaces list now has %d items", dlist_count(&sm.surfaces));
 
     // need to redraw this area
     s->owner_interface = &surfaces_interface;
     screen_manager_mark_area_dirty(surface_get_frame(s));
 
-    surface_on_shown(s);
-
+    surface_on_shown(s); // actually will be painted in a bit.
     if (surface_is_focusable(s))
         screen_manager_focus_surface(s);
     
+    LOG_TRACE();
     return true;
 }
 
 bool screen_manager_remove_surface(surface_t *s) {
-    dlist_remove(&sm.surfaces_list, s);
+    dlist_remove(&sm.surfaces, s);
 
     surface_on_hidden(s);
     
@@ -171,14 +172,14 @@ bool screen_manager_remove_surface(surface_t *s) {
 }
 
 void screen_manager_bring_surface_to_top(surface_t *s) {
-    dlist_move_to_head(&sm.surfaces_list, s);
+    dlist_move_to_head(&sm.surfaces, s);
 
     if (surface_is_focusable(s))
         screen_manager_focus_surface(s);
 }
 
 void screen_manager_push_surface_to_bottom(surface_t *s) {
-    dlist_move_to_tail(&sm.surfaces_list, s);
+    dlist_move_to_tail(&sm.surfaces, s);
 
     // remember to clear/move the focus
     surface_t * top_focusable = screen_manager_get_top_focusable_surface();
@@ -268,6 +269,61 @@ static void draw_mouse_cursor() {
     gb_draw_cursor32_fast(sm.backbuffer, sm.mouse.curr_pos, &windows_cursor); // &triangle_cursor);
 }
 
+void screen_manager_set_mouse_capture(surface_t *s) {
+    if (sm.mouse_capture == s)
+        return;
+
+    if (sm.mouse_capture)
+        log.warn("mouse_capture requested while another surface already has it. consider making a stack");
+
+    sm.mouse_capture = s;
+}
+
+void screen_manager_clear_mouse_capture() {
+    if (sm.mouse_capture == 0) {
+        log.warn("clear mouse_capture requested while already clear");
+        return;
+    }
+    sm.mouse_capture = 0;
+}
+
+void screen_manager_dispatch_key_event(key_event_t e) {
+    if (sm.focused_surface == NULL) {
+        // log.debug("No surface found to handle keyboard event");
+        return;
+    }
+    
+    // by definition, the focused surface is the one to receive the keys events (hence the "focus" noun)
+    surface_on_key_event(sm.focused_surface, e);
+}
+
+surface_t *screen_manager_hit_test(point mouse_pos) {
+    // from top to bottom
+    dlist_foreach(&sm.surfaces, surface_t, s) {
+        if (!surface_is_visible(s))
+            continue;
+        if (!point_is_inside(mouse_pos, surface_get_frame(s)))
+            continue;
+        
+        if (!surface_is_visible(s) || !surface_accepts_mouse(s)) 
+            continue;
+        
+        return s;
+    }
+    return NULL;
+}
+
+void screen_manager_dispatch_mouse_event(mouse_event_t e) {
+    surface_t *s = NULL;
+    if (sm.mouse_capture)
+        s = sm.mouse_capture;
+    else
+        s = screen_manager_hit_test(e.pos);
+
+    if (s != NULL)
+        surface_on_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
+}
+
 // --------------------------------------------------------------------------
 
 static void copy_backbuffer_to_physical_framebuffer() {
@@ -311,7 +367,7 @@ static void blacken_dirty_surfaces() {
 static void redraw_dirty_surfaces() {
     LOG_TRACE();
     // we go from bottom up...
-    dlist_foreach_reverse(&sm.surfaces_list, surface_t, s) {
+    dlist_foreach_reverse(&sm.surfaces, surface_t, s) {
         if (!surface_is_visible(s) || !surface_needs_redraw(s))
             continue;
 
@@ -325,9 +381,7 @@ static void redraw_dirty_surfaces() {
         // ask the owner of the surface to paint the surface since it's dirty
         gbuffer *buff = surface_get_buffer(s);
         graphics_context_t *gc = new_graphics_context(buff);
-        surface_begin_draw(s, gc);
         surface_on_paint(s, gc, dirty);
-        surface_end_draw(s);
 
         // merge onto back buffer (ideally, only the clipped region for performance)
         if (surface_is_opaque(s)) {
@@ -341,6 +395,7 @@ static void redraw_dirty_surfaces() {
 }
 
 void screen_manager_redraw_screen() {
+    LOG_TRACE();
     if (!sm.needs_repaint)
         return;
     
@@ -359,64 +414,6 @@ void screen_manager_redraw_screen() {
     copy_backbuffer_to_physical_framebuffer();
 
     sm.needs_repaint = false;
-}
-
-// --------------------------------------------------------------------------
-
-void screen_manager_set_mouse_capture(surface_t *s) {
-    if (sm.mouse_capture == s)
-        return;
-
-    if (sm.mouse_capture)
-        log.warn("mouse_capture requested while another surface already has it. consider making a stack");
-
-    sm.mouse_capture = s;
-}
-
-void screen_manager_clear_mouse_capture() {
-    if (sm.mouse_capture == 0) {
-        log.warn("clear mouse_capture requested while already clear");
-        return;
-    }
-    sm.mouse_capture = 0;
-}
-
-
-void screen_manager_dispatch_key_event(key_event_t e) {
-    if (sm.focused_surface == NULL) {
-        // log.debug("No surface found to handle keyboard event");
-        return;
-    }
-    
-    // by definition, the focused surface is the one to receive the keys events (hence the "focus" noun)
-    surface_on_key_event(sm.focused_surface, e);
-}
-
-surface_t *screen_manager_hit_test(point mouse_pos) {
-    // from top to bottom
-    dlist_foreach(&sm.surfaces_list, surface_t, s) {
-        if (!surface_is_visible(s))
-            continue;
-        if (!point_is_inside(mouse_pos, surface_get_frame(s)))
-            continue;
-        
-        if (!surface_is_visible(s) || !surface_accepts_mouse(s)) 
-            continue;
-        
-        return s;
-    }
-    return NULL;
-}
-
-void screen_manager_dispatch_mouse_event(mouse_event_t e) {
-    surface_t *s = NULL;
-    if (sm.mouse_capture)
-        s = sm.mouse_capture;
-    else
-        s = screen_manager_hit_test(e.pos);
-
-    if (s != NULL)
-        surface_on_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
 }
 
 // --------------------------------------------------------------

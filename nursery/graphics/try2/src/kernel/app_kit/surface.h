@@ -92,8 +92,6 @@ void surface_hide(surface_t *s);
 void surface_mark_clean(surface_t *s);
 void surface_invalidate_area(surface_t *s, area area);
 void surface_invalidate_all(surface_t *s);
-void surface_begin_draw(surface_t *s, graphics_context_t *gc);
-void surface_end_draw(surface_t *s);
 void surface_raise(surface_t *s);
 void surface_lower(surface_t *s);
 void surface_set_z(surface_t *s, int z);

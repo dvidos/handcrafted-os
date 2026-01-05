@@ -8,24 +8,10 @@ static void _surface_mark_area_dirty(void *owner_data, area dirty);
 static void _surface_request_focus(void *owner_data, view_t *v);
 static void _surface_release_focus(void *owner_data, view_t *v);
 
-static view_owner_interface_t view_surface_functions = {
+static view_owner_interface_t surface_functions_for_views = {
     .mark_area_dirty = _surface_mark_area_dirty,
     .request_focus = _surface_request_focus,
     .release_focus = _surface_release_focus
-};
-
-static void _paint(surface_t *s, graphics_context_t *gc, area dirty);
-static void _on_key_event(surface_t *s, key_event_t e);
-static void _on_mouse_event(surface_t *s, mouse_event_t e);
-static void _on_focus_gained(surface_t *);
-static void _on_focus_lost(surface_t *);
-
-static surface_callbacks_t default_surface_callbacks = {
-    .paint = _paint,
-    .on_key_event = _on_key_event,
-    .on_mouse_event = _on_mouse_event,
-    .on_focus_gained = _on_focus_gained,
-    .on_focus_lost = _on_focus_lost
 };
 
 // -----------------------------------------------------------------------
@@ -51,10 +37,9 @@ surface_t *new_surface(int w, int h, surface_role_t role) {
 
     s->root_view = (view_t *)new_background_view();
     view_set_frame(s->root_view, s->frame);
-    view_set_owner_interface(s->root_view, &view_surface_functions, s);
+    view_set_owner_interface(s->root_view, &surface_functions_for_views, s);
     s->focused_view = NULL;
 
-    s->callbacks = default_surface_callbacks;
     s->focusable = true;
     s->accepts_mouse = true;
 
@@ -167,16 +152,6 @@ void surface_invalidate_all(surface_t *s) {
     s->needs_redraw = true;
 }
 
-void surface_begin_draw(surface_t *s, graphics_context_t *gc) {
-    // gc is assumed already bound to s->buffer
-    // surface only resets damage bookkeeping
-}
-
-void surface_end_draw(surface_t *s) {
-    // nothing else to do here
-    // SM/WM will consume dirty_area + needs_redraw
-}
-
 void surface_add_view(surface_t *s, view_t *v) {
     view_add_child_view(s->root_view, v);
 }
@@ -204,51 +179,6 @@ void surface_set_focused_view(surface_t *s, view_t *v) {
 
 // ------------------------------------------------------------
 
-static void _paint(surface_t *s, graphics_context_t *gc, area dirty) {
-    LOG_TRACE();
-    s->root_view->callbacks.paint(s->root_view, gc, dirty);
-}
-
-static void _on_key_event(surface_t *s, key_event_t e) {
-    // first, surface wide keys
-    if (e.keycode == KEY_TAB && e.keymods == 0) {
-        view_t *next = view_find_next_focusable(s->root_view, s->focused_view);
-        surface_set_focused_view(s, next); // even if NULL
-        return;
-    }
-
-    if (s->focused_view)
-        s->focused_view->callbacks.on_key_event(s->focused_view, e);
-}
-
-static void _on_mouse_event(surface_t *s, mouse_event_t e) {
-    view_t *hit_view = view_hit_test(s->root_view, e.pos);
-    if (hit_view == NULL)
-        return;
-    
-    if (hit_view->focusable)
-        surface_set_focused_view(s, hit_view);
-    
-    if (hit_view->callbacks.on_mouse_event)
-        hit_view->callbacks.on_mouse_event(hit_view, mouse_event_localized(e, hit_view->frame));
-}
-
-static void _on_focus_gained(surface_t *s) {
-    // set initial focused view if none
-    if (s->focused_view == NULL)
-        s->focused_view = view_find_first_focusable(s->root_view);
-
-    if (s->focused_view)
-        s->focused_view->callbacks.on_focus_gained(s->focused_view);
-}
-
-static void _on_focus_lost(surface_t *s) {
-    if (s->focused_view)
-        s->focused_view->callbacks.on_focus_lost(s->focused_view);
-}
-
-// ------------------------------------------------------------
-
 static void _surface_mark_area_dirty(void *owner_data, area dirty) {
     surface_t *s = (surface_t *)owner_data;
     surface_invalidate_area(s, dirty);
@@ -269,34 +199,93 @@ static void _surface_release_focus(void *owner_data, view_t *v) {
 
 // ------------------------------------------------------------
 
+void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior) {
+    s->callbacks.paint = behavior;
+}
+
 void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty) {
-    s->callbacks.paint(s, gc, dirty);
+    // custom behavior
+    if (s->callbacks.paint) {
+        s->callbacks.paint(s, gc, dirty);
+        return;
+    }
+    
+    // default behavior
+    if (s->root_view != NULL)
+        s->root_view->callbacks.paint(s->root_view, gc, dirty);
 }
 
 void surface_on_key_event(surface_t *s, key_event_t e) {
-    s->callbacks.on_key_event(s, e);
+    // custom behavior
+    if (s->callbacks.on_key_event != NULL) {
+        s->callbacks.on_key_event(s, e);
+        return;
+    }
+
+    // default behavior
+    // first, surface wide keys
+    if (e.keycode == KEY_TAB && e.keymods == 0) {
+        view_t *next = view_find_next_focusable(s->root_view, s->focused_view);
+        surface_set_focused_view(s, next); // even if NULL
+        return;
+    }
+
+    if (s->focused_view)
+        s->focused_view->callbacks.on_key_event(s->focused_view, e);
 }
 
 void surface_on_mouse_event(surface_t *s, mouse_event_t e) {
-    s->callbacks.on_mouse_event(s, e);
+    // custom behavior
+    if (s->callbacks.on_mouse_event != NULL) {
+        s->callbacks.on_mouse_event(s, e);
+        return;
+    }
+
+    // default behavior
+    view_t *hit_view = view_hit_test(s->root_view, e.pos);
+    if (hit_view == NULL)
+        return;
+    
+    if (hit_view->focusable)
+        surface_set_focused_view(s, hit_view);
+    
+    if (hit_view->callbacks.on_mouse_event)
+        hit_view->callbacks.on_mouse_event(hit_view, mouse_event_localized(e, hit_view->frame));
 }
 
 void surface_on_focus_gained(surface_t *s) {
-    s->callbacks.on_focus_gained(s);
+    // custom behavior
+    if (s->callbacks.on_focus_gained != NULL) {
+        s->callbacks.on_focus_gained(s);
+        return;
+    }
+
+    //default behavior
+    if (s->focused_view == NULL)  // set initial focus view
+        s->focused_view = view_find_first_focusable(s->root_view);
+
+    if (s->focused_view)
+        s->focused_view->callbacks.on_focus_gained(s->focused_view);
 }
 
 void surface_on_focus_lost(surface_t *s) {
-    s->callbacks.on_focus_lost(s);
+    // custom behavior
+    if (s->callbacks.on_focus_lost != NULL) {
+        s->callbacks.on_focus_lost(s);
+        return;
+    }
+
+    // default behavior
+    if (s->focused_view)
+        s->focused_view->callbacks.on_focus_lost(s->focused_view);
 }
 
 void surface_on_shown(surface_t *s) {
-    s->callbacks.on_shown(s);
+    if (s->callbacks.on_shown)
+        s->callbacks.on_shown(s);
 }
 
 void surface_on_hidden(surface_t *s) {
-    s->callbacks.on_hidden(s);
-}
-
-void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior) {
-    s->callbacks.paint = behavior;
+    if (s->callbacks.on_hidden)
+        s->callbacks.on_hidden(s);
 }

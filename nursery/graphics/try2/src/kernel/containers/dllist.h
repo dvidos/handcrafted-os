@@ -213,3 +213,9 @@ static inline bool dlist_none(dlist_t *list, predicate_func predicate, void *con
     }
     return true;
 }
+
+static inline int dlist_count(dlist_t *list) {
+    int count = 0;
+    for (dlist_node_t *n = list->head; n; n = n->next) count++;
+    return count;
+}
