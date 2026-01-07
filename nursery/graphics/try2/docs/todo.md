@@ -57,3 +57,11 @@ Proof of concept work:
 Essentially something to make as non-boxy graphics as possible, with as simple an interface as possible.
 [Example openbox video](https://www.youtube.com/watch?v=5XoHWbdVhPc)
 
+
+## crazy ideas
+
+- I'd like cryptography and something like `pass` or `vault` to be built into the system.
+- I'd like to have clean separation between the system files and the user files. 
+User should not be able to see system files, unless they restart as a technician / admin 
+(in which case they wouldn't see their files as a user)
+

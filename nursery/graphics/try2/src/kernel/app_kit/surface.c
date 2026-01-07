@@ -265,6 +265,7 @@ void surface_on_key_event(surface_t *s, key_event_t e) {
     // default behavior
     // first, surface wide keys
     if (e.keycode == KEY_TAB && e.keymods == 0) {
+        LOG_TRACE();
         view_t *next = view_find_next_focusable(s->root_view, s->focused_view);
         surface_set_focused_view(s, next); // even if NULL
         return;

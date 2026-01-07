@@ -80,8 +80,13 @@ objcopy -O binary build/stage2.elf build/stage2.bin
 pad_file_to_sectors build/stage2.bin $STAGE2_SECTORS
 
 
-# Kernel
-make -B -C src/kernel KERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS
+
+# Kernel (hosted)
+make hosted_x86_64 -C src/kernel
+
+
+# Kernel (bare metal)
+make kernel.elf -B -C src/kernel KERNEL_LOAD_ADDRESS=$KERNEL_LOAD_ADDRESS
 cp src/kernel/kernel.elf build/kernel.elf
 objcopy -O binary build/kernel.elf build/kernel.bin
 pad_file_to_sectors build/kernel.bin $KERNEL_SECTORS
