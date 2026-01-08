@@ -175,6 +175,7 @@ int convert_sdl_event(SDL_Event *sdl, event_t *ev, bool *quit) {
             .buttons = sdl->motion.state,
             .delta = vector_of(sdl->motion.xrel, sdl->motion.yrel),
             .pos = point_of(sdl->motion.x, sdl->motion.y),
+            .wheel_delta = 0,
         };
         return 1;
 
@@ -193,6 +194,9 @@ int convert_sdl_event(SDL_Event *sdl, event_t *ev, bool *quit) {
         ev->mouse = (mouse_event_t){
             .type = met,
             .pos = point_of(sdl->button.x, sdl->button.y),
+            .buttons = 0,
+            .delta = vector_zero(),
+            .wheel_delta = 0,
         };
         return 1;
 
@@ -200,6 +204,9 @@ int convert_sdl_event(SDL_Event *sdl, event_t *ev, bool *quit) {
         ev->type = EVT_MOUSE;
         ev->mouse = (mouse_event_t){
             .type = MOUSE_WHL_SCROLL,
+            .pos = point_zero(),
+            .delta = vector_zero(),
+            .buttons = 0,
             .wheel_delta = sdl->wheel.y
         };
         return 1;
