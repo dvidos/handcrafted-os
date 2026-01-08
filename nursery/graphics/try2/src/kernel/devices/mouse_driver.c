@@ -51,6 +51,7 @@ uint8_t mouse_read(void) { ps2_wait_read(); return inb(0x60); }
 
 
 void initialize_mouse_driver(mouse_xy_retrieval_func *retrieve, mouse_xy_update_func *update) {
+#ifndef HOSTED_ENV
 
     // Enable auxiliary device
     ps2_wait_write();
@@ -97,6 +98,8 @@ void initialize_mouse_driver(mouse_xy_retrieval_func *retrieve, mouse_xy_update_
     memset((void *)&mouse_ring_buffer, 0, sizeof(mouse_ring_buffer));
     mouse_ring_head = 0;
     mouse_ring_tail = 0;
+
+#endif
 }
 
 // ------------------------------------------------------------------------

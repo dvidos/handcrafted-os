@@ -6,6 +6,7 @@ static const char *hex_digits = "0123456789abcdef";
 
 
 void initialize_serial_port() {
+#ifndef HOSTED_ENV
     outb(0x3F8 + 1, 0x00); // disable interrupts
     outb(0x3F8 + 3, 0x80); // enable DLAB
     outb(0x3F8 + 0, 0x01); // baud divisor low  (115200 / 1 = 115200)
@@ -13,11 +14,17 @@ void initialize_serial_port() {
     outb(0x3F8 + 3, 0x03); // 8 bits, no parity, 1 stop bit
     outb(0x3F8 + 2, 0xC7); // enable FIFO
     outb(0x3F8 + 4, 0x0B); // IRQs disabled, RTS/DSR set
+#endif
 }
 
 void serial_print_char(char c) {
+#ifdef HOSTED_ENV
+    #include <stdio.h>
+    fprintf(stderr, "%c", c);
+#else
     while ((inb(0x3F8 + 5) & 0x20) == 0); // Wait for transmit buffer empty
     outb(0x3F8, c);
+#endif
 }
 
 void serial_print_str(char *s) {

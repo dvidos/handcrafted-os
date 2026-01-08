@@ -329,6 +329,7 @@ void shadows_demo() {
 }
 
 void initialize_cpu() {
+#ifndef HOSTED_ENV
     log.info("Initializing IDT");
     initialize_idt();
 
@@ -344,6 +345,7 @@ void initialize_cpu() {
 
     // final piece
     asm("sti");
+#endif
 }
 
 // -------------------------------------------------------------------------
@@ -407,19 +409,21 @@ static bool intercept_kernel_event(event_t ev) {
 }
 
 void kernel_main(boot_info_t* bi) {
+    
     // preserve boot info, asap
-    asm("cli");
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
+    
+    
+    initialize_logger(LOG_LEVEL_TRACE); // should actually take it from stage2 cmdline...
     log.info("Kernel starting...");
-
+    
     // initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
-    initialize_logger(LOG_LEVEL_TRACE);
     initialize_cpu();
     initialize_mouse_driver(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
     initialize_ui_style();
-    initialize_screen_manager((void *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
+    initialize_screen_manager((void *)(uintptr_t)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
     
-    
+    // initial things to show on screen
     screen_manager_add_surface(create_wallpaper_surface());
     // rectangles_borders_demo();
     // blend_demo();
@@ -427,26 +431,26 @@ void kernel_main(boot_info_t* bi) {
     // gradient_demo();
     // blur_demo();
     // shadows_demo();
-
-    LOG_TRACE();
     screen_manager_redraw_screen();
-    LOG_TRACE();
+    
     
     // this might be the idle task, good enough for now
+    event_t ev;
     for (;;) {
+#ifdef HOSTED_ENV
+        extern bool hosted_get_event(event_t *ev);
+        if (!hosted_get_event(&ev))
+            continue;
+#else
         // log.debug("looping...");
         keyboard_driver_process(); // read scancodes, generate events
         mouse_driver_process(); // read packets, generate events
-        
-        // wait for event:
         if (event_queue_empty(&global_event_queue))
             continue;
         
-        LOG_TRACE();
-
         // ideally we'd give this to WM to dispatch
-        event_t ev;
         event_queue_pop(&global_event_queue, &ev);
+#endif
         // log_event_as_debug("Popped event", &ev);
 
         if (!intercept_kernel_event(ev)) {
@@ -456,9 +460,7 @@ void kernel_main(boot_info_t* bi) {
                 screen_manager_dispatch_mouse_event(ev.mouse);
         }
 
-        LOG_TRACE();
-
-        // after events dispatched and actions taken, refresh anything needed
+        // after events dispatched and actions taken, refresh anyt hing needed
         screen_manager_redraw_screen();
     }
 

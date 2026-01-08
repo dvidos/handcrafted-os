@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 typedef struct framebuffer_info {
-    uint32_t fb_addr;  // physical address
+    uint64_t fb_addr;  // physical address
     uint32_t width;
     uint32_t height;
     uint32_t pitch;    // bytes per row

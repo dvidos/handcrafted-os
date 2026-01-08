@@ -1,3 +1,8 @@
+
+CYAN := \\033[36m
+RESET:= \\033[0m
+BOLD := \\033[1m
+
 # caller must define KERNEL_LOAD_ADDRESS, for us to know where to put it.
 KERNEL_LOAD_ADDRESS ?= 0xBAD
 
@@ -5,9 +10,9 @@ AS=nasm
 CC=i686-elf-gcc
 LD=i686-elf-ld
 
-BOOTABLE_CFLAGS=-DARCH=BOOTABLE_i386 -m32 -ffreestanding -fno-pie -nostdlib -O2 -I.
+BOOTABLE_CFLAGS=-DARCH=BOOTABLE_i386 -DBARE_METAL_ENV -m32 -ffreestanding -fno-pie -nostdlib -O2 -I.
 BOOTABLE_LDFLAGS=-m elf_i386 -T kernel.ld --defsym KERNEL_LOAD_ADDRESS=$(KERNEL_LOAD_ADDRESS)
-HOSTED_GCC_FLAGS=-DARCH=HOSTED_x86_64 -g \
+HOSTED_GCC_FLAGS=-DARCH=HOSTED_x86_64 -DHOSTED_ENV -g \
                 -Wno-builtin-declaration-mismatch -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast \
                 -I/usr/include/x86_64-linux-gnu \
                 -L/usr/lib/x86_64-linux-gnu \
@@ -54,6 +59,6 @@ kernel.elf: $(BOOTABLE_ASM_OBJS) $(BOOTABLE_C_OBJS) $(COMMON_C_OBJS)
 
 
 hosted_x86_64: $(HOSTED_C_FILES) $(COMMON_C_FILES)
-	@echo ---- Making $@ ----
-	gcc $(HOSTED_GCC_FLAGS) $(HOSTED_C_FILES) -o $@ $(HOSTED_LIBS)
+	@echo ---- $(CYAN) Making $@ $(RESET) ----
+	gcc $(HOSTED_GCC_FLAGS) $(HOSTED_C_FILES) $(COMMON_C_FILES) -o $@ $(HOSTED_LIBS)
 

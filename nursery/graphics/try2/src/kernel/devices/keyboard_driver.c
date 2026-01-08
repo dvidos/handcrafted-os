@@ -135,7 +135,12 @@ static void update_modifiers(keycode_t key, int pressed) {
     current_mods = pressed ? (current_mods |= mask) : (current_mods &= ~mask);
 }
 
-static char keycode_to_ascii(keycode_t keycode, keymods_t modifiers) {
+
+keycode_t keyboard_keycode_from(int scancode, int is_e0) {
+    return is_e0 ? scancode_to_keycode[scancode] : e0_scancode_to_keycode[scancode];
+}
+
+char keyboard_ascii_from(keycode_t keycode, keymods_t modifiers) {
     char c;
     int shift = (modifiers & MOD_SHIFT);
     int ctrl  = (modifiers & MOD_CTRL);
@@ -196,7 +201,7 @@ void keyboard_driver_process() {
         scancode = scancode & 0x7F;
         was_extended = e0_prefix;
         e.type = pressed ? KEY_PRESSED : KEY_RELEASED;
-        e.keycode = e0_prefix ? e0_scancode_to_keycode[scancode] : scancode_to_keycode[scancode];
+        e.keycode = keyboard_keycode_from(scancode, e0_prefix);
         e0_prefix = false; // release as soon as possible
 
         if (!e.keycode) {
@@ -218,7 +223,7 @@ void keyboard_driver_process() {
             // we only enqueue pressing, not releasing
             if (!pressed) continue;
             e.keymods = current_mods;
-            e.ascii = keycode_to_ascii(e.keycode, current_mods);
+            e.ascii = keyboard_ascii_from(e.keycode, current_mods);
         }
 
         log.debug("Enqueueing event: %s %s%s %c%c%c", 

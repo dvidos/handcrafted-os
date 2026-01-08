@@ -5,7 +5,8 @@ extern kernel_main
 
 ; ensure this method is first in the binary
 _kernel_start:
-    mov ebp, 0
+    cli                 ; just in case
+    mov ebp, 0          ; to signify no previous frame
     call kernel_main
 .hang:
     hlt

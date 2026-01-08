@@ -35,6 +35,7 @@ extern void exception_stub_asm(void);
 void initialize_idt(void) {
     memset(idt, 0, sizeof(idt));
 
+#ifndef HOSTED_ENV
     // just to avoid tripple faults
     for (int i = 0; i < 32; i++)
         idt_set_gate(i, (uint32_t)exception_stub_asm);
@@ -47,4 +48,5 @@ void initialize_idt(void) {
     idt_descriptor.limit = sizeof(idt) - 1;
     idt_descriptor.base  = (uint32_t)&idt;
     lidt_asm(&idt_descriptor);
+#endif
 }
