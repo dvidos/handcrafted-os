@@ -45,6 +45,8 @@ void sdl_shutdown(void) {
 }
 
 int convert_sdl_event(SDL_Event *sdl, event_t *ev, bool *quit) {
+    memset(ev, 0, sizeof(event_t));
+    
     switch (sdl->type) {
     case SDL_QUIT:
         *quit = true;
@@ -137,7 +139,7 @@ bool hosted_get_event(event_t *ev) {
         sdl_shutdown();
         exit(0);
     }
-    
+
     return got_event;
 }
 

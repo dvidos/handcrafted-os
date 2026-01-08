@@ -137,7 +137,7 @@ static void update_modifiers(keycode_t key, int pressed) {
 
 
 keycode_t keyboard_keycode_from(int scancode, int is_e0) {
-    return is_e0 ? scancode_to_keycode[scancode] : e0_scancode_to_keycode[scancode];
+    return is_e0 ? e0_scancode_to_keycode[scancode] : scancode_to_keycode[scancode];
 }
 
 char keyboard_ascii_from(keycode_t keycode, keymods_t modifiers) {

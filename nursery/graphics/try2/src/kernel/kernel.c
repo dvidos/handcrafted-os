@@ -414,7 +414,7 @@ void kernel_main(boot_info_t* bi) {
     memcpy(&global_boot_info, bi, sizeof(boot_info_t));
     
     
-    initialize_logger(LOG_LEVEL_TRACE); // should actually take it from stage2 cmdline...
+    initialize_logger(LOG_LEVEL_DEBUG); // should actually take it from stage2 cmdline...
     log.info("Kernel starting...");
     
     // initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
@@ -451,7 +451,7 @@ void kernel_main(boot_info_t* bi) {
         // ideally we'd give this to WM to dispatch
         event_queue_pop(&global_event_queue, &ev);
 #endif
-        // log_event_as_debug("Popped event", &ev);
+        log_event_as_debug("Popped event", &ev);
 
         if (!intercept_kernel_event(ev)) {
             if (ev.type == EVT_KEY)
