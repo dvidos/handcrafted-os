@@ -210,6 +210,28 @@ static inline area get_mouse_cursor_area(int x, int y) {
     );
 }
 
+void screen_manager_intercept_mouse_movement(event_t *ev) {
+    if (ev->type == MOUSE_MOVED) {
+        // update screen manager
+        #ifdef HOSTED_ENV
+            // in SDL, we get mouse position from the library
+            sm.mouse.curr_pos.x = ev->mouse.pos.x;
+            sm.mouse.curr_pos.y = ev->mouse.pos.y;
+        #else
+            // in bare metal, we get deltas from the PS/2 packet
+            sm.mouse.curr_pos.x += ev->mouse.delta.dx;
+            sm.mouse.curr_pos.y += ev->mouse.delta.dy;
+        #endif
+        sm.mouse.curr_pos.x = clamp(sm.mouse.curr_pos.x, 0, sm.screen.width - 1);
+        sm.mouse.curr_pos.y = clamp(sm.mouse.curr_pos.y, 0, sm.screen.height - 1);
+        sm.mouse.needs_redraw = true; // we don't mark dirty, as _we_ handle the bg buffer for this
+        sm.needs_repaint = true; 
+    }
+
+    // in any case, enrich the event with current position
+    ev->mouse.pos = sm.mouse.curr_pos;
+}
+
 void screen_manager_set_mouse_position(int x, int y) {
     if (x < 0) x = 0;
     if (y < 0) y = 0;
@@ -416,3 +438,9 @@ void screen_manager_redraw_screen() {
 
 // --------------------------------------------------------------
 
+void screen_manager_log_debug_info() {
+    log.info("Screen Manager Surfaces");
+    dlist_foreach(&sm.surfaces, surface_t, s) {
+        surface_log_debug_info(s, "    ");
+    }
+}

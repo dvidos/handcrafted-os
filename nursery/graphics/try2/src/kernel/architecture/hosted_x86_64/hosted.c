@@ -24,7 +24,7 @@ void sdl_init(int w, int h) {
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         w, h,
-        SDL_WINDOW_SHOWN);
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE); //  | SDL_WINDOW_FULLSCREEN_DESKTOP);
 
     ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     tex = SDL_CreateTexture(
@@ -151,10 +151,10 @@ int convert_sdl_event(SDL_Event *sdl, event_t *ev, bool *quit) {
 
     case SDL_KEYUP:
     case SDL_KEYDOWN:
+        if (sdl->key.repeat)
+            return 0;
         keymods_t m = 0;
-        
         char keyboard_ascii_from(keycode_t keycode, keymods_t modifiers);
-
         ev->type = EVT_KEY;
         ev->key = (key_event_t){
             .type = (sdl->type == SDL_KEYDOWN) ? KEY_PRESSED : KEY_RELEASED,
@@ -169,12 +169,13 @@ int convert_sdl_event(SDL_Event *sdl, event_t *ev, bool *quit) {
         return 1;
 
     case SDL_MOUSEMOTION:
+        SDL_MouseMotionEvent motion = sdl->motion; // quicker debugging
         ev->type = EVT_MOUSE;
         ev->mouse = (mouse_event_t){
             .type = MOUSE_MOVED,
-            .buttons = sdl->motion.state,
-            .delta = vector_of(sdl->motion.xrel, sdl->motion.yrel),
-            .pos = point_of(sdl->motion.x, sdl->motion.y),
+            .buttons = motion.state,
+            .delta = vector_of(motion.xrel, motion.yrel),
+            .pos = point_of(motion.x, motion.y),
             .wheel_delta = 0,
         };
         return 1;

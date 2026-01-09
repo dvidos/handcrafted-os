@@ -57,6 +57,7 @@ typedef struct view_owner_interface {
 } view_owner_interface_t;
 
 typedef struct view {
+    char *debug_info;
     area frame;   // relative to parent, for translating and hit testing
     area bounds;  // relative to zero (0,0,w,h) for dirty tracking, alignment, borders etc
     bool visible;
@@ -77,7 +78,7 @@ typedef struct view {
 view_t *new_base_view(); // used by surfaces
 void view_set_frame(view_t *v, area frame);
 
-void view_base_initialize(view_t *v);
+void view_base_initialize(view_t *v, char *debug_info);
 bool view_dispatch_mouse_event_deprecated(view_t *v, mouse_event_t e);
 void view_add_child_view(view_t *parent, view_t *child);
 void view_set_owner_interface(view_t *v, view_owner_interface_t *owner, void *owner_data);
@@ -87,3 +88,5 @@ void view_paint_children(view_t *v, graphics_context_t *gc, area dirty);
 view_t *view_hit_test(view_t *v, point p_local);
 view_t *view_find_first_focusable(view_t *root);
 view_t *view_find_next_focusable(view_t *root, view_t *current_focused);
+
+void view_log_debug_info(view_t *v, const char *prefix);

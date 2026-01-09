@@ -130,7 +130,7 @@ void paint_fonts_demo(surface_t *s, graphics_context_t *gc, area dirty) {
 
 void fonts_demo() {
     size scr_size = screen_manager_get_screen_size();
-    surface_t *s = new_surface(scr_size.width - 64, scr_size.height, SURFACE_OVERLAY);
+    surface_t *s = new_surface(scr_size.width - 64, scr_size.height, SURFACE_OVERLAY, false, "fonts-demo");
     surface_set_on_paint_behavior(s, paint_fonts_demo);
     screen_manager_add_surface(s);
 }
@@ -145,7 +145,7 @@ static void _paint_wallpaper(surface_t *s, graphics_context_t *gc, area dirty) {
 surface_t *create_wallpaper_surface() {
     LOG_TRACE();
     size scr_size = screen_manager_get_screen_size();
-    surface_t *s = new_surface(scr_size.width, scr_size.height, SURFACE_DESKTOP);
+    surface_t *s = new_surface(scr_size.width, scr_size.height, SURFACE_DESKTOP, false, "wallpaper");
     surface_set_on_paint_behavior(s, _paint_wallpaper);
     return s;
 }
@@ -370,7 +370,7 @@ surface_t *create_run_dialog_surface() {
     const ui_style_t *style = ui_style();
     vert_layout_t vl = new_vert_layout(300, ui_style()->window.padding, ui_style()->window.spacing);
 
-    surface_t *s = new_surface(500, 250, SURFACE_OVERLAY);
+    surface_t *s = new_surface(500, 250, SURFACE_OVERLAY, true, "run-dialog");
 
     text_view *prompt = new_text_view("Enter command to run");
     textbox_view *text = new_textbox_view();
@@ -399,10 +399,15 @@ surface_t *create_run_dialog_surface() {
 // -------------------------------------------------------------------------
 
 static bool intercept_kernel_event(event_t ev) {
-    if (ev.type == EVT_KEY && ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_R) {
-        log.info("creating and inserting run_dialong...");
-        screen_manager_add_surface(create_run_dialog_surface());
-        return true;
+    if (ev.type == EVT_KEY && ev.key.type == KEY_PRESSED) {
+        if (ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_R) {
+            log.info("creating and inserting run_dialong...");
+            screen_manager_add_surface(create_run_dialog_surface());
+            return true;
+        } else if (ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_I) {
+            screen_manager_log_debug_info();
+            return true;
+        }
     }
 
     return false;
@@ -419,7 +424,8 @@ void kernel_main(boot_info_t* bi) {
     
     // initialize_graphics((char *)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
     initialize_cpu();
-    initialize_mouse_driver(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
+    // initialize_mouse_driver(screen_manager_get_mouse_position, screen_manager_set_mouse_position);
+    initialize_mouse_driver(NULL, NULL);
     initialize_ui_style();
     initialize_screen_manager((void *)(uintptr_t)bi->fb.fb_addr, bi->fb.width, bi->fb.height, bi->fb.pitch, bi->fb.bpp);
     
@@ -451,13 +457,21 @@ void kernel_main(boot_info_t* bi) {
         // ideally we'd give this to WM to dispatch
         event_queue_pop(&global_event_queue, &ev);
 #endif
-        log_event_as_debug("Popped event", &ev);
+
+        // log_event_as_debug("Popped event", &ev);
+
+
+        if (ev.type == EVT_MOUSE && ev.mouse.type == MOUSE_MOVED)
+            screen_manager_intercept_mouse_movement(&ev);
 
         if (!intercept_kernel_event(ev)) {
-            if (ev.type == EVT_KEY)
+            if (ev.type == EVT_KEY) {
+                log_event_as_debug("Key event", &ev); // sometimes hosted gives two events?
+                
                 screen_manager_dispatch_key_event(ev.key);
-            else if (ev.type == EVT_MOUSE)
+            } else if (ev.type == EVT_MOUSE) {
                 screen_manager_dispatch_mouse_event(ev.mouse);
+            }
         }
 
         // after events dispatched and actions taken, refresh anyt hing needed

@@ -23,7 +23,7 @@ static view_callbacks_t view_default_callbacks = {
 
 view_t *new_base_view() { // used by surfaces, for root view
     view_t *v = kmalloc(sizeof(view_t));
-    view_base_initialize(v);
+    view_base_initialize(v, "base-view");
     return v;
 }
 
@@ -33,11 +33,12 @@ void view_set_frame(view_t *v, area frame) {
     view_invalidate(v);
 }
 
-void view_base_initialize(view_t *v) {
+void view_base_initialize(view_t *v, char *debug_info) {
     // set base properties...
     memset(v, 0, sizeof(view_t));
 
     // we could preset some useful presets here
+    v->debug_info = debug_info;
     v->callbacks = view_default_callbacks;
     v->visible = true;
 }
@@ -71,6 +72,7 @@ void view_add_child_view(view_t *parent, view_t *child) {
         parent->children_tail = child;
         child->next = NULL;
     }
+    child->parent = parent; // needed to propagate 
 }
 
 void view_set_owner_interface(view_t *v, view_owner_interface_t *owner_interface, void *owner_data) {
@@ -83,12 +85,12 @@ void view_invalidate_area(view_t *v, area local_dirty) {
     if (!v) return;
 
     if (v->parent) {
+        // log.debug("view bubbling to parent");
         view_invalidate_area(v->parent, area_to_global(local_dirty, v->frame));
-        log.debug("view bubbling to parent");
     }
     else if (v->owner_interface) {
+        // log.debug("view bubbling to owner interface");
         v->owner_interface->mark_area_dirty(v->owner_data, area_to_global(local_dirty, v->frame));
-        log.debug("view bubbling to owner interface");
     }
 }
 
@@ -201,4 +203,25 @@ static void _base_view_on_focus_lost(view_t *v) {
 
 static void _base_view_destroy(view_t *view) {
 
+}
+
+void view_log_debug_info(view_t *v, const char *prefix) {
+    char buffer[128];
+
+    log.info("%sview %-15s %p (%d,%d,%d,%d) visible=%c focusable=%c focused=%c parent=%p",
+        prefix,
+        v->debug_info,
+        v,
+        v->frame.x, v->frame.y, v->frame.width, v->frame.height, 
+        v->visible ? 'y' : 'n',
+        v->focusable ? 'y' : 'n',
+        v->focused ? 'y' : 'n',
+        v->parent
+    );
+
+    strcpy(buffer, prefix);
+    strcat(buffer, "    ");
+    for (view_t *child = v->children_head; child != NULL; child = child->next) {
+        view_log_debug_info(child, buffer);
+    }
 }

@@ -35,10 +35,12 @@ textbox_view *new_textbox_view() {
 
     textbox_view *t = (textbox_view *)kmalloc(sizeof(textbox_view));
 
-    view_base_initialize(&t->base);
+    view_base_initialize(&t->base, "textbox_view");
     t->base.callbacks.paint = _textbox_view_paint;
     t->base.callbacks.on_key_event = _textbox_view_on_key_event;
     t->base.focusable = true;
+
+    strcpy(t->buffer, "hello-AMgy");
 
     return t;
 }

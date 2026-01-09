@@ -14,9 +14,14 @@ typedef struct point {
 } point;
 
 typedef struct vector {
+    int dx;
+    int dy;
+} vector;
+
+typedef struct vectorf {
     float dx;
     float dy;
-} vector;
+} vectorf;
 
 typedef struct size {
     int width;
@@ -52,18 +57,21 @@ static inline bool  point_is_inside(point p, area a)         { return p.x >= a.x
 static inline point point_to_local(point p, area container)  { return point_of(p.x - container.x, p.y - container.y); }
 static inline point point_to_global(point p, area container) { return point_of(p.x + container.x, p.y + container.y); }
 
-static inline vector vector_of(int dx, int dy)              { return (vector){.dx = dx, .dy = dy}; }
-static inline vector vector_zero()                          { return (vector){.dx = 0, .dy = 0}; }
-static inline bool   vector_is_zero(vector v)               { return (v.dx == 0 && v.dy == 0); }
-static inline vector vector_from_to(point a, point b)       { return (vector){.dx = b.x - a.x, .dy = b.y - a.y}; }
-static inline float  vector_dot_product(vector a, vector b) { return a.dx * b.dx + a.dy * b.dy; }
+static inline vector vector_of(int dx, int dy)               { return (vector){.dx = dx, .dy = dy}; }
+static inline vector vector_zero()                           { return (vector){.dx = 0, .dy = 0}; }
+static inline bool   vector_is_zero(vector v)                { return (v.dx == 0 && v.dy == 0); }
+
+static inline vectorf vectorf_of(float dx, float dy)            { return (vectorf){.dx = dx, .dy = dy}; }
+static inline vectorf vectorf_zero()                            { return (vectorf){.dx = 0, .dy = 0}; }
+static inline bool    vectorf_is_zero(vectorf v)                { return (v.dx == 0 && v.dy == 0); }
+static inline vectorf vectorf_from_to(point a, point b)         { return (vectorf){.dx = b.x - a.x, .dy = b.y - a.y}; }
+static inline float   vectorf_dot_product(vectorf a, vectorf b) { return a.dx * b.dx + a.dy * b.dy; }
 
 static inline size size_of(int w, int h)                    { return (size){.width = w, .height = h}; }
 static inline size size_zero()                              { return (size){.width = 0, .height = 0}; }
 static inline bool size_is_empty(size s)                    { return s.width <= 0 || s.height <= 0; }
 static inline size size_grow(size s, int dx, int dy)        { return (size){.width = s.width + dx, .height = s.height + dy}; }
 static inline size size_grow_by(size s, int delta)          { return (size){.width = s.width + delta, .height = s.height + delta}; }
-
 
 static inline area  area_of(int x, int y, int w, int h)     { return (area){.x = x, .y = y, .width = w, .height = h}; }
 static inline area  area_zero()                             { return (area){.x = 0, .y = 0, .width = 0, .height = 0}; }

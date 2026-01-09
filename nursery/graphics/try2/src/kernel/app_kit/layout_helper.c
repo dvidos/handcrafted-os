@@ -37,8 +37,10 @@ void vert_layout_add_split(vert_layout_t *l, view_t *v1, view_t *v2, float split
 }
 
 void vert_layout_add_two_buttons(vert_layout_t *l, view_t *v1, view_t *v2, int width, int height) {
-    if (l->rows_count > 0)
+    if (l->rows_count > 0) {
         l->cursor_y += l->spacing;
+        l->cursor_y += (l->spacing / 2); // give buttons some space
+    }
     
     int right_x = l->cursor_x + l->content_width - width;
     int left_x = right_x - l->spacing - width;

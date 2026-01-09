@@ -32,7 +32,7 @@ void initialize_ui_style() {
             .dark = color_darken(base_gray, contrast),
             .border_color = base_text,
             .border_thickness = 1,
-            .height = 20,
+            .height = 21,
             .button_min_width = 80,
         },
         .menu = {

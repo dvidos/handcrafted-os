@@ -9,6 +9,8 @@ static void _button_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     // draw the button, different if focused and if pressed
     button_view *b = (button_view *)v;
     const ui_style_t *style = ui_style();
+    
+    gc_set_roundness(gc, 5);
 
     gc_set_fill(gc, b->pressed ? fill_params_solid(style->control.dark) : style->control.bg);
     gc_draw_rect(gc, v->bounds);
@@ -44,7 +46,7 @@ static bool _button_view_on_mouse_event(view_t *v, mouse_event_t e) {
 button_view *new_button_view(const char *label, click_handling_func *on_click, void *userdata) {
     button_view *b = (button_view *)kmalloc(sizeof(button_view));
 
-    view_base_initialize(&b->base);
+    view_base_initialize(&b->base, "button_view");
     b->base.callbacks.paint = _button_view_paint;
     b->base.callbacks.on_mouse_event = _button_view_on_mouse_event;
     b->base.focusable = true;

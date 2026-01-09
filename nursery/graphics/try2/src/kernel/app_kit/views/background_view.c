@@ -16,7 +16,7 @@ static void _background_view_paint(view_t *v, graphics_context_t *gc, area dirty
 background_view *new_background_view() {
     background_view *b = (background_view *)kmalloc(sizeof(background_view));
 
-    view_base_initialize(&b->base);
+    view_base_initialize(&b->base, "root_view");
     b->base.callbacks.paint = _background_view_paint;
     b->base.focusable = false;
 

@@ -28,9 +28,10 @@ typedef void (surface_paint_func)(surface_t *s, graphics_context_t *gc, area dir
 
 
 int surface_get_dlist_node_offset();
-surface_t *new_surface(int w, int h, surface_role_t role);
+surface_t *new_surface(int w, int h, surface_role_t role, bool focusable, const char *debug_info);
 void surface_destroy(surface_t *s);
 
+const char *surface_get_debug_info(surface_t *s);
 area surface_get_frame(surface_t *s);
 size surface_get_size(surface_t *s);
 point surface_get_location(surface_t *s);
@@ -68,3 +69,5 @@ void surface_on_focus_gained(surface_t *s);
 void surface_on_focus_lost(surface_t *s);
 void surface_on_shown(surface_t *s);
 void surface_on_hidden(surface_t *s);
+
+void surface_log_debug_info(surface_t *s, const char *prefix);

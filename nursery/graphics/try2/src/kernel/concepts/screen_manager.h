@@ -13,6 +13,7 @@ area screen_manager_get_screen_area();
 area screen_manager_center_on_screen(area a);
 void screen_manager_redraw_screen();
 
+
 // surface management
 bool screen_manager_add_surface(surface_t *s);    // main entry point
 bool screen_manager_remove_surface(surface_t *s); // main exit point
@@ -21,6 +22,7 @@ void screen_manager_push_surface_to_bottom(surface_t *s);
 void screen_manager_mark_area_dirty(area area);
 
 // mouse pointer management
+void screen_manager_intercept_mouse_movement(event_t *ev);
 void screen_manager_set_mouse_position(int x, int y);
 void screen_manager_get_mouse_position(int *x, int *y);
 void screen_manager_set_mouse_visible(bool visible);
@@ -42,3 +44,4 @@ void screen_manager_dispatch_mouse_event(mouse_event_t e);
 
 // ------------------------------------------------
 
+void screen_manager_log_debug_info();

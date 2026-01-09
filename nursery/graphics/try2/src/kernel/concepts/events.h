@@ -20,7 +20,7 @@ typedef struct key_event {
 #define MOUSE_BTN_MIDDLE (1 << 2)
 
 typedef enum mouse_event_type {
-    MOUSE_MOVED,
+    MOUSE_MOVED = 1,
     MOUSE_LBTN_DOWN,
     MOUSE_LBTN_UP,
     MOUSE_MBTN_DOWN,

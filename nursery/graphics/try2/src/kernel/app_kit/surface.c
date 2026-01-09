@@ -9,6 +9,7 @@
 // represents a positioned graphics buffer on screen
 // adds position, flags, callbacks
 struct surface {
+    const char *debug_info;
     area frame;                  // position + size in screen coordinates
     gbuffer *buffer;             // drawing, owned by surface
 
@@ -56,10 +57,11 @@ int surface_get_dlist_node_offset() {
     return offsetof(surface_t, dlist_node);
 }
 
-surface_t *new_surface(int w, int h, surface_role_t role) {
+surface_t *new_surface(int w, int h, surface_role_t role, bool focusable, const char *debug_info) {
     surface_t *s = kmalloc(sizeof(surface_t));
     memset(s, 0, sizeof(*s));
 
+    s->debug_info   = debug_info;
     s->role         = role;
     s->owner_interface = NULL;
     s->frame        = area_of(0, 0, w, h);
@@ -68,6 +70,8 @@ surface_t *new_surface(int w, int h, surface_role_t role) {
 
     s->is_visible = true;
     s->is_opaque  = true;
+    s->focusable = focusable;
+    s->accepts_mouse = true;
 
     s->buffer = new_gbuffer(w, h);
 
@@ -75,9 +79,6 @@ surface_t *new_surface(int w, int h, surface_role_t role) {
     view_set_frame(s->root_view, s->frame);
     view_set_owner_interface(s->root_view, &surface_functions_for_views, s);
     s->focused_view = NULL;
-
-    s->focusable = true;
-    s->accepts_mouse = true;
 
     return s;
 }
@@ -264,10 +265,11 @@ void surface_on_key_event(surface_t *s, key_event_t e) {
 
     // default behavior
     // first, surface wide keys
-    if (e.keycode == KEY_TAB && e.keymods == 0) {
+    if (e.type == KEY_PRESSED && e.keycode == KEY_TAB && e.keymods == 0) {
         LOG_TRACE();
         view_t *next = view_find_next_focusable(s->root_view, s->focused_view);
         surface_set_focused_view(s, next); // even if NULL
+        log.debug("Focused view %s", next->debug_info);
         return;
     }
 
@@ -329,4 +331,28 @@ void surface_on_shown(surface_t *s) {
 void surface_on_hidden(surface_t *s) {
     if (s->callbacks.on_hidden)
         s->callbacks.on_hidden(s);
+}
+
+void surface_log_debug_info(surface_t *s, const char *prefix) {
+    char buffer[128];
+
+    log.info("%ssurface %s %p (%d,%d,%d,%d) visbl=%c opq=%c focusbl=%c redraw=%c dirty=(%d,%d,%d,%d) focused_view=%p", 
+        prefix,
+        s->debug_info, 
+        s,
+        s->frame.x, s->frame.y, s->frame.width, s->frame.height,
+        s->is_visible ? 'y' : 'n',
+        s->is_opaque ? 'y' : 'n',
+        s->focusable ? 'y' : 'n',
+        s->accepts_mouse ? 'y' : 'n',
+        s->needs_redraw ? 'y' : 'n',
+        s->dirty_area.x, s->dirty_area.y, s->dirty_area.width, s->dirty_area.height, 
+        s->focused_view
+    );
+
+    if (s->root_view != 0) {
+        strcpy(buffer, prefix);
+        strcat(buffer, "     ");
+        view_log_debug_info(s->root_view, buffer);
+    }
 }
