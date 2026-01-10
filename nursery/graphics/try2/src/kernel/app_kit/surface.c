@@ -160,6 +160,7 @@ void surface_set_size(surface_t *s, int w, int h) {
     s->frame.height = h;
     s->dirty_area = area_of(0, 0, w, h);
     s->needs_redraw = true;
+    view_set_frame(s->root_view, area_of(0, 0, s->frame.width, s->frame.height));
 }
 
 void surface_show(surface_t *s) { 

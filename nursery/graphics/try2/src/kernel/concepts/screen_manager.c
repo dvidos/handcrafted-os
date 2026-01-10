@@ -8,6 +8,7 @@
 #include "logger.h"
 #include "../algorithms/rand.h"
 #include "../containers/dllist.h"
+#include "../cpu/timer.h"
 
 #define MAX_SURFACES                 64  // this will be dynamic one day...
 #define FOCUSED_SURFACES_STACK_SIZE  16  // stack of modal focused surfaces
@@ -51,6 +52,8 @@ typedef struct screen_manager {
     dlist_t surfaces; // head = top
     surface_t *mouse_capture; // nullable
     surface_t *focused_surface; // nullable
+
+    int visual_debug;
 
 } screen_manager_t;
 static screen_manager_t sm;
@@ -377,10 +380,19 @@ static void copy_backbuffer_to_physical_framebuffer() {
 }
 
 static void blacken_dirty_surfaces() {
-    fill_params black = fill_params_solid(color_black());
+    fill_params black = fill_params_solid(0xFFFF0000);
     for (int i = 0; i < sm.dirty_area_count; i++) {
         area a = sm.dirty_areas[i];
         gb_rect(sm.backbuffer, a, a, black, 0);
+        if (sm.visual_debug)
+            gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, sm.dirty_areas[i], sm.screen.fb_address, sm.screen.pitch, sm.screen.bpp);        
+    }
+
+    if (sm.visual_debug) {
+        extern void sdl_present(void);
+        sdl_present();
+        int deadline = get_timer_ticks() + 200;
+        while (get_timer_ticks() < deadline);
     }
 }
 
@@ -443,4 +455,5 @@ void screen_manager_log_debug_info() {
     dlist_foreach(&sm.surfaces, surface_t, s) {
         surface_log_debug_info(s, "    ");
     }
+    sm.visual_debug = !sm.visual_debug;
 }

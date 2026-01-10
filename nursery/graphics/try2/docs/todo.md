@@ -1,9 +1,25 @@
+This project has become so big and un-structured that I am not happy about it.
+There are many functions, many events, many hookups, and no uniform behavior behind the scenes.
+I'm putting it on ice for now.
+Last I did was a "Run" dialog, with one label, one textbox, and two buttons. 
+I was supposed to debug the events that happen and iron out the kinks,
+before creating way more views (list view, console view, scrollbars etc)
+What started as happy pixel pointing, turned out to be a complex management
+of dirty areas.
+As of lately, i had to integrate a "hosted.c", that would compile most of the code in gcc for x86_64,
+so that I can run it through the debugger of VSCode, is the booted kernel had very limited capabilities
+of debugging (mainly only logging).
+This seems to be a lot, without a clear target in mind.
+At the very least, I managed to make a Stage I, Stage II boot loaders, along a small kernel in graphics mode.
+
+
+
 # next steps
 
 1. ~~**Surfaces** - Make surface_t a first-class object (buffer, rect, z-order). Everything visible is a surface.~~
 1. ~~**GraphicsContext** - Introduce a stateless drawing API that renders into a surface buffer.~~
-1. **Base View** - Define view_t with draw, hit-test, and event handlers (single view, no hierarchy).
-1. **Concrete Views** - Implement Button, Label, TextBox by embedding view_t and overriding behavior.
+1. ~~**Base View** - Define view_t with draw, hit-test, and event handlers (single view, no hierarchy).~~
+1. ~~**Concrete Views** - Implement Button, Label, TextBox by embedding view_t and overriding behavior.~~
 1. **View Hierarchy** - Add parent/children to views, recursive draw and hit-testing.
 1. **Window** - Introduce window_t as a thin owner of a surface and a root view.
 1. **Window Manager** - Manage window stacking, focus, movement, and event routing.

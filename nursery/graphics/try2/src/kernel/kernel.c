@@ -466,8 +466,7 @@ void kernel_main(boot_info_t* bi) {
 
         if (!intercept_kernel_event(ev)) {
             if (ev.type == EVT_KEY) {
-                log_event_as_debug("Key event", &ev); // sometimes hosted gives two events?
-                
+                // log_event_as_debug("Key event", &ev); // sometimes hosted gives two events?
                 screen_manager_dispatch_key_event(ev.key);
             } else if (ev.type == EVT_MOUSE) {
                 screen_manager_dispatch_mouse_event(ev.mouse);
