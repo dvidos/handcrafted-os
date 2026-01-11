@@ -12,7 +12,11 @@ static void _button_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     
     gc_set_roundness(gc, 5);
 
-    gc_set_fill(gc, b->pressed ? fill_params_solid(style->control.dark) : style->control.bg);
+    color c = style->control.bg.clr;
+    if (v->focused) c = color_lighten(c, 0.2);
+    if (b->pressed) fill_params_solid(style->control.dark);
+
+    gc_set_fill(gc, fill_params_solid(c));
     gc_draw_rect(gc, v->bounds);
 
     gc_set_text(gc, text_params_of(style->control.text.font, ALIGN_MIDDLE_CENTER, style->control.text.color));
@@ -43,12 +47,22 @@ static bool _button_view_on_mouse_event(view_t *v, mouse_event_t e) {
     // we need to capture mouse... another chapter.
 }
 
+static bool _button_view_on_key_event(view_t *v, key_event_t e) {
+    button_view *b = (button_view *)v;
+
+    if (e.type == KEY_PRESSED && e.keymods == 0 && e.keycode == KEY_SPACE) {
+        b->on_click(b->userdata);
+    }
+}
+
 button_view *new_button_view(const char *label, click_handling_func *on_click, void *userdata) {
     button_view *b = (button_view *)kmalloc(sizeof(button_view));
+    memset(b, 0, sizeof(button_view));
 
     view_base_initialize(&b->base, "button_view");
     b->base.callbacks.paint = _button_view_paint;
     b->base.callbacks.on_mouse_event = _button_view_on_mouse_event;
+    b->base.callbacks.on_key_event = _button_view_on_key_event;
     b->base.focusable = true;
 
     b->label = label;

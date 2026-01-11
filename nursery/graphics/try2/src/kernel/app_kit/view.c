@@ -80,6 +80,24 @@ void view_set_owner_interface(view_t *v, view_owner_interface_t *owner_interface
     v->owner_data = owner_data;
 }
 
+void view_set_focused(view_t *v, bool focused) {
+    if (focused == v->focused)
+        return;
+    if (focused && !v->focusable)
+        return;
+
+    v->focused = focused;
+    view_invalidate(v);
+
+    if (v->focused) {
+        if (v->callbacks.on_focus_gained != NULL)
+            v->callbacks.on_focus_gained(v);
+    } else {
+        if (v->callbacks.on_focus_lost != NULL)
+            v->callbacks.on_focus_lost(v);
+    }
+}
+
 void view_invalidate_area(view_t *v, area local_dirty) {
     // dirty area in local coords, bubbles up
     if (!v) return;
@@ -96,6 +114,7 @@ void view_invalidate_area(view_t *v, area local_dirty) {
 
 void view_invalidate(view_t *v) {
     if (!v) return;
+    log.debug("view %s invalidated", v->debug_info);
     view_invalidate_area(v, v->bounds);
 }
 
@@ -186,18 +205,11 @@ static bool _base_view_on_mouse_event(view_t *v, mouse_event_t e) {
 }
 
 static void _base_view_on_focus_gained(view_t *v) {
-    if (!v) return;
-    if (v && v->focused) return;
-
-    v->focused = true;
-    view_invalidate(v);
+    // nothing by default
 }
 
 static void _base_view_on_focus_lost(view_t *v) {
-    if (!v || !v->focused) return;
-
-    v->focused = false;
-    view_invalidate(v);
+    // nothing by default
 }
 
 

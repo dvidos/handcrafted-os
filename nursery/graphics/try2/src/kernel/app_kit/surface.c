@@ -199,19 +199,13 @@ void surface_set_focused_view(surface_t *s, view_t *v) {
         return;
     
     if (s->focused_view != NULL) {
-        s->focused_view->focused = false;
-        if (s->focused_view->callbacks.on_focus_lost)
-            s->focused_view->callbacks.on_focus_lost(s->focused_view);
-        view_invalidate(s->focused_view);
+        view_set_focused(s->focused_view, false);
         s->focused_view = NULL;
     }
 
     s->focused_view = v;
-    if (v != NULL) {
-        v->focused = true;
-        view_invalidate(v);
-        if (v->callbacks.on_focus_gained)
-            v->callbacks.on_focus_gained(v);
+    if (s->focused_view != NULL) {
+        view_set_focused(s->focused_view, true);
     }
 }
 
@@ -309,7 +303,7 @@ void surface_on_focus_gained(surface_t *s) {
         s->focused_view = view_find_first_focusable(s->root_view);
 
     if (s->focused_view)
-        s->focused_view->callbacks.on_focus_gained(s->focused_view);
+        view_set_focused(s->focused_view, true);
 }
 
 void surface_on_focus_lost(surface_t *s) {
@@ -321,7 +315,7 @@ void surface_on_focus_lost(surface_t *s) {
 
     // default behavior
     if (s->focused_view)
-        s->focused_view->callbacks.on_focus_lost(s->focused_view);
+        view_set_focused(s->focused_view, false);
 }
 
 void surface_on_shown(surface_t *s) {

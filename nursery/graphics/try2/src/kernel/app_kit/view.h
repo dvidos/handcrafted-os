@@ -82,6 +82,7 @@ void view_base_initialize(view_t *v, char *debug_info);
 bool view_dispatch_mouse_event_deprecated(view_t *v, mouse_event_t e);
 void view_add_child_view(view_t *parent, view_t *child);
 void view_set_owner_interface(view_t *v, view_owner_interface_t *owner, void *owner_data);
+void view_set_focused(view_t *v, bool focused);
 void view_invalidate_area(view_t *v, area local_dirty);
 void view_invalidate(view_t *v);
 void view_paint_children(view_t *v, graphics_context_t *gc, area dirty);

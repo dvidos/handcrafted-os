@@ -128,16 +128,19 @@ static surface_t *screen_manager_get_top_focusable_surface() {
 }
 
 static void screen_manager_focus_surface(surface_t *s) {
-    if (sm.focused_surface == s || !surface_is_focusable(s))
-        return;
+    if (s != NULL) {
+        if (sm.focused_surface == s || !surface_is_focusable(s))
+            return;
+    }   
 
-    // if previous exist, notify
+    // if previous exists, notify
     if (sm.focused_surface)
         surface_on_focus_lost(sm.focused_surface);
 
     sm.focused_surface = s;
-    if (sm.focused_surface != NULL)
+    if (sm.focused_surface != NULL) {
         surface_on_focus_gained(sm.focused_surface);
+    }
 }
 
 bool screen_manager_add_surface(surface_t *s) {

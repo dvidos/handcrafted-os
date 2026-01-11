@@ -19,14 +19,21 @@ static void _textbox_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
 
 static bool _textbox_view_on_key_event(view_t *v, key_event_t e) {
     textbox_view *t = (textbox_view *)v;
-
-    if (e.ascii != 0 && strlen(t->buffer) < sizeof(t->buffer) - 1) {
+    if (e.type != KEY_PRESSED)
+        return false;
+    
+    if ((e.ascii >= 32 && e.ascii < 127) && strlen(t->buffer) < sizeof(t->buffer) - 1) {
         t->buffer[strlen(t->buffer)] = e.ascii;
         view_invalidate(v);
+        return true;
 
-    } else if (e.keycode == KEY_BACKSPACE && strlen(t->buffer) > 0) {
-        t->buffer[strlen(t->buffer)] = 0;
+    } else if (e.keycode == KEY_BACKSPACE) {
+        int len = strlen(t->buffer);
+        if (len == 0) return false;
+    
+        t->buffer[len - 1] = 0;
         view_invalidate(v);
+        return true;
     }
 }
 
@@ -46,8 +53,10 @@ textbox_view *new_textbox_view() {
 }
 
 void textbox_view_set_text(textbox_view *t, const char *text) {
+    if (strcmp(t->buffer, text) == 0)
+        return;
+    
     memcpy(t->buffer, text, min(strlen(text) + 1, sizeof(t->buffer)));
     t->buffer[sizeof(t->buffer) - 1] = 0;
-
     view_invalidate((view_t *)t);
 }
