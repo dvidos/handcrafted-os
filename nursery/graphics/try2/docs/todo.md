@@ -10,7 +10,7 @@ As of lately, i had to integrate a "hosted.c", that would compile most of the co
 so that I can run it through the debugger of VSCode, is the booted kernel had very limited capabilities
 of debugging (mainly only logging).
 This seems to be a lot, without a clear target in mind.
-At the very least, I managed to make a Stage I, Stage II boot loaders, along a small kernel in graphics mode.
+At the very least, I managed to make a Stage I, Stage II boot loaders, along a small kernel in graphics mode.kerne
 
 
 
