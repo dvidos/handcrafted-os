@@ -89,6 +89,10 @@ void surface_destroy(surface_t *s) {
     kfree(s);
 }
 
+const char *surface_get_debug_info(surface_t *s) {
+    return s->debug_info;
+}
+
 area surface_get_frame(surface_t *s) {
     return s->frame;
 }
@@ -251,7 +255,7 @@ void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty) {
         s->root_view->callbacks.paint(s->root_view, gc, dirty);
 }
 
-void surface_on_key_event(surface_t *s, key_event_t e) {
+void surface_handle_key_event(surface_t *s, key_event_t e) {
     // custom behavior
     if (s->callbacks.on_key_event != NULL) {
         s->callbacks.on_key_event(s, e);
@@ -267,12 +271,12 @@ void surface_on_key_event(surface_t *s, key_event_t e) {
         log.debug("Focused view %s", next->debug_info);
         return;
     }
-
-    if (s->focused_view)
-        s->focused_view->callbacks.on_key_event(s->focused_view, e);
+    
+    if (s->focused_view != NULL)
+        view_handle_key_event(s->focused_view, e);
 }
 
-void surface_on_mouse_event(surface_t *s, mouse_event_t e) {
+void surface_handle_mouse_event(surface_t *s, mouse_event_t e) {
     // custom behavior
     if (s->callbacks.on_mouse_event != NULL) {
         s->callbacks.on_mouse_event(s, e);
@@ -284,11 +288,10 @@ void surface_on_mouse_event(surface_t *s, mouse_event_t e) {
     if (hit_view == NULL)
         return;
     
-    if (hit_view->focusable)
+    if (hit_view->focusable && e.type == MOUSE_LBTN_DOWN)
         surface_set_focused_view(s, hit_view);
     
-    if (hit_view->callbacks.on_mouse_event)
-        hit_view->callbacks.on_mouse_event(hit_view, mouse_event_localized(e, hit_view->frame));
+    view_handle_mouse_event(hit_view, mouse_event_localized(e, hit_view->frame));
 }
 
 void surface_on_focus_gained(surface_t *s) {

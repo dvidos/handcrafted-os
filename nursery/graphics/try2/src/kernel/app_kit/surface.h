@@ -63,8 +63,8 @@ void surface_set_owner_interface(surface_t *s, surface_owner_interface_t *interf
 void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior);
 
 void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty);
-void surface_on_key_event(surface_t *s, key_event_t e);
-void surface_on_mouse_event(surface_t *s, mouse_event_t e);
+void surface_handle_key_event(surface_t *s, key_event_t e);
+void surface_handle_mouse_event(surface_t *s, mouse_event_t e);
 void surface_on_focus_gained(surface_t *s);
 void surface_on_focus_lost(surface_t *s);
 void surface_on_shown(surface_t *s);

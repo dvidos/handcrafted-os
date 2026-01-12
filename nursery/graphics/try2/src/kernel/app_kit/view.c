@@ -43,23 +43,6 @@ void view_base_initialize(view_t *v, char *debug_info) {
     v->visible = true;
 }
 
-bool view_dispatch_mouse_event_deprecated(view_t *v, mouse_event_t e) {
-    if (!v->visible)
-        return false;
-
-    // check children first
-    for (view_t *child = v->children_head; child; child = child->next) {
-        if (!area_contains(child->frame, e.pos))
-            continue;
-
-        if (view_dispatch_mouse_event_deprecated(child, mouse_event_localized(e, child->frame)))
-            return true;
-    }
-
-    // if no child found or handled, we can handle
-    return v->callbacks.on_mouse_event ? v->callbacks.on_mouse_event(v, e) : false;
-}
-
 void view_add_child_view(view_t *parent, view_t *child) {
     if (parent->children_tail == NULL) {
         // no children so far, add to both
@@ -130,6 +113,29 @@ void view_paint_children(view_t *v, graphics_context_t *gc, area dirty) {
         gc_pop_state(gc);
     }
 }
+
+void view_handle_key_event(view_t *v, key_event_t e) {
+    // custom behavior
+    if (v->callbacks.on_key_event != NULL) {
+        v->callbacks.on_key_event(v, e);
+        return;
+    }
+
+    // default behavior
+    // ...
+}
+
+void view_handle_mouse_event(view_t *v, mouse_event_t e) {
+    // custom behavior
+    if (v->callbacks.on_mouse_event != NULL) {
+        v->callbacks.on_mouse_event(v, e);
+        return;
+    }
+
+    // default behavior
+    // ...
+}
+
 
 view_t *view_hit_test(view_t *v, point p_local) {
     if (!point_is_inside(p_local, v->bounds))

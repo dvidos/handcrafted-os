@@ -145,7 +145,7 @@ static void screen_manager_focus_surface(surface_t *s) {
 
 bool screen_manager_add_surface(surface_t *s) {
     LOG_TRACE();
-    dlist_append(&sm.surfaces, s);
+    dlist_prepend(&sm.surfaces, s);
 
     // need to redraw this area
     surface_set_owner_interface(s, &surfaces_interface);
@@ -160,6 +160,21 @@ bool screen_manager_add_surface(surface_t *s) {
 }
 
 bool screen_manager_remove_surface(surface_t *s) {
+
+    // we must mark all the surfaces below "s" as dirty, using the frame of s.
+    // so they are redrawn
+    area exposed = surface_get_frame(s);
+    dlist_foreach_reverse(&sm.surfaces, surface_t, below) {
+        const char *d = surface_get_debug_info(below);
+        if (below == s)
+            break;
+
+        exposed = area_intersect(exposed, surface_get_frame(below));
+        if (area_is_empty(exposed))
+            continue;
+        surface_invalidate_area(below, area_to_local(exposed, surface_get_frame(below)));
+    }
+
     dlist_remove(&sm.surfaces, s);
 
     surface_on_hidden(s);
@@ -320,7 +335,7 @@ void screen_manager_dispatch_key_event(key_event_t e) {
     }
     
     // by definition, the focused surface is the one to receive the keys events (hence the "focus" noun)
-    surface_on_key_event(sm.focused_surface, e);
+    surface_handle_key_event(sm.focused_surface, e);
 }
 
 surface_t *screen_manager_hit_test(point mouse_pos) {
@@ -347,7 +362,7 @@ void screen_manager_dispatch_mouse_event(mouse_event_t e) {
         s = screen_manager_hit_test(e.pos);
 
     if (s != NULL)
-        surface_on_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
+        surface_handle_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
 }
 
 // --------------------------------------------------------------------------
@@ -382,11 +397,11 @@ static void copy_backbuffer_to_physical_framebuffer() {
     }
 }
 
-static void blacken_dirty_surfaces() {
-    fill_params black = fill_params_solid(0xFFFF0000);
+static void brightly_fill_dirty_surfaces() {
+    fill_params red = fill_params_solid(0xFFFF0000);
     for (int i = 0; i < sm.dirty_area_count; i++) {
         area a = sm.dirty_areas[i];
-        gb_rect(sm.backbuffer, a, a, black, 0);
+        gb_rect(sm.backbuffer, a, a, red, 0);
         if (sm.visual_debug)
             gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, sm.dirty_areas[i], sm.screen.fb_address, sm.screen.pitch, sm.screen.bpp);        
     }
@@ -394,7 +409,7 @@ static void blacken_dirty_surfaces() {
     if (sm.visual_debug) {
         extern void sdl_present(void);
         sdl_present();
-        int deadline = get_timer_ticks() + 200;
+        int deadline = get_timer_ticks() + 100;
         while (get_timer_ticks() < deadline);
     }
 }
@@ -403,6 +418,7 @@ static void redraw_dirty_surfaces() {
     LOG_TRACE();
     // we go from bottom up...
     dlist_foreach_reverse(&sm.surfaces, surface_t, s) {
+        // needs_redraw() is misleading...
         if (!surface_is_visible(s) || !surface_needs_redraw(s))
             continue;
 
@@ -437,7 +453,7 @@ void screen_manager_redraw_screen() {
     restore_mouse_cursor_area();
 
     // 1. Clear dirty regions in backbuffer
-    blacken_dirty_surfaces();
+    brightly_fill_dirty_surfaces();
 
     // 2. Draw surfaces bottom → top
     redraw_dirty_surfaces();
