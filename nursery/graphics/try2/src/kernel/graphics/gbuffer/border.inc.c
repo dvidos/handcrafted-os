@@ -1,4 +1,4 @@
-#include "gbuffer.h"
+#include "gbuffer_internal.h"
 
 
 

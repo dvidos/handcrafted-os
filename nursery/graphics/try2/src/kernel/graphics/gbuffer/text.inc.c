@@ -1,4 +1,6 @@
-#include "gbuffer.h"
+#include "gbuffer_internal.h"
+
+
 
 static int gb_draw_8x16_character(gbuffer *gb, int x, int baseline_y, char chr, area clip, font8x16 *font, uint32_t clr) {
     const glyph8x16 *gl = font8x16_get_glyph(font, chr);

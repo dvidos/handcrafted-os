@@ -25,6 +25,7 @@ COMMON_C_FILES= $(filter-out %.inc.c, \
     $(wildcard memory/*.c) \
     $(wildcard devices/*.c) \
     $(wildcard graphics/*.c) \
+    $(wildcard graphics/gbuffer/*.c) \
     $(wildcard graphics/fonts/*.c) \
     $(wildcard graphics/cursors/*.c) \
     $(wildcard graphics/icons/*.c) \

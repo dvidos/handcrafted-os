@@ -1,4 +1,4 @@
-#include "gbuffer.h"
+#include "gbuffer_internal.h"
 
 
 typedef void fill_func(gbuffer *gb, area rect, fill_params cp);
