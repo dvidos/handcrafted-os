@@ -65,6 +65,27 @@ static inline text_params text_params_of(font8x16 *font, alignment align, color 
 
 // ------------------------------------------------------------------------
 
+typedef enum border_style {
+    BORDER_NONE,
+    BORDER_FLAT,
+    BORDER_RAISED,
+    BORDER_SUNKEN,
+    BORDER_GROOVE,
+    BORDER_RIDGE,
+} border_style_t;
+
+typedef struct border_params {
+    border_style_t style;
+    color clr;
+    int thickness;
+    int radius;
+    float contrast_3d; // 0=same color, 1=totally black/white
+} border_params;
+
+static inline border_params border_params_of(border_style_t style, color clr, int thickness, int radius, float contrast_3d) { return (border_params){.style = style, .clr = clr, .thickness = thickness, .radius = radius, .contrast_3d = contrast_3d}; }
+
+// ------------------------------------------------------------------------
+
 void initialize_gbuffer(gbuffer *aux_buffer); // called from graphics initialization code
 
 gbuffer *new_gbuffer(int width, int height);
@@ -75,6 +96,7 @@ void gb_paint_pixel(gbuffer *gb, point p, color clr);
 void gb_fill(gbuffer *gb, color clr);
 void gb_rect(gbuffer *gb, area rect, area clip, fill_params clr_prm, int radius);
 void gb_border(gbuffer *gb, area rect, area clip, int radius, int border_width, color clr);
+void gb_border2(gbuffer *gb, area rect, area clip, border_params params);
 void gb_blur(gbuffer *gb, area rect, int radius, int do_blur_alpha);
 void gb_text(gbuffer *gb, area rect, area clip, const char *text, text_params params);
 void gb_text_demo(gbuffer *gb, area rect, font8x16 *font, color clr);

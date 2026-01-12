@@ -151,3 +151,47 @@ static inline void blur_window_box_algorithm(gbuffer *src, gbuffer *dest,
         }
     }
 }
+
+void gb_blur(gbuffer *gb, area rect, int radius, int blur_alpha_instead_of_color) {
+    rect = area_crop(rect, gb->area);
+    if (area_is_empty(rect))
+        return;
+    if (radius <= 0)
+        return;
+    
+    /*
+        update: i used gaussian blur, which is ideal mathematically, but painfully slow.
+        i even had to create external tool to generate precal tables for radii 1..32.
+        it seems box blur (x3) achieves similar results. box blur is essentially adding average of sourounding pixels.
+        one pass horizontal, one vertical, then again, two more times (or more).
+        so, box blur is a building block, not a final product.
+        if one uses a running window, speed can be improved dramatically.
+        the window only works in the "middle", where the size of the window can be full.
+        i should make a building block (actually two, for x/y directions) in the include file,
+        then call it 6 times here.
+    */
+
+    // copy some zone from the original image, into the aux buffer, 
+    // so that vertical passes do not bleed into unknown pixels.
+    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), point_of(rect.x, rect.y - radius),           point_of(rect.x, rect.y - radius));
+    gb_copy_area_fast(global_aux_buffer, gb, size_of(rect.width, radius), point_of(rect.x, rect.y + rect.height), point_of(rect.x, rect.y + rect.height));
+
+    blur_window_apply_func *color_applicator = (blur_alpha_instead_of_color ? blur_window_apply_alpha : blur_window_apply_color);
+
+    for (int times = 0; times < 3; times++) {
+        blur_window_box_algorithm(
+            gb, global_aux_buffer, 
+            rect.y, rect.y + rect.height,
+            rect.x, rect.x + rect.width,
+            radius, blur_get_pixel_horizontal_slices, color_applicator
+        );
+        blur_window_box_algorithm(
+            global_aux_buffer, gb,
+            rect.x, rect.x + rect.width,
+            rect.y, rect.y + rect.height,
+            radius, blur_get_pixel_vertical_slices, color_applicator
+        );
+    }
+}
+
+
