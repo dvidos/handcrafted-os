@@ -60,6 +60,8 @@ static inline point point_to_global(point p, area container) { return point_of(p
 static inline vector vector_of(int dx, int dy)               { return (vector){.dx = dx, .dy = dy}; }
 static inline vector vector_zero()                           { return (vector){.dx = 0, .dy = 0}; }
 static inline bool   vector_is_zero(vector v)                { return (v.dx == 0 && v.dy == 0); }
+static inline vector vector_from_to(point a, point b)        { return (vector){.dx = b.x - a.x, .dy = b.y - a.y}; }
+static inline int    vector_squared_distance(vector v)       { return (v.dx * v.dx) + (v.dy * v.dy); }
 
 static inline vectorf vectorf_of(float dx, float dy)            { return (vectorf){.dx = dx, .dy = dy}; }
 static inline vectorf vectorf_zero()                            { return (vectorf){.dx = 0, .dy = 0}; }
@@ -90,6 +92,31 @@ static inline point area_top_right(area a)                  { return point_of(a.
 static inline point area_bottom_left(area a)                { return point_of(a.x, a.y + a.height - 1); }
 static inline point area_bottom_right(area a)               { return point_of(a.x + a.width - 1, a.y + a.height - 1); }
 static inline point area_bottom_right_exclusive(area a)     { return point_of(a.x + a.width, a.y + a.height); }
+
+
+static inline void area_split_rounded_fill_areas(area rect, int radius, area *top, area *middle, area *bottom, area *top_left, area *top_right, area *bottom_left, area *bottom_right) {
+    *top          = area_of(rect.x + radius, rect.y,  rect.width - (radius * 2), radius ); 
+    *middle       = area_of(rect.x, rect.y + radius, rect.width, rect.height - (radius * 2)); // includes left and right, for performance
+    *bottom       = area_of(rect.x + radius, rect.y + rect.height - radius, rect.width - (radius * 2), radius );
+
+    *top_left     = area_of(rect.x,                       rect.y,                        radius, radius);
+    *top_right    = area_of(rect.x + rect.width - radius, rect.y,                        radius, radius);
+    *bottom_left  = area_of(rect.x,                       rect.y + rect.height - radius, radius, radius);
+    *bottom_right = area_of(rect.x + rect.width - radius, rect.y + rect.height - radius, radius, radius);
+}
+static inline void area_split_rounded_border_areas(area rect, int radius, int thickness, area *top, area *bottom, area *left, area *right, area *top_left, area *top_right, area *bottom_left, area *bottom_right) {
+    *top          = area_of(rect.x + radius, rect.y, rect.width - (radius * 2), thickness); 
+    *bottom       = area_of(rect.x + radius, rect.y + rect.height - thickness, rect.width - (radius * 2), thickness);
+    *left         = area_of(rect.x, rect.y + radius, thickness, rect.height - (radius * 2));
+    *right        = area_of(rect.x + rect.width - thickness, rect.y + radius, thickness, rect.height - (radius * 2));
+
+    *top_left     = area_of(rect.x,                       rect.y,                        radius, radius);
+    *top_right    = area_of(rect.x + rect.width - radius, rect.y,                        radius, radius);
+    *bottom_left  = area_of(rect.x,                       rect.y + rect.height - radius, radius, radius);
+    *bottom_right = area_of(rect.x + rect.width - radius, rect.y + rect.height - radius, radius, radius);
+}
+
+
 
 // static inline area area_intersect(area a, area b);
 // static inline area area_union(area a, area b);

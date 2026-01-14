@@ -3,6 +3,8 @@
 #include "../memory/malloc.h"
 #include "../containers/dllist.h"
 #include "views/background_view.h"
+#include "views/textbox_view.h"
+#include "views/button_view.h"
 
 // ------------------------------------------------------------------------------
 
@@ -264,12 +266,24 @@ void surface_handle_key_event(surface_t *s, key_event_t e) {
 
     // default behavior
     // first, surface wide keys
-    if (e.type == KEY_PRESSED && e.keycode == KEY_TAB && e.keymods == 0) {
+    if (e.type == KEY_PRESSED && e.keymods == MOD_NONE && e.keycode == KEY_TAB) {
         LOG_TRACE();
         view_t *next = view_find_next_focusable(s->root_view, s->focused_view);
         surface_set_focused_view(s, next); // even if NULL
         log.debug("Focused view %s", next->debug_info);
         return;
+    // } else if (e.type == KEY_PRESSED && e.keymods == KEY_CTRL && e.keycode == KEY_ENTER) {
+    //     button_view *def = view_find_default_button(s->root_view);
+    //     if (def != NULL) {
+    //         button_view_perform_click(def);
+    //         return;
+    //     }
+    // } else if (e.type == KEY_PRESSED && e.keymods == MOD_NONE && e.keycode == KEY_ESCAPE) {
+    //     button_view *cancel = view_find_cancel_button(s->root_view);
+    //     if (cancel != NULL) {
+    //         button_view_perform_click(cancel);
+    //         return;
+    //     }
     }
     
     if (s->focused_view != NULL)

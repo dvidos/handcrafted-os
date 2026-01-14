@@ -14,7 +14,7 @@ static color _location_dependent_color(point p, fill_params cp) {
         vectorf pixel_v = vectorf_from_to(cp.gradient_p1, p);
         float proj_distance = vectorf_dot_product(pixel_v, cp.gradient_v);
         float factor = clamp01(proj_distance / cp.gradient_len_sq);
-        return color_gradient(cp.clr, cp.clr2, cp.ease(factor));
+        return color_transition(cp.clr, cp.clr2, cp.ease(factor));
     }
 
     return 0;

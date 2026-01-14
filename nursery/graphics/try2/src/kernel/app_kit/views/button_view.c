@@ -72,3 +72,19 @@ button_view *new_button_view(const char *label, click_handling_func *on_click, v
     return b;
 }
 
+button_view *new_default_button_view(const char *label, click_handling_func *on_click, void *userdata) {
+    button_view *v = new_button_view(label, on_click, userdata);
+    v->is_default = true;
+    return v;
+}
+
+button_view *new_cancel_button_view(const char *label, click_handling_func *on_click, void *userdata) {
+    button_view *v = new_button_view(label, on_click, userdata);
+    v->is_cancel = true;
+    return v;
+}
+
+void button_view_perform_click(button_view *v) {
+    if (v->on_click != NULL)
+        v->on_click(v->userdata);
+}

@@ -8,6 +8,7 @@
 #include "../fonts/font8x16.h"
 #include "../cursors/mouse_cursor.h"
 #include "../icons/icon32.h"
+#include "../color.h"
 
 #include "../gbuffer.h"
 
@@ -24,8 +25,24 @@ static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) { 
 #define clamp01(val)       ((val) > 1.0f) ? 1.0f : (((val) < 0.0f) ? 0.0f : (val))
 #define clamp255(val)      ((val) > 255) ? 255 : (((val) < 0) ? 0 : (val))
 
-// ----------------------------------------------------
 
+// used for copying in blur, to avoid reallocating it each time.
 static gbuffer *global_aux_buffer = 0;
 
+// -----------------------------------------------
+
+// typedef enum border_style {
+//     BORDER_NONE,
+//     BORDER_FLAT,
+//     BORDER_RAISED,
+//     BORDER_SUNKEN,
+//     BORDER_GROOVE,
+//     BORDER_RIDGE,
+// } border_style_t;    
+
+typedef enum {
+    SECTION_TOP_LEFT,    SECTION_TOP,     SECTION_TOP_RIGHT,
+    SECTION_LEFT,        SECTION_CENTER,  SECTION_RIGHT,
+    SECTION_BOTTOM_LEFT, SECTION_BOTTOM,  SECTION_BOTTOM_RIGHT
+} paint_section_t;
 

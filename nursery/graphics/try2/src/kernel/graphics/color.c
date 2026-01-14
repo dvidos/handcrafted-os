@@ -37,10 +37,10 @@ color color_darken(color c, float darkness_factor) {
 }
 
 color color_lighten(color c, float lightness_factor) {
-    color_gradient(c, color_white(), lightness_factor);
+    color_transition(c, color_white(), lightness_factor);
 }
 
-color color_gradient(color a, color b, float transition_pos) {
+color color_transition(color a, color b, float transition_pos) {
     int diff_a = (int)color_a(b) - (int)color_a(a);
     int diff_r = (int)color_r(b) - (int)color_r(a);
     int diff_g = (int)color_g(b) - (int)color_g(a);
@@ -60,13 +60,13 @@ color color_blend(color bottom, color top) {
     // R.rgb = (B.rgb * B.a + A.rgb * A.a * (1 - B.a)) / R.a
 
     uint32_t top_a = color_a(top);
+    if      (top_a == 0xFF) return top;
+    else if (top_a == 0x00) return bottom;
+
     uint32_t top_a_inv = 255 - top_a;
     uint32_t top_r = color_r(top);
     uint32_t top_g = color_g(top);
     uint32_t top_b = color_b(top);
-
-    if      (top_a == 0xFF) return top;
-    else if (top_a == 0x00) return bottom;
 
     uint32_t bottom_a = color_a(bottom);
     uint32_t bottom_r = color_r(bottom);

@@ -89,7 +89,9 @@ void view_paint_children(view_t *v, graphics_context_t *gc, area dirty);
 void view_handle_key_event(view_t *v, key_event_t e);
 void view_handle_mouse_event(view_t *v, mouse_event_t e);
 view_t *view_hit_test(view_t *v, point p_local);
+
 view_t *view_find_first_focusable(view_t *root);
 view_t *view_find_next_focusable(view_t *root, view_t *current_focused);
+
 
 void view_log_debug_info(view_t *v, const char *prefix);

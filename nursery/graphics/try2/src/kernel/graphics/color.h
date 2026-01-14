@@ -50,7 +50,7 @@ static inline color color_nextstep_gradient_low() { return 0xFF555566; }
 
 color color_darken(color c, float darkness_factor); // factor in [0,1], 0=same, 1=black
 color color_lighten(color c, float lightness_factor); // factor in [0,1], 0=same, 1=white
-color color_gradient(color a, color b, float transition_pos); // pos in [0,1]
+color color_transition(color a, color b, float transition_pos); // pos in [0,1]
 color color_blend(color bottom, color top); // does not assume background color
 
 
