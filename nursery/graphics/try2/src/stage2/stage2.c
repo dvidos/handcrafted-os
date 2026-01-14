@@ -347,7 +347,7 @@ static uint8_t vbe_set_mode_c(uint16_t mode) {
 // -------------------------------------------------------
 
 static inline void set_pixel(int x, int y, uint32_t color) {
-    uint8_t *pix_start = (uint8_t *)(boot_info.fb.fb_addr + y * boot_info.fb.pitch + x * 3);
+    uint8_t *pix_start = (uint8_t *)(uintptr_t)(boot_info.fb.fb_addr + y * boot_info.fb.pitch + x * 3);
     pix_start[0] = (color >> 16) & 0xFF;
     pix_start[1] = (color >>  8) & 0xFF;
     pix_start[2] = (color >>  0) & 0xFF;
@@ -479,7 +479,7 @@ static int enable_graphics_mode() {
 
 static void graphics_demo() {
     // demonstration!
-    uint8_t *fb = (uint8_t *)boot_info.fb.fb_addr;
+    uint8_t *fb = (uint8_t *)(uintptr_t)boot_info.fb.fb_addr;
     for (int y = 0; y < 255; y++) {
         for (int x = 0; x < 255; x++) {
             uint8_t *pix_start = fb + y * boot_info.fb.pitch + x * 3;

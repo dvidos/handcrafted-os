@@ -1,7 +1,8 @@
 #include "gbuffer_internal.h"
+#pragma once
 
 typedef struct chroma_interface chroma_interface_t;
-typedef struct {
+struct chroma_interface {
     color (*resolve)(chroma_interface_t *iface, point p, paint_section_t section);
     union {
         color solid_color;
@@ -11,6 +12,8 @@ typedef struct {
             color light;
             color dark;
             int thickness;
+            int width;
+            int height;
         } three_dims_border;
         struct {
             fill_params params;
@@ -18,7 +21,7 @@ typedef struct {
             float gradient_len_sq;
         } gradient;
     } data;
-} chroma_interface_t;
+};
 
 // --------------------------------------------------------
 
@@ -31,15 +34,18 @@ static color _three_dims_border_chroma_resolver(chroma_interface_t *iface, point
 
     int depth;
     bool faces_the_light;
+    int last_x = iface->data.three_dims_border.width - 1;
+    int last_y = iface->data.three_dims_border.height - 2;
 
     switch (section) {
-        case SECTION_TOP:          depth = p.y;                   faces_the_light = true;  break;
-        case SECTION_BOTTOM:       depth = (height - 1 - p.y);    faces_the_light = false; break;
-        case SECTION_LEFT:         depth = p.x;                   faces_the_light = true;  break;
-        case SECTION_RIGHT:        depth = (width - 1 - p.x);     faces_the_light = false; break;
-        case SECTION_TOP_LEFT:     depth = min(p.x, p.y);         faces_the_light = true;  break;
-        case SECTION_BOTTOM_RIGHT: depth = min(w-1-p.x, h-1-p.y); faces_the_light = false; break;
-        // etc.
+        case SECTION_TOP:          depth = p.y;                             faces_the_light = true;  break;
+        case SECTION_BOTTOM:       depth = last_y - p.y;                    faces_the_light = false; break;
+        case SECTION_LEFT:         depth = p.x;                             faces_the_light = true;  break;
+        case SECTION_RIGHT:        depth = (last_x - p.x);                  faces_the_light = false; break;
+        case SECTION_TOP_LEFT:     depth = min(p.x, p.y);                   faces_the_light = true;  break;
+        case SECTION_BOTTOM_RIGHT: depth = min(last_x - p.x, last_y - p.y); faces_the_light = false; break;
+        case SECTION_TOP_RIGHT:   // TODO: solve this
+        case SECTION_BOTTOM_LEFT:   // TODO: solve this
     }
 
     int is_outside = depth < iface->data.three_dims_border.thickness / 2;
@@ -51,9 +57,8 @@ static color _three_dims_border_chroma_resolver(chroma_interface_t *iface, point
         case BORDER_SUNKEN: return faces_the_light ? dark : light;
         case BORDER_RIDGE:  return faces_the_light ? (is_outside ? light : dark) : (is_outside ? dark : light);
         case BORDER_GROOVE: return faces_the_light ? (is_outside ? dark : light) : (is_outside ? light : dark);
+        default: return iface->data.three_dims_border.base;
     }
-
-    return iface->data.three_dims_border.base;
 }
 
 static color _gradient_fill_chroma_resolver(chroma_interface_t *iface, point p, paint_section_t section) {
@@ -69,7 +74,7 @@ static color _gradient_fill_chroma_resolver(chroma_interface_t *iface, point p, 
 
 // --------------------------------------------------------
 
-static chroma_interface_t chroma_interface_for_solid_color(chroma_interface_t *chroma, color c) {
+static chroma_interface_t chroma_interface_for_solid_color(color c) {
     return (chroma_interface_t){
         .resolve = _solid_color_chroma_resolver,
         .data = {
@@ -78,7 +83,7 @@ static chroma_interface_t chroma_interface_for_solid_color(chroma_interface_t *c
     };
 }
 
-static chroma_interface_t chroma_interface_for_3d_border(chroma_interface_t *chroma, border_style_t style, color base, factor contrast, int thickness) {
+static chroma_interface_t chroma_interface_for_3d_border(border_style_t style, color base, factor contrast, int thickness, int width, int height) {
 
     return (chroma_interface_t){
         .resolve = _three_dims_border_chroma_resolver,
@@ -89,12 +94,14 @@ static chroma_interface_t chroma_interface_for_3d_border(chroma_interface_t *chr
                 .light = color_lighten(base, contrast),
                 .dark = color_darken(base, contrast),
                 .thickness = thickness,
+                .width = width,
+                .height = height
             }
         }
     };
 }
 
-static chroma_interface_t chroma_interface_for_gradient(chroma_interface_t *chroma, fill_params params) {
+static chroma_interface_t chroma_interface_for_gradient(fill_params params) {
     vectorf v = vectorf_from_to(params.gradient_p1, params.gradient_p2);
     return (chroma_interface_t){
         .resolve = _gradient_fill_chroma_resolver,

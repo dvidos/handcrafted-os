@@ -1,7 +1,8 @@
+#pragma once
 #include "gbuffer_internal.h"
 
 typedef struct alpha_interface alpha_interface_t;
-typedef struct {
+struct alpha_interface {
     uint8_t (*resolve)(alpha_interface_t *iface, point p, paint_section_t section);
     union {
         struct {
@@ -21,9 +22,13 @@ typedef struct {
             int outer_radius_sq_diff;
         } rounded_border;
     } data;
-} alpha_interface_t;
+};
 
 // -----------------------------------------------------
+
+static uint8_t _opaque_color_alpha_resolver(alpha_interface_t *iface, point p, paint_section_t section) {
+    return 0xFF;
+}
 
 static uint8_t _rounded_corner_alpha_resolver(alpha_interface_t *iface, point p, paint_section_t section) {
     
@@ -78,11 +83,13 @@ static uint8_t _rounded_border_alpha_resolver(alpha_interface_t *iface, point p,
     return alpha;
 }
 
-static uint8_t _square_corner_alpha_resolver(alpha_interface_t *iface, point p, paint_section_t section) {
-    return 0xFF;
-}
-
 // -----------------------------------------------------
+
+static alpha_interface_t alpha_interface_for_opaque_areas() {
+    return (alpha_interface_t){
+        .resolve = _opaque_color_alpha_resolver
+    };
+}
 
 static alpha_interface_t alpha_interface_for_rounded_corners(int radius) {
     int sq_in = (radius - 1) * (radius - 1);
@@ -125,11 +132,5 @@ static alpha_interface_t alpha_interface_for_rounded_borders(int radius, int thi
                 .outer_radius_sq_diff = outer_out_sq - outer_in_sq
             }
         }
-    };
-}
-
-static alpha_interface_t alpha_interface_for_squared_corners() {
-    return (alpha_interface_t){
-        .resolve = _square_corner_alpha_resolver
     };
 }

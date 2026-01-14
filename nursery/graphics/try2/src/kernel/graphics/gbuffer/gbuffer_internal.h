@@ -29,17 +29,8 @@ static inline void _copy_pixel_row(uint32_t *dest, uint32_t *src, int length) { 
 // used for copying in blur, to avoid reallocating it each time.
 static gbuffer *global_aux_buffer = 0;
 
-// -----------------------------------------------
 
-// typedef enum border_style {
-//     BORDER_NONE,
-//     BORDER_FLAT,
-//     BORDER_RAISED,
-//     BORDER_SUNKEN,
-//     BORDER_GROOVE,
-//     BORDER_RIDGE,
-// } border_style_t;    
-
+// sections of the rectangles and/or borders we are painting. used by Alpha & Chroma resolvers
 typedef enum {
     SECTION_TOP_LEFT,    SECTION_TOP,     SECTION_TOP_RIGHT,
     SECTION_LEFT,        SECTION_CENTER,  SECTION_RIGHT,

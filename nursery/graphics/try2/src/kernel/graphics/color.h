@@ -21,6 +21,7 @@ static inline color   color_gray_fct(float factor) { return color_argb(0xFF, (ui
 static inline color   color_white() { return 0xFFFFFFFF; }
 static inline color   color_transparent() { return 0x00000000; }
 static inline uint8_t color_blend_channel(uint8_t bottom, uint8_t top, uint8_t alpha) { return (((uint32_t)bottom * (255 - alpha)) + ((uint32_t)top * (alpha))) / 255; }
+static inline color   color_alpha_to_heatmap(uint8_t a) { return (a < 128) ? color_rgb(0, a*2, 255 - a*2) : color_rgb((a-128)*2, 255 - (a-128)*2, 0); }
 
 
 // from settings of linux terminal, dark tango theme

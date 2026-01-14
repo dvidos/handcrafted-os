@@ -1,5 +1,5 @@
+#pragma once
 #include "gbuffer_internal.h"
-
 
 
 void gb_border(gbuffer *gb, area rect, area clip, int radius, int border_width, color clr) {
