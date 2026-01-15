@@ -25,6 +25,7 @@ typedef struct {
         color dark;
         color light;
         color border_color;
+        border_style_t border_style;
         int border_thickness;
         int height;
         int button_min_width;

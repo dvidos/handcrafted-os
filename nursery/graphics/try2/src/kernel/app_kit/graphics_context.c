@@ -49,7 +49,8 @@ void gc_move_origin(graphics_context_t *gc, int dx, int dy) {
 void gc_set_fill(graphics_context_t *gc, fill_params fill) {
     gc->state.fill = fill;
 }
-void gc_set_stroke(graphics_context_t *gc, color clr, int thickness) {
+void gc_set_stroke(graphics_context_t *gc, border_style_t style, color clr, int thickness) {
+    gc->state.style = style;
     gc->state.stroke = clr;
     gc->state.thickness = thickness;
 }

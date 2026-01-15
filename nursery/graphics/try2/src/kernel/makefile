@@ -32,6 +32,7 @@ COMMON_C_FILES= $(filter-out %.inc.c, \
     $(wildcard concepts/*.c) \
     $(wildcard app_kit/*.c) \
     $(wildcard app_kit/views/*.c) \
+    $(wildcard surfaces/*.c) \
 )
 COMMON_C_OBJS=$(COMMON_C_FILES:.c=.o)
 

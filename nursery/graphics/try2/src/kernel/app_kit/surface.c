@@ -25,8 +25,7 @@ struct surface {
     
     struct surface_callbacks {
         surface_paint_func *paint;
-
-        void (*on_key_event)(surface_t *s, key_event_t e);
+        surface_key_handler_func *on_key_event;
         void (*on_mouse_event)(surface_t *s, mouse_event_t e);
         void (*on_focus_gained)(surface_t *);
         void (*on_focus_lost)(surface_t *);
@@ -243,6 +242,10 @@ void surface_set_owner_interface(surface_t *s, surface_owner_interface_t *interf
 
 void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior) {
     s->callbacks.paint = behavior;
+}
+
+void surface_set_key_handler(surface_t *s, surface_key_handler_func *handler) {
+    s->callbacks.on_key_event = handler;
 }
 
 void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty) {

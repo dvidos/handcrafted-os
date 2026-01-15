@@ -5,6 +5,8 @@ typedef void fill_func(gbuffer *gb, area rect, fill_params cp);
 
 
 static color _location_dependent_color(point p, fill_params cp) {
+    if (cp.fill_type == FILL_TYPE_NONE)
+        return color_transparent();
     if (cp.fill_type == FILL_TYPE_SOLID)
         return cp.clr;
     
@@ -37,6 +39,8 @@ static inline void _fill_rect_slow(gbuffer *gb, area rect, fill_params cp) {
 }
 
 void gb_rect(gbuffer *gb, area rect, area clip, fill_params clr_prm, int radius) {
+    if (clr_prm.fill_type == FILL_TYPE_NONE)
+        return;
     clip = area_intersect(clip, gb->area);
     if (area_is_empty(clip))
         return;

@@ -22,7 +22,7 @@ static void _button_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     gc_set_text(gc, text_params_of(style->control.text.font, ALIGN_MIDDLE_CENTER, style->control.text.color));
     gc_draw_text(gc, b->label, v->bounds);
 
-    gc_set_stroke(gc, style->control.border_color, v->focused ? 2 : 1);
+    gc_set_stroke(gc, style->control.border_style, style->control.border_color,  v->focused ? 2 : 1);
     gc_draw_border(gc, v->bounds);
 }
 

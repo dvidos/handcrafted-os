@@ -25,6 +25,7 @@ typedef struct surface_owner_interface_t {
 } surface_owner_interface_t;
 
 typedef void (surface_paint_func)(surface_t *s, graphics_context_t *gc, area dirty);
+typedef void (surface_key_handler_func)(surface_t *s, key_event_t e);
 
 
 int surface_get_dlist_node_offset();
@@ -61,6 +62,7 @@ void surface_set_focused_view(surface_t *s, view_t *v);
 
 void surface_set_owner_interface(surface_t *s, surface_owner_interface_t *interface);
 void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior);
+void surface_set_key_handler(surface_t *s, surface_key_handler_func *handler);
 
 void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty);
 void surface_handle_key_event(surface_t *s, key_event_t e);

@@ -15,7 +15,7 @@ static inline void paint_area_v3(painter_interface_t *painter, gbuffer *gb, area
 }
 
 void gb_draw_border_v3(gbuffer *gb, area rect, area clip, int radius, int thickness, border_style_t style, color base_color, factor contrast) {
-    if (thickness <= 0 || style == BORDER_NONE || radius < 0 || area_is_empty(rect) || area_is_empty(clip))
+    if (style == BORDER_NONE || area_is_empty(rect) || area_is_empty(clip) || thickness <= 0 || radius < 0)
         return;
     
     int corner_size = radius > 0 ? radius : thickness;
@@ -53,7 +53,7 @@ void gb_draw_border_v3(gbuffer *gb, area rect, area clip, int radius, int thickn
 }
 
 void gb_fill_rect_v3(gbuffer *gb, area rect, area clip, int radius, fill_params params) {
-    if (radius < 0 || area_is_empty(rect) || area_is_empty(clip))
+    if (params.fill_type == FILL_TYPE_NONE || area_is_empty(rect) || area_is_empty(clip) || radius < 0)
         return;
 
     area top, middle, bottom, top_left, top_right, bottom_left, bottom_right;

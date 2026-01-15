@@ -18,6 +18,7 @@ typedef struct gbuffer {
 // ------------------------------------------------------------------------
 
 typedef enum color_fill_type {
+    FILL_TYPE_NONE,
     FILL_TYPE_SOLID,
     FILL_TYPE_LINEAR_GRADIENT,
 } color_fill_type;
@@ -33,6 +34,7 @@ typedef struct fill_params {
     float gradient_len_sq;
 } fill_params;
 
+static inline fill_params fill_params_none() { return (fill_params){.fill_type = FILL_TYPE_NONE}; };
 static inline fill_params fill_params_solid(color clr) { return (fill_params){.fill_type = FILL_TYPE_SOLID, .clr = clr}; };
 static inline fill_params fill_params_gradient(color c1, color c2, point p1, point p2, ease_function ease) { return (fill_params){
     .fill_type = FILL_TYPE_LINEAR_GRADIENT, .clr = c1, .clr2 = c2, .gradient_p1 = p1, .gradient_p2 = p2, .ease = ease,
