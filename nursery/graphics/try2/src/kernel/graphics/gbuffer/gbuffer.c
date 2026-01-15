@@ -24,6 +24,8 @@ void initialize_gbuffer(gbuffer *aux_buffer) {
 #include "border.inc.c"
 #include "text.inc.c"
 
+
+
 // ----------------------------------------------------
 
 gbuffer *new_gbuffer(int width, int height) {

@@ -81,8 +81,12 @@ surface_t *create_graphics_demo_surface() {
     int h = 500;
 
     memset(&ds, 0, sizeof(ds));
+    ds.border_idx = 1;
+    ds.fill_idx = 1;
+    ds.radious_idx = 2;
+    ds.thickness_idx = 2;
     ds.fill_pars = (fill_params){ .clr = color_tango_green(), .clr2 = color_tango_yellow(), .fill_type = FILL_TYPE_SOLID, .gradient_p1 = (point){0,0}, .gradient_p2 = (point){50,100}, .ease = ease_linear };
-    ds.border_pars = (border_params){ .clr = color_tango_dark_gray(), .contrast_3d = 0.5f, .radius = 0, .thickness = 1, .style = BORDER_FLAT };
+    ds.border_pars = (border_params){ .clr = color_tango_magenta(), .contrast_3d = 0.5f, .radius = 0, .thickness = 1, .style = BORDER_FLAT };
 
     const ui_style_t *style = ui_style();
     vert_layout_t vl = new_vert_layout(w, 10, 10);
