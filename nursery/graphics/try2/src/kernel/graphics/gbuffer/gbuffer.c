@@ -9,15 +9,8 @@ void initialize_gbuffer(gbuffer *aux_buffer) {
 
 
 // TODO: after main functions, make a dialog demonstrating the various aspects, having keys flip the various features:
-//       - b: cycle border styles (none, flat, raised, sunk, etc)
-//       - r: cycle corner radius (e.g. 0, 1, 2, 3, 5, 10, 20)
-//       - t: cycle border thickness (e.g. 0, 1, 2, 3, 5, 10, 20)
-//       - a: visualize alpha on/off (alpha to heatmap resolver)
-//       - v: visualize sections on/off (red rectangle each or 9 different colors)
-//       - f: cycle fill (solid, gradient)
-//       - s: toggle shadow on/off (offset, blur radius, opacity with other keys)
+// TODO: after fixing the graphics print, do a surface that can do a popup window.
 #include "v3.inc.c"
-
 
 #include "blur.inc.c"
 #include "rect.inc.c"

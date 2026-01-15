@@ -32,6 +32,7 @@ void initialize_ui_style() {
             .dark = color_darken(base_gray, contrast),
             .border_color = base_text,
             .border_style = BORDER_FLAT,
+            .contrast_3d = 0.5f,
             .border_thickness = 1,
             .height = 21,
             .button_min_width = 80,

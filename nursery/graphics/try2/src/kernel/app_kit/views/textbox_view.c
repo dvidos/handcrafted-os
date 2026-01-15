@@ -13,7 +13,7 @@ static void _textbox_view_paint(view_t *v, graphics_context_t *gc, area dirty) {
     gc_set_text(gc, style->control.text);
     gc_draw_text(gc, t->buffer, v->bounds);
 
-    gc_set_stroke(gc, BORDER_SUNKEN, style->control.border_color, 2);
+    gc_set_border(gc, BORDER_SUNKEN, style->control.border_color, 2, style->control.contrast_3d);
     gc_draw_border(gc, v->bounds);
 }
 

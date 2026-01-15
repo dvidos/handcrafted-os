@@ -49,6 +49,7 @@ static void _handle_key(surface_t *s, key_event_t e) {
             ds.show_alpha = !ds.show_alpha;
             redraw = true;
             break;
+        case 'c': // contrast
         case 'v':
             ds.show_sections = !ds.show_sections;
             redraw = true;
@@ -71,7 +72,7 @@ static void _paint_demo_view(view_t *v, graphics_context_t *gc, area dirty) {
     gc_set_fill(gc, ds.fill_pars);
     gc_draw_rect(gc, r);
 
-    gc_set_stroke(gc, border_styles[ds.border_idx], color_tango_blue(), thicknesses[ds.thickness_idx]);
+    gc_set_border(gc, border_styles[ds.border_idx], color_tango_blue(), thicknesses[ds.thickness_idx], 0.5);
     gc_set_roundness(gc, radii[ds.radious_idx]);
     gc_draw_border(gc, r);
 }

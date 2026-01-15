@@ -49,13 +49,14 @@ void gc_move_origin(graphics_context_t *gc, int dx, int dy) {
 void gc_set_fill(graphics_context_t *gc, fill_params fill) {
     gc->state.fill = fill;
 }
-void gc_set_stroke(graphics_context_t *gc, border_style_t style, color clr, int thickness) {
-    gc->state.style = style;
-    gc->state.stroke = clr;
-    gc->state.thickness = thickness;
+void gc_set_border(graphics_context_t *gc, border_style_t style, color clr, int thickness, float contrast_3d) {
+    gc->state.border.style = style;
+    gc->state.border.clr = clr;
+    gc->state.border.thickness = thickness;
+    gc->stack->border.contrast_3d = contrast_3d;
 }
 void gc_set_roundness(graphics_context_t *gc, int corner_radius) {
-    gc->state.corner_radius = corner_radius;
+    gc->state.border.radius = corner_radius;
 }
 void gc_set_shadow(graphics_context_t *gc, shadow_params shadow) {
     gc->state.shadow = shadow;
@@ -74,7 +75,7 @@ void gc_draw_rect(graphics_context_t *gc, area rect) {
 
     // now draw it, passing in clip explicitly
     // gb_rect(gc->buffer, local_rect, gc->state.clip, gc->state.fill, gc->state.corner_radius);
-    gb_fill_rect_v3(gc->buffer, local_rect, gc->state.clip, gc->state.corner_radius, gc->state.fill);
+    gb_fill_rect_v3(gc->buffer, local_rect, gc->state.clip, gc->state.border.radius, gc->state.fill);
 }
 
 void gc_draw_line(graphics_context_t *gc, point p1, point p2) {
@@ -96,7 +97,7 @@ void gc_draw_border(graphics_context_t *gc, area rect) {
 
     // now draw it, but pass clipping in explicitly
     // gb_border(gc->buffer, draw, gc->state.clip, gc->state.corner_radius, gc->state.thickness, gc->state.stroke);
-    gb_draw_border_v3(gc->buffer, draw, gc->state.clip, gc->state.corner_radius, gc->state.thickness, gc->state.style, gc->state.stroke, 0.5);
+    gb_draw_border_v3(gc->buffer, draw, gc->state.clip, gc->state.border);
 }
 
 void gc_draw_text(graphics_context_t *gc, const char *text, area rect) {
