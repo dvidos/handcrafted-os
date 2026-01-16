@@ -7,8 +7,8 @@
 
 static border_style_t border_styles[] = { BORDER_NONE, BORDER_FLAT, BORDER_RAISED, BORDER_SUNKEN, BORDER_GROOVE, BORDER_RIDGE };
 static color_fill_type fills[] = { FILL_TYPE_NONE, FILL_TYPE_SOLID, FILL_TYPE_LINEAR_GRADIENT };
-static int radii[] = { 0, 1, 2, 3, 5, 10, 20 };
-static int thicknesses[] = { 0, 1, 2, 3, 5, 10, 20 };
+static int radii[] = { 0, 1, 2, 3, 5, 10, 20, 40, 80 };
+static int thicknesses[] = { 0, 1, 2, 3, 5, 10, 20, 40 };
 
 struct demo_settings {
     view_t *demo_view;
@@ -17,6 +17,7 @@ struct demo_settings {
     int radious_idx;
     int thickness_idx;
     int fill_idx;
+
     fill_params fill_pars;
     border_params border_pars;
     bool show_alpha;
@@ -69,11 +70,13 @@ static void _paint_demo_view(view_t *v, graphics_context_t *gc, area dirty) {
     // allow 20 pixels for shadow
     area r = area_grow(v->bounds, -20, -20);
 
+    gc_show_sections(gc, ds.show_sections);
+    gc_show_alpha(gc, ds.show_alpha);
     gc_set_fill(gc, ds.fill_pars);
-    gc_draw_rect(gc, r);
-
     gc_set_border(gc, border_styles[ds.border_idx], color_tango_blue(), thicknesses[ds.thickness_idx], 0.5);
     gc_set_roundness(gc, radii[ds.radious_idx]);
+
+    gc_draw_rect(gc, r);
     gc_draw_border(gc, r);
 }
 
@@ -97,7 +100,7 @@ surface_t *create_graphics_demo_surface() {
 
     ds.demo_view = new_base_view();
     ds.demo_view->callbacks.paint = _paint_demo_view;
-    view_t *instructions_view = (view_t *)new_text_view("[B]order, [R]adius, [T]hickness, [F]ill, [A]lpha, [V]isual sections");
+    view_t *instructions_view = (view_t *)new_text_view("[B]order, [R]adius, [T]hickness, [F]ill, [A]lpha, [V]isual-sections");
 
     surface_add_view(s, ds.demo_view);
     surface_add_view(s, (view_t *)instructions_view);

@@ -53,7 +53,7 @@ void gc_set_border(graphics_context_t *gc, border_style_t style, color clr, int 
     gc->state.border.style = style;
     gc->state.border.clr = clr;
     gc->state.border.thickness = thickness;
-    gc->stack->border.contrast_3d = contrast_3d;
+    gc->state.border.contrast_3d = contrast_3d;
 }
 void gc_set_roundness(graphics_context_t *gc, int corner_radius) {
     gc->state.border.radius = corner_radius;
@@ -75,7 +75,7 @@ void gc_draw_rect(graphics_context_t *gc, area rect) {
 
     // now draw it, passing in clip explicitly
     // gb_rect(gc->buffer, local_rect, gc->state.clip, gc->state.fill, gc->state.corner_radius);
-    gb_fill_rect_v3(gc->buffer, local_rect, gc->state.clip, gc->state.border.radius, gc->state.fill);
+    gb_fill_rect_v3(gc->buffer, local_rect, gc->state.clip, gc->state.border.radius, gc->state.fill, gc->state.show_sections, gc->state.show_alpha);
 }
 
 void gc_draw_line(graphics_context_t *gc, point p1, point p2) {
@@ -97,7 +97,7 @@ void gc_draw_border(graphics_context_t *gc, area rect) {
 
     // now draw it, but pass clipping in explicitly
     // gb_border(gc->buffer, draw, gc->state.clip, gc->state.corner_radius, gc->state.thickness, gc->state.stroke);
-    gb_draw_border_v3(gc->buffer, draw, gc->state.clip, gc->state.border);
+    gb_draw_border_v3(gc->buffer, draw, gc->state.clip, gc->state.border, gc->state.show_sections, gc->state.show_alpha);
 }
 
 void gc_draw_text(graphics_context_t *gc, const char *text, area rect) {
@@ -118,4 +118,12 @@ void gc_draw_icon(graphics_context_t *gc, const icon32 *icon, area rect) {
 
     // now draw it, but pass clipping in explicitly
     gb_icon(gc->buffer, draw, gc->state.clip, icon, gc->state.stroke);
+}
+
+void gc_show_sections(graphics_context_t *gc, bool enabled) {
+    gc->state.show_sections = enabled;
+}
+
+void gc_show_alpha(graphics_context_t *gc, bool enabled) {
+    gc->state.show_alpha = enabled;
 }

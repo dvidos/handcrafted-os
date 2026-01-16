@@ -3,7 +3,7 @@
         {
             "label": "Build hosted_x86_64",
             "type": "shell",
-            "command": "make -C src/kernel hosted_x86_64",
+            "command": "make -B -C src/kernel hosted_x86_64",
             "problemMatcher": [],
             "group": {
                 "kind": "build",

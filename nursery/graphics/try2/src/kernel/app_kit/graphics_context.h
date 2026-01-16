@@ -14,6 +14,8 @@ typedef struct gfx_state {
     border_params border;
     text_params text;
     shadow_params shadow;
+    bool show_sections;
+    bool show_alpha;
 } gfx_state;
 
 struct graphics_context {
@@ -44,3 +46,6 @@ void gc_draw_line(graphics_context_t *gc, point p1, point p2);
 void gc_draw_border(graphics_context_t *gc, area rect);
 void gc_draw_text(graphics_context_t *gc, const char *text, area rect);
 void gc_draw_icon(graphics_context_t *gc, const icon32 *icon, area rect);
+
+void gc_show_sections(graphics_context_t *gc, bool enabled);
+void gc_show_alpha(graphics_context_t *gc, bool enabled);

@@ -50,7 +50,7 @@ static color _three_dims_border_chroma_resolver(chroma_interface_t *iface, point
 
     int is_outside = depth < iface->data.three_dims_border.thickness / 2;
     color light = iface->data.three_dims_border.light;
-    color dark = iface->data.three_dims_border.light;
+    color dark = iface->data.three_dims_border.dark;
 
     switch (iface->data.three_dims_border.style) {
         case BORDER_RAISED: return faces_the_light ? light : dark;
