@@ -79,8 +79,8 @@ static void _paint_demo_view(view_t *v, graphics_context_t *gc, area dirty) {
     gc_show_sections(gc, ds.show_sections);
     gc_show_alpha(gc, ds.show_alpha);
     gc_set_fill(gc, ds.fill_pars);
-    gc_set_border(gc, border_styles[ds.border_idx], color_tango_blue(), thicknesses[ds.thickness_idx], ds.border_pars.contrast_3d);
-    gc_set_roundness(gc, radii[ds.radious_idx]);
+    gc_set_border(gc, ds.border_pars.style, ds.border_pars.clr, ds.border_pars.thickness, ds.border_pars.contrast_3d);
+    gc_set_roundness(gc, ds.border_pars.radius);
 
     gc_draw_rect(gc, r);
     gc_draw_border(gc, r);
@@ -95,8 +95,9 @@ surface_t *create_graphics_demo_surface() {
     ds.fill_idx = 1;
     ds.radious_idx = 2;
     ds.thickness_idx = 2;
-    ds.fill_pars = (fill_params){ .clr = color_tango_green(), .clr2 = color_tango_yellow(), .fill_type = FILL_TYPE_SOLID, .gradient_p1 = (point){0,0}, .gradient_p2 = (point){50,100}, .ease = ease_linear };
-    ds.border_pars = (border_params){ .clr = color_tango_magenta(), .contrast_3d = 0.5f, .radius = 0, .thickness = 1, .style = BORDER_FLAT };
+    ds.fill_pars = fill_params_gradient(0xFF008080, 0xFF000080, point_zero(), point_of(50, 350), ease_linear);
+    ds.fill_pars.fill_type = FILL_TYPE_SOLID;
+    ds.border_pars = border_params_of(BORDER_RAISED, 0xFF008080, 20, 4, 0.3f);
 
     const ui_style_t *style = ui_style();
     vert_layout_t vl = new_vert_layout(w, 10, 10);

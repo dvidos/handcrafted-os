@@ -54,8 +54,10 @@ static void _alpha_heat_map_painter(painter_interface_t *iface, point paint_star
 static void _painter_prepare(painter_interface_t *iface, area section_area, paint_section_t section) {
     iface->data.section_area = section_area;
     iface->data.section = section;
-    iface->data.alpha->prepare(iface->data.alpha, section_area, section);
-    iface->data.chroma->prepare(iface->data.chroma, section_area, section);
+    if (iface->data.alpha)
+        iface->data.alpha->prepare(iface->data.alpha, section_area, section);
+    if (iface->data.chroma)
+        iface->data.chroma->prepare(iface->data.chroma, section_area, section);
 }
 
 // -----------------------------------------------------

@@ -75,7 +75,7 @@ void gc_draw_rect(graphics_context_t *gc, area rect) {
 
     // now draw it, passing in clip explicitly
     // gb_rect(gc->buffer, local_rect, gc->state.clip, gc->state.fill, gc->state.corner_radius);
-    gb_fill_rect_v3(gc->buffer, local_rect, gc->state.clip, gc->state.border.radius, gc->state.fill, gc->state.show_sections, gc->state.show_alpha);
+     gb_fill_rect_v3(gc->buffer, local_rect, gc->state.clip, gc->state.border.radius, gc->state.fill, gc->state.show_sections, gc->state.show_alpha);
 }
 
 void gc_draw_line(graphics_context_t *gc, point p1, point p2) {

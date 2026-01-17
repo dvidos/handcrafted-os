@@ -54,7 +54,7 @@ void gb_draw_border_v3(gbuffer *gb, area rect, area clip, border_params params, 
     // choose optimal path, if simple border
     chroma = (params.style == BORDER_FLAT) ?
         chroma_interface_for_solid_color(params.clr) :
-        chroma_interface_for_3d_border(params.style, params.clr, params.contrast_3d, params.thickness, rect.width, rect.height);
+        chroma_interface_for_3d_border(params.style, params.clr, params.contrast_3d, params.thickness);
     alpha = alpha_interface_for_opaque_areas();
     painter = show_alpha ? painter_interface_for_alpha_heat_map(gb, &alpha) : 
         ((params.style == BORDER_FLAT) ?

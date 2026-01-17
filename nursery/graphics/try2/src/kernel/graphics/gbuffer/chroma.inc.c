@@ -31,33 +31,33 @@ static color _solid_color_chroma_resolver(chroma_interface_t *iface, point p) {
 }
 
 static color _three_dims_border_chroma_resolver(chroma_interface_t *iface, point p) {
-    int depth;
-    bool faces_the_light;
-    int last_x = iface->data.section_area.width - 1;
-    int last_y = iface->data.section_area.height - 1;
+    int edge_distance;
+    bool light_facing;
+    int inv_x = iface->data.section_area.width - 1 - p.x;
+    int inv_y = iface->data.section_area.height - 1 - p.y;
 
     // corners: distance to nearest outer edge of the corner square
     switch (iface->data.section) {
-        case SECTION_TOP:          depth = p.y;                             faces_the_light = true;  break;
-        case SECTION_BOTTOM:       depth = last_y - p.y;                    faces_the_light = false; break;
-        case SECTION_LEFT:         depth = p.x;                             faces_the_light = true;  break;
-        case SECTION_RIGHT:        depth = last_x - p.x;                    faces_the_light = false; break;
-        case SECTION_TOP_LEFT:     depth = min(p.x, p.y);                   faces_the_light = true;  break;
-        case SECTION_BOTTOM_LEFT:  depth = min(p.x, last_y - p.y);          faces_the_light = false; break;
-        case SECTION_TOP_RIGHT:    depth = min(last_x - p.x, p.y);          faces_the_light = true;  break;
-        case SECTION_BOTTOM_RIGHT: depth = min(last_x - p.x, last_y - p.y); faces_the_light = false; break;
+        case SECTION_TOP:          edge_distance = p.y;               light_facing = true;        break;
+        case SECTION_BOTTOM:       edge_distance = inv_y;             light_facing = false;       break;
+        case SECTION_LEFT:         edge_distance = p.x;               light_facing = true;        break;
+        case SECTION_RIGHT:        edge_distance = inv_x;             light_facing = false;       break;
+        case SECTION_TOP_LEFT:     edge_distance = min(p.x, p.y);     light_facing = true;        break;
+        case SECTION_BOTTOM_RIGHT: edge_distance = min(inv_x, inv_y); light_facing = false;       break;
+        case SECTION_TOP_RIGHT:    edge_distance = min(inv_x, p.y);   light_facing = inv_x > p.y; break;
+        case SECTION_BOTTOM_LEFT:  edge_distance = min(p.x, inv_y);   light_facing = p.x < inv_y; break;
         default: return iface->data.three_dims_border.base;
     }
 
-    bool is_outside = depth < (iface->data.three_dims_border.thickness / 2);
+    bool outside = edge_distance < (iface->data.three_dims_border.thickness / 2);
     color light = iface->data.three_dims_border.light;
     color dark  = iface->data.three_dims_border.dark;
 
     switch (iface->data.three_dims_border.style) {
-        case BORDER_RAISED: return faces_the_light ? light : dark;
-        case BORDER_SUNKEN: return faces_the_light ? dark : light;
-        case BORDER_RIDGE:  return faces_the_light ? (is_outside ? light : dark)  : (is_outside ? dark  : light);
-        case BORDER_GROOVE: return faces_the_light ? (is_outside ? dark  : light) : (is_outside ? light : dark);
+        case BORDER_RAISED: return light_facing ? light : dark;
+        case BORDER_SUNKEN: return light_facing ? dark : light;
+        case BORDER_RIDGE:  return light_facing ? (outside ? light : dark)  : (outside ? dark  : light);
+        case BORDER_GROOVE: return light_facing ? (outside ? dark  : light) : (outside ? light : dark);
         default: return iface->data.three_dims_border.base;
     }
 }
@@ -90,7 +90,7 @@ static chroma_interface_t chroma_interface_for_solid_color(color c) {
     };
 }
 
-static chroma_interface_t chroma_interface_for_3d_border(border_style_t style, color base, factor contrast, int thickness, int width, int height) {
+static chroma_interface_t chroma_interface_for_3d_border(border_style_t style, color base, factor contrast, int thickness) {
 
     return (chroma_interface_t){
         .resolve = _three_dims_border_chroma_resolver,
