@@ -9,6 +9,7 @@ static border_style_t border_styles[] = { BORDER_NONE, BORDER_FLAT, BORDER_RAISE
 static color_fill_type fills[] = { FILL_TYPE_NONE, FILL_TYPE_SOLID, FILL_TYPE_LINEAR_GRADIENT };
 static int radii[] = { 0, 1, 2, 3, 5, 10, 20, 40, 80 };
 static int thicknesses[] = { 0, 1, 2, 3, 5, 10, 20, 40 };
+static factor contrasts[] = { 0.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f };
 
 struct demo_settings {
     view_t *demo_view;
@@ -17,6 +18,7 @@ struct demo_settings {
     int radious_idx;
     int thickness_idx;
     int fill_idx;
+    int contrast_idx;
 
     fill_params fill_pars;
     border_params border_pars;
@@ -51,6 +53,10 @@ static void _handle_key(surface_t *s, key_event_t e) {
             redraw = true;
             break;
         case 'c': // contrast
+            ds.contrast_idx = (ds.contrast_idx + 1) % (sizeof(contrasts)/sizeof(contrasts[0]));
+            ds.border_pars.contrast_3d = contrasts[ds.contrast_idx];
+            redraw = true;
+            break;
         case 'v':
             ds.show_sections = !ds.show_sections;
             redraw = true;
@@ -73,7 +79,7 @@ static void _paint_demo_view(view_t *v, graphics_context_t *gc, area dirty) {
     gc_show_sections(gc, ds.show_sections);
     gc_show_alpha(gc, ds.show_alpha);
     gc_set_fill(gc, ds.fill_pars);
-    gc_set_border(gc, border_styles[ds.border_idx], color_tango_blue(), thicknesses[ds.thickness_idx], 0.5);
+    gc_set_border(gc, border_styles[ds.border_idx], color_tango_blue(), thicknesses[ds.thickness_idx], ds.border_pars.contrast_3d);
     gc_set_roundness(gc, radii[ds.radious_idx]);
 
     gc_draw_rect(gc, r);

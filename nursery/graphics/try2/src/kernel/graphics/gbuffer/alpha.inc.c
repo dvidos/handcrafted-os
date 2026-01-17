@@ -3,8 +3,11 @@
 
 typedef struct alpha_interface alpha_interface_t;
 struct alpha_interface {
-    uint8_t (*resolve)(alpha_interface_t *iface, point p, paint_section_t section);
-    union {
+    uint8_t (*resolve)(alpha_interface_t *iface, point p);
+    void (*prepare)(alpha_interface_t *iface, area section_area, paint_section_t section);
+    struct {
+        area section_area;
+        paint_section_t section;
         struct {
             int radius;
             int squared_in_boundary;
@@ -26,15 +29,15 @@ struct alpha_interface {
 
 // -----------------------------------------------------
 
-static uint8_t _opaque_color_alpha_resolver(alpha_interface_t *iface, point p, paint_section_t section) {
+static uint8_t _opaque_color_alpha_resolver(alpha_interface_t *iface, point p) {
     return 0xFF;
 }
 
-static uint8_t _rounded_corner_alpha_resolver(alpha_interface_t *iface, point p, paint_section_t section) {
+static uint8_t _rounded_corner_alpha_resolver(alpha_interface_t *iface, point p) {
     
     point center;
     int far = iface->data.rounded_corner.radius - 1;
-    switch (section) {
+    switch (iface->data.section) {
         case SECTION_TOP_LEFT:     center = point_of(far, far); break;
         case SECTION_TOP_RIGHT:    center = point_of(0,   far); break;
         case SECTION_BOTTOM_LEFT:  center = point_of(far, 0);   break;
@@ -51,11 +54,11 @@ static uint8_t _rounded_corner_alpha_resolver(alpha_interface_t *iface, point p,
     return alpha;
 }
 
-static uint8_t _rounded_border_alpha_resolver(alpha_interface_t *iface, point p, paint_section_t section) {
+static uint8_t _rounded_border_alpha_resolver(alpha_interface_t *iface, point p) {
     
     point center;
     int far = iface->data.rounded_border.radius - 1;
-    switch (section) {
+    switch (iface->data.section) {
         case SECTION_TOP_LEFT:     center = point_of(far, far); break;
         case SECTION_TOP_RIGHT:    center = point_of(0,   far); break;
         case SECTION_BOTTOM_LEFT:  center = point_of(far, 0);   break;
@@ -83,11 +86,17 @@ static uint8_t _rounded_border_alpha_resolver(alpha_interface_t *iface, point p,
     return alpha;
 }
 
+static void _alpha_interface_prepare(alpha_interface_t *iface, area section_area, paint_section_t section) {
+    iface->data.section_area = section_area;
+    iface->data.section = section;
+}
+
 // -----------------------------------------------------
 
 static alpha_interface_t alpha_interface_for_opaque_areas() {
     return (alpha_interface_t){
-        .resolve = _opaque_color_alpha_resolver
+        .resolve = _opaque_color_alpha_resolver,
+        .prepare = _alpha_interface_prepare,
     };
 }
 
@@ -97,6 +106,7 @@ static alpha_interface_t alpha_interface_for_rounded_corners(int radius) {
 
     return (alpha_interface_t){
         .resolve = _rounded_corner_alpha_resolver,
+        .prepare = _alpha_interface_prepare,
         .data = {
             .rounded_corner = {
                 .radius = radius,
@@ -120,6 +130,7 @@ static alpha_interface_t alpha_interface_for_rounded_borders(int radius, int thi
 
     return (alpha_interface_t){
         .resolve = _rounded_border_alpha_resolver,
+        .prepare = _alpha_interface_prepare,
         .data = {
             .rounded_border = {
                 .radius = radius,

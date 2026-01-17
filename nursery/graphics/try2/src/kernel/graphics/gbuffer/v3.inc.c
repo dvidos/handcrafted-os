@@ -29,12 +29,13 @@ static void _debug_area(gbuffer *gb, area a) {
     }
 }
 
-static inline void paint_area_v3(painter_interface_t *painter, gbuffer *gb, area part, paint_section_t section, area clip) {
-    area draw = area_intersect(part, clip);
+static inline void paint_area_v3(painter_interface_t *painter, area section_area, paint_section_t section, area clip) {
+    area draw = area_intersect(section_area, clip);
     if (area_is_empty(draw)) return;
 
+    painter->prepare(painter, section_area, section);
     for (int y = draw.y; y < draw.y + draw.height; y++) {
-        painter->paint(painter, gb, part, point_of(draw.x, y), draw.width, section);
+        painter->paint(painter, point_of(draw.x, y), draw.width);
     }
 }
 
@@ -55,27 +56,27 @@ void gb_draw_border_v3(gbuffer *gb, area rect, area clip, border_params params, 
         chroma_interface_for_solid_color(params.clr) :
         chroma_interface_for_3d_border(params.style, params.clr, params.contrast_3d, params.thickness, rect.width, rect.height);
     alpha = alpha_interface_for_opaque_areas();
-    painter = show_alpha ? painter_interface_for_alpha_heat_map(&alpha) : 
+    painter = show_alpha ? painter_interface_for_alpha_heat_map(gb, &alpha) : 
         ((params.style == BORDER_FLAT) ?
-            painter_interface_for_same_color_in_row(&chroma, &alpha) :
-            painter_interface_for_different_color_per_pixel(&chroma, &alpha));
-    paint_area_v3(&painter, gb, top,    SECTION_TOP,    clip);
-    paint_area_v3(&painter, gb, left,   SECTION_LEFT,   clip);
-    paint_area_v3(&painter, gb, right,  SECTION_RIGHT,  clip);
-    paint_area_v3(&painter, gb, bottom, SECTION_BOTTOM, clip);
+            painter_interface_for_same_color_in_row(gb, &chroma, &alpha) :
+            painter_interface_for_different_color_per_pixel(gb, &chroma, &alpha));
+    paint_area_v3(&painter, top,    SECTION_TOP,    clip);
+    paint_area_v3(&painter, left,   SECTION_LEFT,   clip);
+    paint_area_v3(&painter, right,  SECTION_RIGHT,  clip);
+    paint_area_v3(&painter, bottom, SECTION_BOTTOM, clip);
 
     // corners are tricky, if 3D or rounded
     alpha = (params.radius == 0) ?
         alpha_interface_for_opaque_areas() :
         alpha_interface_for_rounded_borders(params.radius, params.thickness);
     painter = show_alpha ? 
-        painter_interface_for_alpha_heat_map(&alpha) :
-        painter_interface_for_different_color_per_pixel(&chroma, &alpha);
+        painter_interface_for_alpha_heat_map(gb, &alpha) :
+        painter_interface_for_different_color_per_pixel(gb, &chroma, &alpha);
 
-    paint_area_v3(&painter, gb, top_left,     SECTION_TOP_LEFT,     clip);
-    paint_area_v3(&painter, gb, top_right,    SECTION_TOP_RIGHT,    clip);
-    paint_area_v3(&painter, gb, bottom_left,  SECTION_BOTTOM_LEFT,  clip);
-    paint_area_v3(&painter, gb, bottom_right, SECTION_BOTTOM_RIGHT, clip);
+    paint_area_v3(&painter, top_left,     SECTION_TOP_LEFT,     clip);
+    paint_area_v3(&painter, top_right,    SECTION_TOP_RIGHT,    clip);
+    paint_area_v3(&painter, bottom_left,  SECTION_BOTTOM_LEFT,  clip);
+    paint_area_v3(&painter, bottom_right, SECTION_BOTTOM_RIGHT, clip);
 
     if (show_sections) {
         _debug_area(gb, top);
@@ -105,26 +106,26 @@ void gb_fill_rect_v3(gbuffer *gb, area rect, area clip, int radius, fill_params 
         chroma_interface_for_solid_color(params.clr) :
         chroma_interface_for_gradient(params);
     alpha = alpha_interface_for_opaque_areas();
-    painter = show_alpha ? painter_interface_for_alpha_heat_map(&alpha) : 
+    painter = show_alpha ? painter_interface_for_alpha_heat_map(gb, &alpha) : 
         ((params.fill_type == FILL_TYPE_SOLID) ?
-            painter_interface_for_same_color_in_row(&chroma, &alpha) :
-            painter_interface_for_different_color_per_pixel(&chroma, &alpha));
+            painter_interface_for_same_color_in_row(gb, &chroma, &alpha) :
+            painter_interface_for_different_color_per_pixel(gb, &chroma, &alpha));
 
-    paint_area_v3(&painter, gb, top,    SECTION_TOP,    clip);
-    paint_area_v3(&painter, gb, middle, SECTION_CENTER, clip);
-    paint_area_v3(&painter, gb, bottom, SECTION_BOTTOM, clip);
+    paint_area_v3(&painter, top,    SECTION_TOP,    clip);
+    paint_area_v3(&painter, middle, SECTION_CENTER, clip);
+    paint_area_v3(&painter, bottom, SECTION_BOTTOM, clip);
 
     if (radius > 0) {
         alpha = alpha_interface_for_rounded_corners(radius);
         if (show_alpha)
-            painter = painter_interface_for_alpha_heat_map(&alpha);
+            painter = painter_interface_for_alpha_heat_map(gb, &alpha);
         else
-            painter = painter_interface_for_different_color_per_pixel(&chroma, &alpha);
+            painter = painter_interface_for_different_color_per_pixel(gb, &chroma, &alpha);
 
-        paint_area_v3(&painter, gb, top_left,     SECTION_TOP_LEFT,     clip);
-        paint_area_v3(&painter, gb, top_right,    SECTION_TOP_RIGHT,    clip);
-        paint_area_v3(&painter, gb, bottom_left,  SECTION_BOTTOM_LEFT,  clip);
-        paint_area_v3(&painter, gb, bottom_right, SECTION_BOTTOM_RIGHT, clip);
+        paint_area_v3(&painter, top_left,     SECTION_TOP_LEFT,     clip);
+        paint_area_v3(&painter, top_right,    SECTION_TOP_RIGHT,    clip);
+        paint_area_v3(&painter, bottom_left,  SECTION_BOTTOM_LEFT,  clip);
+        paint_area_v3(&painter, bottom_right, SECTION_BOTTOM_RIGHT, clip);
     }
 
     if (show_sections) {

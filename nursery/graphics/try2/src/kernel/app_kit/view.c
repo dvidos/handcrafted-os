@@ -97,7 +97,7 @@ void view_invalidate_area(view_t *v, area local_dirty) {
 
 void view_invalidate(view_t *v) {
     if (!v) return;
-    log.debug("view %s invalidated", v->debug_info);
+    // log.debug("view %s invalidated", v->debug_info);
     view_invalidate_area(v, v->bounds);
 }
 
