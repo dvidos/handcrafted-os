@@ -22,7 +22,7 @@ STAGE2_SIZE_KB=12           # 12 KB currently, can go up to 29 KB
 STAGE2_STACK_TOP=0x7C00     # at 31KB, right below stage 1
 
 KERNEL_LOAD_ADDRESS=0x8000  # 32KB, below upper memory (640KB), must be < 1MB, to be loaded in real mode.
-KERNEL_SIZE_KB=64           # 64 KB for now, can go up to 608 KB
+KERNEL_SIZE_KB=127          # 64 KB for now, can go up to 608 KB
 KERNEL_STACK_TOP=0x90000    # 576KB, below upper memory
 
 STAGE1_SECTORS=$(($STAGE1_SIZE           / $SECTOR_SIZE))

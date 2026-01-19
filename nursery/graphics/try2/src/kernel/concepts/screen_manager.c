@@ -432,12 +432,14 @@ static void brightly_fill_dirty_surfaces() {
             gb_copy_area_to_framebuffer_with_bpp(sm.backbuffer, sm.dirty_areas[i], sm.screen.fb_address, sm.screen.pitch, sm.screen.bpp);        
     }
 
-    if (sm.visual_debug) {
-        extern void sdl_present(void);
-        sdl_present();
-        int deadline = get_timer_ticks() + 100;
-        while (get_timer_ticks() < deadline);
-    }
+    #ifdef HOSTED_ENV
+        if (sm.visual_debug) {
+            extern void sdl_present(void);
+            sdl_present();
+            int deadline = get_timer_ticks() + 100;
+            while (get_timer_ticks() < deadline);
+        }
+    #endif
 }
 
 static void redraw_dirty_surfaces() {

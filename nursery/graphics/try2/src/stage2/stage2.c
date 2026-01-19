@@ -615,7 +615,27 @@ int bios_read_sectors(uint32_t lba, uint16_t count, uint32_t dest)
 
 int load_kernel() {
     // these defined by the build script
-    return bios_read_sectors(KERNEL_FIRST_SECTOR_LBA, KERNEL_SECTORS, KERNEL_LOAD_ADDRESS);
+    // the bios interrupt can load up to 64KB at a time.
+    uint32_t first_sector = KERNEL_FIRST_SECTOR_LBA;
+    uint16_t remaining_sectors = KERNEL_SECTORS;
+    uint32_t target_address = KERNEL_LOAD_ADDRESS;
+    int batch_sectors = 128; // sectors
+
+    // 64KB / 512 bytes per sector = 128 sectors.
+    while (remaining_sectors > 0) {
+        uint16_t sectors_to_load = remaining_sectors >= batch_sectors ? batch_sectors : remaining_sectors;
+
+        printf("Loading %d sectors from LBA %d to address 0x%08x...", batch_sectors, first_sector, target_address);
+        if (!bios_read_sectors(first_sector, sectors_to_load, target_address)) {
+            printf("failed\r\n");
+            return 0;
+        }
+
+        printf("OK \r\n");
+        first_sector += batch_sectors;
+        remaining_sectors -= sectors_to_load;
+        target_address += (batch_sectors * 512);
+    }
 }
 
 // -------------------------------------------------------
