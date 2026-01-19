@@ -32,6 +32,7 @@ typedef struct fill_params {
     ease_function *ease;
     vectorf gradient_v;
     float gradient_len_sq;
+    // TODO: introduce radius, so that filled rounded rects can happen
 } fill_params;
 
 static inline fill_params fill_params_none() { return (fill_params){.fill_type = FILL_TYPE_NONE}; };

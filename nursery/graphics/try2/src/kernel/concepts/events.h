@@ -45,6 +45,8 @@ typedef enum targeted_event_type {
 } targeted_event_type_t;
 
 typedef struct targeted_event {
+    // TODO: introduce TARGET_TYPE: surface, system, screen_manager etc.
+    //       this way, the main menu can send events to non-surfaces.
     void *target;  // who is the intended recipient
     targeted_event_type_t type; // e.g. MENU_SELECTED
     int event_arg;              // per event type, e.g. the menu item id selected.
