@@ -15,6 +15,7 @@ typedef enum {
     SURFACE_WINDOW,
     SURFACE_PANEL,
     SURFACE_OVERLAY,
+    SURFACE_MENU,
     SURFACE_CURSOR
 } surface_role_t;
 
@@ -26,11 +27,15 @@ typedef struct surface_owner_interface_t {
 
 typedef void (surface_paint_func)(surface_t *s, graphics_context_t *gc, area dirty);
 typedef void (surface_key_handler_func)(surface_t *s, key_event_t e);
-
+typedef void (surface_mouse_handler_func)(surface_t *s, mouse_event_t e);
+typedef void (surface_targeted_handler_func)(surface_t *s, targeted_event_t e);
 
 int surface_get_dlist_node_offset();
 surface_t *new_surface(int w, int h, surface_role_t role, bool focusable, const char *debug_info);
 void surface_destroy(surface_t *s);
+
+void surface_set_client_data(surface_t *s, void *client_data);
+void *surface_get_client_data(surface_t *s);
 
 const char *surface_get_debug_info(surface_t *s);
 area surface_get_frame(surface_t *s);
@@ -56,17 +61,18 @@ void surface_invalidate_all(surface_t *s);
 void surface_raise(surface_t *s);
 void surface_lower(surface_t *s);
 void surface_set_z(surface_t *s, int z);
-void surface_handle_key(surface_t *s, key_event_t e);
 void surface_add_view(surface_t *s, view_t *v);
 void surface_set_focused_view(surface_t *s, view_t *v);
 
 void surface_set_owner_interface(surface_t *s, surface_owner_interface_t *interface);
 void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior);
 void surface_set_key_handler(surface_t *s, surface_key_handler_func *handler);
+void surface_set_mouse_handler(surface_t *s, surface_mouse_handler_func *handler);
 
 void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty);
 void surface_handle_key_event(surface_t *s, key_event_t e);
 void surface_handle_mouse_event(surface_t *s, mouse_event_t e);
+void surface_handle_targeted_event(surface_t *s, targeted_event_t e);
 void surface_on_focus_gained(surface_t *s);
 void surface_on_focus_lost(surface_t *s);
 void surface_on_shown(surface_t *s);

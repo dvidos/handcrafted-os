@@ -5,11 +5,11 @@
 
 
 typedef struct {
-    struct wallpaper {
+    struct wallpaper_style {
         fill_params fill;
     } wallpaper;
 
-    struct window {
+    struct window_style {
         fill_params bg;
         text_params text;
         color dark;
@@ -18,7 +18,7 @@ typedef struct {
         int spacing; // between controls
     } window;
 
-    struct control {
+    struct control_style {
         fill_params bg;
         text_params text;
         fill_params input_bg; // for input text boxes etc.
@@ -32,9 +32,15 @@ typedef struct {
         int button_min_width;
     } control;
 
-    struct menu {
-        fill_params bg;
-        text_params text;
+    struct menu_style {
+        fill_params menu_bg; // there may be padding or separators
+        fill_params item_bg;
+        text_params item_text;
+        fill_params item_bg_selected;
+        text_params item_text_selected;
+        size item_padding;
+        size menu_padding;
+        int min_item_width;
     } menu;
 
 } ui_style_t;

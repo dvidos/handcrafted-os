@@ -42,6 +42,5 @@ static inline area font8x16_get_glyph_area(font8x16 *font, char c, int x, int ba
 }
 
 size font8x16_get_text_size(font8x16 *font, const char *text);
-size font8x16_get_visual_text_size(font8x16 *font, const char *text);
 area font8x16_text_align(font8x16 *font, const char *text, area container, alignment text_alignment);
 int font8x6_get_vertically_centered_baseline_y(font8x16 *font, area box);

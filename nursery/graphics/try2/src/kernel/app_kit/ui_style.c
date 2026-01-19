@@ -11,6 +11,7 @@ void initialize_ui_style() {
     float contrast = 0.5;
     color base_gray = 0xffaaaaaa;
     color base_text = 0xff333333;
+    color selected_item = 0xff008080;
 
     global_ui_style = (ui_style_t){
         .wallpaper = {
@@ -38,8 +39,14 @@ void initialize_ui_style() {
             .button_min_width = 80,
         },
         .menu = {
-            .bg = fill_params_solid(base_gray),
-            .text = text_params_of(base_font, ALIGN_MIDDLE_LEFT, base_text),
+            .menu_bg = fill_params_solid(base_gray),
+            .item_bg = fill_params_solid(base_gray),
+            .item_text = text_params_of(base_font, ALIGN_MIDDLE_LEFT, base_text),
+            .item_bg_selected = fill_params_solid(selected_item),
+            .item_text_selected = text_params_of(base_font, ALIGN_MIDDLE_LEFT, color_white()),
+            .item_padding = size_of(4, 4),
+            .menu_padding = size_of(4, 4),
+            .min_item_width = 100,
         },
     };
 };

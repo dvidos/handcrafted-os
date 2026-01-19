@@ -38,9 +38,22 @@ typedef struct mouse_event {
     int8_t wheel_delta;  // signed change
 } mouse_event_t;
 
+typedef enum targeted_event_type {
+    EVT_NONE,
+    EVT_MENU_SELECTED,
+    EVT_MENU_CANCELED,
+} targeted_event_type_t;
+
+typedef struct targeted_event {
+    void *target;  // who is the intended recipient
+    targeted_event_type_t type; // e.g. MENU_SELECTED
+    int event_arg;              // per event type, e.g. the menu item id selected.
+} targeted_event_t;
+
 typedef enum event_type {
     EVT_KEY,
-    EVT_MOUSE
+    EVT_MOUSE,
+    EVT_TARGETED,
 } event_type_t;
 
 typedef struct event {
@@ -49,6 +62,7 @@ typedef struct event {
     union {
         key_event_t   key;
         mouse_event_t mouse;
+        targeted_event_t  targeted;
     };
 } event_t;
 
@@ -63,7 +77,6 @@ typedef struct event_queue {
 extern event_queue_t global_event_queue;
 
 // -----------------------------------------
-
 
 static inline int event_queue_empty(event_queue_t* q) { return q->head == q->tail; }
 static inline int event_queue_full(event_queue_t* q) { return ((q->head + 1) % EVENT_QUEUE_SIZE) == q->tail; }

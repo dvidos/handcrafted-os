@@ -350,6 +350,28 @@ void initialize_cpu() {
 
 // -------------------------------------------------------------------------
 
+static menu_item_t workspace_manager_main_menu_items[] = {
+    {1001, "Info...",   NULL},
+    {1002, "Window",    NULL},
+    {1003, "Edit",      NULL},
+    {1004, "Files",     NULL},
+    {1005, "View",      NULL},
+    {1006, "Utilities", NULL},
+    {1007, "Hide",      NULL},
+    {1008, "Logout",    NULL},
+};
+
+static menu_t _demo_menu = {
+    .debug_info = "demo-menu (m1)",
+    .items = workspace_manager_main_menu_items,
+    .count = sizeof(workspace_manager_main_menu_items)/sizeof(workspace_manager_main_menu_items[0]),
+};
+
+static void menu_demo() {
+    int x, y;
+    screen_manager_get_mouse_position(&x, &y);
+    screen_manager_show_popup_menu(NULL, &_demo_menu, area_of(x, y, 0, 0));
+}
 
 // -------------------------------------------------------------------------
 
@@ -363,10 +385,16 @@ static bool intercept_kernel_event(event_t ev) {
             log.info("creating and inserting run_dialog...");
             screen_manager_add_surface(create_run_dialog_surface());
             return true;
-            
+
         } else if (ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_G) {
             log.info("creating and inserting graphics demo surface...");
             screen_manager_add_surface(create_graphics_demo_surface());
+            return true;
+
+
+        } else if (ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_M) {
+            log.info("demo of menus");
+            menu_demo();
             return true;
 
         } else if (ev.key.keymods & MOD_CTRL && ev.key.keycode == KEY_I) {
@@ -408,6 +436,15 @@ void kernel_main(boot_info_t* bi) {
     // this might be the idle task, good enough for now
     event_t ev;
     for (;;) {
+
+        if (screen_manager_has_queued_events()) {
+            // we queue events (e.g. menu) to process at later time.
+            // this avoids processing during other event handlers (e.g. click)
+            event_t e = screen_manager_dequeue_event();
+            screen_manager_dispatch_event(e);
+            continue;
+        }
+
 #ifdef HOSTED_ENV
         extern bool hosted_get_event(event_t *ev);
         if (!hosted_get_event(&ev))
@@ -421,21 +458,16 @@ void kernel_main(boot_info_t* bi) {
         
         // ideally we'd give this to WM to dispatch
         event_queue_pop(&global_event_queue, &ev);
+        // log_event_as_debug("Popped event", &ev);
 #endif
 
-        // log_event_as_debug("Popped event", &ev);
-
-
-        if (ev.type == EVT_MOUSE && ev.mouse.type == MOUSE_MOVED)
+        if (ev.type == EVT_MOUSE && ev.mouse.type == MOUSE_MOVED) {
             screen_manager_intercept_mouse_movement(&ev);
+        }
 
-        if (!intercept_kernel_event(ev)) {
-            if (ev.type == EVT_KEY) {
-                // log_event_as_debug("Key event", &ev); // sometimes hosted gives two events?
-                screen_manager_dispatch_key_event(ev.key);
-            } else if (ev.type == EVT_MOUSE) {
-                screen_manager_dispatch_mouse_event(ev.mouse);
-            }
+        bool handled_in_kernel = intercept_kernel_event(ev);
+        if (!handled_in_kernel) {
+            screen_manager_dispatch_event(ev);
         }
 
         // after events dispatched and actions taken, refresh anyt hing needed

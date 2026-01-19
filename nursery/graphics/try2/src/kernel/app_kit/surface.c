@@ -12,6 +12,8 @@
 // adds position, flags, callbacks
 struct surface {
     const char *debug_info;
+    void *client_data;
+
     area frame;                  // position + size in screen coordinates
     gbuffer *buffer;             // drawing, owned by surface
 
@@ -26,7 +28,8 @@ struct surface {
     struct surface_callbacks {
         surface_paint_func *paint;
         surface_key_handler_func *on_key_event;
-        void (*on_mouse_event)(surface_t *s, mouse_event_t e);
+        surface_mouse_handler_func *on_mouse_event;
+        surface_targeted_handler_func *on_targeted_event;
         void (*on_focus_gained)(surface_t *);
         void (*on_focus_lost)(surface_t *);
         void (*on_shown)(surface_t *);
@@ -89,6 +92,15 @@ void surface_destroy(surface_t *s) {
     gb_free(s->buffer);
     kfree(s);
 }
+
+void surface_set_client_data(surface_t *s, void *client_data) {
+    s->client_data = client_data;
+}
+
+void *surface_get_client_data(surface_t *s) {
+    return s->client_data;
+}
+
 
 const char *surface_get_debug_info(surface_t *s) {
     return s->debug_info;
@@ -188,6 +200,9 @@ void surface_invalidate_area(surface_t *s, area a) {
     // damage area is local to surface, extend current area
     s->dirty_area = area_union(s->dirty_area, a); 
     s->needs_redraw = true;
+
+    if (s->owner_interface && s->owner_interface->surface_invalidated)
+        s->owner_interface->surface_invalidated(s, area_to_global(a, s->frame));
 }
 
 void surface_invalidate_all(surface_t *s) {
@@ -219,9 +234,6 @@ void surface_set_focused_view(surface_t *s, view_t *v) {
 static void _surface_mark_area_dirty(void *owner_data, area dirty) {
     surface_t *s = (surface_t *)owner_data;
     surface_invalidate_area(s, dirty);
-
-    if (s->owner_interface && s->owner_interface->surface_invalidated)
-        s->owner_interface->surface_invalidated(s, area_to_global(dirty, s->frame));
 }
 
 static void _surface_request_focus(void *owner_data, view_t *v) {
@@ -246,6 +258,14 @@ void surface_set_on_paint_behavior(surface_t *s, surface_paint_func *behavior) {
 
 void surface_set_key_handler(surface_t *s, surface_key_handler_func *handler) {
     s->callbacks.on_key_event = handler;
+}
+
+void surface_set_mouse_handler(surface_t *s, surface_mouse_handler_func *handler) {
+    s->callbacks.on_mouse_event = handler;
+}
+
+void surface_set_targeted_handler(surface_t *s, surface_targeted_handler_func *handler) {
+    s->callbacks.on_targeted_event = handler;
 }
 
 void surface_on_paint(surface_t *s, graphics_context_t *gc, area dirty) {
@@ -309,6 +329,12 @@ void surface_handle_mouse_event(surface_t *s, mouse_event_t e) {
         surface_set_focused_view(s, hit_view);
     
     view_handle_mouse_event(hit_view, mouse_event_localized(e, hit_view->frame));
+}
+
+void surface_handle_targeted_event(surface_t *s, targeted_event_t e) {
+    if (s->callbacks.on_targeted_event != NULL) {
+        s->callbacks.on_targeted_event(s, e);
+    }
 }
 
 void surface_on_focus_gained(surface_t *s) {

@@ -10,6 +10,7 @@ graphics_context_t *new_graphics_context(gbuffer *gb) {
     gc->state.clip = gb->area;   // full buffer
     gc->state.fill = fill_params_solid(color_black());
     gc->state.stroke = color_black();
+    gc->state.text = text_params_of(geneva9, ALIGN_MIDDLE_LEFT, color_black());
     return gc;
 }
 

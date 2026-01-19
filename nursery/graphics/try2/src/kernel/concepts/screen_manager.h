@@ -1,6 +1,7 @@
 #pragma once
 #include "../graphics/gbuffer.h"
 #include "../app_kit/surface.h"
+#include "menus.h"
 
 // screen manager owns the screen. nothing ever draws to screen outside of it.
 // window manager must notify screen manager when surfaces are opened, closed, raised, etc.
@@ -39,9 +40,22 @@ void screen_manager_clear_mouse_capture();
 
 // ------------------------------------------------
 
+void screen_manager_enqueue_event(event_t e);
+event_t screen_manager_dequeue_event();
+bool screen_manager_has_queued_events();
+
+// -------------------------------------------------
+
+void screen_manager_show_popup_menu(surface_t *source, menu_t *m, area anchor);
+
+// -------------------------------------------------
+
 void screen_manager_dispatch_key_event(key_event_t e);
 void screen_manager_dispatch_mouse_event(mouse_event_t e);
+void screen_manager_dispatch_targeted_event(targeted_event_t e);
+void screen_manager_dispatch_event(event_t e);
 
 // ------------------------------------------------
 
 void screen_manager_log_debug_info();
+

@@ -8,11 +8,13 @@
 #include "logger.h"
 #include "../algorithms/rand.h"
 #include "../containers/dllist.h"
+#include "../containers/ring_queue.h"
 #include "../cpu/timer.h"
 
 #define MAX_SURFACES                 64  // this will be dynamic one day...
 #define FOCUSED_SURFACES_STACK_SIZE  16  // stack of modal focused surfaces
 #define MAX_DIRTY_AREAS              32  // this one too...
+#define SM_EVENTS_QUEUE_SIZE          8
 
 
 typedef struct mouse_info {
@@ -328,6 +330,9 @@ void screen_manager_clear_mouse_capture() {
     sm.mouse_capture = 0;
 }
 
+
+// ----------------------------------------------------------------
+
 void screen_manager_dispatch_key_event(key_event_t e) {
     if (sm.focused_surface == NULL) {
         // log.debug("No surface found to handle keyboard event");
@@ -363,6 +368,27 @@ void screen_manager_dispatch_mouse_event(mouse_event_t e) {
 
     if (s != NULL)
         surface_handle_mouse_event(s, mouse_event_localized(e, surface_get_frame(s)));
+}
+
+void screen_manager_dispatch_targeted_event(targeted_event_t e) {
+    // since target is "void *", find which surface is equal to it.
+    dlist_foreach(&sm.surfaces, surface_t, s) {
+        if (s != e.target)
+            continue;
+        
+        surface_handle_targeted_event(s, e);
+        return;
+    }
+}
+
+void screen_manager_dispatch_event(event_t e) {
+    if (e.type == EVT_MOUSE) {
+        screen_manager_dispatch_mouse_event(e.mouse);
+    } else if (e.type == EVT_KEY) {
+        screen_manager_dispatch_key_event(e.key);
+    } else if (e.type == EVT_TARGETED) {
+        screen_manager_dispatch_targeted_event(e.targeted);
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -465,6 +491,46 @@ void screen_manager_redraw_screen() {
     copy_backbuffer_to_physical_framebuffer();
 
     sm.needs_repaint = false;
+}
+
+// --------------------------------------------------------------
+
+DECLARE_RING_QUEUE(sm_events, event_t, SM_EVENTS_QUEUE_SIZE);
+
+void screen_manager_enqueue_event(event_t e) {
+    sm_events_enqueue(e);
+}
+event_t screen_manager_dequeue_event() {
+    return sm_events_is_empty() ? (event_t){0} : sm_events_dequeue();
+}
+bool screen_manager_has_queued_events() {
+    return sm_events_has();
+}
+
+// --------------------------------------------------------------
+
+extern surface_t *create_vertical_menu_surface(menu_t *m, bool is_popup, surface_t *events_recipient);
+
+void screen_manager_show_popup_menu(surface_t *source, menu_t *m, area source_anchor) {
+    // convert to screen coordinates
+    area screen_anchor = (source == NULL) ? area_zero() : area_to_global(source_anchor, surface_get_frame(source));
+    
+    surface_t *menu_surface = create_vertical_menu_surface(m, true, source);
+    size menu_size = surface_get_size(menu_surface);
+
+    
+    // to the right and below
+    size screen_size = screen_manager_get_screen_size();
+    int x = (screen_anchor.x + screen_anchor.width + menu_size.width < screen_size.width) ?
+        screen_anchor.x + screen_anchor.width :
+        screen_size.width - menu_size.width;
+    int y = (screen_anchor.y + screen_anchor.height + menu_size.height < screen_size.height) ?
+        screen_anchor.y + screen_anchor.height :
+        screen_size.height - menu_size.height;
+
+    surface_set_position(menu_surface, x, y);
+
+    screen_manager_add_surface(menu_surface);
 }
 
 // --------------------------------------------------------------
