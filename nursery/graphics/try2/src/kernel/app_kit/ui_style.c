@@ -8,10 +8,10 @@ void initialize_ui_style() {
     // we have the option to initialize things here, 
     // e.g. derive colors based on contrast / Hue-Saturation-Value / etc.
     font8x16 *base_font = geneva9;
-    float contrast = 0.5;
+    float contrast = 0.25;
     color base_gray = 0xffaaaaaa;
     color base_text = 0xff333333;
-    color selected_item = 0xff008080;
+    color selected = color_with_alpha(0x7F, color_nextstep_bg());
 
     global_ui_style = (ui_style_t){
         .wallpaper = {
@@ -38,15 +38,21 @@ void initialize_ui_style() {
             .height = 21,
             .button_min_width = 80,
         },
-        .menu = {
-            .menu_bg = fill_params_solid(base_gray),
-            .item_bg = fill_params_solid(base_gray),
-            .item_text = text_params_of(base_font, ALIGN_MIDDLE_LEFT, base_text),
-            .item_bg_selected = fill_params_solid(selected_item),
-            .item_text_selected = text_params_of(base_font, ALIGN_MIDDLE_LEFT, color_white()),
-            .item_padding = size_of(4, 4),
-            .menu_padding = size_of(4, 4),
-            .min_item_width = 100,
+        .menus = {
+            .menu = {
+                // .bg = fill_params_gradient(base_gray, color_darken(base_gray, 0.2f), point_zero(), point_of(0, 200), ease_linear),
+                .bg = fill_params_solid(base_gray),
+                .border = border_params_of(BORDER_RAISED, base_gray, 2, 5, 0.3f),
+                .padding = size_of(4, 4),
+            },
+            .item = {
+                .bg = fill_params_none(),
+                .text = text_params_of(base_font, ALIGN_MIDDLE_LEFT, base_text),
+                .bg_selected = fill_params_solid(selected),
+                .text_selected = text_params_of(base_font, ALIGN_MIDDLE_LEFT, color_white()),
+                .padding = size_of(8, 8),
+            },
+            .min_item_width = 75,
         },
     };
 };

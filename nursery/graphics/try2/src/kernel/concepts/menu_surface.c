@@ -16,7 +16,7 @@ typedef struct menu_runtime {
 } menu_runtime_t;
 
 static menu_runtime_t *_create_menu_runtime(menu_t *m, bool is_popup, surface_t *events_recipient) {
-    const struct menu_style *ms = &ui_style()->menu;
+    const struct menu_style *ms = &ui_style()->menus;
     
     int widest_item = ms->min_item_width;
     int item_height = 0;
@@ -24,10 +24,10 @@ static menu_runtime_t *_create_menu_runtime(menu_t *m, bool is_popup, surface_t 
 
     for (int i = 0; i < m->count; i++) {
         menu_item_t *mi = &m->items[i];
-        size caption_size = font8x16_get_text_size(ms->item_text.font, mi->caption);
-        int item_width = caption_size.width + ms->item_padding.width * 2;
+        size caption_size = font8x16_get_text_size(ms->item.text.font, mi->caption);
+        int item_width = caption_size.width + ms->item.padding.width * 2;
         widest_item = caption_size.width > widest_item ? caption_size.width : widest_item;
-        item_height = caption_size.height + ms->item_padding.height * 2;
+        item_height = caption_size.height + ms->item.padding.height * 2;
         total_height += item_height;
     }
     
@@ -37,7 +37,7 @@ static menu_runtime_t *_create_menu_runtime(menu_t *m, bool is_popup, surface_t 
     mr->events_recipient = events_recipient;
     mr->menu_style = ms;
     mr->item_size = size_of(widest_item, item_height);
-    mr->menu_size = size_of(widest_item + ms->menu_padding.width * 2, total_height + ms->menu_padding.height * 2);
+    mr->menu_size = size_of(widest_item + ms->menu.padding.width * 2, total_height + ms->menu.padding.height * 2);
     mr->selection = 0; // first one selected by definition
 
     return mr;
@@ -48,9 +48,9 @@ static void destroy_menu_runtime(menu_runtime_t *mr) {
 }
 
 static inline area _get_item_area(menu_runtime_t *mr, int index) {
-    return area_of(
-        mr->menu_style->menu_padding.width,
-        mr->menu_style->menu_padding.height + index * mr->item_size.height,
+    return index == -1 ? area_zero() : area_of(
+        mr->menu_style->menu.padding.width,
+        mr->menu_style->menu.padding.height + index * mr->item_size.height,
         mr->item_size.width,
         mr->item_size.height
     );
@@ -145,11 +145,11 @@ static void _paint_item(menu_runtime_t *mr, graphics_context_t *gc, int index, a
     if (area_is_empty(area_intersect(item_area, clip)))
         return;
 
-    gc_set_fill(gc, (index == mr->selection) ? mr->menu_style->item_bg_selected : mr->menu_style->item_bg);
+    gc_set_fill(gc, (index == mr->selection) ? mr->menu_style->item.bg_selected : mr->menu_style->item.bg);
     gc_draw_rect(gc, item_area);
 
-    gc_set_text(gc, (index == mr->selection) ? mr->menu_style->item_text_selected : mr->menu_style->item_text);
-    area text_area = area_grow(item_area, -mr->menu_style->item_padding.width, -mr->menu_style->item_padding.height);
+    gc_set_text(gc, (index == mr->selection) ? mr->menu_style->item.text_selected : mr->menu_style->item.text);
+    area text_area = area_grow(item_area, -mr->menu_style->item.padding.width, -mr->menu_style->item.padding.height);
     gc_draw_text(gc, mr->menu->items[index].caption, text_area);
 
     // possibly submenu indicator?
@@ -159,8 +159,15 @@ static void _paint_item(menu_runtime_t *mr, graphics_context_t *gc, int index, a
 static void _paint(surface_t *s, graphics_context_t *gc, area dirty) {
     menu_runtime_t *mr = (menu_runtime_t *)surface_get_client_data(s);
 
-    gc_set_fill(gc, mr->menu_style->menu_bg);
+    area bounds = area_of(0, 0, mr->menu_size.width, mr->menu_size.height);
+    if (area_is_empty(bounds))
+        return;
+
+    gc_set_fill(gc, mr->menu_style->menu.bg);
     gc_draw_rect(gc, area_of(0, 0, mr->menu_size.width, mr->menu_size.height));
+
+    gc_set_border(gc, mr->menu_style->menu.border.style, mr->menu_style->menu.border.clr, mr->menu_style->menu.border.thickness, mr->menu_style->menu.border.contrast_3d);
+    gc_draw_border(gc, area_of(0, 0, mr->menu_size.width, mr->menu_size.height));
 
     for (int i = 0; i < mr->menu->count; i++) {
         _paint_item(mr, gc, i, dirty);

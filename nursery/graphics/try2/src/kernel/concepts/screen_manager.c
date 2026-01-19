@@ -512,12 +512,11 @@ bool screen_manager_has_queued_events() {
 extern surface_t *create_vertical_menu_surface(menu_t *m, bool is_popup, surface_t *events_recipient);
 
 void screen_manager_show_popup_menu(surface_t *source, menu_t *m, area source_anchor) {
-    // convert to screen coordinates
-    area screen_anchor = (source == NULL) ? area_zero() : area_to_global(source_anchor, surface_get_frame(source));
+    // convert to screen coordinates (assume screen if no source)
+    area screen_anchor = (source == NULL) ? source_anchor : area_to_global(source_anchor, surface_get_frame(source));
     
     surface_t *menu_surface = create_vertical_menu_surface(m, true, source);
     size menu_size = surface_get_size(menu_surface);
-
     
     // to the right and below
     size screen_size = screen_manager_get_screen_size();

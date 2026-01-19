@@ -33,15 +33,20 @@ typedef struct {
     } control;
 
     struct menu_style {
-        fill_params menu_bg; // there may be padding or separators
-        fill_params item_bg;
-        text_params item_text;
-        fill_params item_bg_selected;
-        text_params item_text_selected;
-        size item_padding;
-        size menu_padding;
+        struct {
+            fill_params bg;
+            border_params border;
+            size padding;
+        } menu;
+        struct {
+            fill_params bg;
+            size padding;
+            text_params text;
+            fill_params bg_selected;
+            text_params text_selected;
+        } item;
         int min_item_width;
-    } menu;
+    } menus;
 
 } ui_style_t;
 

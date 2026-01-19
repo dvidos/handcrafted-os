@@ -84,6 +84,8 @@ typedef struct border_params {
     factor contrast_3d; // 0=same color, 1=totally black/white
 } border_params;
 
+static inline border_params border_params_none() { return (border_params){.style = BORDER_NONE}; }
+static inline border_params border_params_flat(color clr, int thickness, int radius) { return (border_params){.style = BORDER_FLAT, .clr = clr, .thickness = thickness, .radius = radius, .contrast_3d = 0.5f}; }
 static inline border_params border_params_of(border_style_t style, color clr, int thickness, int radius, factor contrast_3d) { return (border_params){.style = style, .clr = clr, .thickness = thickness, .radius = radius, .contrast_3d = contrast_3d}; }
 
 // ------------------------------------------------------------------------
