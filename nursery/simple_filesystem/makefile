@@ -17,3 +17,6 @@ bbtest: black_box_tests.c $(SRC_FILES)
 
 washtest: wash_tests.c $(SRC_FILES)
 	gcc $(GCC_OPTIONS) -o washtest wash_tests.c $(SRC_FILES)
+
+sfs: sfs.c $(SRC_FILES)
+	gcc $(GCC_OPTIONS) -o sfs sfs.c $(SRC_FILES)
