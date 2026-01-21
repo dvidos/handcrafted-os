@@ -8,8 +8,6 @@ void initialize_gbuffer(gbuffer *aux_buffer) {
 }
 
 
-// TODO: after main functions, make a dialog demonstrating the various aspects, having keys flip the various features:
-// TODO: after fixing the graphics print, do a surface that can do a popup window.
 #include "v3.inc.c"
 
 #include "blur.inc.c"
