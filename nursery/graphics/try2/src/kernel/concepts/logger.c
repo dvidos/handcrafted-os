@@ -62,7 +62,7 @@ static void _log_info(const char *fmt, ...) {
 }
 
 static void _log_warn(const char *fmt, ...) {
-    if (_curr_log_level > LOG_LEVEL_WARN) return;
+    if (_curr_log_level > LOG_LEVEL_WARNING) return;
     va_list list;
     va_start(list, fmt);
     log_something("WARN", fmt, list);
