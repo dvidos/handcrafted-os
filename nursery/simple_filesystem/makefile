@@ -9,14 +9,14 @@ SRC_FILES = \
 	dependencies/sector_device.c \
 	dependencies/clock_device.c
 
-all_test: bbtest washtest
+all_test: tests/bbtest tests/washtest cli_tool/sfs
 
 
-bbtest: black_box_tests.c $(SRC_FILES)
-	gcc $(GCC_OPTIONS) -o bbtest black_box_tests.c $(SRC_FILES)
+tests/bbtest: tests/black_box_tests.c $(SRC_FILES)
+	gcc $(GCC_OPTIONS) -o tests/bbtest tests/black_box_tests.c $(SRC_FILES)
 
-washtest: wash_tests.c $(SRC_FILES)
-	gcc $(GCC_OPTIONS) -o washtest wash_tests.c $(SRC_FILES)
+tests/washtest: tests/wash_tests.c $(SRC_FILES)
+	gcc $(GCC_OPTIONS) -o tests/washtest tests/wash_tests.c $(SRC_FILES)
 
-sfs: sfs.c $(SRC_FILES)
-	gcc $(GCC_OPTIONS) -o sfs sfs.c $(SRC_FILES)
+cli_tool/sfs: cli_tool/sfs.c $(SRC_FILES)
+	gcc $(GCC_OPTIONS) -o cli_tool/sfs cli_tool/sfs.c $(SRC_FILES)

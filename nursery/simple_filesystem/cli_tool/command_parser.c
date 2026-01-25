@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h> // For atol
+#include "utils.h" // For error function
 
 // --- Accessor Functions for command_options ---
 
@@ -63,8 +64,7 @@ static int parse_options(const command_config *command, int argc, char *argv[], 
         if (opt_conf) {
             opts->options = realloc(opts->options, (opts->option_count + 1) * sizeof(parsed_option));
             if (!opts->options) {
-                fprintf(stderr, "Memory allocation failed for options.\n");
-                return 1;
+                return error("Memory allocation failed for options.");
             }
             parsed_option *p_opt = &opts->options[opts->option_count++];
             p_opt->name = opt_conf->value_name;
@@ -72,8 +72,7 @@ static int parse_options(const command_config *command, int argc, char *argv[], 
             if (opt_conf->has_argument) {
                 arg_index++;
                 if (arg_index >= argc) {
-                    fprintf(stderr, "Error: option %s requires an argument.\n", opt_conf->long_name);
-                    return 1;
+                    return error("Option %s requires an argument.", opt_conf->long_name);
                 }
                 char *val = argv[arg_index];
                 if (opt_conf->type == OPT_STRING) p_opt->str_value = val;
@@ -106,9 +105,8 @@ int parse_and_dispatch_commands(int argc, char *argv[], const command_config *al
     // Special case 2: "sfs help <target_command>" (specific help)
     if (strcmp(argv[1], "help") == 0) {
         if (argc < 3) { // "sfs help" needs a target command
-            fprintf(stderr, "Error: 'sfs help' requires a command name.\n");
-            print_general_help_func();
-            return 1;
+            print_general_help_func(); // Print usage because it's an incomplete help command
+            return error("'sfs help' requires a command name.");
         }
         const char *target_command_name = argv[2];
         const command_config *help_command_config = find_command("help", all_commands, num_all_commands);
@@ -120,8 +118,7 @@ int parse_and_dispatch_commands(int argc, char *argv[], const command_config *al
             free(dummy_opts.options); // Should be NULL anyway, but good practice
             return result;
         } else {
-            fprintf(stderr, "Internal Error: 'help' command definition not found.\n");
-            return 1;
+            return error("Internal Error: 'help' command definition not found.");
         }
     }
     
@@ -136,24 +133,22 @@ int parse_and_dispatch_commands(int argc, char *argv[], const command_config *al
     
     const command_config *command = find_command(command_name, all_commands, num_all_commands);
     if (command == NULL) {
-        fprintf(stderr, "Error: Unknown command '%s'\n", command_name);
         print_general_help_func();
-        return 1;
+        return error("Unknown command '%s'", command_name);
     }
 
     command_options opts = {0};
     int non_option_argc = 0;
     char **non_option_argv = malloc(argc * sizeof(char*));
     if (!non_option_argv) {
-        fprintf(stderr, "Memory allocation failed for non-option arguments.\n");
-        return 1;
+        return error("Memory allocation failed for non-option arguments.");
     }
 
     // Pass argv + 3 (skip "sfs", "image_file", "command_name")
     if (parse_options(command, argc - 3, argv + 3, &opts, &non_option_argc, non_option_argv) != 0) {
         free(non_option_argv);
         free(opts.options);
-        return 1;
+        return 1; // Error already printed by parse_options
     }
     
     int result = command->execute(image_file, &opts, non_option_argc, non_option_argv);

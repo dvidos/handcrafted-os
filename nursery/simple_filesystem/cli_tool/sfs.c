@@ -85,15 +85,11 @@ const size_t NUM_COMMANDS = (sizeof(commands) / sizeof(commands[0]) -1); // -1 b
 
 static int execute_create(const char* image_file, command_options *opts, int argc, char *argv[]) {
     const char *size_str = get_str_option(opts, "size");
-    if (size_str == NULL) {
-        return error("Missing required --size argument for 'create' command.");
-    }
+    if (size_str == NULL) return error("Missing required --size argument for 'create' command.");
 
     long size = parse_size(size_str);
     FILE *f = fopen(image_file, "w");
-    if (!f) {
-        return error("Error opening file '%s' for create: %s", image_file, strerror(errno));
-    }
+    if (!f) return error("Error opening file '%s' for create: %s", image_file, strerror(errno));
 
     if (ftruncate(fileno(f), size) != 0) {
         int err_val = errno; // Capture errno before any other call might change it
@@ -111,17 +107,11 @@ static int execute_wrsect(const char* image_file, command_options *opts, int arg
     long count = get_int_option(opts, "count", 1);
     const char *file_str = get_str_option(opts, "file");
 
-    if (start_sector == -1 || file_str == NULL) {
-        return error("Missing required --sector or --file argument for 'wrsect' command.");
-    }
-    if (count <= 0) {
-        return error("--count must be a positive number.");
-    }
+    if (start_sector == -1 || file_str == NULL) return error("Missing required --sector or --file argument for 'wrsect' command.");
+    if (count <= 0) return error("--count must be a positive number.");
 
     FILE *src_file = fopen(file_str, "r");
-    if (!src_file) {
-        return error("Error opening source file '%s': %s", file_str, strerror(errno));
-    }
+    if (!src_file) return error("Error opening source file '%s': %s", file_str, strerror(errno));
 
     sector_device *dev = new_file_sector_device(image_file);
     if (!dev) {
@@ -147,11 +137,13 @@ static int execute_wrsect(const char* image_file, command_options *opts, int arg
 
     for (int i = 0; i < count; i++) {
         if (dev->write_sector(dev, start_sector + i, buffer + (i * sector_size)) != 0) {
-            free(buffer);            return error("Error writing sector %ld to image '%s'.", start_sector + i, image_file);
+            free(buffer);
+            return error("Error writing sector %ld to image '%s'.", start_sector + i, image_file);
         }
     }
 
-    free(buffer);    printf("Wrote %ld sectors (total %ld bytes) starting from sector %ld of '%s' from '%s'.\n", count, total_bytes_to_write, start_sector, image_file, file_str);
+    free(buffer);
+    printf("Wrote %ld sectors (total %ld bytes) starting from sector %ld of '%s' from '%s'.\n", count, total_bytes_to_write, start_sector, image_file, file_str);
     return 0;
 }
 
@@ -175,8 +167,7 @@ static int execute_rdsect(const char* image_file, command_options *opts, int arg
     uint32_t sector_size = dev->get_sector_size(dev);
     long total_bytes_to_read = count * sector_size;
     uint8_t *buffer = malloc(total_bytes_to_read);
-    if (!buffer) {        return error("Failed to allocate memory for reading sectors.");
-    }
+    if (!buffer) return error("Failed to allocate memory for reading sectors.");
     
     for (int i = 0; i < count; i++) {
         if (dev->read_sector(dev, start_sector + i, buffer + (i * sector_size)) != 0) {
@@ -224,36 +215,30 @@ static int execute_mkfs(const char* image_file, command_options *opts, int argc,
     }
 
     uint32_t total_image_sectors = base_dev->get_sector_count(base_dev);
-    if (start_sector >= total_image_sectors) {        return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
-    }
+    if (start_sector >= total_image_sectors) return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
     uint32_t partition_sector_count = total_image_sectors - start_sector;
-    if (partition_sector_count == 0) {        return error("Partition has zero sectors.");
-    }
+    if (partition_sector_count == 0) return error("Partition has zero sectors.");
 
 
     // 2. Create partition_sector_device
     sector_device *part_dev = new_partition_sector_device(base_dev, start_sector, partition_sector_count);
-    if (!part_dev) {        return error("Could not create partition device.");
-    }
+    if (!part_dev) return error("Could not create partition device.");
 
     // 3. Create mem_allocator and clock_device
     mem_allocator *mem_alloc = new_malloc_based_mem_allocator();
-    if (!mem_alloc) {        return error("Could not create memory allocator.");
-    }
+    if (!mem_alloc) return error("Could not create memory allocator.");
     clock_device *clock_dev = new_rtc_based_clock_device();
-    if (!clock_dev) {        return error("Could not create clock device.");
-    }
+    if (!clock_dev) return error("Could not create clock device.");
 
     // 4. Create simple_filesystem instance
     simple_filesystem *sfs_instance = new_simple_filesystem(mem_alloc, part_dev, clock_dev);
-    if (!sfs_instance) {        return error("Could not create simple_filesystem instance.");
-    }
+    if (!sfs_instance) return error("Could not create simple_filesystem instance.");
 
     // 5. Call mkfs
     // For now, hardcode desired_block_size to 512 bytes
     uint32_t desired_block_size = 512; 
-    if (sfs_instance->mkfs(sfs_instance, (char*)label_str, desired_block_size) != 0) {        return error("Failed to create filesystem on '%s'.", image_file);
-    }
+    if (sfs_instance->mkfs(sfs_instance, (char*)label_str, desired_block_size) != 0) 
+        return error("Failed to create filesystem on '%s'.", image_file);
 
     printf("Successfully created SFS filesystem on '%s' starting at sector %ld with label '%s'.\n", image_file, start_sector, label_str);
 
@@ -280,33 +265,27 @@ static int execute_info(const char* image_file, command_options *opts, int argc,
     }
 
     uint32_t total_image_sectors = base_dev->get_sector_count(base_dev);
-    if (start_sector >= total_image_sectors) {        return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
-    }
+    if (start_sector >= total_image_sectors) return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
     uint32_t partition_sector_count = total_image_sectors - start_sector;
-    if (partition_sector_count == 0) {        return error("Partition has zero sectors.");
-    }
+    if (partition_sector_count == 0) return error("Partition has zero sectors.");
 
     // 2. Create partition_sector_device
     sector_device *part_dev = new_partition_sector_device(base_dev, start_sector, partition_sector_count);
-    if (!part_dev) {        return error("Could not create partition device.");
-    }
+    if (!part_dev) return error("Could not create partition device.");
 
     // 3. Create mem_allocator and clock_device
     mem_allocator *mem_alloc = new_malloc_based_mem_allocator();
-    if (!mem_alloc) {        return error("Could not create memory allocator.");
-    }
+    if (!mem_alloc) return error("Could not create memory allocator.");
     clock_device *clock_dev = new_rtc_based_clock_device();
-    if (!clock_dev) {        return error("Could not create clock device.");
-    }
+    if (!clock_dev) return error("Could not create clock device.");
 
     // 4. Create simple_filesystem instance
     simple_filesystem *sfs_instance = new_simple_filesystem(mem_alloc, part_dev, clock_dev);
-    if (!sfs_instance) {        return error("Could not create simple_filesystem instance.");
-    }
+    if (!sfs_instance) return error("Could not create simple_filesystem instance.");
 
     // 5. Mount the filesystem
-    if (sfs_instance->mount(sfs_instance, 1 /* readonly */) != 0) {        return error("Failed to mount filesystem on '%s' starting at sector %ld.", image_file, start_sector);
-    }
+    if (sfs_instance->mount(sfs_instance, 1 /* readonly */) != 0) 
+        return error("Failed to mount filesystem on '%s' starting at sector %ld.", image_file, start_sector);
 
     printf("Filesystem Information for '%s' (partition at sector %ld):\n", image_file, start_sector);
     sfs_instance->dump_debug_info(sfs_instance, "Filesystem Info");
@@ -339,37 +318,30 @@ static int execute_ls(const char* image_file, command_options *opts, int argc, c
     }
 
     uint32_t total_image_sectors = base_dev->get_sector_count(base_dev);
-    if (start_sector >= total_image_sectors) {        return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
-    }
+    if (start_sector >= total_image_sectors) return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
     uint32_t partition_sector_count = total_image_sectors - start_sector;
-    if (partition_sector_count == 0) {        return error("Partition has zero sectors.");
-    }
+    if (partition_sector_count == 0) return error("Partition has zero sectors.");
 
     // 2. Create partition_sector_device
     sector_device *part_dev = new_partition_sector_device(base_dev, start_sector, partition_sector_count);
-    if (!part_dev) {        return error("Could not create partition device.");
-    }
+    if (!part_dev) return error("Could not create partition device.");
 
     // 3. Create mem_allocator and clock_device
     mem_allocator *mem_alloc = new_malloc_based_mem_allocator();
-    if (!mem_alloc) {        return error("Could not create memory allocator.");
-    }
+    if (!mem_alloc) return error("Could not create memory allocator.");
     clock_device *clock_dev = new_rtc_based_clock_device();
-    if (!clock_dev) {        return error("Could not create clock device.");
-    }
+    if (!clock_dev) return error("Could not create clock device.");
 
     // 4. Create simple_filesystem instance
     simple_filesystem *sfs_instance = new_simple_filesystem(mem_alloc, part_dev, clock_dev);
-    if (!sfs_instance) {        return error("Could not create simple_filesystem instance.");
-    }
+    if (!sfs_instance) return error("Could not create simple_filesystem instance.");
 
     // 5. Mount the filesystem
-    if (sfs_instance->mount(sfs_instance, 1 /* readonly */) != 0) {        return error("Failed to mount filesystem on '%s' starting at sector %ld.", image_file, start_sector);
-    }
+    if (sfs_instance->mount(sfs_instance, 1 /* readonly */) != 0) 
+        return error("Failed to mount filesystem on '%s' starting at sector %ld.", image_file, start_sector);
 
     sfs_handle *dir_handle = NULL;
-    if (sfs_instance->open_dir(sfs_instance, (char*)path, &dir_handle) != 0) {        return error("Could not open directory '%s'.", path);
-    }
+    if (sfs_instance->open_dir(sfs_instance, (char*)path, &dir_handle) != 0) return error("Could not open directory '%s'.", path);
 
     sfs_dir_entry entry;
     printf("Contents of '%s' (filesystem at sector %ld):\n", path, start_sector);
@@ -413,36 +385,30 @@ static int execute_mkdir(const char* image_file, command_options *opts, int argc
     }
 
     uint32_t total_image_sectors = base_dev->get_sector_count(base_dev);
-    if (start_sector >= total_image_sectors) {        return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
-    }
+    if (start_sector >= total_image_sectors) return error("Start sector %ld is beyond total image sectors %u.", start_sector, total_image_sectors);
     uint32_t partition_sector_count = total_image_sectors - start_sector;
-    if (partition_sector_count == 0) {        return error("Partition has zero sectors.");
-    }
+    if (partition_sector_count == 0) return error("Partition has zero sectors.");
 
     // 2. Create partition_sector_device
     sector_device *part_dev = new_partition_sector_device(base_dev, start_sector, partition_sector_count);
-    if (!part_dev) {        return error("Could not create partition device.");
-    }
+    if (!part_dev) return error("Could not create partition device.");
 
     // 3. Create mem_allocator and clock_device
     mem_allocator *mem_alloc = new_malloc_based_mem_allocator();
-    if (!mem_alloc) {        return error("Could not create memory allocator.");
-    }
+    if (!mem_alloc) return error("Could not create memory allocator.");
     clock_device *clock_dev = new_rtc_based_clock_device();
-    if (!clock_dev) {        return error("Could not create clock device.");
-    }
+    if (!clock_dev) return error("Could not create clock device.");
 
     // 4. Create simple_filesystem instance
     simple_filesystem *sfs_instance = new_simple_filesystem(mem_alloc, part_dev, clock_dev);
-    if (!sfs_instance) {        return error("Could not create simple_filesystem instance.");
-    }
+    if (!sfs_instance) return error("Could not create simple_filesystem instance.");
 
     // 5. Mount the filesystem
-    if (sfs_instance->mount(sfs_instance, 0 /* read-write */) != 0) {        return error("Failed to mount filesystem on '%s' starting at sector %ld.", image_file, start_sector);
-    }
+    if (sfs_instance->mount(sfs_instance, 0 /* read-write */) != 0) 
+        return error("Failed to mount filesystem on '%s' starting at sector %ld.", image_file, start_sector);
 
-    if (sfs_instance->create(sfs_instance, (char*)path, 1 /* is_dir */) != 0) {        return error("Failed to create directory '%s'.", path);
-    }
+    if (sfs_instance->create(sfs_instance, (char*)path, 1 /* is_dir */) != 0) 
+        return error("Failed to create directory '%s'.", path);
 
     printf("Successfully created directory '%s' on filesystem at sector %ld.\n", path, start_sector);
 

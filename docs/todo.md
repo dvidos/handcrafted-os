@@ -1,5 +1,36 @@
 # things to do
 
+## last todo, esp after the nursery projects (stage2, graphics, filesys)
+
+* bring stage2, with some form of memory mapping and optional graphics into stable
+* make filesys tool to create and manipulate volumes. 
+  * this way we do not need losetup and loopback device (root access)
+* then...
+  * redo the build system a bit better, using what we have with stage2.
+  * make boot into graphics, mounting the root filesystem part of the image
+
+
+GUI roadmap
+* make gui and dependencies clear, as in simple-file-system
+* create windows & window maker
+* make a terminal view, and a terminal window (VT100 state machine)
+* have shell in graphical environment
+
+Porting roadmap
+* First steps
+  * sash (minimal shell)
+  * kilo (1k lines text editor with search, save, quit)
+  * tcc (tiny c compiler & assembler, produces ELF executables)
+* For more comfortable use:
+  * dash (support for scripting)
+  * vis (busybox editor)
+  * make (bmake, from bsd, must leaner than gnu make, for self containd project)
+  * busybox (but strong posix requirements... not sure...)
+
+
+
+## previous todo, 2023
+
 * Implement a "make test" functionality for kernel as well.
 Move the testing framework to the library and make a few tests
 to ensure usefulness.

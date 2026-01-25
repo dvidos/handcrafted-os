@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
-#include "simple_filesystem.h"
-#include "dependencies/returns.h"
+#include "../simple_filesystem.h"
+#include "../dependencies/returns.h"
 
 #define assert(x)  if (!(x)) { print_log(); printf("Assertion failed: %s\n", #x); exit(1); }
 #define assert_no_err(err)   if (err != OK) { print_log(); printf("Returned status %d, at %s:%d\n", err, __FILE__, __LINE__); exit(1); }

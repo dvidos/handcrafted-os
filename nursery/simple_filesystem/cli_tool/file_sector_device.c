@@ -1,6 +1,9 @@
 #include "file_sector_device.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h> // For errno and strerror
+#include <string.h> // For strerror
+#include "../cli_tool/utils.h" // For error function
 
 #define DEFAULT_SECTOR_SIZE 512
 
@@ -23,10 +26,12 @@ static uint32_t file_get_sector_count(sector_device *device) {
 static int file_read_sector(sector_device *device, uint32_t sector_no, uint8_t *buffer) {
     file_device_data *data = (file_device_data *)device->device_data;
     if (fseek(data->file, sector_no * data->sector_size, SEEK_SET) != 0) {
-        return -1; // Error
+        // error("Failed to seek to sector %u: %s", sector_no, strerror(errno)); // Cannot use error here, as it returns 1.
+        return -1; 
     }
     if (fread(buffer, data->sector_size, 1, data->file) != 1) {
-        return -1; // Error
+        // error("Failed to read sector %u: %s", sector_no, strerror(errno)); // Cannot use error here, as it returns 1.
+        return -1; 
     }
     return 0; // Success
 }
@@ -34,10 +39,12 @@ static int file_read_sector(sector_device *device, uint32_t sector_no, uint8_t *
 static int file_write_sector(sector_device *device, uint32_t sector_no, uint8_t *buffer) {
     file_device_data *data = (file_device_data *)device->device_data;
     if (fseek(data->file, sector_no * data->sector_size, SEEK_SET) != 0) {
-        return -1; // Error
+        // error("Failed to seek to sector %u for writing: %s", sector_no, strerror(errno)); // Cannot use error here, as it returns 1.
+        return -1; 
     }
     if (fwrite(buffer, data->sector_size, 1, data->file) != 1) {
-        return -1; // Error
+        // error("Failed to write sector %u: %s", sector_no, strerror(errno)); // Cannot use error here, as it returns 1.
+        return -1; 
     }
     return 0; // Success
 }
@@ -49,6 +56,7 @@ static void file_dump_debug_info(sector_device *device, const char *title) {
 sector_device *new_file_sector_device(const char *filename) {
     FILE *file = fopen(filename, "r+b");
     if (!file) {
+        error("Could not open file '%s': %s", filename, strerror(errno));
         return NULL;
     }
 
@@ -57,11 +65,22 @@ sector_device *new_file_sector_device(const char *filename) {
     fseek(file, 0, SEEK_SET);
 
     file_device_data *data = malloc(sizeof(file_device_data));
+    if (!data) {
+        fclose(file);
+        error("Memory allocation failed for file_device_data.");
+        return NULL;
+    }
     data->file = file;
     data->sector_size = DEFAULT_SECTOR_SIZE;
     data->sector_count = file_size / DEFAULT_SECTOR_SIZE;
 
     sector_device *device = malloc(sizeof(sector_device));
+    if (!device) {
+        fclose(file);
+        free(data);
+        error("Memory allocation failed for sector_device.");
+        return NULL;
+    }
     device->device_data = data;
     device->get_sector_size = file_get_sector_size;
     device->get_sector_count = file_get_sector_count;

@@ -1,8 +1,8 @@
-#include "dependencies/returns.h"
-#include "dependencies/mem_allocator.h"
-#include "dependencies/sector_device.h"
-#include "dependencies/clock_device.h"
-#include "simple_filesystem.h"
+#include "../dependencies/returns.h"
+#include "../dependencies/mem_allocator.h"
+#include "../dependencies/sector_device.h"
+#include "../dependencies/clock_device.h"
+#include "../simple_filesystem.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
