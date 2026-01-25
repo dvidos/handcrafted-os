@@ -36,8 +36,7 @@ bool get_bool_option(command_options *opts, const char *name);
 typedef struct command_config {
     const char *name;
     const char *description;
-    // The execute function now takes an image_file, options, remaining argc, and argv
-    int (*execute)(const char* image_file, command_options *opts, int argc, char *argv[]);
+    int (*execute)(command_options *opts, int argc, char *argv[]);
     const option_config *options;
 } command_config;
 

@@ -113,8 +113,7 @@ int parse_and_dispatch_commands(int argc, char *argv[], const command_config *al
         if (help_command_config) {
             command_options dummy_opts = {0}; // help command has no options
             char *help_argv[] = {(char*)target_command_name}; // Pass target_command_name as argument to execute_help
-            // image_file is NULL for help command, as it doesn't operate on an image
-            int result = help_command_config->execute(NULL, &dummy_opts, 1, help_argv);
+            int result = help_command_config->execute(&dummy_opts, 1, help_argv);
             free(dummy_opts.options); // Should be NULL anyway, but good practice
             return result;
         } else {
@@ -122,14 +121,13 @@ int parse_and_dispatch_commands(int argc, char *argv[], const command_config *al
         }
     }
     
-    // Regular commands: "sfs <image_file> <command> ..."
-    if (argc < 3) { // Need at least "sfs <image_file> <command>"
+    // Regular commands: "sfs <command> ..."
+    if (argc < 2) { // Need at least "sfs <command>"
         print_general_help_func();
         return 1;
     }
 
-    const char *image_file = argv[1];
-    const char *command_name = argv[2];
+    const char *command_name = argv[1]; // Now argv[1] is the command
     
     const command_config *command = find_command(command_name, all_commands, num_all_commands);
     if (command == NULL) {
@@ -144,14 +142,15 @@ int parse_and_dispatch_commands(int argc, char *argv[], const command_config *al
         return error("Memory allocation failed for non-option arguments.");
     }
 
-    // Pass argv + 3 (skip "sfs", "image_file", "command_name")
-    if (parse_options(command, argc - 3, argv + 3, &opts, &non_option_argc, non_option_argv) != 0) {
+    // Pass argv + 2 (skip "sfs" and "command_name")
+    if (parse_options(command, argc - 2, argv + 2, &opts, &non_option_argc, non_option_argv) != 0) {
         free(non_option_argv);
         free(opts.options);
         return 1; // Error already printed by parse_options
     }
     
-    int result = command->execute(image_file, &opts, non_option_argc, non_option_argv);
+    // Call execute without image_file parameter
+    int result = command->execute(&opts, non_option_argc, non_option_argv);
 
     free(opts.options);
     free(non_option_argv);

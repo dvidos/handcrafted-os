@@ -19,17 +19,17 @@
 
 // --- Forward Declarations of Command Execution Functions ---
 
-static int execute_create(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_wrsect(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_rdsect(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_mkfs(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_info(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_ls(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_mkdir(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_import(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_export(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_rm(const char* image_file, command_options *opts, int argc, char *argv[]);
-static int execute_help(const char* image_file, command_options *opts, int argc, char *argv[]);
+static int execute_create(command_options *opts, int argc, char *argv[]);
+static int execute_wrsect(command_options *opts, int argc, char *argv[]);
+static int execute_rdsect(command_options *opts, int argc, char *argv[]);
+static int execute_mkfs(command_options *opts, int argc, char *argv[]);
+static int execute_info(command_options *opts, int argc, char *argv[]);
+static int execute_ls(command_options *opts, int argc, char *argv[]);
+static int execute_mkdir(command_options *opts, int argc, char *argv[]);
+static int execute_import(command_options *opts, int argc, char *argv[]);
+static int execute_export(command_options *opts, int argc, char *argv[]);
+static int execute_rm(command_options *opts, int argc, char *argv[]);
+static int execute_help(command_options *opts, int argc, char *argv[]);
 
 
 // --- Global Commands Array ---
@@ -39,46 +39,60 @@ void print_general_help();
 
 const command_config commands[] = { // Not static so it can be passed to command_parser
     {"create", "Create a new disk image", execute_create, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--size", 's', "Size of the volume (e.g., 20M)", true, "size", OPT_STRING},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"wrsect", "Write sectors from a file", execute_wrsect, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--sector", 's', "Starting sector number to write to", true, "sector", OPT_INT},
         {"--file", 'f', "File to read data from", true, "file", OPT_STRING},
         {"--count", 'c', "Number of sectors to write (default: 1)", true, "count", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"rdsect", "Read sectors to a file or stdout", execute_rdsect, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--sector", 's', "Starting sector number to read from", true, "sector", OPT_INT},
         {"--file", 'f', "File to write data to (optional)", true, "file", OPT_STRING},
         {"--count", 'c', "Number of sectors to read (default: 1)", true, "count", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"mkfs", "Create a filesystem on the disk image", execute_mkfs, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {"--label", 'l', "Volume label", true, "label", OPT_STRING},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"info", "Display filesystem information", execute_info, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"ls", "List files in a directory", execute_ls, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"mkdir", "Create a directory", execute_mkdir, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"import", "Import a file from host to the filesystem", execute_import, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"export", "Export a file from the filesystem to host", execute_export, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},    {"rm", "Remove a file or directory", execute_rm, NULL},    {"help", "Display help for commands", execute_help, NULL},
+    }},    {"rm", "Remove a file or directory", execute_rm, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+        {"--dir", 'd', "Remove a directory (default: file)", false, "is_dir", OPT_BOOL},
+        {NULL, 0, NULL, false, NULL, 0} // Terminator
+    }},    {"help", "Display help for commands", execute_help, NULL},
     {NULL, NULL, NULL, NULL} // Terminator
 };
 const size_t NUM_COMMANDS = (sizeof(commands) / sizeof(commands[0]) -1); // -1 because of NULL terminator
@@ -186,7 +200,9 @@ static void cleanup_sfs_dependencies(sfs_runtime_context *context) {
     // are not yet implemented in the underlying libraries.
 }
 
-static int execute_create(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_create(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'create' command.");
     const char *size_str = get_str_option(opts, "size");
     if (size_str == NULL) return error("Missing required --size argument for 'create' command.");
 
@@ -205,7 +221,9 @@ static int execute_create(const char* image_file, command_options *opts, int arg
     return 0;
 }
 
-static int execute_wrsect(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_wrsect(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'wrsect' command.");
     long start_sector = get_int_option(opts, "sector", -1);
     long count = get_int_option(opts, "count", 1);
     const char *file_str = get_str_option(opts, "file");
@@ -250,7 +268,9 @@ static int execute_wrsect(const char* image_file, command_options *opts, int arg
     return 0;
 }
 
-static int execute_rdsect(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_rdsect(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'rdsect' command.");
     long start_sector = get_int_option(opts, "sector", -1);
     long count = get_int_option(opts, "count", 1);
     const char *file_str = get_str_option(opts, "file");
@@ -296,7 +316,9 @@ static int execute_rdsect(const char* image_file, command_options *opts, int arg
     free(buffer);    return 0;
 }
 
-static int execute_mkfs(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_mkfs(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'mkfs' command.");
     long start_sector = get_int_option(opts, "start", -1);
     const char *label_str = get_str_option(opts, "label");
     sfs_runtime_context context; // Declare context struct
@@ -332,7 +354,9 @@ static int execute_mkfs(const char* image_file, command_options *opts, int argc,
 
     return 0;
 }
-static int execute_info(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_info(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'info' command.");
     long start_sector = get_int_option(opts, "start", -1);
     sfs_runtime_context context;
 
@@ -353,7 +377,9 @@ static int execute_info(const char* image_file, command_options *opts, int argc,
 
     return 0;
 }
-static int execute_ls(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_ls(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'ls' command.");
     long start_sector = get_int_option(opts, "start", -1);
     const char *path = "/"; // Default to root directory
     sfs_runtime_context context;
@@ -392,7 +418,9 @@ static int execute_ls(const char* image_file, command_options *opts, int argc, c
     return 0;
 }
 
-static int execute_mkdir(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_mkdir(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'mkdir' command.");
     long start_sector = get_int_option(opts, "start", -1);
     const char *path = NULL;
     sfs_runtime_context context;
@@ -426,7 +454,9 @@ static int execute_mkdir(const char* image_file, command_options *opts, int argc
 }
 
 
-static int execute_import(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_import(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'import' command.");
     long start_sector = get_int_option(opts, "start", -1);
     const char *source_host_file = NULL;
     const char *destination_sfs_path = NULL;
@@ -505,7 +535,9 @@ static int execute_import(const char* image_file, command_options *opts, int arg
 
     return 0;
 }
-static int execute_export(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_export(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'export' command.");
     long start_sector = get_int_option(opts, "start", -1);
     const char *source_sfs_path = NULL;
     const char *destination_host_file = NULL;
@@ -581,7 +613,9 @@ static int execute_export(const char* image_file, command_options *opts, int arg
 
     return 0;
 }
-static int execute_rm(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_rm(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'rm' command.");
     long start_sector = get_int_option(opts, "start", -1);
     bool is_dir = get_bool_option(opts, "is_dir");
     const char *sfs_path = NULL;
@@ -617,7 +651,7 @@ static int execute_rm(const char* image_file, command_options *opts, int argc, c
 
     return 0;
 }
-static int execute_help(const char* image_file, command_options *opts, int argc, char *argv[]) {
+static int execute_help(command_options *opts, int argc, char *argv[]) {
     if (argc == 0) {
         print_general_help();
         return 0;
