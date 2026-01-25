@@ -1,7 +1,7 @@
 #pragma once
 
 // #define HOSTED // for now
-// #define STANDALONE // for now
+#define STANDALONE // for now
 
 // -----------------------------------------------------
 
