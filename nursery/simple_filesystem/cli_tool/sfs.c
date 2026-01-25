@@ -178,7 +178,7 @@ static int setup_sfs_context(const char* image_file, long start_sector, int moun
     return 0; // Success
 }
 
-static void cleanup_sfs_dependencies(sfs_runtime_context *context) {
+static void teardown_sfs_context(sfs_runtime_context *context) {
     if (context->sfs_file_handle) {
         if (context->sfs_instance) {
             context->sfs_instance->close(context->sfs_instance, context->sfs_file_handle);
@@ -199,6 +199,7 @@ static void cleanup_sfs_dependencies(sfs_runtime_context *context) {
     // As per previous TODO comments, release functions for base_dev, part_dev, mem_alloc, clock_dev
     // are not yet implemented in the underlying libraries.
 }
+
 
 static int execute_create(command_options *opts, int argc, char *argv[]) {
     const char *image_file = get_str_option(opts, "image");
@@ -336,24 +337,25 @@ static int execute_mkfs(command_options *opts, int argc, char *argv[]) {
 
     // Setup SFS context
     if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
-        cleanup_sfs_dependencies(&context); // Cleanup anything allocated within setup_sfs_context
+        teardown_sfs_context(&context); // Cleanup anything allocated within setup_sfs_context
         return -1; // setup_sfs_context already printed error
     }
 
     // Call mkfs
     uint32_t desired_block_size = 512; 
     if (context.sfs_instance->mkfs(context.sfs_instance, (char*)label_str, desired_block_size) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Failed to create filesystem on '%s'.", image_file);
     }
 
     printf("Successfully created SFS filesystem on '%s' starting at sector %ld with label '%s'.\n", image_file, start_sector, label_str);
 
     // Cleanup
-    cleanup_sfs_dependencies(&context);
+    teardown_sfs_context(&context);
 
     return 0;
 }
+
 static int execute_info(command_options *opts, int argc, char *argv[]) {
     const char *image_file = get_str_option(opts, "image");
     if (image_file == NULL) return error("Missing required --image argument for 'info' command.");
@@ -365,7 +367,7 @@ static int execute_info(command_options *opts, int argc, char *argv[]) {
     }
 
     if (setup_sfs_context(image_file, start_sector, 1 /* readonly */, &context) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
 
@@ -373,10 +375,11 @@ static int execute_info(command_options *opts, int argc, char *argv[]) {
     context.sfs_instance->dump_debug_info(context.sfs_instance, "Filesystem Info");
 
     // Cleanup
-    cleanup_sfs_dependencies(&context);
+    teardown_sfs_context(&context);
 
     return 0;
 }
+
 static int execute_ls(command_options *opts, int argc, char *argv[]) {
     const char *image_file = get_str_option(opts, "image");
     if (image_file == NULL) return error("Missing required --image argument for 'ls' command.");
@@ -393,13 +396,13 @@ static int execute_ls(command_options *opts, int argc, char *argv[]) {
     }
 
     if (setup_sfs_context(image_file, start_sector, 1 /* readonly */, &context) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
 
     sfs_handle *dir_handle = NULL;
     if (context.sfs_instance->open_dir(context.sfs_instance, (char*)path, &dir_handle) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Could not open directory '%s'.", path);
     }
     // Assign dir_handle to context.sfs_file_handle for cleanup.
@@ -413,7 +416,7 @@ static int execute_ls(command_options *opts, int argc, char *argv[]) {
         }
     }
 
-    cleanup_sfs_dependencies(&context);
+    teardown_sfs_context(&context);
 
     return 0;
 }
@@ -437,22 +440,21 @@ static int execute_mkdir(command_options *opts, int argc, char *argv[]) {
     }
 
     if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
 
     if (context.sfs_instance->create(context.sfs_instance, (char*)path, 1 /* is_dir */) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Failed to create directory '%s'.", path);
     }
 
     printf("Successfully created directory '%s' on filesystem at sector %ld.\n", path, start_sector);
 
-    cleanup_sfs_dependencies(&context);
+    teardown_sfs_context(&context);
 
     return 0;
 }
-
 
 static int execute_import(command_options *opts, int argc, char *argv[]) {
     const char *image_file = get_str_option(opts, "image");
@@ -479,13 +481,13 @@ static int execute_import(command_options *opts, int argc, char *argv[]) {
 
     // Setup SFS context
     if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
 
     context.host_fp = fopen(source_host_file, "rb");
     if (!context.host_fp) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Error opening host file '%s': %s", source_host_file, strerror(errno));
     }
 
@@ -496,11 +498,11 @@ static int execute_import(command_options *opts, int argc, char *argv[]) {
 
     // --- Open SFS file for writing ---
     if (context.sfs_instance->open(context.sfs_instance, (char*)destination_sfs_path, SFS_O_WRONLY, &context.sfs_file_handle) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Failed to open SFS file '%s' for writing.", destination_sfs_path);
     }
     if (context.sfs_file_handle == NULL) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("SFS file handle is NULL after opening '%s'.", destination_sfs_path);
     }
 
@@ -508,7 +510,7 @@ static int execute_import(command_options *opts, int argc, char *argv[]) {
     uint32_t sector_size = context.base_dev->get_sector_size(context.base_dev);
     context.buffer = malloc(sector_size);
     if (!context.buffer) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Failed to allocate buffer for import operation.");
     }
 
@@ -517,24 +519,25 @@ static int execute_import(command_options *opts, int argc, char *argv[]) {
     while ((bytes_read = fread(context.buffer, 1, sector_size, context.host_fp)) > 0) {
         int written_bytes = context.sfs_instance->write(context.sfs_instance, context.sfs_file_handle, context.buffer, bytes_read);
         if (written_bytes < 0 || (size_t)written_bytes != bytes_read) {
-            cleanup_sfs_dependencies(&context);
+            teardown_sfs_context(&context);
             return error("Error writing to SFS file '%s'. Wrote %d bytes, expected %zu.", destination_sfs_path, written_bytes, bytes_read);
         }
         total_bytes_imported += written_bytes;
     }
 
     if (ferror(context.host_fp)) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Error reading from host file '%s'.", source_host_file);
     }
 
     // --- Cleanup ---
-    cleanup_sfs_dependencies(&context);
+    teardown_sfs_context(&context);
 
     printf("Successfully imported '%s' (host) to '%s' (SFS) with %d bytes.\n", source_host_file, destination_sfs_path, total_bytes_imported);
 
     return 0;
 }
+
 static int execute_export(command_options *opts, int argc, char *argv[]) {
     const char *image_file = get_str_option(opts, "image");
     if (image_file == NULL) return error("Missing required --image argument for 'export' command.");
@@ -560,24 +563,24 @@ static int execute_export(command_options *opts, int argc, char *argv[]) {
 
     // Setup SFS context
     if (setup_sfs_context(image_file, start_sector, 1 /* readonly */, &context) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
 
     // --- Open SFS file for reading ---
     if (context.sfs_instance->open(context.sfs_instance, (char*)source_sfs_path, SFS_O_RDONLY, &context.sfs_file_handle) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Failed to open SFS file '%s' for reading.", source_sfs_path);
     }
     if (context.sfs_file_handle == NULL) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("SFS file handle is NULL after opening '%s'.", source_sfs_path);
     }
 
     // --- Open host file for writing ---
     context.host_fp = fopen(destination_host_file, "wb");
     if (!context.host_fp) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Error opening host file '%s' for writing: %s", destination_host_file, strerror(errno));
     }
 
@@ -585,7 +588,7 @@ static int execute_export(command_options *opts, int argc, char *argv[]) {
     uint32_t sector_size = context.base_dev->get_sector_size(context.base_dev); // Use base_dev to get sector size
     context.buffer = malloc(sector_size);
     if (!context.buffer) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Failed to allocate buffer for export operation.");
     }
 
@@ -594,7 +597,7 @@ static int execute_export(command_options *opts, int argc, char *argv[]) {
     while ((bytes_read = context.sfs_instance->read(context.sfs_instance, context.sfs_file_handle, context.buffer, sector_size)) > 0) {
         size_t written_bytes = fwrite(context.buffer, 1, bytes_read, context.host_fp);
         if (written_bytes != bytes_read) {
-            cleanup_sfs_dependencies(&context);
+            teardown_sfs_context(&context);
             return error("Error writing to host file '%s'. Wrote %zu bytes, expected %zu.", destination_host_file, written_bytes, bytes_read);
         }
         total_bytes_exported += bytes_read;
@@ -602,17 +605,18 @@ static int execute_export(command_options *opts, int argc, char *argv[]) {
     
     // Check for read errors from SFS (sfs_instance->read returns -1 on error)
     if ((int)bytes_read == -1) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Error reading from SFS file '%s'.", source_sfs_path);
     }
 
     // --- Cleanup ---
-    cleanup_sfs_dependencies(&context);
+    teardown_sfs_context(&context);
 
     printf("Successfully exported '%s' (SFS) to '%s' (host) with %d bytes.\n", source_sfs_path, destination_host_file, total_bytes_exported);
 
     return 0;
 }
+
 static int execute_rm(command_options *opts, int argc, char *argv[]) {
     const char *image_file = get_str_option(opts, "image");
     if (image_file == NULL) return error("Missing required --image argument for 'rm' command.");
@@ -633,24 +637,25 @@ static int execute_rm(command_options *opts, int argc, char *argv[]) {
 
     // Setup SFS context
     if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
 
     // --- Unlink file or directory ---
     int unlink_option = is_dir ? 1 : 0; // 1 for directory, 0 for file
     if (context.sfs_instance->unlink(context.sfs_instance, (char*)sfs_path, unlink_option) != 0) {
-        cleanup_sfs_dependencies(&context);
+        teardown_sfs_context(&context);
         return error("Failed to remove '%s' (is_dir: %d).", sfs_path, is_dir);
     }
 
     // --- Cleanup ---
-    cleanup_sfs_dependencies(&context);
+    teardown_sfs_context(&context);
 
     printf("Successfully removed '%s' (is_dir: %d) from filesystem at sector %ld.\n", sfs_path, is_dir, start_sector);
 
     return 0;
 }
+
 static int execute_help(command_options *opts, int argc, char *argv[]) {
     if (argc == 0) {
         print_general_help();
