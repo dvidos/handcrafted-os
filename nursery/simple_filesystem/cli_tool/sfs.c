@@ -177,7 +177,7 @@ static int setup_sfs_context(const char* image_file, long start_sector, int moun
 
     // 5. Mount Filesystem
     if (mount_type != MOUNT_NONE) {
-        int err = context->sfs_instance->mount(context->sfs_instance, MOUNT_READONLY ? 1 : 0);
+        int err = context->sfs_instance->mount(context->sfs_instance, mount_type == MOUNT_READONLY ? 1 : 0);
         if (err)
             return error("Failed (%d) to mount filesystem on '%s' starting at sector %ld.", err, image_file, start_sector);
     }
@@ -241,6 +241,11 @@ static int execute_wrsect(command_options *opts, int argc, char *argv[]) {
     FILE *src_file = fopen(file_str, "r");
     if (!src_file) return error("Error opening source file '%s': %s", file_str, strerror(errno));
 
+    // Get actual size of the source file
+    fseek(src_file, 0, SEEK_END);
+    long source_file_actual_size = ftell(src_file);
+    fseek(src_file, 0, SEEK_SET); // Rewind to the beginning
+
     sector_device *dev = new_file_sector_device(image_file);
     if (!dev) {
         fclose(src_file);
@@ -258,7 +263,7 @@ static int execute_wrsect(command_options *opts, int argc, char *argv[]) {
         printf("Warning: Source file '%s' (%zu bytes) is smaller than target write size (%ld bytes). Padding with zeros.\n", file_str, actual_bytes_read, total_bytes_to_write);
     } else if (actual_bytes_read == 0 && total_bytes_to_write > 0) {
         printf("Warning: Source file '%s' is empty, writing %ld zero bytes.\n", file_str, total_bytes_to_write);
-    } else if (actual_bytes_read > total_bytes_to_write) {
+    } else if (source_file_actual_size > total_bytes_to_write) {
         error("Warning: Source file '%s' (%zu bytes) is larger than target write size (%ld bytes). Truncating to %ld bytes.\n", file_str, actual_bytes_read, total_bytes_to_write, total_bytes_to_write);
     }
 
@@ -315,9 +320,9 @@ static int execute_rdsect(command_options *opts, int argc, char *argv[]) {
         fclose(f);
         printf("Read %ld sectors (total %ld bytes) starting from sector %ld from '%s' into '%s'.\n", count, total_bytes_to_read, start_sector, image_file, file_str);
     } else {
-        printf("--- Hexdump of %ld sectors starting from %ld ---", count, start_sector);
+        printf("--- Hexdump of %ld sectors starting from %ld ---\n", count, start_sector);
         hexdump_with_folding(buffer, total_bytes_to_read, start_sector * sector_size);
-        printf("--- End of Hexdump ---");
+        printf("--- End of Hexdump ---\n");
     }
 
     free(buffer);    return 0;
@@ -450,9 +455,10 @@ static int execute_mkdir(command_options *opts, int argc, char *argv[]) {
         return -1; // setup_sfs_context already printed error
     }
 
-    if (context.sfs_instance->create(context.sfs_instance, (char*)path, 1 /* is_dir */) != 0) {
+    int err = context.sfs_instance->create(context.sfs_instance, (char*)path, 1 /* is_dir */);
+    if (err) {
         teardown_sfs_context(&context);
-        return error("Failed to create directory '%s'.", path);
+        return error("Failed (%d) to create directory '%s'.", err, path);
     }
 
     printf("Successfully created directory '%s' on filesystem at sector %ld.\n", path, start_sector);
