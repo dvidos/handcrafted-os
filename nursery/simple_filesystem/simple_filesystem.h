@@ -25,8 +25,16 @@ typedef struct sfs_stat_info {
     uint32_t modified_at;
 } sfs_stat_info;
 
+typedef enum desired_block_size {
+    DESIRED_BLOCK_AUTO = 0,
+    DESIRED_BLOCK_512 = 512,
+    DESIRED_BLOCK_1K = 1024,
+    DESIRED_BLOCK_2K = 2048,
+    DESIRED_BLOCK_4K = 4096,
+} desired_block_size;
+
 struct simple_filesystem {
-    int (*mkfs)(simple_filesystem *sfs, char *volume_label, uint32_t desired_block_size);
+    int (*mkfs)(simple_filesystem *sfs, char *volume_label, desired_block_size desired_block_size);
     int (*mount)(simple_filesystem *sfs, int readonly);
     int (*sync)(simple_filesystem *sfs);
     int (*unmount)(simple_filesystem *sfs);

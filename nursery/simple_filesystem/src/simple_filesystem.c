@@ -26,7 +26,7 @@
 
 // ------------------------------------------------------------------
 
-static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, uint32_t desired_block_size) {
+static int sfs_mkfs(simple_filesystem *sfs, char *volume_label, desired_block_size desired_block_size) {
     filesys_data *data = (filesys_data *)sfs->sfs_data;
     if (data->mounted != NULL)
         return ERR_NOT_SUPPORTED;

@@ -121,8 +121,12 @@ typedef struct {
     uint8_t *buffer;
 } sfs_runtime_context;
 
+#define MOUNT_READWRITE   0
+#define MOUNT_READONLY    1
+#define MOUNT_NONE        2
+
 // Function to initialize and set up the SFS context
-static int setup_sfs_context(const char* image_file, long start_sector, int mount_readonly, sfs_runtime_context *context) {
+static int setup_sfs_context(const char* image_file, long start_sector, int mount_type, sfs_runtime_context *context) {
     // Initialize all pointers to NULL to ensure cleanup works safely
     context->host_fp = NULL;
     context->base_dev = NULL;
@@ -172,9 +176,12 @@ static int setup_sfs_context(const char* image_file, long start_sector, int moun
     }
 
     // 5. Mount Filesystem
-    if (context->sfs_instance->mount(context->sfs_instance, mount_readonly) != 0) {
-        return error("Failed to mount filesystem on '%s' starting at sector %ld.", image_file, start_sector);
+    if (mount_type != MOUNT_NONE) {
+        int err = context->sfs_instance->mount(context->sfs_instance, MOUNT_READONLY ? 1 : 0);
+        if (err)
+            return error("Failed (%d) to mount filesystem on '%s' starting at sector %ld.", err, image_file, start_sector);
     }
+
     return 0; // Success
 }
 
@@ -186,7 +193,6 @@ static void teardown_sfs_context(sfs_runtime_context *context) {
     }
     if (context->sfs_instance) {
         context->sfs_instance->unmount(context->sfs_instance);
-        // TODO: sfs_instance->release(sfs_instance); and its dependencies (clock_dev, mem_alloc, part_dev, base_dev)
     }
     if (context->host_fp) {
         fclose(context->host_fp);
@@ -336,16 +342,16 @@ static int execute_mkfs(command_options *opts, int argc, char *argv[]) {
     }
 
     // Setup SFS context
-    if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
+    if (setup_sfs_context(image_file, start_sector, MOUNT_NONE, &context) != 0) {
         teardown_sfs_context(&context); // Cleanup anything allocated within setup_sfs_context
         return -1; // setup_sfs_context already printed error
     }
 
     // Call mkfs
-    uint32_t desired_block_size = 512; 
-    if (context.sfs_instance->mkfs(context.sfs_instance, (char*)label_str, desired_block_size) != 0) {
+    int err = context.sfs_instance->mkfs(context.sfs_instance, (char*)label_str, DESIRED_BLOCK_AUTO);
+    if (err) {
         teardown_sfs_context(&context);
-        return error("Failed to create filesystem on '%s'.", image_file);
+        return error("Failed (%d) to create filesystem on '%s'.", err, image_file);
     }
 
     printf("Successfully created SFS filesystem on '%s' starting at sector %ld with label '%s'.\n", image_file, start_sector, label_str);
@@ -366,7 +372,7 @@ static int execute_info(command_options *opts, int argc, char *argv[]) {
         return error("Missing required --start-sector argument for 'info' command.");
     }
 
-    if (setup_sfs_context(image_file, start_sector, 1 /* readonly */, &context) != 0) {
+    if (setup_sfs_context(image_file, start_sector, MOUNT_READONLY, &context) != 0) {
         teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
@@ -395,7 +401,7 @@ static int execute_ls(command_options *opts, int argc, char *argv[]) {
         return error("Missing required --start-sector argument for 'ls' command.");
     }
 
-    if (setup_sfs_context(image_file, start_sector, 1 /* readonly */, &context) != 0) {
+    if (setup_sfs_context(image_file, start_sector, MOUNT_READONLY, &context) != 0) {
         teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
@@ -439,7 +445,7 @@ static int execute_mkdir(command_options *opts, int argc, char *argv[]) {
         return error("Missing required path argument for 'mkdir' command.");
     }
 
-    if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
+    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
         teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
@@ -480,7 +486,7 @@ static int execute_import(command_options *opts, int argc, char *argv[]) {
     }
 
     // Setup SFS context
-    if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
+    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
         teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }
@@ -636,7 +642,7 @@ static int execute_rm(command_options *opts, int argc, char *argv[]) {
     sfs_path = argv[0];
 
     // Setup SFS context
-    if (setup_sfs_context(image_file, start_sector, 0 /* read-write */, &context) != 0) {
+    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
         teardown_sfs_context(&context);
         return -1; // setup_sfs_context already printed error
     }

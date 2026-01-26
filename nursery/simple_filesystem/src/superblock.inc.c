@@ -30,7 +30,7 @@ static int auto_determine_block_size(uint32_t sector_size, uint64_t capacity) {
     return block_size;
 }
 
-static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, uint32_t desired_block_size, stored_superblock *sb) {
+static int populate_superblock(const char *label, uint32_t sector_size, uint32_t sector_count, desired_block_size desired_block_size, stored_superblock *sb) {
     memset(sb, 0, sizeof(stored_superblock));
 
     sb->magic[0] = 'S';
@@ -41,14 +41,14 @@ static int populate_superblock(const char *label, uint32_t sector_size, uint32_t
     uint32_t blk_size;
     uint64_t capacity = (uint64_t)sector_size * (uint64_t)sector_count;
 
-    if (desired_block_size > 0) {
+    if (desired_block_size == DESIRED_BLOCK_AUTO) {
+        blk_size = auto_determine_block_size(sector_size, capacity);
+    } else {
         if (desired_block_size < sector_size 
             || desired_block_size > 4096 
             || desired_block_size % sector_size != 0)
             return ERR_NOT_SUPPORTED;
         blk_size = desired_block_size;
-    } else {
-        blk_size = auto_determine_block_size(sector_size, capacity);
     }
 
     // basic metrics
