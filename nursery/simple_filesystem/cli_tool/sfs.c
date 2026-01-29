@@ -22,6 +22,8 @@
 static int execute_create(command_options *opts, int argc, char *argv[]);
 static int execute_wrsect(command_options *opts, int argc, char *argv[]);
 static int execute_rdsect(command_options *opts, int argc, char *argv[]);
+static int execute_wrpart(command_options *opts, int argc, char *argv[]);
+static int execute_rdpart(command_options *opts, int argc, char *argv[]);
 static int execute_mkfs(command_options *opts, int argc, char *argv[]);
 static int execute_info(command_options *opts, int argc, char *argv[]);
 static int execute_ls(command_options *opts, int argc, char *argv[]);
@@ -57,6 +59,20 @@ const command_config commands[] = { // Not static so it can be passed to command
         {"--count", 'c', "Number of sectors to read (default: 1)", true, "count", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
+    {"wrpart", "Write a partition table entry", execute_wrpart, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+        {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
+        {"--first-sector", 'f', "First sector LBA", true, "first_sector", OPT_INT},
+        {"--sector-count", 'c', "Number of sectors in the partition", true, "sector_count", OPT_INT},
+        {"--type", 't', "Partition type (byte value, can be hex)", true, "type", OPT_STRING},
+        {"--bootable", 'b', "Bootable flag (1 or 0)", true, "bootable", OPT_INT},
+        {NULL, 0, NULL, false, NULL, 0} // Terminator
+    }},
+    {"rdpart", "Read a partition table entry", execute_rdpart, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+        {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
+        {NULL, 0, NULL, false, NULL, 0} // Terminator
+    }},
     {"mkfs", "Create a filesystem on the disk image", execute_mkfs, (const option_config[]){
         {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
@@ -87,12 +103,14 @@ const command_config commands[] = { // Not static so it can be passed to command
         {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},    {"rm", "Remove a file or directory", execute_rm, (const option_config[]){
+    }},
+    {"rm", "Remove a file or directory", execute_rm, (const option_config[]){
         {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {"--dir", 'd', "Remove a directory (default: file)", false, "is_dir", OPT_BOOL},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},    {"help", "Display help for commands", execute_help, NULL},
+    }},
+    {"help", "Display help for commands", execute_help, NULL},
     {NULL, NULL, NULL, NULL} // Terminator
 };
 const size_t NUM_COMMANDS = (sizeof(commands) / sizeof(commands[0]) -1); // -1 because of NULL terminator
@@ -124,6 +142,19 @@ typedef struct {
 #define MOUNT_READWRITE   0
 #define MOUNT_READONLY    1
 #define MOUNT_NONE        2
+
+static inline uint32_t read_le32(const uint8_t *buffer) {
+    return buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
+}
+
+static inline void write_le32(uint8_t *buffer, uint32_t value) {
+    buffer[0] = value & 0xFF;
+    buffer[1] = (value >> 8) & 0xFF;
+    buffer[2] = (value >> 16) & 0xFF;
+    buffer[3] = (value >> 24) & 0xFF;
+}
+
+
 
 // Function to initialize and set up the SFS context
 static int setup_sfs_context(const char* image_file, long start_sector, int mount_type, sfs_runtime_context *context) {
@@ -326,6 +357,100 @@ static int execute_rdsect(command_options *opts, int argc, char *argv[]) {
     }
 
     free(buffer);    return 0;
+}
+
+static int execute_wrpart(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'wrpart' command.");
+    long entry = get_int_option(opts, "entry", -1);
+    long first_sector = get_int_option(opts, "first_sector", -1);
+    long sector_count = get_int_option(opts, "sector_count", -1);
+    const char *type_str = get_str_option(opts, "type");
+    long bootable = get_int_option(opts, "bootable", -1);
+
+    if (entry < 1 || entry > 4) return error("Partition entry must be between 1 and 4.");
+    if (first_sector < 0) return error("First sector must be a non-negative number.");
+    if (sector_count <= 0) return error("Sector count must be positive.");
+    if (type_str == NULL) return error("Missing required --type argument.");
+    if (bootable != 0 && bootable != 1) return error("Bootable flag must be 0 or 1.");
+
+    uint8_t type = (uint8_t)strtol(type_str, NULL, 0);
+
+    sector_device *dev = new_file_sector_device(image_file);
+    if (!dev) return error("Could not open image file '%s'.", image_file);
+
+    uint32_t sector_size = dev->get_sector_size(dev);
+    uint8_t *buffer = malloc(sector_size);
+    if (!buffer) return error("Failed to allocate memory for reading sector.");
+
+    if (dev->read_sector(dev, 0, buffer) != 0) {
+        free(buffer);
+        return error("Error reading MBR sector from image '%s'.", image_file);
+    }
+
+    uint8_t *part_entry = buffer + 0x1BE + ((entry - 1) * 16);
+
+    // Clear the entry first
+    memset(part_entry, 0, 16);
+
+    part_entry[0] = (bootable == 1) ? 0x80 : 0x00;
+    part_entry[4] = type;
+    write_le32(part_entry + 8, (uint32_t)first_sector);
+    write_le32(part_entry + 12, (uint32_t)sector_count);
+
+    if (dev->write_sector(dev, 0, buffer) != 0) {
+        free(buffer);
+        return error("Error writing MBR sector to image '%s'.", image_file);
+    }
+
+    printf("Successfully wrote partition %ld to '%s'.\n", entry, image_file);
+
+    free(buffer);
+    return 0;
+}
+
+static int execute_rdpart(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'rdpart' command.");
+    long entry = get_int_option(opts, "entry", -1);
+
+    if (entry < 1 || entry > 4) {
+        return error("Partition entry must be between 1 and 4.");
+    }
+
+    sector_device *dev = new_file_sector_device(image_file);
+    if (!dev) return error("Could not open image file '%s'.", image_file);
+
+    uint32_t sector_size = dev->get_sector_size(dev);
+    uint8_t *buffer = malloc(sector_size);
+    if (!buffer) {
+        // dev->release(dev); // Assuming dev has a release method
+        return error("Failed to allocate memory for reading sector.");
+    }
+
+    if (dev->read_sector(dev, 0, buffer) != 0) {
+        free(buffer);
+        // dev->release(dev);
+        return error("Error reading MBR sector from image '%s'.", image_file);
+    }
+
+    // Partition table starts at 0x1BE
+    const uint8_t *part_entry = buffer + 0x1BE + ((entry - 1) * 16);
+
+    uint8_t bootable = part_entry[0];
+    uint8_t type = part_entry[4];
+    uint32_t first_sector = read_le32(part_entry + 8);
+    uint32_t sector_count = read_le32(part_entry + 12);
+
+    printf("Partition %ld:\n", entry);
+    printf("  Bootable: %c\n", (bootable == 0x80) ? 'Y' : 'n');
+    printf("  Type: 0x%02x\n", type);
+    printf("  Start Sector: %u\n", first_sector);
+    printf("  Sector Count: %u\n", sector_count);
+
+    free(buffer);
+    // dev->release(dev);
+    return 0;
 }
 
 static int execute_mkfs(command_options *opts, int argc, char *argv[]) {
