@@ -51,5 +51,32 @@ disk_error:
     hlt
     jmp $
 
-times 510-($-$$) db 0
+; Pad the boot code to exactly 446 bytes (offset 0x1BD)
+; This leaves space for the 4 partition entries (64 bytes) and the boot signature (2 bytes).
+times (0x1BE - ($ - $$)) db 0
+
+; --- MBR Partition Table (starts at offset 0x1BE) ---
+; Each entry is 16 bytes.
+
+; Partition 1 Entry (offset 0x1BE)
+partition1_status                    db 0x80             ; Bootable flag (0x80 for bootable, 0x00 otherwise)
+partition1_chs_start_head            dw 0x00
+partition1_chs_start_sector_cylinder db 0x00
+partition1_type                      db 0x7f             ; Partition type (e.g., 0x0C for FAT32 LBA, 0x07 for FAT16B)
+partition1_chs_end_head              dw 0x00
+partition1_chs_end_sector_cylinder   db 0x00
+partition1_lba_start_sector          dd 25               ; LBA of first sector (sector 25 as requested)
+partition1_num_sectors               dd 0x00000000       ; Number of sectors in partition
+
+; Partition 2 Entry (offset 0x1CE)
+partition2_data             times 16 db 0
+
+; Partition 3 Entry (offset 0x1DE)
+partition3_data             times 16 db 0
+
+; Partition 4 Entry (offset 0x1EE)
+partition4_data             times 16 db 0
+
+; --- MBR Boot Signature (offset 0x1FE) ---
+; This must be 0xAA55 for the BIOS to recognize it as a bootable sector.
 dw 0xAA55

@@ -783,7 +783,7 @@ void stage2_main(void) {
     bios_print_str("Loading kernel...\r\n");
     if (!load_kernel())
         panic("Failed loading kernel");
-    printf("Kernel loaded at 0x%x, boot info address 0x%x\r\n", KERNEL_LOAD_ADDRESS, &boot_info);
+    printf("Kernel loaded at 0x%x, boot info at 0x%x\r\n", KERNEL_LOAD_ADDRESS, &boot_info);
 
     // we should already have decided the default graphics mode...
     discover_graphics_modes();
