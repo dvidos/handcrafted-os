@@ -12,6 +12,8 @@
     #error KERNEL_SECTORS not defined
 #endif
 
+#define DEFAULT_TO_GRAPHICS 0
+
 
 boot_info_t boot_info; // to pass to the kernel
 char global_buffer[128]; // for printf() and others
@@ -20,6 +22,7 @@ const char *menu_choices = "123456789abcdefghijklmnopqrstuvwxyz";
 uint16_t supported_vbe_modes[30];
 uint16_t supported_vbe_modes_count = 0;
 uint16_t selected_graphics_mode;
+int boot_in_text_mode = 0;
 int serial_port_initialized = 0;
 uint8_t _reg8_;
 uint16_t _reg16_;
@@ -725,6 +728,7 @@ void graphics_mode_menu() {
             if (index < supported_vbe_modes_count) {
                 printf("Setting selected mode to 0x%04x\r\n", supported_vbe_modes[index]);
                 selected_graphics_mode = supported_vbe_modes[index];
+                boot_in_text_mode = 0;
             }
         } else if (ascii == 'n') {
             if (++page_no >= pages_count) page_no = 0;
@@ -736,32 +740,30 @@ void graphics_mode_menu() {
 
 void bios_diagnostics_menu() {
     while (1) {
-        printf("Main menu\r\n");
-        printf("   1  - Select graphics mode\r\n");
-        printf("   2  - BIOS diagnostics menu\r\n");
-        printf("  ESC - Continue to boot\r\n");
-        int choice = choice_of(2);
-        if      (choice <  0) break;
-        else if (choice == 0) { graphics_mode_menu(); }
-        else if (choice == 1) { bios_diagnostics_menu(); }
+        printf("BIOS diagnostics menu\r\n");
+        printf("  ESC - back\r\n");
+        int choice = choice_of(0);
+        if (choice <  0) break;
     }
 }
 
 void possibly_interactive_menu() {
     printf("Press any key to enter interactive mode...");
-    uint8_t got_key = get_key_with_timeout(1, 0, 0);
+    uint8_t got_key = get_key_with_timeout(3, 0, 0);
     printf("\r\n");
     if (!got_key) return;
 
     while (1) {
         printf("Main menu\r\n");
         printf("   1  - Select graphics mode\r\n");
-        printf("   2  - BIOS diagnostics menu\r\n");
+        printf("   2  - Select text mode\r\n");
+        printf("   3  - BIOS diagnostics menu\r\n");
         printf("  ESC - Continue to boot\r\n");
         int choice = choice_of(2);
         if      (choice <  0) break;
         else if (choice == 0) { graphics_mode_menu(); }
-        else if (choice == 1) { bios_diagnostics_menu(); }
+        else if (choice == 1) { boot_in_text_mode = 1; }
+        else if (choice == 2) { bios_diagnostics_menu(); }
     }
 }
 
@@ -789,9 +791,13 @@ void stage2_main(void) {
 
     possibly_interactive_menu();
 
-    printf("Initializing graphics...\r\n");
-    if (!enable_graphics_mode())
-        panic("Failed initializing graphics");
+    if (boot_in_text_mode) {
+        printf("Continuing in text mode...\r\n");
+    } else {
+        printf("Initializing graphics...\r\n");
+        if (!enable_graphics_mode())
+            panic("Failed initializing graphics");
+    }
 
     // printf("Initializing protected mode and jumping to kernel...\r\n");
     enter_protected_mode();
