@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# stage all files to be packed into the disk image
+# mkdir / copy / create what is needed into build/rootfs
+R=./build/rootfs
+SFS=./sfs/sfs
+
+
+
+mkdir -p \
+    $R/bin \
+    $R/etc \
+    $R/usr \
+    $R/usr/src \
+    $R/usr/include \
+    $R/usr/lib \
+    $R/tmp
+
+cat > $R/etc/initrc <<EOF
+# commands executed by init, at system boot
+
+# /bin/gui
+# /bin/window_manager
+# /bin/shell
+# ... etc
+EOF
