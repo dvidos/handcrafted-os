@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <unistd.h> // For ftruncate
 #include <errno.h>  // For errno and strerror
+#include <sys/stat.h>
+#include <dirent.h>
 
 // External modules
 #include "file_sector_device.h"
@@ -29,6 +31,7 @@ static int execute_info(command_options *opts, int argc, char *argv[]);
 static int execute_ls(command_options *opts, int argc, char *argv[]);
 static int execute_mkdir(command_options *opts, int argc, char *argv[]);
 static int execute_import(command_options *opts, int argc, char *argv[]);
+static int execute_import_all(command_options *opts, int argc, char *argv[]);
 static int execute_export(command_options *opts, int argc, char *argv[]);
 static int execute_rm(command_options *opts, int argc, char *argv[]);
 static int execute_help(command_options *opts, int argc, char *argv[]);
@@ -95,6 +98,11 @@ const command_config commands[] = { // Not static so it can be passed to command
         {NULL, 0, NULL, false, NULL, 0} // Terminator
     }},
     {"import", "Import a file from host to the filesystem", execute_import, (const option_config[]){
+        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+        {NULL, 0, NULL, false, NULL, 0} // Terminator
+    }},
+    {"import-all", "Import a directory from host to the filesystem recursively", execute_import_all, (const option_config[]){
         {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
         {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
         {NULL, 0, NULL, false, NULL, 0} // Terminator
@@ -671,6 +679,129 @@ static int execute_import(command_options *opts, int argc, char *argv[]) {
     teardown_sfs_context(&context);
 
     printf("Successfully imported '%s' (host) to '%s' (SFS) with %d bytes.\n", source_host_file, destination_sfs_path, total_bytes_imported);
+
+    return 0;
+}
+
+static int import_directory_recursive(sfs_runtime_context* context, const char* host_base_dir, const char* sfs_base_dir, int* dir_count, int* file_count, long* total_bytes) {
+    DIR* dir = opendir(host_base_dir);
+    if (!dir) {
+        return error("Failed to open host directory '%s': %s", host_base_dir, strerror(errno));
+    }
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char host_path[1024];
+        snprintf(host_path, sizeof(host_path), "%s/%s", host_base_dir, entry->d_name);
+
+        char sfs_path[1024];
+        snprintf(sfs_path, sizeof(sfs_path), "%s%s%s", sfs_base_dir, (strcmp(sfs_base_dir, "/") == 0 ? "" : "/"), entry->d_name);
+
+        struct stat st;
+        if (stat(host_path, &st) != 0) {
+            error("Failed to stat '%s': %s", host_path, strerror(errno));
+            continue;
+        }
+
+        if (S_ISDIR(st.st_mode)) {
+            if (context->sfs_instance->create(context->sfs_instance, sfs_path, 1) == 0) {
+                (*dir_count)++;
+                import_directory_recursive(context, host_path, sfs_path, dir_count, file_count, total_bytes);
+            } else {
+                error("Failed to create SFS directory '%s'", sfs_path);
+            }
+        } else if (S_ISREG(st.st_mode)) {
+            FILE* host_file = fopen(host_path, "rb");
+            if (!host_file) {
+                error("Failed to open host file '%s': %s", host_path, strerror(errno));
+                continue;
+            }
+
+            if (context->sfs_instance->create(context->sfs_instance, sfs_path, 0) != 0) {
+                error("Failed to create SFS file '%s'", sfs_path);
+                fclose(host_file);
+                continue;
+            }
+
+            sfs_handle* file_handle;
+            if (context->sfs_instance->open(context->sfs_instance, sfs_path, SFS_O_WRONLY, &file_handle) != 0) {
+                error("Failed to open SFS file '%s' for writing", sfs_path);
+                fclose(host_file);
+                continue;
+            }
+
+            uint32_t sector_size = context->base_dev->get_sector_size(context->base_dev);
+            uint8_t* buffer = malloc(sector_size);
+            if (!buffer) {
+                error("Failed to allocate buffer for import.");
+                fclose(host_file);
+                context->sfs_instance->close(context->sfs_instance, file_handle);
+                continue;
+            }
+
+            size_t bytes_read;
+            while ((bytes_read = fread(buffer, 1, sector_size, host_file)) > 0) {
+                int written_bytes = context->sfs_instance->write(context->sfs_instance, file_handle, buffer, bytes_read);
+                if (written_bytes < 0 || (size_t)written_bytes != bytes_read) {
+                    error("Error writing to SFS file '%s'", sfs_path);
+                    break;
+                }
+                *total_bytes += written_bytes;
+            }
+
+            free(buffer);
+            fclose(host_file);
+            context->sfs_instance->close(context->sfs_instance, file_handle);
+            (*file_count)++;
+        }
+    }
+
+    closedir(dir);
+    return 0;
+}
+
+static int execute_import_all(command_options *opts, int argc, char *argv[]) {
+    const char *image_file = get_str_option(opts, "image");
+    if (image_file == NULL) return error("Missing required --image argument for 'import-all' command.");
+    long start_sector = get_int_option(opts, "start", -1);
+    const char *source_host_dir = NULL;
+    const char *destination_sfs_dir = "/";
+    sfs_runtime_context context;
+
+    if (start_sector == -1) {
+        return error("Missing required --start-sector argument for 'import-all' command.");
+    }
+
+    if (argc < 1) {
+        return error("Missing required arguments. Usage: import-all --start-sector <sector> <host_dir> [<sfs_dir>]");
+    }
+
+    source_host_dir = argv[0];
+    if (argc > 1) {
+        destination_sfs_dir = argv[1];
+    }
+
+    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
+        teardown_sfs_context(&context);
+        return -1;
+    }
+
+    int dir_count = 0;
+    int file_count = 0;
+    long total_bytes = 0;
+
+    import_directory_recursive(&context, source_host_dir, destination_sfs_dir, &dir_count, &file_count, &total_bytes);
+
+    teardown_sfs_context(&context);
+
+    printf("Import summary:\n");
+    printf("  Directories created: %d\n", dir_count);
+    printf("  Files imported: %d\n", file_count);
+    printf("  Total bytes imported: %ld\n", total_bytes);
 
     return 0;
 }
