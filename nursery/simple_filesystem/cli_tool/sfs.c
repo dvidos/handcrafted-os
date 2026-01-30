@@ -151,6 +151,35 @@ typedef struct {
 #define MOUNT_READONLY    1
 #define MOUNT_NONE        2
 
+// --- Context-aware command execution wrapper ---
+
+// Forward declarations for context functions
+static int setup_sfs_context(const char* image_file, long start_sector, int mount_type, sfs_runtime_context *context);
+static void teardown_sfs_context(sfs_runtime_context *context);
+
+// Define a function pointer type for the core logic of SFS commands
+typedef int (*sfs_command_logic)(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]);
+
+// Wrapper function to handle SFS context setup and teardown
+static int with_sfs_context(command_options *opts, int argc, char *argv[], int mount_type, sfs_command_logic logic) {
+    const char *image_file = get_str_option(opts, "image");
+    if (!image_file) return error("Missing required --image argument.");
+    
+    long start_sector = get_int_option(opts, "start", -1);
+    if (start_sector == -1) return error("Missing required --start-sector argument.");
+
+    sfs_runtime_context context;
+    if (setup_sfs_context(image_file, start_sector, mount_type, &context) != 0) {
+        teardown_sfs_context(&context);
+        return -1;
+    }
+
+    int result = logic(&context, opts, argc, argv);
+
+    teardown_sfs_context(&context);
+    return result;
+}
+
 static inline uint32_t read_le32(const uint8_t *buffer) {
     return buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
 }
@@ -461,226 +490,126 @@ static int execute_rdpart(command_options *opts, int argc, char *argv[]) {
     return 0;
 }
 
-static int execute_mkfs(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'mkfs' command.");
-    long start_sector = get_int_option(opts, "start", -1);
+static int do_mkfs(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
     const char *label_str = get_str_option(opts, "label");
-    sfs_runtime_context context; // Declare context struct
-
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'mkfs' command.");
-    }
     if (label_str == NULL) {
         return error("Missing required --label argument for 'mkfs' command.");
     }
-    // Check label length
-    if (strlen(label_str) > 31) { // Superblock has 32 chars for label including null terminator
+    if (strlen(label_str) > 31) {
         return error("Volume label must be 31 characters or less.");
     }
 
-    // Setup SFS context
-    if (setup_sfs_context(image_file, start_sector, MOUNT_NONE, &context) != 0) {
-        teardown_sfs_context(&context); // Cleanup anything allocated within setup_sfs_context
-        return -1; // setup_sfs_context already printed error
-    }
-
-    // Call mkfs
-    int err = context.sfs_instance->mkfs(context.sfs_instance, (char*)label_str, DESIRED_BLOCK_AUTO);
+    int err = context->sfs_instance->mkfs(context->sfs_instance, (char*)label_str, DESIRED_BLOCK_AUTO);
     if (err) {
-        teardown_sfs_context(&context);
-        return error("Failed (%d) to create filesystem on '%s'.", err, image_file);
+        return error("Failed (%d) to create filesystem.", err);
     }
 
-    printf("Successfully created SFS filesystem on '%s' starting at sector %ld with label '%s'.\n", image_file, start_sector, label_str);
+    printf("Successfully created SFS filesystem with label '%s'.\n", label_str);
+    return 0;
+}
 
-    // Cleanup
-    teardown_sfs_context(&context);
+static int execute_mkfs(command_options *opts, int argc, char *argv[]) {
+    return with_sfs_context(opts, argc, argv, MOUNT_NONE, do_mkfs);
+}
 
+static int do_info(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
+    printf("Filesystem Information (partition at sector %ld):\n", context->start_sector);
+    context->sfs_instance->dump_debug_info(context->sfs_instance, "Filesystem Info");
     return 0;
 }
 
 static int execute_info(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'info' command.");
-    long start_sector = get_int_option(opts, "start", -1);
-    sfs_runtime_context context;
+    return with_sfs_context(opts, argc, argv, MOUNT_READONLY, do_info);
+}
 
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'info' command.");
+static int do_ls(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
+    const char *path = (argc > 0) ? argv[0] : "/";
+
+    sfs_handle *dir_handle = NULL;
+    if (context->sfs_instance->open_dir(context->sfs_instance, (char*)path, &dir_handle) != 0) {
+        return error("Could not open directory '%s'.", path);
     }
+    context->sfs_file_handle = dir_handle; // For auto-cleanup
 
-    if (setup_sfs_context(image_file, start_sector, MOUNT_READONLY, &context) != 0) {
-        teardown_sfs_context(&context);
-        return -1; // setup_sfs_context already printed error
+    sfs_dir_entry entry;
+    printf("Contents of '%s':\n", path);
+    while (context->sfs_instance->read_dir(context->sfs_instance, dir_handle, &entry) == 0) {
+        if (entry.name[0] != '\0') {
+            printf("  %s\n", entry.name);
+        }
     }
-
-    printf("Filesystem Information for '%s' (partition at sector %ld):\n", image_file, start_sector);
-    context.sfs_instance->dump_debug_info(context.sfs_instance, "Filesystem Info");
-
-    // Cleanup
-    teardown_sfs_context(&context);
-
     return 0;
 }
 
 static int execute_ls(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'ls' command.");
-    long start_sector = get_int_option(opts, "start", -1);
-    const char *path = "/"; // Default to root directory
-    sfs_runtime_context context;
+    return with_sfs_context(opts, argc, argv, MOUNT_READONLY, do_ls);
+}
 
-    if (argc > 0) { // Positional argument for path
-        path = argv[0];
+static int do_mkdir(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
+    if (argc < 1) {
+        return error("Missing required path argument for 'mkdir' command.");
+    }
+    const char *path = argv[0];
+
+    int err = context->sfs_instance->create(context->sfs_instance, (char*)path, 1 /* is_dir */);
+    if (err) {
+        return error("Failed (%d) to create directory '%s'.", err, path);
     }
 
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'ls' command.");
-    }
-
-    if (setup_sfs_context(image_file, start_sector, MOUNT_READONLY, &context) != 0) {
-        teardown_sfs_context(&context);
-        return -1; // setup_sfs_context already printed error
-    }
-
-    sfs_handle *dir_handle = NULL;
-    if (context.sfs_instance->open_dir(context.sfs_instance, (char*)path, &dir_handle) != 0) {
-        teardown_sfs_context(&context);
-        return error("Could not open directory '%s'.", path);
-    }
-    // Assign dir_handle to context.sfs_file_handle for cleanup.
-    context.sfs_file_handle = dir_handle;
-
-    sfs_dir_entry entry;
-    printf("Contents of '%s' (filesystem at sector %ld):\n", path, start_sector);
-    while (context.sfs_instance->read_dir(context.sfs_instance, dir_handle, &entry) == 0) {
-        if (entry.name[0] != '\0') { // Skip empty entries
-            printf("  %s\n", entry.name);
-        }
-    }
-
-    teardown_sfs_context(&context);
-
+    printf("Successfully created directory '%s'.\n", path);
     return 0;
 }
 
 static int execute_mkdir(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'mkdir' command.");
-    long start_sector = get_int_option(opts, "start", -1);
-    const char *path = NULL;
-    sfs_runtime_context context;
-
-    if (argc > 0) { // Positional argument for path
-        path = argv[0];
-    }
-
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'mkdir' command.");
-    }
-    if (path == NULL) {
-        return error("Missing required path argument for 'mkdir' command.");
-    }
-
-    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
-        teardown_sfs_context(&context);
-        return -1; // setup_sfs_context already printed error
-    }
-
-    int err = context.sfs_instance->create(context.sfs_instance, (char*)path, 1 /* is_dir */);
-    if (err) {
-        teardown_sfs_context(&context);
-        return error("Failed (%d) to create directory '%s'.", err, path);
-    }
-
-    printf("Successfully created directory '%s' on filesystem at sector %ld.\n", path, start_sector);
-
-    teardown_sfs_context(&context);
-
-    return 0;
+    return with_sfs_context(opts, argc, argv, MOUNT_READWRITE, do_mkdir);
 }
 
-static int execute_import(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'import' command.");
-    long start_sector = get_int_option(opts, "start", -1);
-    const char *source_host_file = NULL;
-    const char *destination_sfs_path = NULL;
-    sfs_runtime_context context;
-
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'import' command.");
-    }
-
+static int do_import(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
     if (argc < 2) {
-        return error("Missing required arguments. Usage: import --start-sector <sector> <source_host_file> <destination_sfs_path>");
+        return error("Missing required arguments. Usage: import <host_file> <sfs_path>");
     }
+    const char *source_host_file = argv[0];
+    const char *destination_sfs_path = argv[1];
 
-    source_host_file = argv[0];
-    destination_sfs_path = argv[1];
-
-    if (source_host_file == NULL || destination_sfs_path == NULL) {
-        return error("Missing required source_host_file or destination_sfs_path argument for 'import' command.");
-    }
-
-    // Setup SFS context
-    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
-        teardown_sfs_context(&context);
-        return -1; // setup_sfs_context already printed error
-    }
-
-    context.host_fp = fopen(source_host_file, "rb");
-    if (!context.host_fp) {
-        teardown_sfs_context(&context);
+    context->host_fp = fopen(source_host_file, "rb");
+    if (!context->host_fp) {
         return error("Error opening host file '%s': %s", source_host_file, strerror(errno));
     }
 
-    // --- Create SFS file ---
-    if (context.sfs_instance->create(context.sfs_instance, (char*)destination_sfs_path, 0 /* not a directory */) != 0) {
-        fprintf(stderr, "Warning: Failed to create file '%s' in SFS. Attempting to open for overwrite. If this is not intended, ensure the file does not exist.\n", destination_sfs_path);
+    if (context->sfs_instance->create(context->sfs_instance, (char*)destination_sfs_path, 0) != 0) {
+        fprintf(stderr, "Warning: Failed to create SFS file '%s'. It may already exist.\n", destination_sfs_path);
     }
 
-    // --- Open SFS file for writing ---
-    if (context.sfs_instance->open(context.sfs_instance, (char*)destination_sfs_path, SFS_O_WRONLY, &context.sfs_file_handle) != 0) {
-        teardown_sfs_context(&context);
+    if (context->sfs_instance->open(context->sfs_instance, (char*)destination_sfs_path, SFS_O_WRONLY, &context->sfs_file_handle) != 0) {
         return error("Failed to open SFS file '%s' for writing.", destination_sfs_path);
     }
-    if (context.sfs_file_handle == NULL) {
-        teardown_sfs_context(&context);
-        return error("SFS file handle is NULL after opening '%s'.", destination_sfs_path);
-    }
 
-    // --- Read from host file and write to SFS file ---
-    uint32_t sector_size = context.base_dev->get_sector_size(context.base_dev);
-    context.buffer = malloc(sector_size);
-    if (!context.buffer) {
-        teardown_sfs_context(&context);
+    uint32_t sector_size = context->base_dev->get_sector_size(context->base_dev);
+    context->buffer = malloc(sector_size);
+    if (!context->buffer) {
         return error("Failed to allocate buffer for import operation.");
     }
 
     size_t bytes_read;
-    int total_bytes_imported = 0;
-    while ((bytes_read = fread(context.buffer, 1, sector_size, context.host_fp)) > 0) {
-        int written_bytes = context.sfs_instance->write(context.sfs_instance, context.sfs_file_handle, context.buffer, bytes_read);
+    long total_bytes_imported = 0;
+    while ((bytes_read = fread(context->buffer, 1, sector_size, context->host_fp)) > 0) {
+        int written_bytes = context->sfs_instance->write(context->sfs_instance, context->sfs_file_handle, context->buffer, bytes_read);
         if (written_bytes < 0 || (size_t)written_bytes != bytes_read) {
-            teardown_sfs_context(&context);
-            return error("Error writing to SFS file '%s'. Wrote %d bytes, expected %zu.", destination_sfs_path, written_bytes, bytes_read);
+            return error("Error writing to SFS file '%s'.", destination_sfs_path);
         }
         total_bytes_imported += written_bytes;
     }
 
-    if (ferror(context.host_fp)) {
-        teardown_sfs_context(&context);
+    if (ferror(context->host_fp)) {
         return error("Error reading from host file '%s'.", source_host_file);
     }
 
-    // --- Cleanup ---
-    teardown_sfs_context(&context);
-
-    printf("Successfully imported '%s' (host) to '%s' (SFS) with %d bytes.\n", source_host_file, destination_sfs_path, total_bytes_imported);
-
+    printf("Successfully imported '%s' (host) to '%s' (SFS) with %ld bytes.\n", source_host_file, destination_sfs_path, total_bytes_imported);
     return 0;
+}
+
+static int execute_import(command_options *opts, int argc, char *argv[]) {
+    return with_sfs_context(opts, argc, argv, MOUNT_READWRITE, do_import);
 }
 
 static int import_directory_recursive(sfs_runtime_context* context, const char* host_base_dir, const char* sfs_base_dir, int* dir_count, int* file_count, long* total_bytes) {
@@ -764,39 +693,18 @@ static int import_directory_recursive(sfs_runtime_context* context, const char* 
     return 0;
 }
 
-static int execute_import_all(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'import-all' command.");
-    long start_sector = get_int_option(opts, "start", -1);
-    const char *source_host_dir = NULL;
-    const char *destination_sfs_dir = "/";
-    sfs_runtime_context context;
-
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'import-all' command.");
-    }
-
+static int do_import_all(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
     if (argc < 1) {
-        return error("Missing required arguments. Usage: import-all --start-sector <sector> <host_dir> [<sfs_dir>]");
+        return error("Missing required arguments. Usage: import-all <host_dir> [<sfs_dir>]");
     }
-
-    source_host_dir = argv[0];
-    if (argc > 1) {
-        destination_sfs_dir = argv[1];
-    }
-
-    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
-        teardown_sfs_context(&context);
-        return -1;
-    }
+    const char *source_host_dir = argv[0];
+    const char *destination_sfs_dir = (argc > 1) ? argv[1] : "/";
 
     int dir_count = 0;
     int file_count = 0;
     long total_bytes = 0;
 
-    import_directory_recursive(&context, source_host_dir, destination_sfs_dir, &dir_count, &file_count, &total_bytes);
-
-    teardown_sfs_context(&context);
+    import_directory_recursive(context, source_host_dir, destination_sfs_dir, &dir_count, &file_count, &total_bytes);
 
     printf("Import summary:\n");
     printf("  Directories created: %d\n", dir_count);
@@ -806,122 +714,71 @@ static int execute_import_all(command_options *opts, int argc, char *argv[]) {
     return 0;
 }
 
-static int execute_export(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'export' command.");
-    long start_sector = get_int_option(opts, "start", -1);
-    const char *source_sfs_path = NULL;
-    const char *destination_host_file = NULL;
-    sfs_runtime_context context;
+static int execute_import_all(command_options *opts, int argc, char *argv[]) {
+    return with_sfs_context(opts, argc, argv, MOUNT_READWRITE, do_import_all);
+}
 
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'export' command.");
-    }
-
+static int do_export(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
     if (argc < 2) {
-        return error("Missing required arguments. Usage: export --start-sector <sector> <source_sfs_path> <destination_host_file>");
+        return error("Missing required arguments. Usage: export <sfs_path> <host_file>");
     }
+    const char *source_sfs_path = argv[0];
+    const char *destination_host_file = argv[1];
 
-    source_sfs_path = argv[0];
-    destination_host_file = argv[1];
-
-    if (source_sfs_path == NULL || destination_host_file == NULL) {
-        return error("Missing required source_sfs_path or destination_host_file argument for 'export' command.");
-    }
-
-    // Setup SFS context
-    if (setup_sfs_context(image_file, start_sector, 1 /* readonly */, &context) != 0) {
-        teardown_sfs_context(&context);
-        return -1; // setup_sfs_context already printed error
-    }
-
-    // --- Open SFS file for reading ---
-    if (context.sfs_instance->open(context.sfs_instance, (char*)source_sfs_path, SFS_O_RDONLY, &context.sfs_file_handle) != 0) {
-        teardown_sfs_context(&context);
+    if (context->sfs_instance->open(context->sfs_instance, (char*)source_sfs_path, SFS_O_RDONLY, &context->sfs_file_handle) != 0) {
         return error("Failed to open SFS file '%s' for reading.", source_sfs_path);
     }
-    if (context.sfs_file_handle == NULL) {
-        teardown_sfs_context(&context);
-        return error("SFS file handle is NULL after opening '%s'.", source_sfs_path);
-    }
 
-    // --- Open host file for writing ---
-    context.host_fp = fopen(destination_host_file, "wb");
-    if (!context.host_fp) {
-        teardown_sfs_context(&context);
+    context->host_fp = fopen(destination_host_file, "wb");
+    if (!context->host_fp) {
         return error("Error opening host file '%s' for writing: %s", destination_host_file, strerror(errno));
     }
 
-    // --- Read from SFS file and write to host file ---
-    uint32_t sector_size = context.base_dev->get_sector_size(context.base_dev); // Use base_dev to get sector size
-    context.buffer = malloc(sector_size);
-    if (!context.buffer) {
-        teardown_sfs_context(&context);
+    uint32_t sector_size = context->base_dev->get_sector_size(context->base_dev);
+    context->buffer = malloc(sector_size);
+    if (!context->buffer) {
         return error("Failed to allocate buffer for export operation.");
     }
 
     size_t bytes_read;
-    int total_bytes_exported = 0;
-    while ((bytes_read = context.sfs_instance->read(context.sfs_instance, context.sfs_file_handle, context.buffer, sector_size)) > 0) {
-        size_t written_bytes = fwrite(context.buffer, 1, bytes_read, context.host_fp);
+    long total_bytes_exported = 0;
+    while ((bytes_read = context->sfs_instance->read(context->sfs_instance, context->sfs_file_handle, context->buffer, sector_size)) > 0) {
+        size_t written_bytes = fwrite(context->buffer, 1, bytes_read, context->host_fp);
         if (written_bytes != bytes_read) {
-            teardown_sfs_context(&context);
-            return error("Error writing to host file '%s'. Wrote %zu bytes, expected %zu.", destination_host_file, written_bytes, bytes_read);
+            return error("Error writing to host file '%s'.", destination_host_file);
         }
         total_bytes_exported += bytes_read;
     }
-    
-    // Check for read errors from SFS (sfs_instance->read returns -1 on error)
+
     if ((int)bytes_read == -1) {
-        teardown_sfs_context(&context);
         return error("Error reading from SFS file '%s'.", source_sfs_path);
     }
 
-    // --- Cleanup ---
-    teardown_sfs_context(&context);
+    printf("Successfully exported '%s' (SFS) to '%s' (host) with %ld bytes.\n", source_sfs_path, destination_host_file, total_bytes_exported);
+    return 0;
+}
 
-    printf("Successfully exported '%s' (SFS) to '%s' (host) with %d bytes.\n", source_sfs_path, destination_host_file, total_bytes_exported);
+static int execute_export(command_options *opts, int argc, char *argv[]) {
+    return with_sfs_context(opts, argc, argv, MOUNT_READONLY, do_export);
+}
 
+static int do_rm(sfs_runtime_context *context, command_options *opts, int argc, char *argv[]) {
+    if (argc < 1) {
+        return error("Missing required path argument for 'rm' command.");
+    }
+    const char *sfs_path = argv[0];
+    bool is_dir = get_bool_option(opts, "is_dir");
+
+    if (context->sfs_instance->unlink(context->sfs_instance, (char*)sfs_path, is_dir ? 1 : 0) != 0) {
+        return error("Failed to remove '%s' (is_dir: %d).", sfs_path, is_dir);
+    }
+
+    printf("Successfully removed '%s' (is_dir: %d).\n", sfs_path, is_dir);
     return 0;
 }
 
 static int execute_rm(command_options *opts, int argc, char *argv[]) {
-    const char *image_file = get_str_option(opts, "image");
-    if (image_file == NULL) return error("Missing required --image argument for 'rm' command.");
-    long start_sector = get_int_option(opts, "start", -1);
-    bool is_dir = get_bool_option(opts, "is_dir");
-    const char *sfs_path = NULL;
-    sfs_runtime_context context; // Declare context struct
-
-    if (start_sector == -1) {
-        return error("Missing required --start-sector argument for 'rm' command.");
-    }
-
-    if (argc < 1) {
-        return error("Missing required argument. Usage: rm --start-sector <sector> [--dir] <sfs_path>");
-    }
-
-    sfs_path = argv[0];
-
-    // Setup SFS context
-    if (setup_sfs_context(image_file, start_sector, MOUNT_READWRITE, &context) != 0) {
-        teardown_sfs_context(&context);
-        return -1; // setup_sfs_context already printed error
-    }
-
-    // --- Unlink file or directory ---
-    int unlink_option = is_dir ? 1 : 0; // 1 for directory, 0 for file
-    if (context.sfs_instance->unlink(context.sfs_instance, (char*)sfs_path, unlink_option) != 0) {
-        teardown_sfs_context(&context);
-        return error("Failed to remove '%s' (is_dir: %d).", sfs_path, is_dir);
-    }
-
-    // --- Cleanup ---
-    teardown_sfs_context(&context);
-
-    printf("Successfully removed '%s' (is_dir: %d) from filesystem at sector %ld.\n", sfs_path, is_dir, start_sector);
-
-    return 0;
+    return with_sfs_context(opts, argc, argv, MOUNT_READWRITE, do_rm);
 }
 
 static int execute_help(command_options *opts, int argc, char *argv[]) {
