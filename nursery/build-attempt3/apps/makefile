@@ -1,23 +1,20 @@
 include ../config.mk
+FS := ../build/rootfs
+SUBDIRS := edit init shell
+
 
 # mark directories as phony to always build
-.PHONY: edit init shell
+.PHONY: $(SUBDIRS)
 
 
-all: edit init shell
+all: $(SUBDIRS)
+	mkdir -p $(FS)/bin
+	for d in $(SUBDIRS); do \
+		make -C $$d;  \
+		cp $$d/$$d $(FS)/bin; \
+	done
 
-
-edit:
-	make -C edit
-
-init:
-	make -C init
-
-shell:
-	make -C shell
 
 clean:
-	make -C edit  clean
-	make -C init  clean
-	make -C shell clean
+	for d in $(SUBDIRS); do make -C $$d clean; done
 	rm -f *.o

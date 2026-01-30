@@ -7,22 +7,36 @@ include config.mk
 default: os.img
 
 config.mk:
-	./configure.sh
+	./tools/configure.sh
+
+config.sh:
+	./tools/configure.sh
+
+config.h:
+	./tools/configure.sh
 
 tools:
 	make -C tools
 
 stage1:
 	make -C stage1
+	mkdir -p build/kernel
+	cp stage1/stage1.bin -t build/kernel
 
 stage2:
 	make -C stage2
+	mkdir -p build/kernel
+	cp stage2/stage2.bin -t build/kernel
 
 kernel:
 	make -C kernel
+	mkdir -p build/kernel
+	cp kernel/kernel.bin -t build/kernel
 
 libc:
 	make -C libc
+	mkdir -p build/rootfs/usr/lib
+	cp libc/libc.a -t build/rootfs/usr/lib
 
 apps:
 	make -C apps
@@ -45,5 +59,4 @@ clean: config.mk
 	make -C stage2 clean
 	make -C kernel clean
 	rm -rf build/*
-	rm -f config.mk
-	rm -f os.img
+	rm -f config.mk config.h config.sh os.img

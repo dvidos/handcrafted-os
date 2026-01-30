@@ -1,18 +1,13 @@
 include ../config.mk
 
-OUTDIR=../build/kernel
-OUT=$(OUTDIR)/stage1.bin
+all: stage1.bin
 
-all: $(OUT)
-
-$(OUT): stage1.asm
-	mkdir -p $(OUTDIR)
-	nasm stage1.asm \
+stage1.bin: stage1.asm
+	nasm $< \
 		-DSTAGE2_LOAD_ADDRESS=$(STAGE2_LOAD_ADDRESS) \
 		-DSTAGE2_SECTORS=$(STAGE2_SECTOR_COUNT) \
 		-f bin \
-		-o $(OUT)
-
+		-o $@
 
 clean:
 	rm -f stage1.bin
