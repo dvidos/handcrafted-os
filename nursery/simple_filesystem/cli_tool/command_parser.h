@@ -33,11 +33,18 @@ long get_int_option(command_options *opts, const char *name, long default_value)
 bool get_bool_option(command_options *opts, const char *name);
 
 // Command configuration structure (must be defined before command_config in command_parser.c)
+typedef struct {
+    const char *name;         // e.g., "<path>"
+    const char *description;  // e.g., "The path to the directory to create"
+    bool is_optional;
+} arg_config;
+
 typedef struct command_config {
     const char *name;
     const char *description;
     int (*execute)(command_options *opts, int argc, char *argv[]);
     const option_config *options;
+    const arg_config *args;       // Describes positional arguments
 } command_config;
 
 // Main dispatch function

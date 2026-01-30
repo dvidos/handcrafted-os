@@ -43,83 +43,141 @@ static int execute_help(command_options *opts, int argc, char *argv[]);
 void print_general_help(); 
 
 const command_config commands[] = { // Not static so it can be passed to command_parser
-    {"create", "Create a new disk image", execute_create, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--size", 's', "Size of the volume (e.g., 20M)", true, "size", OPT_STRING},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"wrsect", "Write sectors from a file", execute_wrsect, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--sector", 's', "Starting sector number to write to", true, "sector", OPT_INT},
-        {"--file", 'f', "File to read data from", true, "file", OPT_STRING},
-        {"--count", 'c', "Number of sectors to write (default: 1)", true, "count", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"rdsect", "Read sectors to a file or stdout", execute_rdsect, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--sector", 's', "Starting sector number to read from", true, "sector", OPT_INT},
-        {"--file", 'f', "File to write data to (optional)", true, "file", OPT_STRING},
-        {"--count", 'c', "Number of sectors to read (default: 1)", true, "count", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"wrpart", "Write a partition table entry", execute_wrpart, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
-        {"--first-sector", 'f', "First sector LBA", true, "first_sector", OPT_INT},
-        {"--sector-count", 'c', "Number of sectors in the partition", true, "sector_count", OPT_INT},
-        {"--type", 't', "Partition type (byte value, can be hex)", true, "type", OPT_STRING},
-        {"--bootable", 'b', "Bootable flag (1 or 0)", true, "bootable", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"rdpart", "Read a partition table entry", execute_rdpart, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"mkfs", "Create a filesystem on the disk image", execute_mkfs, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {"--label", 'l', "Volume label", true, "label", OPT_STRING},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"info", "Display filesystem information", execute_info, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"ls", "List files in a directory", execute_ls, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"mkdir", "Create a directory", execute_mkdir, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"import", "Import a file from host to the filesystem", execute_import, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"import-all", "Import a directory from host to the filesystem recursively", execute_import_all, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"export", "Export a file from the filesystem to host", execute_export, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"rm", "Remove a file or directory", execute_rm, (const option_config[]){
-        {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-        {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-        {"--dir", 'd', "Remove a directory (default: file)", false, "is_dir", OPT_BOOL},
-        {NULL, 0, NULL, false, NULL, 0} // Terminator
-    }},
-    {"help", "Display help for commands", execute_help, NULL},
-    {NULL, NULL, NULL, NULL} // Terminator
+    {"create", "Create a new disk image", execute_create, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--size", 's', "Size of the volume (e.g., 20M)", true, "size", OPT_STRING},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, NULL
+    },
+    {"wrsect", "Write sectors from a file", execute_wrsect, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--sector", 's', "Starting sector number to write to", true, "sector", OPT_INT},
+            {"--file", 'f', "File to read data from", true, "file", OPT_STRING},
+            {"--count", 'c', "Number of sectors to write (default: 1)", true, "count", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, NULL
+    },
+    {"rdsect", "Read sectors to a file or stdout", execute_rdsect, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--sector", 's', "Starting sector number to read from", true, "sector", OPT_INT},
+            {"--file", 'f', "File to write data to (optional)", true, "file", OPT_STRING},
+            {"--count", 'c', "Number of sectors to read (default: 1)", true, "count", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, NULL
+    },
+    {"wrpart", "Write a partition table entry", execute_wrpart, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
+            {"--first-sector", 'f', "First sector LBA", true, "first_sector", OPT_INT},
+            {"--sector-count", 'c', "Number of sectors in the partition", true, "sector_count", OPT_INT},
+            {"--type", 't', "Partition type (byte value, can be hex)", true, "type", OPT_STRING},
+            {"--bootable", 'b', "Bootable flag (1 or 0)", true, "bootable", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, NULL
+    },
+    {"rdpart", "Read a partition table entry", execute_rdpart, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, NULL
+    },
+    {"mkfs", "Create a filesystem on the disk image", execute_mkfs, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {"--label", 'l', "Volume label", true, "label", OPT_STRING},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, NULL
+    },
+    {"info", "Display filesystem information", execute_info, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, NULL
+    },
+    {"ls", "List files in a directory", execute_ls, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, 
+        (const arg_config[]){
+            {"[path]", "The path to list. Defaults to the root directory.", true},
+            {NULL, NULL, false}
+        }
+    },
+    {"mkdir", "Create a directory", execute_mkdir, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, 
+        (const arg_config[]){
+            {"<path>", "The full path of the directory to create.", false},
+            {NULL, NULL, false}
+        }
+    },
+    {"import", "Import a file from host to the filesystem", execute_import, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, 
+        (const arg_config[]){
+            {"<host_file>", "The path to the file on the host machine.", false},
+            {"<sfs_path>", "The destination path within the SFS image.", false},
+            {NULL, NULL, false}
+        }
+    },
+    {"import-all", "Import a directory from host to the filesystem recursively", execute_import_all, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, 
+        (const arg_config[]){
+            {"<host_dir>", "The path to the directory on the host machine.", false},
+            {"[sfs_dir]", "The destination directory within the SFS image. Defaults to root.", true},
+            {NULL, NULL, false}
+        }
+    },
+    {"export", "Export a file from the filesystem to host", execute_export, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, 
+        (const arg_config[]){
+            {"<sfs_path>", "The path of the file within the SFS image.", false},
+            {"<host_file>", "The destination path on the host machine.", false},
+            {NULL, NULL, false}
+        }
+    },
+    {"rm", "Remove a file or directory", execute_rm, 
+        (const option_config[]){
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
+            {"--dir", 'd', "Remove a directory (default: file)", false, "is_dir", OPT_BOOL},
+            {NULL, 0, NULL, false, NULL, 0} // Terminator
+        }, 
+        (const arg_config[]){
+            {"<sfs_path>", "The path to the file or directory to remove.", false},
+            {NULL, NULL, false}
+        }
+    },
+    {"help", "Display help for commands", execute_help, NULL, 
+        (const arg_config[]){
+            {"<command>", "The command to get help for.", false},
+            {NULL, NULL, false}
+        }
+    },
+    {NULL, NULL, NULL, NULL, NULL} // Terminator
 };
 const size_t NUM_COMMANDS = (sizeof(commands) / sizeof(commands[0]) -1); // -1 because of NULL terminator
 
@@ -788,29 +846,58 @@ static int execute_help(command_options *opts, int argc, char *argv[]) {
     }
 
     const char *target_command_name = argv[0];
-    const command_config *target_command = find_command(target_command_name, commands, NUM_COMMANDS); // Pass commands and NUM_COMMANDS
+    const command_config *target_command = find_command(target_command_name, commands, NUM_COMMANDS);
 
     if (target_command == NULL) {
         return error("Unknown command for help '%s'", target_command_name);
     }
 
-    printf("\nCommand: %s\n", target_command->name);
-    printf("Description: %s\n", target_command->description);    if (target_command->options) {
+    // --- Print Usage Line ---
+    printf("\nUsage: sfs %s", target_command->name);
+    if (target_command->options) {
+        printf(" [options]");
+    }
+    if (target_command->args) {
+        for (int i = 0; target_command->args[i].name; i++) {
+            printf(" %s", target_command->args[i].name);
+        }
+    }
+    printf("\n");
+
+    // --- Print Description ---
+    printf("\nDescription: %s\n", target_command->description);
+
+    // --- Print Options ---
+    if (target_command->options) {
         printf("\nOptions:\n");
         for (int i = 0; target_command->options[i].long_name; i++) {
             const option_config *opt = &target_command->options[i];
-            char short_opt_str[5] = ""; // \"-s\0\" or \"   \0\"
-            if (opt->short_name) {
-                sprintf(short_opt_str, ", -%c", opt->short_name);
+            char opts_str[64] = "";
+            if (opt->short_name)
+                sprintf(opts_str, "-%c", opt->short_name);
+            if (opt->long_name) {
+                if (strlen(opts_str) > 0) strcat(opts_str, ", ");
+                strcat(opts_str, opt->long_name);
             }
-            const char *arg_description = opt->has_argument ? " <value>" : "";
-            printf("  %s%s%s  %s\n",
-                   opt->long_name,
-                   short_opt_str,
-                   arg_description,
+            // if (opt->has_argument) strcat(opts_str, "  <value>");
+            printf("  %-25s %s\n",
+                   opts_str,
                    opt->description);
         }
     }
+
+    // --- Print Arguments ---
+    if (target_command->args) {
+        printf("\nArguments:\n");
+        for (int i = 0; target_command->args[i].name; i++) {
+            const arg_config *arg = &target_command->args[i];
+            printf("  %-25s  %s%s\n",
+                   arg->name,
+                   arg->description,
+                   arg->is_optional ? " (optional)" : "");
+        }
+    }
+
     printf("\n");
     return 0;
 }
