@@ -6,6 +6,10 @@
 
 typedef enum { OPT_STRING, OPT_INT, OPT_BOOL } option_type;
 
+#define PARSE_OK          0
+#define PARSE_SHOW_HELP   1
+#define PARSE_ERROR       2
+
 typedef struct {
     const char *long_name;
     char short_name;
@@ -13,6 +17,7 @@ typedef struct {
     bool has_argument;
     const char *value_name; // The key for the parsed option
     option_type type;
+    bool is_mandatory;
 } option_config;
 
 typedef struct {

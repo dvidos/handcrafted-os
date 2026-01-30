@@ -45,67 +45,67 @@ void print_general_help();
 const command_config commands[] = { // Not static so it can be passed to command_parser
     {"create", "Create a new disk image", execute_create, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--size", 's', "Size of the volume (e.g., 20M)", true, "size", OPT_STRING},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--size", 's', "Size of the volume (e.g., 20M)", true, "size", OPT_STRING, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, NULL
     },
     {"wrsect", "Write sectors from a file", execute_wrsect, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--sector", 's', "Starting sector number to write to", true, "sector", OPT_INT},
-            {"--file", 'f', "File to read data from", true, "file", OPT_STRING},
-            {"--count", 'c', "Number of sectors to write (default: 1)", true, "count", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--sector", 's', "Starting sector number to write to", true, "sector", OPT_INT, true},
+            {"--file", 'f', "File to read data from", true, "file", OPT_STRING, true},
+            {"--count", 'c', "Number of sectors to write (default: 1)", true, "count", OPT_INT, false},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, NULL
     },
     {"rdsect", "Read sectors to a file or stdout", execute_rdsect, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--sector", 's', "Starting sector number to read from", true, "sector", OPT_INT},
-            {"--file", 'f', "File to write data to (optional)", true, "file", OPT_STRING},
-            {"--count", 'c', "Number of sectors to read (default: 1)", true, "count", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--sector", 's', "Starting sector number to read from", true, "sector", OPT_INT, true},
+            {"--file", 'f', "File to write data to (optional)", true, "file", OPT_STRING, false},
+            {"--count", 'c', "Number of sectors to read (default: 1)", true, "count", OPT_INT, false},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, NULL
     },
     {"wrpart", "Write a partition table entry", execute_wrpart, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
-            {"--first-sector", 'f', "First sector LBA", true, "first_sector", OPT_INT},
-            {"--sector-count", 'c', "Number of sectors in the partition", true, "sector_count", OPT_INT},
-            {"--type", 't', "Partition type (byte value, can be hex)", true, "type", OPT_STRING},
-            {"--bootable", 'b', "Bootable flag (1 or 0)", true, "bootable", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT, true},
+            {"--first-sector", 'f', "First sector LBA", true, "first_sector", OPT_INT, true},
+            {"--sector-count", 'c', "Number of sectors in the partition", true, "sector_count", OPT_INT, true},
+            {"--type", 't', "Partition type (byte value, can be hex)", true, "type", OPT_STRING, true},
+            {"--bootable", 'b', "Bootable flag (1 or 0)", true, "bootable", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, NULL
     },
     {"rdpart", "Read a partition table entry", execute_rdpart, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--entry", 'e', "Partition entry number (1-4)", true, "entry", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, NULL
     },
     {"mkfs", "Create a filesystem on the disk image", execute_mkfs, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {"--label", 'l', "Volume label", true, "label", OPT_STRING},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {"--label", 'l', "Volume label", true, "label", OPT_STRING, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, NULL
     },
     {"info", "Display filesystem information", execute_info, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, NULL
     },
     {"ls", "List files in a directory", execute_ls, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, 
         (const arg_config[]){
             {"[path]", "The path to list. Defaults to the root directory.", true},
@@ -114,9 +114,9 @@ const command_config commands[] = { // Not static so it can be passed to command
     },
     {"mkdir", "Create a directory", execute_mkdir, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, 
         (const arg_config[]){
             {"<path>", "The full path of the directory to create.", false},
@@ -125,9 +125,9 @@ const command_config commands[] = { // Not static so it can be passed to command
     },
     {"import", "Import a file from host to the filesystem", execute_import, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, 
         (const arg_config[]){
             {"<host_file>", "The path to the file on the host machine.", false},
@@ -137,9 +137,9 @@ const command_config commands[] = { // Not static so it can be passed to command
     },
     {"import-all", "Import a directory from host to the filesystem recursively", execute_import_all, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, 
         (const arg_config[]){
             {"<host_dir>", "The path to the directory on the host machine.", false},
@@ -149,9 +149,9 @@ const command_config commands[] = { // Not static so it can be passed to command
     },
     {"export", "Export a file from the filesystem to host", execute_export, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, 
         (const arg_config[]){
             {"<sfs_path>", "The path of the file within the SFS image.", false},
@@ -161,10 +161,10 @@ const command_config commands[] = { // Not static so it can be passed to command
     },
     {"rm", "Remove a file or directory", execute_rm, 
         (const option_config[]){
-            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING},
-            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT},
-            {"--dir", 'd', "Remove a directory (default: file)", false, "is_dir", OPT_BOOL},
-            {NULL, 0, NULL, false, NULL, 0} // Terminator
+            {"--image", 'i', "Path to the disk image file", true, "image", OPT_STRING, true},
+            {"--start-sector", 's', "Sector where the filesystem starts", true, "start", OPT_INT, true},
+            {"--dir", 'd', "Remove a directory (default: file)", false, "is_dir", OPT_BOOL, false},
+            {NULL, 0, NULL, false, NULL, 0, false} // Terminator
         }, 
         (const arg_config[]){
             {"<sfs_path>", "The path to the file or directory to remove.", false},
