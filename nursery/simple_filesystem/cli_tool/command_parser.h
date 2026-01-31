@@ -10,6 +10,11 @@ typedef enum { OPT_STRING, OPT_INT, OPT_BOOL } option_type;
 #define PARSE_SHOW_HELP   1
 #define PARSE_ERROR       2
 
+#define OPT_MANDATORY true
+#define OPT_OPTIONAL false
+#define OPT_HAS_PARAM true
+#define OPT_NO_PARAM false
+
 typedef struct {
     const char *long_name;
     char short_name;
