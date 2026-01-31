@@ -235,7 +235,7 @@ void print_stage2_boot_info(boot_info_t *info) {
     klog_info("* memory map (total of %u entries)", info->mem.count);
     klog_info("    No              Address               Length  Type  ACPI");
     //             00  0x12345678-12345678  0x12345678-12345678  1234  1234
-    for (uint32_t i = 0; i < 4; i++) {
+    for (uint32_t i = 0; i < info->mem.count; i++) {
         e820_memory_entry *mm = &info->mem.entries[i];
         klog_info("    %2u  0x%08x-%08x  0x%08x-%08x  %4u  %4u", 
             i,
