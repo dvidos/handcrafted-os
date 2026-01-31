@@ -1,5 +1,10 @@
 #!/bin/sh
 
+CROSS=i686-elf-
+CROSS_CC=${CROSS}gcc
+CROSS_LD=${CROSS}ld
+
+
 VERSION=0.1.0                              # in case this ever starts getting shared
 GIT_HASH=$(git describe --dirty --always)  # very helpful for debugging
 DATE_BUILT=$(date "+%Y-%m-%d %H:%M")       # decorational mainly
@@ -50,9 +55,10 @@ PARTITION_1_FIRST_SECTOR=$(($KERNEL_FIRST_SECTOR + $KERNEL_SECTOR_COUNT))
 PARTITION_1_SECTOR_COUNT=$(($DISK_IMAGE_SECTOR_COUNT - $PARTITION_1_FIRST_SECTOR))
 
 
-
 cat > config.mk <<EOF
 # do not edit, run configure.sh to generate
+CROSS_CC                 := $CROSS_CC
+CROSS_LD                 := $CROSS_LD
 VERSION                  := $VERSION
 GIT_HASH                 := $GIT_HASH
 DATE_BUILT               := $DATE_BUILT
