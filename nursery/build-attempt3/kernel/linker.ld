@@ -15,12 +15,13 @@ SECTIONS
 	. = KERNEL_LOAD_ADDRESS;
     kernel_start_address = .;
 
-	/* First put the multiboot header, as it is required to be put very early
-	   early in the image or the bootloader won't recognize the file format.
-	   Next we'll put the .text section. */
+	/* let's put start first, to ensure our jump will land there */
 	.text BLOCK(4K) : ALIGN(4K)
 	{
-		*(.multiboot)
+		*(.text.start)
+	}
+	.text BLOCK(4K) : ALIGN(4K)
+	{
 		*(.text)
 	}
 	kernel_text_end_address = .;

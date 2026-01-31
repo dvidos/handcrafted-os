@@ -39,17 +39,16 @@ KERNEL_C_FILES = \
 	$(wildcard klib/*.c)  # \
 	# $(wildcard tests/*.c)
 
-KERNEL_GAS_FILES = \
-	$(wildcard misc/*.S)
-
-KERNEL_NASM_FILES = \
+KERNEL_NASM_FILES1 = \
 	$(wildcard misc/*.asm) \
 	$(wildcard multitask/*.asm)
 
-
+# we need start.asm to be first
+KERNEL_NASM_FILES_WITHOUT_START = $(filter-out misc/start.asm, $(KERNEL_NASM_FILES1))
+KERNEL_NASM_FILES = misc/start.asm $(KERNEL_NASM_FILES_WITHOUT_START)
 
 KERNEL_C_OBJS = $(KERNEL_C_FILES:.c=.o)
-KERNEL_ASM_OBJS = $(KERNEL_GAS_FILES:.S=.o) $(KERNEL_NASM_FILES:.asm=.o)
+KERNEL_ASM_OBJS = $(KERNEL_NASM_FILES:.asm=.o)
 KERNEL_OBJ_DEPS = $(KERNEL_C_OBJS:.o=.d)
 
 
@@ -65,12 +64,14 @@ print:
 	@echo ---- dependency files -----
 	@echo $(KERNEL_OBJ_DEPS)
 
-$(KERNEL_ELF): $(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) linker.ld 
+$(KERNEL_ELF): $(KERNEL_ASM_OBJS) $(KERNEL_C_OBJS) linker.ld 
 	$(CROSS_CC) -T linker.ld \
 		-Wl,--defsym=KERNEL_LOAD_ADDRESS=$(KERNEL_LOAD_ADDRESS) \
 		-Wl,--defsym=KERNEL_STACK_TOP=$(KERNEL_STACK_TOP) \
 		-o $@ -ffreestanding -O2 -nostdlib \
-		$(KERNEL_C_OBJS) $(KERNEL_ASM_OBJS) -lgcc
+		$(KERNEL_ASM_OBJS) \
+		$(KERNEL_C_OBJS) \
+		-lgcc
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	objcopy -O binary $< $@

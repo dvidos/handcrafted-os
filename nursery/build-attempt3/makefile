@@ -44,7 +44,8 @@ apps:
 rootfs: libc apps
 	tools/make-root-fs.sh
 
-os.img: tools stage1 stage2 kernel rootfs
+# os.img: tools stage1 stage2 kernel rootfs
+os.img: stage1 stage2 kernel
 	tools/make-os-img.sh
 
 run: os.img

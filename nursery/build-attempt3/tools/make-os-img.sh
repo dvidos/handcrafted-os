@@ -4,10 +4,11 @@
 # we should have various addresses and sizes passed into us?
 # use the ./sfs/sfs cli tool to generate the image
 
-source ../config.sh  # get build variables
-IMG=../os.img
-SFS=./sfs/sfs
+. ./config.sh  # get build variables
 
+IMG=os.img
+SFS=./tools/sfs/sfs1
+SRC=build/kernel
 
 echo "Making file $IMG with size $DISK_IMAGE_SIZE_MB MB"
 
@@ -15,9 +16,9 @@ echo "Making file $IMG with size $DISK_IMAGE_SIZE_MB MB"
 $SFS create -i $IMG --size ${DISK_IMAGE_SIZE_MB}M
 
 # copy sectors
-$SFS wrsect -i $IMG -s $STAGE1_FIRST_SECTOR -c $STAGE1_SECTOR_COUNT -f ../build/kernel/stage1.bin
-$SFS wrsect -i $IMG -s $STAGE2_FIRST_SECTOR -c $STAGE2_SECTOR_COUNT -f ../build/kernel/stage2.bin
-$SFS wrsect -i $IMG -s $KERNEL_FIRST_SECTOR -c $KERNEL_SECTOR_COUNT -f ../build/kernel/kernel.bin
+$SFS wrsect -i $IMG -s $STAGE1_FIRST_SECTOR -c $STAGE1_SECTOR_COUNT -f $SRC/stage1.bin
+$SFS wrsect -i $IMG -s $STAGE2_FIRST_SECTOR -c $STAGE2_SECTOR_COUNT -f $SRC/stage2.bin
+$SFS wrsect -i $IMG -s $KERNEL_FIRST_SECTOR -c $KERNEL_SECTOR_COUNT -f $SRC/kernel.bin
 
 # create partition
 $SFS wrpart -i $IMG --entry 1 \
