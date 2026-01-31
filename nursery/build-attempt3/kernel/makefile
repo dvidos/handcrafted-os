@@ -81,7 +81,7 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 	$(CROSS_CC) -MD -c $< -o $@ $(CFLAGS)
 
 %.o: %.asm
-	nasm -f elf $< -o $@
+	nasm -f elf -DKERNEL_STACK_TOP=$(KERNEL_STACK_TOP) $< -o $@
 
 %.o: %.S
 	$(CROSS_AS) $< -o $@
