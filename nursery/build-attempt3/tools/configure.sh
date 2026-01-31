@@ -3,6 +3,7 @@
 CROSS=i686-elf-
 CROSS_CC=${CROSS}gcc
 CROSS_LD=${CROSS}ld
+CROSS_AS=${CROSS}as
 
 
 VERSION=0.1.0                              # in case this ever starts getting shared
@@ -54,11 +55,16 @@ DISK_IMAGE_SECTOR_COUNT=$(($DISK_IMAGE_SIZE_BYTES / $SECTOR_SIZE))
 PARTITION_1_FIRST_SECTOR=$(($KERNEL_FIRST_SECTOR + $KERNEL_SECTOR_COUNT))
 PARTITION_1_SECTOR_COUNT=$(($DISK_IMAGE_SECTOR_COUNT - $PARTITION_1_FIRST_SECTOR))
 
+# -------------------------------------------------
+
+echo Creating configuration included files...
+
 
 cat > config.mk <<EOF
 # do not edit, run configure.sh to generate
 CROSS_CC                 := $CROSS_CC
 CROSS_LD                 := $CROSS_LD
+CROSS_AS                 := $CROSS_AS
 VERSION                  := $VERSION
 GIT_HASH                 := $GIT_HASH
 DATE_BUILT               := $DATE_BUILT
