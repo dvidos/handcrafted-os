@@ -2,8 +2,8 @@
 #include <klib/string.h>
 #include <cpu.h>
 #include <klog.h>
-#include <multiboot.h>
 #include <memory/physmem.h>
+#include "../../stage2/boot_info.h"
 
 MODULE("PMEM");
 
@@ -42,7 +42,7 @@ int physical_page_size() {
 }
 
 
-void init_physical_memory_manager(multiboot_info_t *info, void *kernel_start_address, void *kernel_end_address) {
+void init_physical_memory_manager(boot_info_t *info, void *kernel_start_address, void *kernel_end_address) {
     // mark all of it as used, will open up the available physical_memory_upper_limit
     memset((char *)page_status_bitmaps, 0xFF, sizeof(page_status_bitmaps));
     highest_memory_address = 0;
@@ -50,27 +50,17 @@ void init_physical_memory_manager(multiboot_info_t *info, void *kernel_start_add
     total_used_pages = 0;
 
     // one way of doing this, is the simple mem members:
-    if (info->flags & MULTIBOOT_INFO_MEM_MAP) {
-        int map_size = info->mmap_length;
-        multiboot_memory_map_t *map_entry = (multiboot_memory_map_t *)info->mmap_addr;
-        while (map_size > 0) {
-            // for now we only care for available memory, up to 4GB
-            if (map_entry->type == MULTIBOOT_MEMORY_AVAILABLE
-                && map_entry->addr < 0xFFFFFFFF) {
-                uint32_t addr32 = (uint32_t)(map_entry->addr & 0xFFFFFFFF);
-                uint32_t len32 = (uint32_t)(map_entry->len & 0xFFFFFFFF);
-                mark_physical_memory_available((void *)addr32, len32);
-                if (addr32 + len32 > highest_memory_address)
-                    highest_memory_address = addr32 + len32;
+    if (info->mem.count > 0) {
+        for (uint32_t i = 0; i < info->mem.count; i++) {
+            e820_memory_entry *map_entry = &info->mem.entries[i];
+            if (map_entry->type == MEMORY_TYPE_AVAILABLE && map_entry->base < 0xFFFFFFFF) {
+                uint32_t base32 = (uint32_t)(map_entry->base & 0xFFFFFFFF);
+                uint32_t length32 = (uint32_t)(map_entry->length & 0xFFFFFFFF);
+                mark_physical_memory_available((void *)base32, length32);
+                if (base32 + length32 > highest_memory_address)
+                    highest_memory_address = base32 + length32;
             }
-            map_size -= sizeof(multiboot_memory_map_t);
-            map_entry++;
         }
-    } else if (info->flags & MULTIBOOT_MEMORY_INFO) {
-        mark_physical_memory_available((void *)0, info->mem_lower * 1024);
-        // upper memory is supposed to be the first upper memory hole minus 1MB
-        mark_physical_memory_available((void *)ONE_MB, (info->mem_upper * 1024) - ONE_MB);
-        highest_memory_address = info->mem_upper * 1024 - 1;
     } else {
         // aim for 1 GB and hope for the best... :-(
         mark_physical_memory_available((void *)0, 512 * 1024);

@@ -18,7 +18,6 @@
 #include <klog.h>
 #include <klib/string.h>
 #include <memory/physmem.h>
-#include <multiboot.h>
 #include <multitask/multitask.h>
 #include <multitask/semaphore.h>
 #include <multitask/process.h>
@@ -30,6 +29,8 @@
 #include <filesys/drivers.h>
 #include <filesys/mount.h>
 #include <monitor.h>
+#include "../stage2/boot_info.h" // passed from 2nd stage
+#include "../config.h"
 
 // Check if the compiler thinks you are targeting the wrong operating system.
 #if defined(__linux__)
@@ -61,20 +62,20 @@ void kernel_text_size() {}
 void kernel_data_size() {}
 void kernel_rodata_size() {}
 void kernel_bss_size() {}
-multiboot_info_t saved_multiboot_info;
+boot_info_t saved_multiboot_info;
 #define KERNEL_HEAP_SIZE_KB  4096
 #define KERNEL_RAMDISK_SIZE_KB  4096
 
 
 void launch_initial_processes();
 void shell_launcher();
-void print_multiboot_info(multiboot_info_t *info);
+void print_stage2_boot_info(boot_info_t *info);
 
 
 
 // arguments from the multiboot loader, normally left by GRUB
 // see https://wiki.osdev.org/Detecting_Memory_(x86)
-void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
+void kernel_main(boot_info_t* boot)
 {
     // interrupts are disabled, nmi is also disabled
     // to allow us to set up our Interrupt Table
@@ -97,7 +98,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_appender_level(LOGAPP_SCREEN, LOGLEV_INFO);
     
     klog_info("C kernel started");
-    klog_info("  Segments                     Size  From        To");
+    klog_info("Version %s, (%s), built %s", VERSION, GIT_HASH, DATE_BUILT);
+    klog_info("Segments                       Size  From        To");
     klog_info("  code (.text)              %4d KB  0x%08x  0x%08x", ((size_t)&kernel_text_size) / 1024, (size_t)&kernel_start_address, (size_t)&kernel_text_end_address);
     klog_info("  ro data (.rodata)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_rodata_size) / 1024, (size_t)&kernel_text_end_address, (size_t)&kernel_rodata_end_address);
     klog_info("  init data (.data)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_data_size) / 1024, (size_t)&kernel_rodata_end_address, (size_t)&kernel_data_end_address);
@@ -105,14 +107,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     klog_info("  heap                      %4d KB  0x%08x  0x%08x", KERNEL_HEAP_SIZE_KB, heap_start, heap_end);
     klog_info("  ramdisk                   %4d KB  0x%08x  0x%08x", KERNEL_RAMDISK_SIZE_KB, ramdisk_start, ramdisk_end);
 
-    if (boot_magic == 0x2BADB002) {
-        klog_info("Bootloader info detected, copying it, size of %d bytes", sizeof(multiboot_info_t));
-        print_multiboot_info(mbi);
-        memcpy((char *)&saved_multiboot_info, (char *)mbi, sizeof(multiboot_info_t));
-    } else {
-        klog_warn("No bootloader info detected");
-        memset((char *)&saved_multiboot_info, 0, sizeof(multiboot_info_t));
-    }
+    print_stage2_boot_info(boot);
+    memcpy((char *)&saved_multiboot_info, (char *)boot, sizeof(boot_info_t));
 
     // kernel code segment selector: 0x08 (8)
     // kernel data segment selector: 0x10 (16)
@@ -165,6 +161,8 @@ void kernel_main(multiboot_info_t* mbi, unsigned int boot_magic)
     fat_register_vfs_driver();
     ext2_register_vfs_driver();
     vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
+
+    for(;;); // TODO: remove when we have the correct filesystem mounted
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();
@@ -231,87 +229,26 @@ void shell_launcher() {
     }
 }
 
-
-
-void print_multiboot_info(multiboot_info_t *info) {
-
-    // see https://www.gnu.org/software/grub/manual/multiboot/multiboot.html
-
-    // we should print this....
-    // to see what GRUB initializes, and do similar stuff
-    klog_info("Multiboot info");
-    klog_info("- flags: 0x%08x  (%032b)", info->flags, info->flags);
-    if (info->flags & MULTIBOOT_INFO_MEMORY) {
-        klog_info("- memory lower 0x%x (%u)", info->mem_lower, info->mem_lower);
-        klog_info("- memory lower 0x%x (%u)", info->mem_upper, info->mem_upper);
+void print_stage2_boot_info(boot_info_t *info) {
+    klog_info("boot_info from stage 2 (ptr address 0x%08x)", info);
+    klog_info("* cmd line: \"%s\"", info->cmdline);
+    klog_info("* memory map (total of %u entries)", info->mem.count);
+    klog_info("    No              Address               Length  Type  ACPI");
+    //             00  0x12345678-12345678  0x12345678-12345678  1234  1234
+    for (uint32_t i = 0; i < 4; i++) {
+        e820_memory_entry *mm = &info->mem.entries[i];
+        klog_info("    %2u  0x%08x-%08x  0x%08x-%08x  %4u  %4u", 
+            i,
+            HIGH_DWORD(mm->base), LOW_DWORD(mm->base),
+            HIGH_DWORD(mm->length), LOW_DWORD(mm->length),
+            mm->type, 
+            mm->acpi_ext);
     }
-    if (info->flags & MULTIBOOT_INFO_BOOTDEV) {
-        klog_info("- root partition 0x%x (drive no, p1, p2, p3)", info->boot_device);
-    }
-    if (info->flags & MULTIBOOT_INFO_CMDLINE) {
-        klog_info("- cmdline \"%s\"", info->cmdline);
-    }
-    if (info->flags & MULTIBOOT_INFO_MODS) {
-        klog_info("- mods address 0x%x, count %d", info->mods_addr, info->mods_count);
-    }
-    if (info->flags & MULTIBOOT_INFO_AOUT_SYMS) {
-        klog_info("- aout info provided");
-    } else if (info->flags & MULTIBOOT_INFO_ELF_SHDR) {
-        klog_info("- ELF info provided");
-        klog_info("  elf n %x, s %u, a %x, i %x", 
-            info->u.elf_sec.num,
-            info->u.elf_sec.size,
-            info->u.elf_sec.addr,
-            info->u.elf_sec.shndx
-        );
-        char *ptr = (char *)info->u.elf_sec.addr;
-        for (uint32_t i = 0; i < info->u.elf_sec.num; i++) {
-            // each entry is a Elf32_Shdr structure
-            // see https://www.man7.org/linux/man-pages/man5/elf.5.html
-            ptr += info->u.elf_sec.size;
-        }
-    }
-    if (info->flags & MULTIBOOT_INFO_MEM_MAP) {
-        klog_info("- mmap address 0x%x, length %d", info->mmap_addr, info->mmap_length);
-        uint32_t len = 0;
-        void *ptr = (char *)info->mmap_addr;
-        while (len < info->mmap_length) {
-            multiboot_memory_map_t *mm = (multiboot_memory_map_t *)ptr;
-            klog_info("  s %d,  a 0x%08x-%08x,  l 0x%08x-%08x,  t %u", 
-                mm->size,
-                HIGH_DWORD(mm->addr), LOW_DWORD(mm->addr),
-                HIGH_DWORD(mm->len), LOW_DWORD(mm->len),
-                mm->type);
-            len += 24; // sizeof(multiboot_memory_map_t);
-            ptr += 24; // sizeof(multiboot_memory_map_t);
-        }
-    }
-    if (info->flags & MULTIBOOT_INFO_DRIVE_INFO) {
-        klog_info("- drives address 0x%x, length %d", info->drives_addr, info->drives_length);
-    }
-    if (info->flags & MULTIBOOT_INFO_CONFIG_TABLE) {
-        klog_info("- rom config table 0x%x", info->config_table);
-    }
-    if (info->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
-        klog_info("- boot loader name \"%s\"", info->boot_loader_name);
-    }
-    if (info->flags & MULTIBOOT_INFO_APM_TABLE) {
-        klog_info("- apm table address 0x%x", info->apm_table);
-    }
-    if (info->flags & MULTIBOOT_INFO_VBE_INFO) {
-        klog_info("- vbe control info  0x%x", info->vbe_control_info);
-        klog_info("- vbe mode info     0x%x", info->vbe_mode_info);
-        klog_info("- vbe mode          0x%x", info->vbe_mode);
-        klog_info("- vbe interface seg 0x%x", info->vbe_interface_seg);
-        klog_info("- vbe interface off 0x%x", info->vbe_interface_off);
-        klog_info("- vbe interface len 0x%x", info->vbe_interface_len);
-    }
-    if (info->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) {
-        klog_info("- framebuffer addr   0x%x-%x", HIGH_DWORD(info->framebuffer_addr), LOW_DWORD(info->framebuffer_addr));
-        klog_info("- framebuffer pitch  %u", info->framebuffer_pitch);
-        klog_info("- framebuffer width  %u", info->framebuffer_width);
-        klog_info("- framebuffer height %u", info->framebuffer_height);
-        klog_info("- framebuffer bpp    %u", info->framebuffer_bpp);
-        klog_info("- framebuffer type   %u", info->framebuffer_type);
-    }
+    klog_info("* VBE framebuffer at 0x%08x-%08x, %u x %u x %u, pitch %u", 
+        HIGH_DWORD(info->fb.fb_addr),
+        LOW_DWORD(info->fb.fb_addr),
+        info->fb.width,
+        info->fb.height,
+        info->fb.bpp,
+        info->fb.pitch);
 }

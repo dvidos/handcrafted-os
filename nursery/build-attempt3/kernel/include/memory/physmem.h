@@ -2,11 +2,11 @@
 #define _PHYSMEM_H
 
 #include <ctypes.h>
-#include <multiboot.h>
+#include "../../../stage2/boot_info.h"
 
 int physical_page_size();
 
-void init_physical_memory_manager(multiboot_info_t *info, void *kernel_start_address, void *kernel_end_address);
+void init_physical_memory_manager(boot_info_t *info, void *kernel_start_address, void *kernel_end_address);
 
 void *allocate_physical_page(void *minimum_address);
 void free_physical_page(void *address);

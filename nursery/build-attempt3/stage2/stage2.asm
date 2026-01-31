@@ -318,19 +318,16 @@ enter_protected_mode_32bits:
     mov es, ax
     mov fs, ax
     mov gs, ax
-    
-    ; 2. Set up stack
+
     mov ax, DATA_SEL
     mov ss, ax          ; load stack segment
-    mov esp, KERNEL_STACK_TOP   ; stack top (match what kernel.ld has)
-    
-    ; pass in first argument in kernel_main()
+
+    ; pass in boot info to kernel entry (_start)
     mov eax, boot_info
-    push eax
 
     ; jump to kernel entry point in EAX
-    mov eax, KERNEL_LOAD_ADDRESS
-    jmp eax
+    mov ebx, KERNEL_LOAD_ADDRESS
+    jmp ebx
 
 ; ------------------------
 [BITS 16]

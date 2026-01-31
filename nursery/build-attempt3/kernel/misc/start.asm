@@ -14,7 +14,10 @@ _start:
 
     mov ebp, 0          ; to signify no previous frame
 
+    ; EAX contains pointer to boot_info
+    push eax
     call kernel_main
+    
 hang:
     hlt
     jmp hang
