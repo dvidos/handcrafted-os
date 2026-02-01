@@ -1,9 +1,9 @@
-#include <cpu.h>
-#include <drivers/screen.h>
-#include <drivers/clock.h>
+#include "../misc/cpu.h"
+//#include <drivers/screen.h>
+#include "clock.h"
 #include "../misc/lock.h"
-#include <cpu.h>
-#include <idt.h>
+#include "../misc/cpu.h"
+#include "../misc/idt.h"
 
 
 // mostly following https://wiki.osdev.org/CMOS#Getting_Current_Date_and_Time_from_RTC

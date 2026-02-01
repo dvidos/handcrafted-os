@@ -1,8 +1,8 @@
 #ifndef _MOUNT_H
 #define _MOUNT_H
 
-#include <devices/storage_dev.h>
-#include <filesys/partition.h>
+#include "../devices/storage_dev.h"
+#include "partition.h"
 
 typedef struct mount_info {
     struct storage_dev *dev;

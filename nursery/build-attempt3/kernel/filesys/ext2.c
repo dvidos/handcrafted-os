@@ -1,7 +1,7 @@
 #include <errors.h>
-#include <filesys/vfs.h>
-#include <filesys/partition.h>
-#include <filesys/drivers.h>
+#include "vfs.h"
+#include "partition.h"
+#include "drivers.h"
 
 static int supported(struct partition *partition);
 

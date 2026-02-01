@@ -3,8 +3,8 @@
 
 #include <ctypes.h>
 #include "../misc/lock.h"
-#include <devices/tty.h>
-#include <filesys/vfs.h>
+#include "../devices/tty.h"
+#include "../filesys/vfs.h"
 
 // used to detect stack overflows
 #define STACK_BOTTOM_MAGIC_VALUE    0x12345678

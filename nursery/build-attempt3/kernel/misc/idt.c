@@ -1,5 +1,5 @@
-#include <klib/string.h>
-#include <klog.h>
+#include "../klib/string.h"
+#include "../misc/klog.h"
 
 
 // for documentation, see https://wiki.osdev.org/IDT

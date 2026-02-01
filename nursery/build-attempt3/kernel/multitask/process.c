@@ -1,20 +1,20 @@
-#include <drivers/screen.h>
-#include <klib/string.h>
+#include "../drivers/screen.h"
+#include "../klib/string.h"
 #include "../misc/lock.h"
-#include <drivers/timer.h>
-#include <cpu.h>
-#include <drivers/clock.h>
+#include "../drivers/timer.h"
+#include "../misc/cpu.h"
+#include "../drivers/clock.h"
 #include "process.h"
 #include "proclist.h"
 #include "../multitask/scheduler.h"
 #include "multitask.h"
-#include <memory/kheap.h>
-#include <memory/virtmem.h>
-#include <klog.h>
+#include "../memory/kheap.h"
+#include "../memory/virtmem.h"
+#include "../misc/klog.h"
 #include <errors.h>
 #include "strvec.h"
-#include <filesys/mount.h>
-#include <filesys/vfs.h>
+#include "../filesys/mount.h"
+#include "../filesys/vfs.h"
 
 MODULE("PROC");
 

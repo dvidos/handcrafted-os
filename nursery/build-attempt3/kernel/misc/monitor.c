@@ -1,16 +1,16 @@
 #include <ctypes.h>
-#include <string.h>
+#include "../klib/string.h"
 #include "../multitask/process.h"
 #include "../multitask/scheduler.h"
 #include "../memory/physmem.h"
-#include <memory/kheap.h>
-#include <drivers/clock.h>
-#include <drivers/timer.h>
-#include <devices/storage_dev.h>
-#include <filesys/partition.h>
-#include <filesys/partition.h>
-#include <filesys/mount.h>
-#include <filesys/drivers.h>
+#include "../memory/kheap.h"
+#include "../drivers/clock.h"
+#include "../drivers/timer.h"
+#include "../devices/storage_dev.h"
+#include "../filesys/partition.h"
+#include "../filesys/partition.h"
+#include "../filesys/mount.h"
+#include "../filesys/drivers.h"
 
 
 static void show_process(bool title, process_t *p, int *row) {

@@ -1,8 +1,8 @@
 #include <ctypes.h>
 #include "../misc/lock.h"
-#include <drivers/timer.h>
-#include <devices/storage_dev.h>
-#include <memory/kheap.h>
+#include "../drivers/timer.h"
+#include "../devices/storage_dev.h"
+#include "../memory/kheap.h"
 #include <errors.h>
 
 /*

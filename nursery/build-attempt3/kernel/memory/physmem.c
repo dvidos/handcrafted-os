@@ -1,7 +1,7 @@
-#include <drivers/screen.h>
-#include <klib/string.h>
-#include <cpu.h>
-#include <klog.h>
+#include "../drivers/screen.h"
+#include "../klib/string.h"
+#include "../misc/cpu.h"
+#include "../misc/klog.h"
 #include "physmem.h"
 #include "../../stage2/boot_info.h"
 

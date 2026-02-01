@@ -1,12 +1,12 @@
 #include "multitask.h"
 #include "process.h"
 #include "../multitask/scheduler.h"
-#include <drivers/timer.h>
-#include <drivers/clock.h>
-#include <klog.h>
-#include <memory/kheap.h>
-#include <memory/virtmem.h>
-#include <klib/string.h>
+#include "../drivers/timer.h"
+#include "../drivers/clock.h"
+#include "../misc/klog.h"
+#include "../memory/kheap.h"
+#include "../memory/virtmem.h"
+#include "../klib/string.h"
 
 MODULE("MTASK");
 

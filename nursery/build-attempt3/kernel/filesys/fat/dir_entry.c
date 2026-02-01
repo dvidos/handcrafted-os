@@ -1,9 +1,9 @@
 #include <bits.h>
-#include <klib/string.h>
-#include <klog.h>
+#include "../../klib/string.h"
+#include "../../misc/klog.h"
 #include <errors.h>
-#include <filesys/vfs.h>
-#include <drivers/clock.h>
+#include "../vfs.h"
+#include "../../drivers/clock.h"
 #include "fat_priv.h"
 
 

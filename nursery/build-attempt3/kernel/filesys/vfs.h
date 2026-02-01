@@ -2,9 +2,9 @@
 #define _VFS_H
 
 #include <ctypes.h>
-#include "../../misc/lock.h"
-#include <filesys/drivers.h>
-#include <filesys/partition.h>
+#include "../misc/lock.h"
+#include "drivers.h"
+#include "partition.h"
 
 
 

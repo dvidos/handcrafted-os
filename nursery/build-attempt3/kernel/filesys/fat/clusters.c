@@ -1,6 +1,6 @@
 #include "fat_priv.h"
 #include <errors.h>
-#include <klog.h>
+#include "../misc/klog.h"
 
 
 

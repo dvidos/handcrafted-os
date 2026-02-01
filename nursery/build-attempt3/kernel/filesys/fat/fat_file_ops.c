@@ -1,13 +1,13 @@
 #ifndef _FAT_FILE_OPS_C
 #define _FAT_FILE_OPS_C
 
-#include <filesys/vfs.h>
-#include <memory/kheap.h>
-#include <klib/string.h>
-#include <klog.h>
+#include "../vfs.h"
+#include "../../memory/kheap.h"
+#include "../../klib/string.h"
+#include "../../misc/klog.h"
+#include "../../misc/lock.h"
 #include <errors.h>
 #include "fat_priv.h"
-#include "../../misc/lock.h"
 
 
 

@@ -1,6 +1,6 @@
 #include <ctypes.h>
-#include <drivers/screen.h>
-#include <cpu.h>
+#include "../drivers/screen.h"
+#include "../misc/cpu.h"
 
 #define INTERRUPT_ENABLE_FLAG 0x00000200 // Interrupt Enable
 

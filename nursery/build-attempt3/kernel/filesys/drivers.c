@@ -1,9 +1,9 @@
-#include <devices/storage_dev.h>
-#include <filesys/vfs.h>
-#include <filesys/drivers.h>
-#include <memory/kheap.h>
-#include <klib/string.h>
-#include <klog.h>
+#include "../devices/storage_dev.h"
+#include "../memory/kheap.h"
+#include "../klib/string.h"
+#include "../misc/klog.h"
+#include "vfs.h"
+#include "drivers.h"
 #include <errors.h>
 
 MODULE("VFS");

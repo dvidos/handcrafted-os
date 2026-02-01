@@ -1,5 +1,5 @@
 #include "internal.h"
-#include <string.h>
+
 
 
 static int opened_inode_flush(mounted_data *mt, cached_inode *node) {

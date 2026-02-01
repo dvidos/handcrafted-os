@@ -1,13 +1,13 @@
 #include <bits.h>
-#include <cpu.h>
-#include <klib/string.h>
-#include <drivers/screen.h>
-#include <drivers/timer.h>
-#include <drivers/pci.h>
-#include <devices/storage_dev.h>
-#include <memory/kheap.h>
+#include "../misc/cpu.h"
+#include "../klib/string.h"
+//#include "../drivers/screen.h"
+#include "../drivers/timer.h"
+#include "../devices/storage_dev.h"
+#include "../memory/kheap.h"
 #include "../memory/physmem.h"
-#include <klog.h>
+#include "../misc/klog.h"
+#include "pci.h"
 
 MODULE("ATA");
 

@@ -3,7 +3,7 @@
 #include <memory/kheap.h>
 #include <klib/string.h>
 #include <errors.h>
-#include <klog.h>
+#include "../misc/klog.h"
 #include "framework.h"
 
 MODULE("VFS_UNIT_TEST")

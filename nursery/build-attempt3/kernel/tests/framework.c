@@ -1,9 +1,9 @@
 #include <ctypes.h>
-#include <string.h>
+#include "../klib/string.h"
 #include <drivers/screen.h>
 #include <memory/kheap.h>
 #include "framework.h"
-#include <klog.h>
+#include "../misc/klog.h"
 
 MODULE("UNITTEST");
 

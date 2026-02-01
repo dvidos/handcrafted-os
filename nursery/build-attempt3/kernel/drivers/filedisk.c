@@ -1,9 +1,9 @@
 #include <ctypes.h>
 #include <errors.h>
-#include <string.h>
-#include <filesys/vfs.h>
-#include <devices/storage_dev.h>
-#include <memory/kheap.h>
+#include "../klib/string.h"
+#include "../filesys/vfs.h"
+#include "../devices/storage_dev.h"
+#include "../memory/kheap.h"
 
 #define max(a, b)    ((a) >= (b) ? (a) : (b))
 

@@ -1,8 +1,8 @@
-#include <cpu.h>
 #include <bits.h>
-#include <klog.h>
-#include <memory/kheap.h>
-#include <drivers/pci.h>
+#include "../misc/cpu.h"
+#include "../misc/klog.h"
+#include "../memory/kheap.h"
+#include "pci.h"
 
 MODULE("PCI");
 

@@ -1,11 +1,11 @@
 #include <ctypes.h>
-#include <idt.h>
-#include <drivers/timer.h>
-#include <drivers/kbd_drv.h>
-#include <drivers/clock.h>
-#include <memory/virtmem.h>
-#include <pic.h>
-#include <klog.h>
+#include "idt.h"
+#include "../drivers/timer.h"
+#include "../drivers/kbd_drv.h"
+#include "../drivers/clock.h"
+#include "../memory/virtmem.h"
+#include "pic.h"
+#include "../misc/klog.h"
 #include <bits.h>
 #include "../multitask/multitask.h"
 

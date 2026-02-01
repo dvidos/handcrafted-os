@@ -1,6 +1,6 @@
 #include "../dependencies/returns.h"
 #include "internal.h"
-#include <string.h>
+
 
 typedef struct bcache_entry bcache_entry;
 typedef struct block_cache block_cache;

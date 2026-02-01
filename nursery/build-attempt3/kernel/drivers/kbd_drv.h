@@ -2,7 +2,7 @@
 #define _KERNEL_KEYBOARD_H
 
 #include <ctypes.h>
-#include <idt.h>
+#include "../misc/idt.h"
 #include <keyboard.h>  // <-- this is keyboard.h from libc, to get keys designation and structure
 
 

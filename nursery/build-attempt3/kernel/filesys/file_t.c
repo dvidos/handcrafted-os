@@ -1,7 +1,7 @@
-#include <filesys/vfs.h>
-#include <klib/string.h>
-#include <memory/kheap.h>
-#include <klog.h>
+#include "vfs.h"
+#include "../klib/string.h"
+#include "../memory/kheap.h"
+#include "../misc/klog.h"
 
 MODULE("VFS");
 

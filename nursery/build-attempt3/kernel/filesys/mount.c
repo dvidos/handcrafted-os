@@ -1,11 +1,11 @@
-#include <devices/storage_dev.h>
-#include <filesys/vfs.h>
-#include <filesys/partition.h>
-#include <filesys/drivers.h>
-#include <filesys/mount.h>
-#include <memory/kheap.h>
-#include <klib/string.h>
-#include <klog.h>
+#include "../devices/storage_dev.h"
+#include "vfs.h"
+#include "partition.h"
+#include "drivers.h"
+#include "mount.h"
+#include "../memory/kheap.h"
+#include "../klib/string.h"
+#include "../misc/klog.h"
 #include <errors.h>
 
 MODULE("MOUNT");

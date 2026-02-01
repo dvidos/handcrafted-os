@@ -1,7 +1,7 @@
 #ifndef _PARTITIONS_H
 #define _PARTITIONS_H
 
-#include <devices/storage_dev.h>
+#include "../devices/storage_dev.h"
 
 
 struct partition {

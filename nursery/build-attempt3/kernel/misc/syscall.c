@@ -1,14 +1,14 @@
 #include <bits.h>
-#include <cpu.h>
+#include "../misc/cpu.h"
 #include <errors.h>
-#include <klog.h>
-#include <drivers/clock.h>
-#include <drivers/timer.h>
+#include "../misc/klog.h"
+#include "../drivers/clock.h"
+#include "../drivers/timer.h"
 #include "../multitask/process.h"
 #include "../multitask/exec.h"
-#include <devices/tty.h>
-#include <filesys/vfs.h>
-#include <memory/virtmem.h>
+#include "../devices/tty.h"
+#include "../filesys/vfs.h"
+#include "../memory/virtmem.h"
 
 #include <syscall.h>
 #include <keyboard.h>

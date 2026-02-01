@@ -1,6 +1,6 @@
-#include <devices/storage_dev.h>
 #include "../misc/lock.h"
-#include <klog.h>
+#include "../misc/klog.h"
+#include "storage_dev.h"
 
 
 MODULE("STDEV");

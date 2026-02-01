@@ -1,6 +1,6 @@
-#include <memory/kheap.h>
-#include <klib/string.h>
-#include <klog.h>
+#include "../memory/kheap.h"
+#include "../klib/string.h"
+#include "../misc/klog.h"
 
 MODULE("STRVEC");
 

@@ -1,10 +1,10 @@
 #include <va_list.h>
 #include <limits.h>
-#include <klib/string.h>
-#include <cpu.h>
-#include <cpu.h>
-#include <drivers/screen.h>
 #include <bits.h>
+#include "../klib/string.h"
+#include "../misc/cpu.h"
+#include "../misc/cpu.h"
+#include "screen.h"
 
 
 // lots of useful information here:

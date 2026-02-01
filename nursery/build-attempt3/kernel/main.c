@@ -1,36 +1,38 @@
 #include <ctypes.h>
 #include <bits.h>
-#include <gdt.h>
-#include <idt.h>
-#include <pic.h>
-#include <cpu.h>
-#include <drivers/screen.h>
-#include <drivers/timer.h>
-#include <drivers/clock.h>
-#include <drivers/serial.h>
-#include <drivers/pci.h>
-#include <drivers/sata.h>
-#include <drivers/ata.h>
-#include <drivers/ramdisk.h>
-#include <devices/tty.h>
-#include <memory/virtmem.h>
-#include <memory/kheap.h>
-#include <klog.h>
-#include <klib/string.h>
+#include "misc/gdt.h"
+#include "misc/idt.h"
+#include "misc/pic.h"
+#include "misc/cpu.h"
+#include "drivers/screen.h"
+#include "drivers/timer.h"
+#include "drivers/clock.h"
+#include "drivers/serial.h"
+#include "drivers/pci.h"
+#include "drivers/sata.h"
+#include "drivers/ata.h"
+#include "drivers/ramdisk.h"
+#include "devices/tty.h"
+#include "memory/virtmem.h"
+#include "memory/kheap.h"
+#include "misc/klog.h"
+#include "klib/string.h"
 #include "memory/physmem.h"
 #include "multitask/multitask.h"
 #include "multitask/semaphore.h"
 #include "multitask/process.h"
 #include "multitask/exec.h"
-#include <filesys/partition.h>
-#include <filesys/vfs.h>
-#include <filesys/fat.h>
-#include <filesys/ext2.h>
-#include <filesys/drivers.h>
-#include <filesys/mount.h>
-#include <monitor.h>
+#include "filesys/partition.h"
+#include "filesys/vfs.h"
+#include "filesys/fat.h"
+#include "filesys/ext2.h"
+#include "filesys/drivers.h"
+#include "filesys/mount.h"
+#include "misc/monitor.h"
 #include "../stage2/boot_info.h" // passed from 2nd stage
-#include "../config.h"
+#include "../config.h" // compilation configuration
+
+
 
 // Check if the compiler thinks you are targeting the wrong operating system.
 #if defined(__linux__)

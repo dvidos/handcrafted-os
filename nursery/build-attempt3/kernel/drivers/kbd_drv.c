@@ -1,9 +1,9 @@
-#include <klib/string.h>
-#include <drivers/screen.h>
-#include <cpu.h>
-#include <idt.h>
+#include "../klib/string.h"
+#include "../drivers/screen.h"
+#include "../misc/cpu.h"
+#include "../misc/idt.h"
 #include "../misc/lock.h"
-#include <klog.h>
+#include "../misc/klog.h"
 
 #include <keyboard.h>  // <-- from libc, for key defines and structure
 

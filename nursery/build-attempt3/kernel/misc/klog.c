@@ -1,10 +1,10 @@
 #include <va_list.h>
-#include <klib/string.h>
-#include <klib/strbuff.h>
-#include <drivers/serial.h>
-#include <drivers/screen.h>
-#include <drivers/timer.h>
-#include <klog.h>
+#include "../klib/string.h"
+#include "../klib/strbuff.h"
+#include "../drivers/serial.h"
+#include "../drivers/screen.h"
+#include "../drivers/timer.h"
+#include "../misc/klog.h"
 #include "../multitask/process.h"
 
 

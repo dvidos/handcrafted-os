@@ -2,7 +2,7 @@
 #define _KLOG_H
 
 #include <ctypes.h>
-#include <devices/tty.h>
+#include "../devices/tty.h"
 
 
 

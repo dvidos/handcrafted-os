@@ -1,6 +1,6 @@
-#include <cpu.h>
-#include <idt.h>
-#include <drivers/screen.h>
+#include "../misc/cpu.h"
+#include "../misc/idt.h"
+#include "screen.h"
 
 
 

@@ -1,9 +1,9 @@
 #include <ctypes.h>
 #include <errors.h>
-#include <string.h>
-#include <memory/virtmem.h>
-#include <memory/kheap.h>
-#include <devices/storage_dev.h>
+#include "../klib/string.h"
+#include "../memory/virtmem.h"
+#include "../memory/kheap.h"
+#include "../devices/storage_dev.h"
 
 
 struct ramdisk_info {

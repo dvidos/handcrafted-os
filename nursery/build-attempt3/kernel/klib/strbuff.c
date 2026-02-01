@@ -1,7 +1,7 @@
-#include <memory/kheap.h>
-#include <klib/string.h>
-#include <klib/strbuff.h>
-#include <klog.h>
+#include "../memory/kheap.h"
+#include "string.h"
+#include "strbuff.h"
+#include "../misc/klog.h"
 
 MODULE("SBUFF");
 

@@ -1,5 +1,5 @@
 #include <errors.h>
-#include <klib/string.h>
+#include "../../klib/string.h"
 #include "fat_priv.h"
 #include "fat_dir_ops.c"
 #include "fat_file_ops.c"

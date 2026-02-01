@@ -1,12 +1,12 @@
 #include <errors.h>
-#include <klog.h>
-#include <filesys/vfs.h>
+#include "../misc/klog.h"
+#include "../filesys/vfs.h"
 #include "../memory/physmem.h"
-#include <memory/virtmem.h>
-#include <memory/kheap.h>
-#include <klib/string.h>
+#include "../memory/virtmem.h"
+#include "../memory/kheap.h"
+#include "../klib/string.h"
 #include "../multitask/process.h"
-#include <devices/tty.h>
+#include "../devices/tty.h"
 
 MODULE("ELF");
 

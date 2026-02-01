@@ -1,9 +1,9 @@
 #include "process.h"
 #include "semaphore.h"
 #include "scheduler.h"
-#include <memory/kheap.h>
-#include <klog.h>
-#include <klib/string.h>
+#include "../memory/kheap.h"
+#include "../misc/klog.h"
+#include "../klib/string.h"
 
 MODULE("SEMA");
 

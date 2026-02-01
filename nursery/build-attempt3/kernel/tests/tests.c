@@ -3,7 +3,7 @@
 #include <string.h>
 #include <drivers/screen.h>
 #include "framework.h"
-#include <klog.h>
+#include "../misc/klog.h"
 #include <memory/kheap.h>
 
 MODULE("UNITTEST");

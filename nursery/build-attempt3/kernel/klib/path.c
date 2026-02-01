@@ -1,6 +1,6 @@
-#include <klib/string.h>
+#include "string.h"
 #include <errors.h>
-#include <klog.h>
+#include "../misc/klog.h"
 
 MODULE("PATH");
 

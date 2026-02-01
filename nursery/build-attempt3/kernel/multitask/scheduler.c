@@ -1,10 +1,10 @@
 #include "../multitask/scheduler.h"
 #include "process.h"
 #include "proclist.h"
-#include <cpu.h>
-#include <drivers/timer.h>
-#include <klog.h>
-#include <memory/virtmem.h>
+#include "../misc/cpu.h"
+#include "../drivers/timer.h"
+#include "../misc/klog.h"
+#include "../memory/virtmem.h"
 #include <bits.h>
 
 MODULE("SCHED");

@@ -1,7 +1,7 @@
 #ifndef _CLOCK_H
 #define _CLOCK_H
 
-#include <idt.h>
+#include "../misc/idt.h"
 
 
 struct real_time_clock_info {

@@ -1,9 +1,9 @@
 #include <bits.h>
 #include "physmem.h"
-#include <drivers/screen.h>
-#include <klog.h>
-#include <klib/string.h>
-#include <cpu.h>
+#include "../drivers/screen.h"
+#include "../misc/klog.h"
+#include "../misc/cpu.h"
+#include "../klib/string.h"
 
 MODULE("VMEM");
 

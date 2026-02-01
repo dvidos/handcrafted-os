@@ -1,11 +1,11 @@
 #include <bits.h>
-#include <drivers/screen.h>
-#include <klog.h>
-#include <klib/string.h>
+#include "../drivers/screen.h"
+#include "../misc/klog.h"
+#include "../klib/string.h"
 #include "../memory/physmem.h"
-#include <memory/kheap.h>
-#include <devices/storage_dev.h>
-#include <filesys/partition.h>
+#include "../memory/kheap.h"
+#include "../devices/storage_dev.h"
+#include "partition.h"
 
 MODULE("PART");
 

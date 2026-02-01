@@ -1,13 +1,13 @@
 #include <errors.h>
-#include <klog.h>
-#include <klib/string.h>
-#include <filesys/vfs.h>
+#include "../misc/klog.h"
+#include "../klib/string.h"
+#include "../filesys/vfs.h"
 #include "process.h"
 #include "strvec.h"
-#include <devices/tty.h>
-#include <elf.h>
-#include <memory/virtmem.h>
-#include <memory/kheap.h>
+#include "../devices/tty.h"
+#include "../misc/elf.h"
+#include "../memory/virtmem.h"
+#include "../memory/kheap.h"
 
 MODULE("EXEC");
 

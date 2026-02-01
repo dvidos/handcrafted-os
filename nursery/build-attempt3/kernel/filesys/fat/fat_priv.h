@@ -1,13 +1,13 @@
 #ifndef _FAT_PRIV_H
 #define _FAT_PRIV_H
 
-#include <filesys/vfs.h>
-#include <filesys/partition.h>
-#include <filesys/drivers.h>
-#include <filesys/mount.h>
-#include <drivers/clock.h>
+#include "../vfs.h"
+#include "../partition.h"
+#include "../drivers.h"
+#include "../mount.h"
+#include "../../drivers/clock.h"
 #include "../../misc/lock.h"
-#include <klog.h>
+#include "../../misc/klog.h"
 
 #define min(a, b)     ((a) <= (b) ? (a) : (b))
 #define max(a, b)     ((a) >= (b) ? (a) : (b))

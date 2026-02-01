@@ -2,7 +2,7 @@
 #define _STORAGE_DEV_H
 
 #include <ctypes.h>
-#include <drivers/pci.h>
+#include "../drivers/pci.h"
 
 struct storage_dev_ops;
 

@@ -1,12 +1,12 @@
 #include <ctypes.h>
-#include "../misc/lock.h"
 #include <errors.h>
-#include <filesys/drivers.h>
-#include <filesys/partition.h>
-#include <filesys/vfs.h>
-#include <filesys/mount.h>
-#include <klib/path.h>
-#include <klib/string.h>
+#include "drivers.h"
+#include "partition.h"
+#include "vfs.h"
+#include "mount.h"
+#include "../misc/lock.h"
+#include "../klib/path.h"
+#include "../klib/string.h"
 
 /*
 

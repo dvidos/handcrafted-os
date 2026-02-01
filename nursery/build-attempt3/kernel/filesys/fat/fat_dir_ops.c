@@ -1,12 +1,12 @@
 #ifndef _FAT_DIR_OPS_C
 #define _FAT_DIR_OPS_C
 
-#include <drivers/clock.h>
-#include <filesys/vfs.h>
-#include <memory/kheap.h>
-#include <klib/string.h>
-#include <klib/path.h>
-#include <klog.h>
+#include "../../drivers/clock.h"
+#include "../vfs.h"
+#include "../../memory/kheap.h"
+#include "../../klib/string.h"
+#include "../../klib/path.h"
+#include "../misc/klog.h"
 #include <errors.h>
 #include "fat_priv.h"
 
