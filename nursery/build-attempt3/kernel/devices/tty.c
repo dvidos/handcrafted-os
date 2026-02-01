@@ -1,11 +1,11 @@
-#include <multitask/process.h>
+#include "../multitask/process.h"
 #include <memory/kheap.h>
 #include <drivers/screen.h>
 #include <keyboard.h>  // <-- libc
 #include <klog.h>
 #include <cpu.h>
 #include <klib/string.h>
-#include <lock.h>
+#include "../misc/lock.h"
 
 MODULE("TTY");
 

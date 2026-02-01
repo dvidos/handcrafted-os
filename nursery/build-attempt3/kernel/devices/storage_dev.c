@@ -1,5 +1,5 @@
 #include <devices/storage_dev.h>
-#include <lock.h>
+#include "../misc/lock.h"
 #include <klog.h>
 
 

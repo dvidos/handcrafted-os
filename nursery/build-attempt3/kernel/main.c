@@ -17,11 +17,11 @@
 #include <memory/kheap.h>
 #include <klog.h>
 #include <klib/string.h>
-#include <memory/physmem.h>
-#include <multitask/multitask.h>
-#include <multitask/semaphore.h>
-#include <multitask/process.h>
-#include <multitask/exec.h>
+#include "memory/physmem.h"
+#include "multitask/multitask.h"
+#include "multitask/semaphore.h"
+#include "multitask/process.h"
+#include "multitask/exec.h"
 #include <filesys/partition.h>
 #include <filesys/vfs.h>
 #include <filesys/fat.h>

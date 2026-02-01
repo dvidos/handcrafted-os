@@ -1,5 +1,5 @@
 #include <klib/string.h>
-#include <memory/physmem.h>
+#include "../memory/physmem.h"
 #include <memory/kheap.h>
 #include <drivers/pci.h>
 #include <klog.h>

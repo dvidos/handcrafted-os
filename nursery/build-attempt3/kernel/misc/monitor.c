@@ -1,8 +1,8 @@
 #include <ctypes.h>
 #include <string.h>
-#include <multitask/process.h>
-#include <multitask/scheduler.h>
-#include <memory/physmem.h>
+#include "../multitask/process.h"
+#include "../multitask/scheduler.h"
+#include "../memory/physmem.h"
 #include <memory/kheap.h>
 #include <drivers/clock.h>
 #include <drivers/timer.h>

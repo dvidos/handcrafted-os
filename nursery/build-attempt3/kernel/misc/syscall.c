@@ -4,8 +4,8 @@
 #include <klog.h>
 #include <drivers/clock.h>
 #include <drivers/timer.h>
-#include <multitask/process.h>
-#include <multitask/exec.h>
+#include "../multitask/process.h"
+#include "../multitask/exec.h"
 #include <devices/tty.h>
 #include <filesys/vfs.h>
 #include <memory/virtmem.h>

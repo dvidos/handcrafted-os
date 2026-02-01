@@ -2,7 +2,7 @@
 #define _PHYSMEM_H
 
 #include <ctypes.h>
-#include "../../../stage2/boot_info.h"
+#include "../../stage2/boot_info.h"
 
 int physical_page_size();
 

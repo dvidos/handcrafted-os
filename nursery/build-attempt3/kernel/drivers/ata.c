@@ -6,7 +6,7 @@
 #include <drivers/pci.h>
 #include <devices/storage_dev.h>
 #include <memory/kheap.h>
-#include <memory/physmem.h>
+#include "../memory/physmem.h"
 #include <klog.h>
 
 MODULE("ATA");

@@ -5,7 +5,7 @@
 #include <drivers/screen.h>
 #include <drivers/timer.h>
 #include <klog.h>
-#include <multitask/process.h>
+#include "../multitask/process.h"
 
 
 static char *level_captions[] = {

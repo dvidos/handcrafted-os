@@ -1,5 +1,5 @@
-#include <multitask/process.h>
-#include <multitask/proclist.h>
+#include "process.h"
+#include "proclist.h"
 #include <memory/kheap.h>
 
 

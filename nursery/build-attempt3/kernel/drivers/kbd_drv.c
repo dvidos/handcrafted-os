@@ -2,7 +2,7 @@
 #include <drivers/screen.h>
 #include <cpu.h>
 #include <idt.h>
-#include <lock.h>
+#include "../misc/lock.h"
 #include <klog.h>
 
 #include <keyboard.h>  // <-- from libc, for key defines and structure

@@ -7,7 +7,7 @@
 #include <pic.h>
 #include <klog.h>
 #include <bits.h>
-#include <multitask/multitask.h>
+#include "../multitask/multitask.h"
 
 
 MODULE("ISR");

@@ -1,7 +1,7 @@
 #include <drivers/screen.h>
 #include <klib/string.h>
 #include <klog.h>
-#include <memory/physmem.h>
+#include "physmem.h"
 #include <memory/kheap.h>
 
 #define KMEM_MAGIC       0xAAA // something that fits in 12 bits

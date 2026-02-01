@@ -1,8 +1,8 @@
 #ifndef _SCHEDULER_H
 #define _SCHEDULER_H
 
-#include <multitask/process.h>
-#include <multitask/proclist.h>
+#include "process.h"
+#include "proclist.h"
 
 // 0=highest priority, 1,2... lower priorities. 
 #define PROCESS_PRIORITY_LEVELS   8

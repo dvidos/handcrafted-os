@@ -7,7 +7,7 @@
 #include <klog.h>
 #include <errors.h>
 #include "fat_priv.h"
-#include <lock.h>
+#include "../../misc/lock.h"
 
 
 

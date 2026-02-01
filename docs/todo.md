@@ -1,6 +1,6 @@
 # things to do
 
-## New roadmap after nursery projects: stage2, graphics, filesys
+## New bucket list after nursery projects: stage2, graphics, filesys
 
 * bring stage2, with some form of memory mapping and optional graphics into stable
 * make one makefile per folder, then one build script on root, using `make -C`
@@ -70,6 +70,7 @@ Porting roadmap
   * vis (busybox editor)
   * make (bmake, from bsd, must leaner than gnu make, for self containd project)
   * busybox (but strong posix requirements... not sure...)
+  * lua, a small, yet usable interpreted language
 
 
 

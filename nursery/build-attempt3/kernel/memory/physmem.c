@@ -2,7 +2,7 @@
 #include <klib/string.h>
 #include <cpu.h>
 #include <klog.h>
-#include <memory/physmem.h>
+#include "physmem.h"
 #include "../../stage2/boot_info.h"
 
 MODULE("PMEM");

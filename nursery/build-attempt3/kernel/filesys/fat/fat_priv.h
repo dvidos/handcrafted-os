@@ -6,7 +6,7 @@
 #include <filesys/drivers.h>
 #include <filesys/mount.h>
 #include <drivers/clock.h>
-#include <lock.h>
+#include "../../misc/lock.h"
 #include <klog.h>
 
 #define min(a, b)     ((a) <= (b) ? (a) : (b))

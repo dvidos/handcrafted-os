@@ -1,6 +1,6 @@
-#include <multitask/process.h>
-#include <multitask/semaphore.h>
-#include <multitask/scheduler.h>
+#include "process.h"
+#include "semaphore.h"
+#include "scheduler.h"
 #include <memory/kheap.h>
 #include <klog.h>
 #include <klib/string.h>

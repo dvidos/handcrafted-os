@@ -1,5 +1,5 @@
 #include <ctypes.h>
-#include <lock.h>
+#include "../misc/lock.h"
 #include <errors.h>
 #include <filesys/drivers.h>
 #include <filesys/partition.h>

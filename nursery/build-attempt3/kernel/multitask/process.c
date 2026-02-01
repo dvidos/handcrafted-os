@@ -1,19 +1,18 @@
 #include <drivers/screen.h>
 #include <klib/string.h>
-#include <lock.h>
+#include "../misc/lock.h"
 #include <drivers/timer.h>
 #include <cpu.h>
 #include <drivers/clock.h>
-#include <multitask/process.h>
-#include <multitask/proclist.h>
-#include <multitask/scheduler.h>
-#include <multitask/multitask.h>
+#include "process.h"
+#include "proclist.h"
+#include "../multitask/scheduler.h"
+#include "multitask.h"
 #include <memory/kheap.h>
 #include <memory/virtmem.h>
 #include <klog.h>
 #include <errors.h>
-#include <multitask/process.h>
-#include <multitask/strvec.h>
+#include "strvec.h"
 #include <filesys/mount.h>
 #include <filesys/vfs.h>
 

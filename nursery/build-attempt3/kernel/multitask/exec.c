@@ -2,8 +2,8 @@
 #include <klog.h>
 #include <klib/string.h>
 #include <filesys/vfs.h>
-#include <multitask/process.h>
-#include <multitask/strvec.h>
+#include "process.h"
+#include "strvec.h"
 #include <devices/tty.h>
 #include <elf.h>
 #include <memory/virtmem.h>

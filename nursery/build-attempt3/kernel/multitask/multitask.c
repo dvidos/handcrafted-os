@@ -1,6 +1,6 @@
-#include <multitask/multitask.h>
-#include <multitask/process.h>
-#include <multitask/scheduler.h>
+#include "multitask.h"
+#include "process.h"
+#include "../multitask/scheduler.h"
 #include <drivers/timer.h>
 #include <drivers/clock.h>
 #include <klog.h>

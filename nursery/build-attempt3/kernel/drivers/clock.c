@@ -1,7 +1,7 @@
 #include <cpu.h>
 #include <drivers/screen.h>
 #include <drivers/clock.h>
-#include <lock.h>
+#include "../misc/lock.h"
 #include <cpu.h>
 #include <idt.h>
 
