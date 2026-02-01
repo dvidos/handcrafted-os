@@ -1,5 +1,5 @@
 #include <ctypes.h>
-#include <errors.h>
+#include <uapi/errors.h>
 #include "../klib/string.h"
 #include "../filesys/vfs.h"
 #include "../devices/storage_dev.h"

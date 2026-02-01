@@ -1,5 +1,5 @@
 #include <ctypes.h>
-#include <errors.h>
+#include <uapi/errors.h>
 #include <memory/kheap.h>
 #include <klib/path.h>
 #include <klib/string.h>

@@ -2,10 +2,6 @@
 #define _SYSCALL_H
 
 
-#ifdef __is_libc
-    int syscall(int sysno, int arg1, int arg2, int arg3, int arg4, int arg5);
-#endif
-
 
 // number of syscall method -- to be shared with kernel.
 #define SYS_ECHO_TEST         1  // test, returns arg 1
@@ -62,8 +58,6 @@
 // IPC send, receive, shared memory
 
 // networking? sockets? where is all the fun?
-
-
 
 
 

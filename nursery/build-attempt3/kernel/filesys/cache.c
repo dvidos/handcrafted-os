@@ -3,7 +3,7 @@
 #include "../drivers/timer.h"
 #include "../devices/storage_dev.h"
 #include "../memory/kheap.h"
-#include <errors.h>
+#include <uapi/errors.h>
 
 /*
 // functionality of keeping sectors buffers in memory

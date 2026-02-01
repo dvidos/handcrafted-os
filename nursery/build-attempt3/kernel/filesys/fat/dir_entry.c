@@ -1,7 +1,7 @@
 #include <bits.h>
 #include "../../klib/string.h"
 #include "../../misc/klog.h"
-#include <errors.h>
+#include <uapi/errors.h>
 #include "../vfs.h"
 #include "../../drivers/clock.h"
 #include "fat_priv.h"

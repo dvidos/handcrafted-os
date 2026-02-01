@@ -1,5 +1,5 @@
 #include "string.h"
-#include <errors.h>
+#include <uapi/errors.h>
 #include "../misc/klog.h"
 
 MODULE("PATH");

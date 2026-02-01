@@ -1,6 +1,6 @@
 #include <bits.h>
 #include "../misc/cpu.h"
-#include <errors.h>
+#include <uapi/errors.h>
 #include "../misc/klog.h"
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
@@ -10,9 +10,9 @@
 #include "../filesys/vfs.h"
 #include "../memory/virtmem.h"
 
-#include <syscall.h>
-#include <keyboard.h>
-#include <time.h>
+#include <uapi/syscall.h>
+#include <uapi/key_event.h>
+#include <uapi/time.h>
 
 MODULE("SYSCALL");
 

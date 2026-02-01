@@ -4,7 +4,7 @@
 #include "../misc/klog.h"
 #include "vfs.h"
 #include "drivers.h"
-#include <errors.h>
+#include <uapi/errors.h>
 
 MODULE("VFS");
 

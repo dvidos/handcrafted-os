@@ -1,8 +1,6 @@
 #ifndef _KEYBOARD_H
 #define _KEYBOARD_H
 
-#include <ctypes.h>
-
 
 #define KEY_ESCAPE          0x01
 #define KEY_ENTER           0x02
@@ -285,12 +283,6 @@
 #define KEY_CTRL_SHIFT_DELETE     (MOD_CTRL | MOD_SHIFT | KEY_DELETE)
 #define KEY_CTRL_SHIFT_BACKSPACE  (MOD_CTRL | MOD_SHIFT | KEY_BACKSPACE)
 
-
-
-typedef struct key_event {
-    uint16_t keycode;
-    uint8_t ascii;
-} key_event_t;
 
 
 #endif

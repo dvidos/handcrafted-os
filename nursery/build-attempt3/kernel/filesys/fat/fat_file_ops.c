@@ -6,7 +6,7 @@
 #include "../../klib/string.h"
 #include "../../misc/klog.h"
 #include "../../misc/lock.h"
-#include <errors.h>
+#include <uapi/errors.h>
 #include "fat_priv.h"
 
 

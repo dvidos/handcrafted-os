@@ -7,7 +7,7 @@
 #include "../../klib/string.h"
 #include "../../klib/path.h"
 #include "../misc/klog.h"
-#include <errors.h>
+#include <uapi/errors.h>
 #include "fat_priv.h"
 
 

@@ -1,4 +1,4 @@
-#include <errors.h>
+#include <uapi/errors.h>
 #include "../../klib/string.h"
 #include "fat_priv.h"
 #include "fat_dir_ops.c"

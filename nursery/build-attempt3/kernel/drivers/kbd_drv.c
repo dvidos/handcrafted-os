@@ -5,7 +5,8 @@
 #include "../misc/lock.h"
 #include "../misc/klog.h"
 
-#include <keyboard.h>  // <-- from libc, for key defines and structure
+#include <uapi/key_codes.h>
+#include <uapi/key_event.h>
 
 MODULE("KBD");
 

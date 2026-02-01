@@ -2,7 +2,7 @@
 #include <filesys/vfs.h>
 #include <memory/kheap.h>
 #include <klib/string.h>
-#include <errors.h>
+#include <uapi/errors.h>
 #include "../misc/klog.h"
 #include "framework.h"
 

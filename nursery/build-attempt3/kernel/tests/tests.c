@@ -1,5 +1,5 @@
 #include <ctypes.h>
-#include <errors.h>
+#include <uapi/errors.h>
 #include <string.h>
 #include <drivers/screen.h>
 #include "framework.h"

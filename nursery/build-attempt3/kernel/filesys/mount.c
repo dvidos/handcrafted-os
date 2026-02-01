@@ -6,7 +6,7 @@
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 #include "../misc/klog.h"
-#include <errors.h>
+#include <uapi/errors.h>
 
 MODULE("MOUNT");
 

@@ -8,7 +8,7 @@
 #include "../klib/path.h"
 #include "../multitask/process.h"
 #include "../misc/klog.h"
-#include <errors.h>
+#include <uapi/errors.h>
 
 MODULE("VFS");
 

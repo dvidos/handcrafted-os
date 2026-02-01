@@ -1,5 +1,5 @@
 #include <ctypes.h>
-#include <errors.h>
+#include <uapi/errors.h>
 #include "drivers.h"
 #include "partition.h"
 #include "vfs.h"

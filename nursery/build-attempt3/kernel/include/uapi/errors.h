@@ -7,8 +7,6 @@
 // negative:  error
 // positive:  some value
 
-// remember to update strerror() as well.
-char *strerror(int err);
 
 #define SUCCESS                   NO_ERROR
 #define NO_ERROR                  0

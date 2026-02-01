@@ -3,7 +3,7 @@
 
 #include <ctypes.h>
 #include "../misc/idt.h"
-#include <keyboard.h>  // <-- this is keyboard.h from libc, to get keys designation and structure
+#include <uapi/key_event.h>
 
 
 typedef void (*key_event_hook_t)(key_event_t *event, bool *handled);

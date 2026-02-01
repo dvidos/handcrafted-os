@@ -16,13 +16,5 @@ typedef struct clocktime {
 } clocktime_t;
 
 
-// methods supported by userland only
-#ifdef __is_libc
 
-
-void uptime(uint64_t *uptime_msecs);
-void clocktime(clocktime_t *time);
-
-
-#endif // __is_libc
 #endif // _TIME_H
