@@ -28,6 +28,7 @@ KERNEL_BIN = kernel.bin
 
 KERNEL_C_FILES = \
 	$(wildcard *.c) \
+	$(wildcard utils/*.c) \
 	$(wildcard misc/*.c) \
 	$(wildcard memory/*.c) \
 	$(wildcard drivers/*.c) \

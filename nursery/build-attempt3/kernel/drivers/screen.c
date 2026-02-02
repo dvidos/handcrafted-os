@@ -209,12 +209,3 @@ void printk(char *format, ...) {
 
     screen_write(buffer);
 }
-
-void panic(char *message) {
-    cli();
-    screen_write("\nKernel panic: ");
-    screen_write(message);
-    for (;;)
-        __asm__ volatile("hlt");    
-}
-

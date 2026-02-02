@@ -1,5 +1,5 @@
 #include <bits.h>
-#include "../drivers/screen.h"
+#include "../utils/panic.h"
 #include "../misc/klog.h"
 #include "../klib/string.h"
 #include "../memory/physmem.h"

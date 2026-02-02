@@ -1,4 +1,4 @@
-#include "../drivers/screen.h"
+#include "../utils/panic.h"
 #include "../klib/string.h"
 #include "../misc/klog.h"
 #include "physmem.h"

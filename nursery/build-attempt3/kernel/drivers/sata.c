@@ -1,10 +1,10 @@
 #include <bits.h>
+#include "../utils/panic.h"
 #include "../klib/string.h"
 #include "../memory/physmem.h"
 #include "../memory/kheap.h"
 #include "../drivers/pci.h"
 #include "../misc/klog.h"
-#include "../drivers/screen.h"
 #include "clock.h"
 #include "../devices/storage_dev.h"
 

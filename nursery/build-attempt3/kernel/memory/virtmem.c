@@ -1,6 +1,6 @@
 #include <bits.h>
 #include "physmem.h"
-#include "../drivers/screen.h"
+#include "../utils/panic.h"
 #include "../misc/klog.h"
 #include "../misc/cpu.h"
 #include "../klib/string.h"

@@ -11,7 +11,7 @@
 
 
 // posix has it, i think
-typedef uint16_t pid_t;
+// typedef uint16_t pid_t;
 
 // the process describing structure
 typedef struct process process_t;

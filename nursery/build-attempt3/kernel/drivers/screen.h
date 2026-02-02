@@ -26,7 +26,7 @@ void screen_copy_buffer_to_screen(char *buffer, int length, uint8_t col, uint8_t
 
 // print to screen
 void printk(char *format, ...); 
-void panic(char *message);
+
 
 
 #define VGA_COLOR_BLACK           0

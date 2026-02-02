@@ -1,5 +1,6 @@
 #include <ctypes.h>
 #include <bits.h>
+#include "utils/panic.h"
 #include "misc/gdt.h"
 #include "misc/idt.h"
 #include "misc/pic.h"
