@@ -2,7 +2,7 @@
 #include "../utils/panic.h"
 #include "../misc/klog.h"
 #include "../klib/string.h"
-#include "../memory/physmem.h"
+#include "../memory/physmem2.h"
 #include "../memory/kheap.h"
 #include "../devices/storage_dev.h"
 #include "partition.h"
@@ -244,13 +244,13 @@ void discover_storage_dev_partitions(struct storage_dev *devices_list) {
 
     // see if we have any disks
     dev = devices_list;
-    char *buffer = allocate_physical_page((void *)0);
+    char *buffer = (char *)pmm.allocate_physical_page();
     while (dev != NULL) {
         klog_debug("fs: checking storage device \"%s\"", dev->name);
         check_storage_device(dev, buffer);
         dev = dev->next;
     }
-    free_physical_page(buffer);
+    pmm.free_physical_page((phys_addr_t)buffer);
 
     // print disks available
     dev = devices_list;

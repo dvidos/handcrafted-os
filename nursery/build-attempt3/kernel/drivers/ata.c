@@ -1,11 +1,10 @@
 #include <bits.h>
 #include "../misc/cpu.h"
 #include "../klib/string.h"
-//#include "../drivers/screen.h"
 #include "../drivers/timer.h"
 #include "../devices/storage_dev.h"
 #include "../memory/kheap.h"
-#include "../memory/physmem.h"
+#include "../memory/physmem2.h"
 #include "../misc/klog.h"
 #include "pci.h"
 
@@ -609,7 +608,7 @@ static int probe(pci_device_t *pci_dev) {
     write_register(driver_data->channels + PRIMARY_CHANNEL,   ATA_REG_CONTROL, 2);
     write_register(driver_data->channels + SECONDARY_CHANNEL, ATA_REG_CONTROL, 2);
 
-    char *page = allocate_physical_page((void *)0);
+    char *page = (char *)pmm.allocate_physical_page();
     
     // enumerate devices
     for (int channel_no = 0; channel_no < 2; channel_no++) {
@@ -645,7 +644,7 @@ static int probe(pci_device_t *pci_dev) {
         }
     }
 
-    free_physical_page(page);
+    pmm.free_physical_page((phys_addr_t)page);
 
     // let's print them
     klog_debug("IDE Drives:");

@@ -42,14 +42,14 @@ static int ramdisk_write(struct storage_dev *dev, uint32_t sector_low, uint32_t 
 // creates a ram disk of some size and registers with device manager
 // if instead of memory mapped content, we had a file mapped content,
 // we would have invented the loopback device!
-void init_ramdisk(uint32_t start_address, uint32_t end_address) {
+void init_ramdisk(uint32_t start_address, uint32_t size) {
 
 
     // we must have a way to get kernel's current addresses
     // and a way to maintain the kernel's resident allocated mappings
     // let's go for the 10MB+ area for now.
     ramdisk_info.address = (void *)start_address;
-    ramdisk_info.size = (size_t)(end_address - start_address);
+    ramdisk_info.size = (size_t)(size);
     // allocate_virtual_memory_range(
     //     ramdisk_info.address, 
     //     ramdisk_info.address + ramdisk_info.size, 

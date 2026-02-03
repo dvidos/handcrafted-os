@@ -1,7 +1,7 @@
 #include <bits.h>
 #include "../utils/panic.h"
 #include "../klib/string.h"
-#include "../memory/physmem.h"
+#include "../memory/physmem2.h"
 #include "../memory/kheap.h"
 #include "../drivers/pci.h"
 #include "../misc/klog.h"
@@ -529,7 +529,7 @@ static void rebase_port(HBA_PORT *port) {
      * A total of: 9472 bytes, rounded up to 3 pages of 4K => 12288
      */
     int port_memory_size = 12288;
-    char *port_memory_addr = allocate_consecutive_physical_pages(port_memory_size, (void *)0);
+    char *port_memory_addr = (char *)pmm.allocate_consecutive_pages(port_memory_size);
     if (port_memory_addr == NULL)
         panic("Cannot allocate 12K for SATA drive");
     memset(port_memory_addr, 0, port_memory_size);
@@ -634,7 +634,7 @@ static int probe(pci_device_t *pci_dev) {
 
         // // try to read something.
         // uint8_t *buffer = allocate_physical_page();
-        // memset(buffer, '-', physical_page_size());
+        // memset(buffer, '-', PAGE_SIZE);
         // int sector = 0x16000 / 512;
         // bool success = sata_read(port, sector, 0, 1, buffer);
         // klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
@@ -658,7 +658,7 @@ static int probe(pci_device_t *pci_dev) {
         // buffer[0x52] = '0' + (time.seconds % 10);
         // success = sata_write(port, sector, 0, 1, buffer);
         // klog_debug("writing sector %d: %s", sector, success ? "success" : "failure");
-        // memset(buffer, 0, physical_page_size());
+        // memset(buffer, 0, PAGE_SIZE);
         // 
         // // try to read something.
         // success = sata_read(port, sector, 0, 1, buffer);

@@ -17,7 +17,7 @@ typedef struct pmm_allocator_t {
 
 
 struct pmm_ops {
-    void (*initialize)(phys_addr_t highest_address, phys_addr_t kernel_end);
+    void (*initialize)(uint64_t highest_address, phys_addr_t kernel_end);
     void (*mark_region_available)(phys_addr_t start, size_t length);
     void (*mark_region_reserved)(phys_addr_t start, size_t length);
     void (*finish_initialization)();
@@ -29,11 +29,15 @@ struct pmm_ops {
 
     uint32_t (*total_pages)();
     uint32_t (*free_pages)();
+    uint32_t (*used_pages)();
 
     pmm_allocator_t (*get_pmm_allocator)();
+    phys_addr_t (*get_top_identity_address)();
+    void (*debug_bitmap_ranges)();
 };
 
 
-#define INVALID_PAGE  0
+#define PAGE_SIZE    4096
+#define INVALID_PAGE    0
 
 extern struct pmm_ops pmm;

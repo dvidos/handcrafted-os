@@ -13,9 +13,10 @@ SECTIONS
 {
 	/* KERNEL_LOAD_ADDRESS is passed in from the makefile */
 	. = KERNEL_LOAD_ADDRESS;
-    kernel_start_address = .;
+    _linker_start_address = .;
 
 	/* let's put start first, to ensure our jump will land there */
+	_segment_text_start = .;
 	.text BLOCK(4K) : ALIGN(4K)
 	{
 		*(.text.start)
@@ -24,37 +25,35 @@ SECTIONS
 	{
 		*(.text)
 	}
-	kernel_text_end_address = .;
+	_segment_text_end = .;
 
 	/* Read-only data. */
+	_segment_rodata_start = .;
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
 		*(.rodata)
 	}
-	kernel_rodata_end_address = .;
+	_segment_rodata_end = .;
 
 	/* Read-write data (initialized) */
+	_segment_init_data_start = .;
 	.data BLOCK(4K) : ALIGN(4K)
 	{
 		*(.data)
 	}
-	kernel_data_end_address = .;
+	_segment_init_data_end = .;
 
 	/* Read-write data (uninitialized) and stack */
+	_segment_zero_data_start = .;
 	.bss BLOCK(4K) : ALIGN(4K)
 	{
 		*(COMMON)
 		*(.bss)
 	}
-	kernel_bss_end_address = .;
-
-    kernel_text_size = SIZEOF(.text);
-    kernel_rodata_size = SIZEOF(.rodata);
-    kernel_data_size = SIZEOF(.data);
-    kernel_bss_size = SIZEOF(.bss);
+	_segment_zero_data_end = .;
 
 	/* The compiler may produce other sections, by default it will put them in
 	   a segment with the same name. Simply add stuff here as needed. */
 
-	kernel_end_address = .;
+	_linker_end_address = .;
 }

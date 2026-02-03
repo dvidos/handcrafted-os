@@ -18,7 +18,7 @@
 #include "memory/kheap.h"
 #include "misc/klog.h"
 #include "klib/string.h"
-#include "memory/physmem.h"
+#include "memory/physmem2.h"
 #include "multitask/multitask.h"
 #include "multitask/semaphore.h"
 #include "multitask/process.h"
@@ -52,27 +52,25 @@
 
 MODULE("MAIN");
 
-// these are defined in the linker.ld script
-// use their *addresses*, not their values!
-void kernel_start_address() {}
-void kernel_text_end_address() {}
-void kernel_rodata_end_address() {}
-void kernel_data_end_address() {}
-void kernel_bss_end_address() {}
-void kernel_end_address() {}
-
-void kernel_text_size() {}
-void kernel_data_size() {}
-void kernel_rodata_size() {}
-void kernel_bss_size() {}
-boot_info_t saved_multiboot_info;
-#define KERNEL_HEAP_SIZE_KB  4096
-#define KERNEL_RAMDISK_SIZE_KB  4096
 
 
 void launch_initial_processes();
 void shell_launcher();
+void initialize_physical_memory(boot_info_t *info);
 void print_stage2_boot_info(boot_info_t *info);
+
+boot_info_t saved_multiboot_info;
+
+typedef struct mem_chunk_t {
+    char name[32];
+    phys_addr_t start;
+    size_t length;
+} mem_chunk_t;
+
+#define KERNEL_CHUNKS 7
+static mem_chunk_t kernel_chunks[KERNEL_CHUNKS];
+
+
 
 
 
@@ -82,11 +80,6 @@ void kernel_main(boot_info_t* boot)
 {
     // interrupts are disabled, nmi is also disabled
     // to allow us to set up our Interrupt Table
-    
-    uint32_t heap_start = ROUND_UP_4K((uint32_t)&kernel_end_address);
-    uint32_t heap_end =   heap_start + KERNEL_HEAP_SIZE_KB * 1024;
-    uint32_t ramdisk_start = heap_end;
-    uint32_t ramdisk_end = ramdisk_start + KERNEL_RAMDISK_SIZE_KB * 1024;
 
     // initialize in-memory log
     init_klog();
@@ -98,17 +91,10 @@ void kernel_main(boot_info_t* boot)
 
     // initialize screen and allow logs to be written to it
     screen_init();
-    klog_appender_level(LOGAPP_SCREEN, LOGLEV_INFO);
+    klog_appender_level(LOGAPP_SCREEN, LOGLEV_DEBUG);
     
-    klog_info("C kernel started");
+    klog_info("Kernel starting");
     klog_info("Version %s, (%s), built %s", VERSION, GIT_HASH, DATE_BUILT);
-    klog_info("Segments                       Size  From        To");
-    klog_info("  code (.text)              %4d KB  0x%08x  0x%08x", ((size_t)&kernel_text_size) / 1024, (size_t)&kernel_start_address, (size_t)&kernel_text_end_address);
-    klog_info("  ro data (.rodata)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_rodata_size) / 1024, (size_t)&kernel_text_end_address, (size_t)&kernel_rodata_end_address);
-    klog_info("  init data (.data)         %4d KB  0x%08x  0x%08x", ((size_t)&kernel_data_size) / 1024, (size_t)&kernel_rodata_end_address, (size_t)&kernel_data_end_address);
-    klog_info("  zero data & stack (.bss)  %4d KB  0x%08x  0x%08x", ((size_t)&kernel_bss_size) / 1024, (size_t)&kernel_data_end_address, (size_t)&kernel_bss_end_address);
-    klog_info("  heap                      %4d KB  0x%08x  0x%08x", KERNEL_HEAP_SIZE_KB, heap_start, heap_end);
-    klog_info("  ramdisk                   %4d KB  0x%08x  0x%08x", KERNEL_RAMDISK_SIZE_KB, ramdisk_start, ramdisk_end);
 
     print_stage2_boot_info(boot);
     memcpy((char *)&saved_multiboot_info, (char *)boot, sizeof(boot_info_t));
@@ -131,7 +117,7 @@ void kernel_main(boot_info_t* boot)
     init_real_time_clock(15);
 
     klog_info("Initializing Physical Memory Manager...");
-    init_physical_memory_manager((void *)&saved_multiboot_info, (void *)&kernel_start_address, (void *)ramdisk_end);
+    initialize_physical_memory(boot);
 
     klog_info("Initializing Serial Port 1 for logging...");
     init_serial_port();
@@ -141,10 +127,15 @@ void kernel_main(boot_info_t* boot)
     klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
     
     klog_info("Initializing Kernel Heap...");
-    init_kernel_heap((void *)heap_start, KERNEL_HEAP_SIZE_KB * 1024);
+    init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
+
+
+
+
 
     klog_info("Initializing virtual memory mapping...");
-    init_virtual_memory_paging(0, (void *)ramdisk_end);
+    init_virtual_memory_paging(0, (void *)pmm.get_top_identity_address());
+
 
     klog_info("Enabling interrupts & NMI...");
     sti();
@@ -156,7 +147,7 @@ void kernel_main(boot_info_t* boot)
     init_pci();
 
     klog_info("Creating RAM disk...");
-    init_ramdisk(ramdisk_start, ramdisk_end);
+    init_ramdisk(KERNEL_RAMDISK_ADDRESS, KERNEL_RAMDISK_SIZE_KB * 1024);
 
     klog_info("Initializing file system...");
     klog_module_level("MOUNT", LOGLEV_TRACE);
@@ -166,6 +157,7 @@ void kernel_main(boot_info_t* boot)
     vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
 
     for(;;); // TODO: remove when we have the correct filesystem mounted
+
 
     klog_info("Initializing multi-tasking...");
     init_multitasking();
@@ -232,10 +224,101 @@ void shell_launcher() {
     }
 }
 
+// these are defined in the linker.ld script
+// use their *addresses*, not their values!
+void _linker_start_address() {}
+void _segment_text_start() {}
+void _segment_text_end() {}
+void _segment_rodata_start() {}
+void _segment_rodata_end() {}
+void _segment_init_data_start() {}
+void _segment_init_data_end() {}
+void _segment_zero_data_start() {}
+void _segment_zero_data_end() {}
+void _linker_end_address() {}
+
+
+static inline void register_kernel_chunk(int *num, const char *name, phys_addr_t addr, size_t size) {
+    strcpy(kernel_chunks[*num].name, name);
+    kernel_chunks[*num].start = addr;
+    kernel_chunks[*num].length = size;
+    (*num)++;
+}
+
+void initialize_physical_memory(boot_info_t *info) {
+
+    // find highest memory address of machine, cap at 4GB
+    uint64_t machine_max_memory_64 = 0;
+    for (uint32_t i = 0; i < info->mem.count; i++) {
+        uint64_t entry_top64 = info->mem.entries[i].base + info->mem.entries[i].length;
+        if (entry_top64 > machine_max_memory_64)
+            machine_max_memory_64 = entry_top64;
+    }
+
+    int i = 0;
+    register_kernel_chunk(&i, "text",          (phys_addr_t)&_segment_text_start,      (size_t)(_segment_text_end      - _segment_text_start));
+    register_kernel_chunk(&i, "ro_data",       (phys_addr_t)&_segment_rodata_start,    (size_t)(_segment_rodata_end    - _segment_rodata_start));
+    register_kernel_chunk(&i, "init_data",     (phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end - _segment_init_data_start));
+    register_kernel_chunk(&i, "zero_data/bss", (phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start));
+    register_kernel_chunk(&i, "stack",         (phys_addr_t)_segment_zero_data_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end));
+    register_kernel_chunk(&i, "heap",          (phys_addr_t)KERNEL_HEAP_ADDRESS, (size_t)KERNEL_HEAP_SIZE_KB * 1024);
+    register_kernel_chunk(&i, "ramdisk",       (phys_addr_t)KERNEL_RAMDISK_ADDRESS, (size_t)KERNEL_RAMDISK_SIZE_KB * 1024);
+
+    // where physical memory mapper can put its bitmap
+    phys_addr_t kernel_top_address = 0;
+    for (int i = 0; i < KERNEL_CHUNKS; i++) {
+        phys_addr_t chunk_top = kernel_chunks[i].start + kernel_chunks[i].length;
+        if (chunk_top > kernel_top_address)
+            kernel_top_address = chunk_top;
+    }
+
+    klog_info("Machine maximum memory address 0x%08x.%08x (%u KB, %u MB, %u GB)",
+        (uint32_t)(machine_max_memory_64 >> 32),
+        (uint32_t)(machine_max_memory_64 & 0xFFFFFFFF),
+        (uint32_t)(machine_max_memory_64 / 1024),
+        (uint32_t)(machine_max_memory_64 / (1024 * 1024)),
+        (uint32_t)(machine_max_memory_64 / (1024 * 1024 * 1024))
+    );
+    klog_info("Kernel area topmost address 0x%08x", kernel_top_address);
+    klog_info("Kernel memory             From          To   From KB     To KB   Size KB");
+    //         - 1234567890123456  0x12345678  0x12345678 123456789 123456789   1234567
+    for (int i = 0; i < KERNEL_CHUNKS; i++) {
+        mem_chunk_t *chunk = &kernel_chunks[i];
+        klog_info("- %-16s  0x%08x  0x%08x %9u %9u   %7u",
+            chunk->name,
+            chunk->start,
+            chunk->start + chunk->length,
+            chunk->start / 1024,
+            (chunk->start + chunk->length) / 1024,
+            chunk->length / 1024
+        );
+    }
+
+    pmm.initialize(machine_max_memory_64, kernel_top_address);
+    for (uint32_t i = 0; i < info->mem.count; i++) {
+        e820_memory_entry *entry = &info->mem.entries[i];
+        pmm.mark_region_available((phys_addr_t)entry->base, (size_t)entry->length);
+    }
+    pmm.mark_region_reserved((phys_addr_t)0, (size_t)kernel_top_address);
+    pmm.finish_initialization();
+
+    klog_info("Physical memory manager initialized. %u total pages, %u (%u KB or %u%%) reserved, %u (%u KB or %u%%) available",
+        pmm.total_pages(),
+        pmm.used_pages(),
+        pmm.used_pages() * 4,
+        pmm.total_pages() == 0 ? 0 : (pmm.used_pages() * 100) / pmm.total_pages(),
+        pmm.free_pages(),
+        pmm.free_pages() * 4,
+        pmm.total_pages() == 0 ? 0 : (pmm.free_pages() * 100) / pmm.total_pages()
+    );
+
+    pmm.debug_bitmap_ranges();
+}
+
 void print_stage2_boot_info(boot_info_t *info) {
     klog_info("boot_info from stage 2 (ptr address 0x%08x)", info);
-    klog_info("* cmd line: \"%s\"", info->cmdline);
-    klog_info("* memory map (total of %u entries)", info->mem.count);
+    klog_info("- cmd line: \"%s\"", info->cmdline);
+    klog_info("- memory map (total of %u entries)", info->mem.count);
     klog_info("    No              Address               Length  Type  ACPI");
     //             00  0x12345678-12345678  0x12345678-12345678  1234  1234
     for (uint32_t i = 0; i < info->mem.count; i++) {
@@ -247,7 +330,7 @@ void print_stage2_boot_info(boot_info_t *info) {
             mm->type, 
             mm->acpi_ext);
     }
-    klog_info("* VBE framebuffer at 0x%08x-%08x, %u x %u x %u, pitch %u", 
+    klog_info("- VBE framebuffer at 0x%08x-%08x, %u x %u x %u, pitch %u", 
         HIGH_DWORD(info->fb.fb_addr),
         LOW_DWORD(info->fb.fb_addr),
         info->fb.width,

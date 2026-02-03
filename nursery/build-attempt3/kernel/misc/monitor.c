@@ -2,7 +2,6 @@
 #include "../klib/string.h"
 #include "../multitask/process.h"
 #include "../multitask/scheduler.h"
-#include "../memory/physmem.h"
 #include "../memory/kheap.h"
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
@@ -92,10 +91,10 @@ void process_monitor_main() {
         uint32_t up_mins = up_secs / 60;
         up_secs = up_secs % 60;
         
-        phys_mem_info_t phys_mem;
-        get_physical_memory_info(&phys_mem);
-        uint32_t phys_mem_kb_percent = (phys_mem.kb_used * 100) / phys_mem.kb_total;
-        uint32_t phys_mem_pg_percent = (phys_mem.pages_used * 100) / phys_mem.pages_total;
+        // phys_mem_info_t phys_mem;
+        // get_physical_memory_info(&phys_mem);
+        // uint32_t phys_mem_kb_percent = (phys_mem.kb_used * 100) / phys_mem.kb_total;
+        // uint32_t phys_mem_pg_percent = (phys_mem.pages_used * 100) / phys_mem.pages_total;
 
         uint32_t heap_total = kernel_heap_total_size() / 1024;
         uint32_t heap_free = kernel_heap_free_size() / 1024;
@@ -105,11 +104,11 @@ void process_monitor_main() {
         tty_set_cursor(0, 0);
         printf("Memory          Total     Free     Used Used");
         tty_set_cursor(1, 0);
-        printf("Phys Mem KB  %8d %8d %8d %3d%%", phys_mem.kb_total, phys_mem.kb_free, phys_mem.kb_used, phys_mem_kb_percent);
-        tty_set_cursor(2, 0);
-        printf("Phys Pages   %8d %8d %8d %3d%%", phys_mem.pages_total, phys_mem.pages_free, phys_mem.pages_used, phys_mem_pg_percent);
-        tty_set_cursor(3, 0);
-        printf("Kern Heap KB %8d %8d %8d %3d%%", heap_total, heap_free, heap_used, heap_percent);
+        // printf("Phys Mem KB  %8d %8d %8d %3d%%", phys_mem.kb_total, phys_mem.kb_free, phys_mem.kb_used, phys_mem_kb_percent);
+        // tty_set_cursor(2, 0);
+        // printf("Phys Pages   %8d %8d %8d %3d%%", phys_mem.pages_total, phys_mem.pages_free, phys_mem.pages_used, phys_mem_pg_percent);
+        // tty_set_cursor(3, 0);
+        // printf("Kern Heap KB %8d %8d %8d %3d%%", heap_total, heap_free, heap_used, heap_percent);
 
         tty_set_cursor(0, 50);
         printf("%3s, %2d %3s %04d, %02d:%02d:%02d",

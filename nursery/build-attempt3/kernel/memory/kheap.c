@@ -1,7 +1,6 @@
 #include "../utils/panic.h"
 #include "../klib/string.h"
 #include "../misc/klog.h"
-#include "physmem.h"
 #include "kheap.h"
 
 #define KMEM_MAGIC       0xAAA // something that fits in 12 bits

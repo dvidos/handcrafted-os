@@ -1,5 +1,5 @@
 #include <bits.h>
-#include "physmem.h"
+#include "physmem2.h"
 #include "../utils/panic.h"
 #include "../misc/klog.h"
 #include "../misc/cpu.h"
@@ -209,7 +209,7 @@ void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, vo
         page_table_address = get_entry_address(page_dir_entry);
     } else {
         // we need to create one
-        page_table_address = allocate_physical_page((void *)0);
+        page_table_address = (void *)pmm.allocate_physical_page((void *)0);
         klog_debug("Allocated new physical page at 0x%p for new page table", page_table_address);
         memset(page_table_address, 0, 4096);
         uint32_t page_dir_value = create_directory_entry_value(
@@ -272,7 +272,7 @@ void unmap_virtual_address(void *virtual_addr, void *page_dir_addr) {
     }
     if (page_table_completely_empty) {
         klog_debug("Page table is clear, freeing physical page at 0x%x", page_table_address);
-        free_physical_page(page_table_address);
+        pmm.free_physical_page((phys_addr_t)page_table_address);
         // remove entry from page directory
         set_table_entry(page_dir_addr, page_dir_index, 0);
     }
@@ -356,8 +356,6 @@ static struct {
 } kernel_info;
 
 void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_address) {
-    if (physical_page_size() != 4096)
-        panic("Virtual memory supports 4KB pages only");
     
     kernel_info.start_address = kernel_start_address;
     kernel_info.end_address = kernel_end_address;
@@ -419,8 +417,8 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
 
 // allocates and creates a new page directory
 void *create_page_directory(bool map_kernel_space) {
-    void *page_dir = allocate_physical_page((void *)0);
-    memset(page_dir, 0, physical_page_size());
+    void *page_dir = (void *)pmm.allocate_physical_page();
+    memset(page_dir, 0, PAGE_SIZE);
 
     if (map_kernel_space) {
         // the kernel (code, data, heap etc) must be mapped in the same address in all address spaces.
@@ -439,7 +437,7 @@ void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, v
     klog_trace("allocate_virtual_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
 
     for (void *virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
-        void *phys_page_addr = allocate_physical_page((void *)0x100000);
+        void *phys_page_addr = (void *)pmm.allocate_physical_page();
         map_virtual_address_to_physical(virt_addr, phys_page_addr, page_dir_addr, true);
     }
 }
@@ -474,14 +472,14 @@ void destroy_page_directory(void *page_dir_address) {
             if (phys_page_address >= kernel_info.start_address && phys_page_address <= kernel_info.end_address)
                 continue;
 
-            free_physical_page(phys_page_address);
+            pmm.free_physical_page((phys_addr_t)phys_page_address);
         }
 
-        free_physical_page(page_table_address);
+        pmm.free_physical_page((phys_addr_t)page_table_address);
     }
 
     // we can now free the page directory itself
-    free_physical_page(page_dir_address);
+    pmm.free_physical_page((phys_addr_t)page_dir_address);
     popcli();
 }
 

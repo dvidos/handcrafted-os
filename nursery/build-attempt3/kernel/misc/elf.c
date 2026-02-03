@@ -1,7 +1,6 @@
 #include <uapi/errors.h>
 #include "../misc/klog.h"
 #include "../filesys/vfs.h"
-#include "../memory/physmem.h"
 #include "../memory/virtmem.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"

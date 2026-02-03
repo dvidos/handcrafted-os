@@ -1,5 +1,6 @@
 #include "../utils/panic.h"
 #include "../misc/cpu.h"
+#include "../misc/klog.h"
 #include "physmem2.h"
 
 // 4GB of memory / 4K page size --> 1M pages
@@ -12,6 +13,7 @@
 // - mark things we know (kernel, kheap, the used pages bitmap etc) as used
 // - mark the pages of the bitmap as used
 
+MODULE("PMM2");
 
 #define PAGE_SIZE   4096
 
@@ -69,12 +71,12 @@ static inline void mark_page_free(uint32_t page_no) {
     }
 }
 
-static void _initialize(phys_addr_t highest_address, phys_addr_t kernel_end) {
+static void _initialize(uint64_t highest_machine_address, phys_addr_t highest_kernel_address) {
     pmm_data.allocator.allocate_physical_page = _allocate_physical_page;
     pmm_data.allocator.free_physical_page = _free_physical_page;
 
-    pmm_data.total_pages = (highest_address + 4095) / PAGE_SIZE;
-    pmm_data.bitmap = (uint32_t *)round_up_4k(kernel_end);
+    pmm_data.total_pages = (uint32_t)((highest_machine_address + 4095) / PAGE_SIZE);
+    pmm_data.bitmap = (uint32_t *)round_up_4k(highest_kernel_address);
     pmm_data.bitmap_uint_count = (pmm_data.total_pages + 31) / 32;
     pmm_data.next_allocation_page_hint = 0;
 
@@ -85,18 +87,24 @@ static void _initialize(phys_addr_t highest_address, phys_addr_t kernel_end) {
 }
 
 static void _mark_region_available(phys_addr_t start, size_t length) {
+    if (length == 0)
+        return;
+    
     start = round_down_4k(start);
     length = round_up_4k(length);
-    phys_addr_t end = start + length;
-    for (phys_addr_t addr = start; addr < end; addr += PAGE_SIZE)
+    uint64_t end = start + length;
+    for (uint64_t addr = start; addr < end; addr += PAGE_SIZE)
         mark_page_free(page_no_for_address(addr));
 }
 
 static void _mark_region_reserved(phys_addr_t start, size_t length) {
+    if (length == 0)
+        return;
+    
     start = round_down_4k(start);
     length = round_up_4k(length);
-    phys_addr_t end = start + length;
-    for (phys_addr_t addr = start; addr < end; addr += PAGE_SIZE)
+    uint64_t end = start + length;
+    for (uint64_t addr = start; addr < end; addr += PAGE_SIZE)
         mark_page_used(page_no_for_address(addr));
 }
 
@@ -229,8 +237,57 @@ static uint32_t _free_pages() {
     return pmm_data.free_pages;
 }
 
+static uint32_t _used_pages() {
+    return pmm_data.total_pages - pmm_data.free_pages;
+}
+
 static pmm_allocator_t _get_pmm_allocator() {
     return pmm_data.allocator;
+}
+
+static void _debug_bitmap_ranges() {
+    uint32_t start_page = 0;
+    bool current_used = (pmm_data.bitmap[0] & 1) != 0; // first page
+    
+    klog_info("Physical memory manager bitmap ranges");
+    for (uint32_t i = 1; i < pmm_data.total_pages; i++) {
+        uint32_t word = pmm_data.bitmap[i / 32];
+        bool used = (word >> (i % 32)) & 1;
+
+        if (used != current_used) {
+            // Print the previous range
+            uint64_t start_addr = (uint64_t)start_page * PAGE_SIZE;
+            uint64_t end_addr = (uint64_t)i * PAGE_SIZE;
+            klog_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
+                   current_used ? "used" : "free",
+                   start_addr,
+                   end_addr - 1, 
+                   (uint32_t)((end_addr - start_addr) / 1024),
+                   (uint32_t)((end_addr - start_addr) / (1024 * 1024))
+                );
+
+            // Start new range
+            start_page = i;
+            current_used = used;
+        }
+    }
+
+    // Print the last range
+    uint64_t start_addr = (uint64_t)start_page * PAGE_SIZE;
+    uint64_t end_addr = (uint64_t)pmm_data.total_pages * PAGE_SIZE;
+    klog_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
+            current_used ? "used" : "free",
+            start_addr,
+            end_addr - 1, 
+            (uint32_t)((end_addr - start_addr) / 1024),
+            (uint32_t)((end_addr - start_addr) / (1024 * 1024))
+        );
+}
+
+static phys_addr_t _get_top_identity_address() {
+    // we already put the bitmap after the top of the kernel.
+    // so, return the end of the bitmap, to identity map it.
+    return (phys_addr_t)round_up_4k((uint32_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count * sizeof(uint32_t)));
 }
 
 struct pmm_ops pmm = {
@@ -244,5 +301,8 @@ struct pmm_ops pmm = {
     .free_physical_page = _free_physical_page,
     .total_pages = _total_pages,
     .free_pages = _free_pages,
+    .used_pages = _used_pages,
     .get_pmm_allocator = _get_pmm_allocator,
+    .get_top_identity_address = _get_top_identity_address,
+    .debug_bitmap_ranges = _debug_bitmap_ranges,
 };

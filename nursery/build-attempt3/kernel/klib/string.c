@@ -183,6 +183,24 @@ void ultoa(unsigned long num, char *buffer, int base) {
     reverse(buffer, pos);
 }
 
+void u64toa(uint64_t num, char *buffer, int base) {
+
+    if (num == 0) {
+        buffer[0] = '0';
+        buffer[1] = '\0';
+        return;
+    }
+
+    int pos = 0;
+    while (num > 0) {
+        int remainder = num % base;
+        buffer[pos++] = (remainder >= 10) ? ('A' + (remainder - 10)) : ('0' + remainder);
+        num = num / base;
+    }
+    buffer[pos] = '\0';
+    reverse(buffer, pos);
+}
+
 char *strchr(char *str, char c) {
     while (*str != '\0') {
         if (*str == c)
@@ -410,10 +428,13 @@ void vsprintfn(char *buffer, int buffsize, const char *format, va_list args) {
     bool pad_right = false;
     char padder = ' ';
     int width = 0;
+    bool is_long = false;
+    bool is_64bits = false;
     long l;
     unsigned long ul;
+    uint64_t u64;
     char *ptr;
-    char content[65]; // we may print at least 32 bits numbers in binary
+    char content[100]; // we may print at least 32 bits numbers in binary
 
     while (*format && buffsize > 1) {
         if (*format != '%') {
@@ -429,6 +450,8 @@ void vsprintfn(char *buffer, int buffsize, const char *format, va_list args) {
         padder = ' ';
         width = 0;
         pad_right = false;
+        is_long = false;
+        is_64bits = false;
         if (*format == '-') {
             pad_right = true;
             format++;
@@ -439,6 +462,14 @@ void vsprintfn(char *buffer, int buffsize, const char *format, va_list args) {
         }
         while (*format >= '0' && *format <= '9') {
             width = width * 10 + (*format - '0');
+            format++;
+        }
+        if (*format == 'l') {
+            is_long = true;
+            format++;
+        }
+        if (*format == 'l') {
+            is_64bits = true;
             format++;
         }
 
@@ -461,13 +492,23 @@ void vsprintfn(char *buffer, int buffsize, const char *format, va_list args) {
                 sprintn_aligned(&buffer, &buffsize, content, width, padder, pad_right);
                 break;
             case 'u': // unsigned decimal
-                ul = (unsigned int)va_arg(args, unsigned int);
-                ultoa(ul, content, 10);
+                if (is_64bits) {
+                    u64 = va_arg(args, uint64_t);
+                    u64toa(u64, content, 10);
+                } else {
+                    ul = (unsigned int)va_arg(args, unsigned int);
+                    ultoa(ul, content, 10);
+                }
                 sprintn_aligned(&buffer, &buffsize, content, width, padder, pad_right);
                 break;
             case 'x': // hex
-                ul = (unsigned long)va_arg(args, unsigned int);
-                ultoa(ul, content, 16);
+                if (is_64bits) {
+                    u64 = va_arg(args, uint64_t);
+                    u64toa(u64, content, 16);
+                } else {
+                    ul = (unsigned long)va_arg(args, unsigned int);
+                    ultoa(ul, content, 16);
+                }
                 sprintn_aligned(&buffer, &buffsize, content, width, padder, pad_right);
                 break;
             case 'o': // octal

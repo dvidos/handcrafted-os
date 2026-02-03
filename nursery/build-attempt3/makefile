@@ -50,7 +50,7 @@ os.img: stage1 stage2 kernel
 
 run: os.img
 	@#qemu-system-i386 -drive format=raw,file=build/os.img -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
-	qemu-system-i386 -drive format=raw,file=os.img -serial stdio
+	qemu-system-i386 -drive format=raw,file=os.img -serial stdio -m 4G
 
 clean: config.mk
 	make -C tools clean
