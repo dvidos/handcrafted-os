@@ -1,5 +1,5 @@
 #include "../klib/string.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 
 // for documentation, see https://wiki.osdev.org/IDT
@@ -194,20 +194,20 @@ void init_idt(uint16_t code_segment_selector) {
 }
 
 void dump_registers(registers_t *regs) {
-    klog_debug("DS      : %08x", regs->ds);
-    klog_debug("CS      : %08x", regs->cs);
-    klog_debug("EDI     : %08x", regs->edi);
-    klog_debug("ESI     : %08x", regs->esi);
-    klog_debug("EBP     : %08x", regs->ebp);
-    klog_debug("ESP     : %08x", regs->esp);
-    klog_debug("EBX     : %08x", regs->ebx);
-    klog_debug("EDX     : %08x", regs->edx);
-    klog_debug("ECX     : %08x", regs->ecx);
-    klog_debug("EAX     : %08x", regs->eax);
-    klog_debug("INT_NO  : 0x%x", regs->int_no);
-    klog_debug("ERR_CODE: 0x%x", regs->err_code);
-    klog_debug("EIP     : %08x", regs->eip);
-    klog_debug("EFLAGS  : %08x", regs->eflags);
-    klog_debug("USERRESP: %08x", regs->useresp);
-    klog_debug("SS      : %08x", regs->ss);
+    log_debug("DS      : %08x", regs->ds);
+    log_debug("CS      : %08x", regs->cs);
+    log_debug("EDI     : %08x", regs->edi);
+    log_debug("ESI     : %08x", regs->esi);
+    log_debug("EBP     : %08x", regs->ebp);
+    log_debug("ESP     : %08x", regs->esp);
+    log_debug("EBX     : %08x", regs->ebx);
+    log_debug("EDX     : %08x", regs->edx);
+    log_debug("ECX     : %08x", regs->ecx);
+    log_debug("EAX     : %08x", regs->eax);
+    log_debug("INT_NO  : 0x%x", regs->int_no);
+    log_debug("ERR_CODE: 0x%x", regs->err_code);
+    log_debug("EIP     : %08x", regs->eip);
+    log_debug("EFLAGS  : %08x", regs->eflags);
+    log_debug("USERRESP: %08x", regs->useresp);
+    log_debug("SS      : %08x", regs->ss);
 }

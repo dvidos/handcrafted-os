@@ -1,5 +1,5 @@
 #include <uapi/errors.h>
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../klib/string.h"
 #include "../filesys/vfs.h"
 #include "process.h"
@@ -42,7 +42,7 @@ static void load_and_run_executable();
 
 // return pid for success, negative value for errors
 int execve(char *path, char *argv[], char *envp[]) {
-    klog_trace("execve(path=\"%s\")", path);
+    log_trace("execve(path=\"%s\")", path);
     file_t *file = NULL;
     int err;
     bool file_open = false;
@@ -68,7 +68,7 @@ int execve(char *path, char *argv[], char *envp[]) {
         parent == NULL ? NULL : parent->tty
     );
 
-    klog_debug("Process %s[%d] created process %s[%d] for executing",
+    log_debug("Process %s[%d] created process %s[%d] for executing",
         parent->name,
         parent->pid,
         new_proc->name,
@@ -101,18 +101,18 @@ int execve(char *path, char *argv[], char *envp[]) {
     new_proc->user_proc.envp = clone_strvec(envp);
 
     // not much left, cheers!
-    klog_info("execve(): starting process %s[%d]", new_proc->name, new_proc->pid);
+    log_info("execve(): starting process %s[%d]", new_proc->name, new_proc->pid);
     start_process(new_proc);
 
     // usually here we have the parent as current process (e.g. vi was launched, we go sh as current)
-    klog_debug("execve(): after start_process() returned, current proc is %s[%d]", running_process()->name, running_process()->pid);
+    log_debug("execve(): after start_process() returned, current proc is %s[%d]", running_process()->name, running_process()->pid);
 
     err = SUCCESS;
 exit:
     if (file_open)
         vfs_close(file);
     if (err)
-        klog_debug("execve() --> %d", err);
+        log_debug("execve() --> %d", err);
     return err == SUCCESS ? new_proc->pid : err;
 }
 
@@ -132,13 +132,13 @@ static void load_and_run_executable() {
     process_t *proc = running_process();
 
     // grab info from proc, load the executable, jump to start.
-    klog_debug("load_and_run_executable() running");
+    log_debug("load_and_run_executable() running");
 
     // find info from the file
     file_t *file = NULL;
     err = vfs_open(proc->user_proc.executable_path, &file);
     if (err) {
-        klog_error("Failed opening executable \"%s\"", proc->user_proc.executable_path);
+        log_error("Failed opening executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(-1);
     }
 
@@ -148,9 +148,9 @@ static void load_and_run_executable() {
     void *elf_entry_point = NULL;
 
     err = get_elf_load_information(file, &virt_addr_start, &virt_addr_end, &elf_entry_point);
-    klog_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, elf_entry_point);
+    log_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, elf_entry_point);
     if (err) {
-        klog_error("Failed getting info from executable");
+        log_error("Failed getting info from executable");
         proc_exit(-2);
     }
 
@@ -171,7 +171,7 @@ static void load_and_run_executable() {
     // create something to load the segments (kernel mapped included)
     void *page_directory = create_page_directory(true);
     allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
-    klog_debug("Allocated new page directory 0x%x for execve()", page_directory);
+    log_debug("Allocated new page directory 0x%x for execve()", page_directory);
     dump_page_directory(page_directory);
     // dump_page_directory(get_kernel_page_directory());
 
@@ -182,13 +182,13 @@ static void load_and_run_executable() {
     // we should be safe to do it now
     err = load_elf_into_memory(file);
     if (err) {
-        klog_error("Failed loading executable \"%s\"", proc->user_proc.executable_path);
+        log_error("Failed loading executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(-3);
     }
 
     err = vfs_close(file);
     if (err) {
-        klog_error("Failed closing executable \"%s\"", proc->user_proc.executable_path);
+        log_error("Failed closing executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(-4);
     }
 
@@ -206,7 +206,7 @@ static void load_and_run_executable() {
     
     int argc = count_strvec(proc->user_proc.argv);
     void *stack_top = stack_bottom + stack_size;
-    klog_debug("Changing stack pointer to 0x%x and jumping to address 0x%x", stack_top, elf_entry_point);
+    log_debug("Changing stack pointer to 0x%x and jumping to address 0x%x", stack_top, elf_entry_point);
     __asm__ __volatile__ (
         "mov %0, %%esp\n\t"
         "push %3\n\t"
@@ -224,7 +224,7 @@ static void load_and_run_executable() {
         : "eax" // mingled registers
     );
 
-    klog_warn("elf_loader(): somehow, crt0._start() returned, this was not expected!");
+    log_warn("elf_loader(): somehow, crt0._start() returned, this was not expected!");
     proc_exit(-5);
 }
 

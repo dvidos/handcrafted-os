@@ -7,7 +7,7 @@
 #include "../klib/string.h"
 #include "../klib/path.h"
 #include "../multitask/process.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include <uapi/errors.h>
 
 MODULE("VFS");
@@ -53,18 +53,18 @@ MODULE("VFS");
 
 static void debug_dir_entry_t(dir_entry_t *dir_entry) {
     
-    klog_debug("  dir_entry->superblock     : 0x%x", dir_entry->superblock);
-    klog_debug("  dir_entry->short_name     : \"%s\"", dir_entry->short_name);
-    klog_debug("  dir_entry->file_size      : %d", dir_entry->file_size);
-    klog_debug("  dir_entry->location_in_dev: %d", dir_entry->location_in_dev);
-    klog_debug("  dir_entry->flags.dir      : %d", dir_entry->flags.dir);
-    klog_debug("  dir_entry->flags.label    : %d", dir_entry->flags.label);
-    klog_debug("  dir_entry->flags.read_only: %d", dir_entry->flags.read_only);
-    klog_debug("  dir_entry->created        : %04d-%02d-%02d %02d:%02d:%02d", 
+    log_debug("  dir_entry->superblock     : 0x%x", dir_entry->superblock);
+    log_debug("  dir_entry->short_name     : \"%s\"", dir_entry->short_name);
+    log_debug("  dir_entry->file_size      : %d", dir_entry->file_size);
+    log_debug("  dir_entry->location_in_dev: %d", dir_entry->location_in_dev);
+    log_debug("  dir_entry->flags.dir      : %d", dir_entry->flags.dir);
+    log_debug("  dir_entry->flags.label    : %d", dir_entry->flags.label);
+    log_debug("  dir_entry->flags.read_only: %d", dir_entry->flags.read_only);
+    log_debug("  dir_entry->created        : %04d-%02d-%02d %02d:%02d:%02d", 
         dir_entry->created.year, dir_entry->created.month, dir_entry->created.day,
         dir_entry->created.hours, dir_entry->created.minutes, dir_entry->created.seconds
     );
-    klog_debug("  dir_entry->modified       : %04d-%02d-%02d %02d:%02d:%02d", 
+    log_debug("  dir_entry->modified       : %04d-%02d-%02d %02d:%02d:%02d", 
         dir_entry->modified.year, dir_entry->modified.month, dir_entry->modified.day,
         dir_entry->modified.hours, dir_entry->modified.minutes, dir_entry->modified.seconds
     );
@@ -73,7 +73,7 @@ static void debug_dir_entry_t(dir_entry_t *dir_entry) {
 
 // similar to namei() in unix/linux
 int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
-    klog_trace("vfs_resolve(\"%s\", root=0x%x, curr=0x%x, container=%d)",
+    log_trace("vfs_resolve(\"%s\", root=0x%x, curr=0x%x, container=%d)",
         path, root_dir, curr_dir, (int)containing_folder);
     int err = SUCCESS;
     char *path_copy = NULL;
@@ -137,7 +137,7 @@ int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_
 
     char *name = strtok(final_path, "/");
     while (true) {
-        klog_trace("Looking for name \"%s\" in base directory \"%s\"", name, base_dir->name);
+        log_trace("Looking for name \"%s\" in base directory \"%s\"", name, base_dir->name);
 
         // there's another part to look for, verify that 
         // we are searching inside a directory, not a file
@@ -203,7 +203,7 @@ int vfs_open(char *path, file_t **file) {
         goto out;
     }
 
-    klog_debug("vfs_open(), resolved descriptor follows");
+    log_debug("vfs_open(), resolved descriptor follows");
     debug_file_descriptor(target, 0);
 
     if (target->superblock->ops->open == NULL)
@@ -211,7 +211,7 @@ int vfs_open(char *path, file_t **file) {
     err = target->superblock->ops->open(target, 0, file);
 
 out:
-    klog_trace("vfs_open(\"%s\") -> %d", path, err);
+    log_trace("vfs_open(\"%s\") -> %d", path, err);
     return err;
 }
 
@@ -246,7 +246,7 @@ int vfs_close(file_t *file) {
 }
 
 int vfs_opendir(char *path, file_t **file) {
-    klog_trace("vfs_opendir(path=\"%s\")", path);
+    log_trace("vfs_opendir(path=\"%s\")", path);
     int err;
 
     if (vfs_get_root_mount() == NULL) {
@@ -267,40 +267,40 @@ int vfs_opendir(char *path, file_t **file) {
         goto out;
     }
 
-    klog_debug("vfs_opendir(), resolved descriptor follows");
+    log_debug("vfs_opendir(), resolved descriptor follows");
     debug_file_descriptor(target, 0);
 
     if (target->superblock->ops->opendir == NULL)
         return ERR_NOT_SUPPORTED;
     err = target->superblock->ops->opendir(target, file);
 out:
-    klog_trace("vfs_opendir(\"%s\") -> %d", path, err);
+    log_trace("vfs_opendir(\"%s\") -> %d", path, err);
     return err;
 }
 
 int vfs_rewinddir(file_t *file) {
-    klog_trace("vfs_rewinddir(file=0x%p)", file);
+    log_trace("vfs_rewinddir(file=0x%p)", file);
     if (file->superblock->ops->rewinddir == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->rewinddir(file);
 }
 
 int vfs_readdir(file_t *file, file_descriptor_t **fd) {
-    klog_trace("vfs_readdir(file=0x%p)", file);
+    log_trace("vfs_readdir(file=0x%p)", file);
     if (file->superblock->ops->readdir == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->readdir(file, fd);
 }
 
 int vfs_closedir(file_t *file) {
-    klog_trace("vfs_closedir(file=0x%p)", file);
+    log_trace("vfs_closedir(file=0x%p)", file);
     if (file->superblock->ops->closedir == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->closedir(file);
 }
 
 int vfs_touch(char *path) {
-    klog_trace("vfs_touch(path=\"%s\")", path);
+    log_trace("vfs_touch(path=\"%s\")", path);
     int err;
     char *copy = NULL;
 
@@ -318,7 +318,7 @@ int vfs_touch(char *path) {
         goto out;
     }
 
-    klog_debug("vfs_touch(), resolved descriptor follows");
+    log_debug("vfs_touch(), resolved descriptor follows");
     debug_file_descriptor(parent, 0);
 
     if (parent->superblock->ops->touch == NULL) {
@@ -332,12 +332,12 @@ int vfs_touch(char *path) {
 out:
     if (copy != NULL)
         kfree(copy);
-    klog_trace("vfs_touch(\"%s\") -> %d", path, err);
+    log_trace("vfs_touch(\"%s\") -> %d", path, err);
     return err;
 }
 
 int vfs_unlink(char *path) {
-    klog_trace("vfs_unlink(path=\"%s\")", path);
+    log_trace("vfs_unlink(path=\"%s\")", path);
     int err;
     char *copy = NULL;
 
@@ -355,7 +355,7 @@ int vfs_unlink(char *path) {
         goto out;
     }
 
-    klog_debug("vfs_unlink(), resolved descriptor follows");
+    log_debug("vfs_unlink(), resolved descriptor follows");
     debug_file_descriptor(parent, 0);
 
     if (parent->superblock->ops->unlink == NULL) {
@@ -369,12 +369,12 @@ int vfs_unlink(char *path) {
 out:
     if (copy != NULL)
         kfree(copy);
-    klog_trace("vfs_unlink(\"%s\") -> %d", path, err);
+    log_trace("vfs_unlink(\"%s\") -> %d", path, err);
     return err;
 }
 
 int vfs_mkdir(char *path) {
-    klog_trace("vfs_mkdir(path=\"%s\")", path);
+    log_trace("vfs_mkdir(path=\"%s\")", path);
     int err;
     char *copy = NULL;
 
@@ -392,7 +392,7 @@ int vfs_mkdir(char *path) {
         goto out;
     }
 
-    klog_debug("vfs_mkdir(), resolved descriptor follows");
+    log_debug("vfs_mkdir(), resolved descriptor follows");
     debug_file_descriptor(parent, 0);
 
     if (parent->superblock->ops->mkdir == NULL) {
@@ -406,12 +406,12 @@ int vfs_mkdir(char *path) {
 out:
     if (copy != NULL)
         kfree(copy);
-    klog_trace("vfs_mkdir(\"%s\") -> %d", path, err);
+    log_trace("vfs_mkdir(\"%s\") -> %d", path, err);
     return err;
 }
 
 int vfs_rmdir(char *path) {
-    klog_trace("vfs_rmdir(path=\"%s\")", path);
+    log_trace("vfs_rmdir(path=\"%s\")", path);
     int err;
     char *copy = NULL;
 
@@ -429,7 +429,7 @@ int vfs_rmdir(char *path) {
         goto out;
     }
 
-    klog_debug("vfs_vfs_rmdir(), resolved descriptor follows");
+    log_debug("vfs_vfs_rmdir(), resolved descriptor follows");
     debug_file_descriptor(parent, 0);
 
     if (parent->superblock->ops->rmdir == NULL) {
@@ -443,12 +443,12 @@ int vfs_rmdir(char *path) {
         && parent->superblock->ops->readdir != NULL 
         && parent->superblock->ops->closedir != NULL
     ) {
-        klog_debug("vfs_rmdir() checking if dir is empty...");
+        log_debug("vfs_rmdir() checking if dir is empty...");
         file_t *f;
         file_descriptor_t *fd;
         err = parent->superblock->ops->opendir(parent, &f);
         if (err) {
-            klog_debug("error %d opendir() directory to count contents", err);
+            log_debug("error %d opendir() directory to count contents", err);
             goto out;
         }
         while (parent->superblock->ops->readdir(f, &fd) == SUCCESS) {
@@ -469,7 +469,7 @@ int vfs_rmdir(char *path) {
 out:
     if (copy != NULL)
         kfree(copy);
-    klog_trace("vfs_rmdir(\"%s\") -> %d", path, err);
+    log_trace("vfs_rmdir(\"%s\") -> %d", path, err);
     return err;
 }
 

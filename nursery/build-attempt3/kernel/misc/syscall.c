@@ -1,7 +1,7 @@
 #include <bits.h>
 #include "../misc/cpu.h"
 #include <uapi/errors.h>
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
 #include "../multitask/process.h"
@@ -87,11 +87,11 @@ static int sys_getkey(key_event_t *event) {
 }
 
 static void sys_log_entry(int level, uint8_t *buffer) {
-    klog_user_syslog(level, buffer);
+    logger_append_user_syslog(level, buffer);
 }
 
 static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
-    klog_debug_hex(address, length, starting_num);
+    log_debug_hex(address, length, starting_num);
 }
 
 static void *sys_sbrk(int diff_size) {
@@ -313,19 +313,19 @@ int isr_syscall(struct syscall_stack stack) {
             sys_get_clocktime((clocktime_t *)stack.passed.arg1);
             break;
         default:
-            klog_warn("Received syscall interrupt!");
-            klog_debug("  sysno = %d (eax)", stack.passed.sysno);
-            klog_debug("  arg1  = %d (0x%08x) (ebx)", stack.passed.arg1, stack.passed.arg1);
-            klog_debug("  arg2  = %d (0x%08x) (ecx)", stack.passed.arg2, stack.passed.arg2);
-            klog_debug("  arg3  = %d (0x%08x) (edx)", stack.passed.arg3, stack.passed.arg3);
-            klog_debug("  arg4  = %d (0x%08x) (esi)", stack.passed.arg4, stack.passed.arg4);
-            klog_debug("  arg5  = %d (0x%08x) (edi)", stack.passed.arg5, stack.passed.arg5);
+            log_warn("Received syscall interrupt!");
+            log_debug("  sysno = %d (eax)", stack.passed.sysno);
+            log_debug("  arg1  = %d (0x%08x) (ebx)", stack.passed.arg1, stack.passed.arg1);
+            log_debug("  arg2  = %d (0x%08x) (ecx)", stack.passed.arg2, stack.passed.arg2);
+            log_debug("  arg3  = %d (0x%08x) (edx)", stack.passed.arg3, stack.passed.arg3);
+            log_debug("  arg4  = %d (0x%08x) (esi)", stack.passed.arg4, stack.passed.arg4);
+            log_debug("  arg5  = %d (0x%08x) (edi)", stack.passed.arg5, stack.passed.arg5);
             break;
     }
     
     if (stack_guard != STACK_GUARD_MAGIC_NUMBER) {
-        klog_crit("Syscall garbled stack detected! Stack dump follows, from guard downwards");
-        klog_debug_hex((void *)&stack_guard, 16 * 16, (uint32_t)&stack_guard);
+        log_critical("Syscall garbled stack detected! Stack dump follows, from guard downwards");
+        log_debug_hex((void *)&stack_guard, 16 * 16, (uint32_t)&stack_guard);
     }
 
     // both positive and negative values tested and supported

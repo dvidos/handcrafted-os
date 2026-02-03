@@ -7,15 +7,15 @@
 
 
 static int fat_supported(struct partition *partition) {
-    klog_trace("FAT probing partition #%d (legacy type 0x%02x)", partition->part_no, partition->legacy_type);
+    log_trace("FAT probing partition #%d (legacy type 0x%02x)", partition->part_no, partition->legacy_type);
     int err;
 
     if (partition->dev->ops->sector_size(partition->dev) != 512) {
-        klog_error("Only devices with 512 bytes sectors are supported");
+        log_error("Only devices with 512 bytes sectors are supported");
         return ERR_NOT_SUPPORTED;
     }
     if (sizeof(fat_boot_sector_t) != 512) {
-        klog_error("Boot sector struct would not align with reading of a sector");
+        log_error("Boot sector struct would not align with reading of a sector");
         return ERR_NOT_SUPPORTED;
     }
     
@@ -24,7 +24,7 @@ static int fat_supported(struct partition *partition) {
     memset(boot_sector, 0, sizeof(fat_boot_sector_t));
     err = partition->dev->ops->read(partition->dev, partition->first_sector, 0, 1, (char *)boot_sector);
     if (err) {
-        klog_debug("Err %d reading first sector of partition", err);
+        log_debug("Err %d reading first sector of partition", err);
         kfree(boot_sector);
         return err;
     }
@@ -42,21 +42,21 @@ static int fat_supported(struct partition *partition) {
         ) ||
         boot_sector->bootable_sector_signature != 0xAA55
     ) {
-        klog_debug("Does not look like a FAT MBR");
+        log_debug("Does not look like a FAT MBR");
         kfree(boot_sector);
         return ERR_NOT_SUPPORTED;
     }
 
     if (boot_sector->types.fat_12_16.boot_signature == 0x28 || 
         boot_sector->types.fat_12_16.boot_signature == 0x29) {
-        klog_debug("FAT12/16 detected");
+        log_debug("FAT12/16 detected");
         err = SUCCESS;
     } else if (boot_sector->types.fat_32.boot_signature == 0x28 ||
         boot_sector->types.fat_32.boot_signature == 0x29) {
-        klog_debug("FAT32 detected");
+        log_debug("FAT32 detected");
         err = SUCCESS;
     } else {
-        klog_debug("Neither FAT12/16, nor FAT32, unsupported");
+        log_debug("Neither FAT12/16, nor FAT32, unsupported");
         err = ERR_NOT_SUPPORTED;
     }
 
@@ -66,7 +66,7 @@ static int fat_supported(struct partition *partition) {
 
 
 static int fat_open_superblock(struct partition *partition, struct superblock *superblock) {
-    klog_trace("fat_open_superblock(dev %d, part %d)", partition->dev->dev_no, partition->part_no);
+    log_trace("fat_open_superblock(dev %d, part %d)", partition->dev->dev_no, partition->part_no);
 
     int err = fat_supported(partition);
     if (err)
@@ -77,7 +77,7 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     memset(boot_sector, 0, sizeof(fat_boot_sector_t));
     err = partition->dev->ops->read(partition->dev, partition->first_sector, 0, 1, (char *)boot_sector);
     if (err) {
-        klog_debug("Err %d reading first sector of partition", err);
+        log_debug("Err %d reading first sector of partition", err);
         goto error;
     }
     
@@ -93,7 +93,7 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
         ) ||
         boot_sector->bootable_sector_signature != 0xAA55
     ) {
-        klog_debug("Does not look like a FAT MBR");
+        log_debug("Does not look like a FAT MBR");
         err = ERR_NOT_SUPPORTED;
         goto error;
     }
@@ -114,15 +114,15 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
 
         // a fat16 cannot have less than 4085 clusters
         fat->fat_type = data_clusters < 4085 ? FAT12 : FAT16;
-        klog_debug("FAT%d detected", fat->fat_type == FAT12 ? 12 : 16);
+        log_debug("FAT%d detected", fat->fat_type == FAT12 ? 12 : 16);
 
     } else if (boot_sector->types.fat_32.boot_signature == 0x28 ||
         boot_sector->types.fat_32.boot_signature == 0x29
     ) {
-        klog_debug("FAT32 detected");
+        log_debug("FAT32 detected");
         fat->fat_type = FAT32;
     } else {
-        klog_debug("Neither FAT12/16, nor FAT32, unsupported");
+        log_debug("Neither FAT12/16, nor FAT32, unsupported");
         err = ERR_NOT_SUPPORTED;
         goto error;
     }
@@ -255,7 +255,7 @@ error:
 }
 
 static int fat_close_superblock(struct superblock *superblock) {
-    klog_trace("fat_close_superblock()");
+    log_trace("fat_close_superblock()");
 
     // ideally we'll sync all buffers to disk first, then apply write lock
 
@@ -271,7 +271,7 @@ static int fat_close_superblock(struct superblock *superblock) {
 }
 
 static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result) {
-    klog_trace("fat_lookup(dir=0x%x, name=\"%s\")", dir, name);
+    log_trace("fat_lookup(dir=0x%x, name=\"%s\")", dir, name);
 
     // we must find the entry "name" in directory dir, return pointer to result.
     // something analogous to opendir()/readdir()/closedir().
@@ -302,7 +302,7 @@ out:
 }
 
 static int fat_open(file_descriptor_t *fd, int flags, file_t **file) {
-    klog_trace("fat_open2(descriptor=0x%x)", fd);
+    log_trace("fat_open2(descriptor=0x%x)", fd);
     fat_info *fat = (fat_info *)fd->superblock->priv_fs_driver_data;
 
     if ((fd->flags & FD_FILE) == 0)
@@ -319,14 +319,14 @@ static int fat_open(file_descriptor_t *fd, int flags, file_t **file) {
 }
 
 static int fat_read(file_t *file, char *buffer, int length) {
-    klog_trace("fat_read(length=%d)", length);
+    log_trace("fat_read(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_read(fat, pfi, buffer, length);
 }
 
 static int fat_write(file_t *file, char *buffer, int length) {
-    klog_trace("fat_write(length=%d)", length);
+    log_trace("fat_write(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     acquire(&file->superblock->write_lock);
@@ -336,14 +336,14 @@ static int fat_write(file_t *file, char *buffer, int length) {
 }
 
 static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
-    klog_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
+    log_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_seek(fat, pfi, offset, origin);
 }
 
 static int fat_flush(file_t *file) {
-    klog_trace("fat_flush(file=0x%x)", file);
+    log_trace("fat_flush(file=0x%x)", file);
 
     int err;
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
@@ -363,7 +363,7 @@ static int fat_flush(file_t *file) {
 }
 
 static int fat_close(file_t *file) {
-    klog_trace("fat_close()");
+    log_trace("fat_close()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_close(fat, pfi);
@@ -378,7 +378,7 @@ static int fat_root_descriptor(superblock_t *superblock, file_descriptor_t **fd)
 
 
 static int fat_opendir(file_descriptor_t *fd, file_t **dir) {
-    klog_trace("fat_opendir()");
+    log_trace("fat_opendir()");
 
     fat_info *fat = (fat_info *)fd->superblock->priv_fs_driver_data;
     int err;
@@ -398,7 +398,7 @@ out:
 }
 
 static int fat_rewinddir(file_t *file) {
-    klog_trace("fat_rewinddir()");
+    log_trace("fat_rewinddir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_private_data;
     
@@ -406,17 +406,17 @@ static int fat_rewinddir(file_t *file) {
 }
 
 static int fat_readdir(file_t *file, file_descriptor_t **fd) {
-    klog_trace("fat_readdir()");
+    log_trace("fat_readdir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_dir_info *pdi = (fat_priv_dir_info *)file->fs_driver_private_data;
     
     fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
     int err = fat->ops->priv_dir_read_one_entry(fat, pdi, fat_entry);
     if (err == SUCCESS) {
-        klog_debug("fat_readdir(): gotten entry for \"%s\"", fat_entry->short_name);
+        log_debug("fat_readdir(): gotten entry for \"%s\"", fat_entry->short_name);
         fat_dir_entry_to_file_descriptor(file->descriptor, fat_entry, fd);
     } else {
-        klog_debug("fat_readdir(): priv_dir_read_one_entry() returned %d", err);
+        log_debug("fat_readdir(): priv_dir_read_one_entry() returned %d", err);
     }
 
     kfree(fat_entry);
@@ -424,7 +424,7 @@ static int fat_readdir(file_t *file, file_descriptor_t **fd) {
 }
 
 static int fat_closedir(file_t *file) {
-    klog_trace("fat_closedir()");
+    log_trace("fat_closedir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_private_data;
 
@@ -434,7 +434,7 @@ static int fat_closedir(file_t *file) {
 
 
 static int create_directory_entry(file_descriptor_t *parent_dir, char *name, uint32_t cluster_no, uint32_t size, bool allocate_cluster, bool want_directory) {
-    klog_trace("create_directory_entry(parent=%s, name=%s, clust=%u, size=%u, allocate=%d, want_dir=%d)", parent_dir->name, name, cluster_no, size, allocate_cluster, want_directory);
+    log_trace("create_directory_entry(parent=%s, name=%s, clust=%u, size=%u, allocate=%d, want_dir=%d)", parent_dir->name, name, cluster_no, size, allocate_cluster, want_directory);
     fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
     int err;
 
@@ -465,7 +465,7 @@ static int create_directory_entry(file_descriptor_t *parent_dir, char *name, uin
     if (want_directory && allocate_cluster) {
         err = fat->ops->allocate_new_cluster_chain(fat, fat->io_buffers->sector, fat->io_buffers->cluster, true, &cluster_no);
         if (err) {
-            klog_warn("Failed allocating new cluster for new directory...");
+            log_warn("Failed allocating new cluster for new directory...");
             goto exit;
         }
         size = fat->bytes_per_cluster;
@@ -483,7 +483,7 @@ exit:
 }
 
 static int remove_directory_entry(file_descriptor_t *parent_dir, char *name, bool want_directory) {
-    klog_trace("remove_directory_entry(parent=%s, name=%s, want_dir=%d)", parent_dir->name, name, want_directory);
+    log_trace("remove_directory_entry(parent=%s, name=%s, want_dir=%d)", parent_dir->name, name, want_directory);
     fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
     int err;
 
@@ -533,7 +533,7 @@ exit:
 
 
 static int fat_touch(file_descriptor_t *parent_dir, char *name) {
-    klog_trace("fat_touch(\"%s\")", name);
+    log_trace("fat_touch(\"%s\")", name);
     acquire(&parent_dir->superblock->write_lock);
 
     // a zero sized file does not need cluster allocated.
@@ -544,7 +544,7 @@ static int fat_touch(file_descriptor_t *parent_dir, char *name) {
 }
 
 static int fat_unlink(file_descriptor_t *parent_dir, char *name) {
-    klog_trace("fat_touch(\"%s\")", name);
+    log_trace("fat_touch(\"%s\")", name);
     acquire(&parent_dir->superblock->write_lock);
 
     int err = remove_directory_entry(parent_dir, name, false);
@@ -554,7 +554,7 @@ static int fat_unlink(file_descriptor_t *parent_dir, char *name) {
 }
 
 static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
-    klog_trace("fat_mkdir(\"%s\")", name);
+    log_trace("fat_mkdir(\"%s\")", name);
     acquire(&parent_dir->superblock->write_lock);
 
     // if we created a directory, we need to create the "." and ".." entries
@@ -567,7 +567,7 @@ static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
     err = fat_lookup(parent_dir, name, &new_dir);
     if (err) goto exit;
 
-    klog_debug("Newly created dir descriptor:");
+    log_debug("Newly created dir descriptor:");
     debug_file_descriptor(new_dir, 0);
     
     err = create_directory_entry(new_dir, ".", new_dir->location, new_dir->size, false, true);
@@ -584,7 +584,7 @@ exit:
 }
 
 static int fat_rmdir(file_descriptor_t *parent_dir, char *name) {
-    klog_trace("fat_rmdir(\"%s\")", name);
+    log_trace("fat_rmdir(\"%s\")", name);
     acquire(&parent_dir->superblock->write_lock);
 
     int err = remove_directory_entry(parent_dir, name, true);

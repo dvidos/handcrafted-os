@@ -30,6 +30,7 @@ KERNEL_C_FILES = \
 	$(wildcard *.c) \
 	$(wildcard utils/*.c) \
 	$(wildcard misc/*.c) \
+	$(wildcard klib/*.c) \
 	$(wildcard memory/*.c) \
 	$(wildcard drivers/*.c) \
 	$(wildcard multitask/*.c) \
@@ -37,8 +38,7 @@ KERNEL_C_FILES = \
 	$(wildcard devices/*.c) \
 	$(wildcard filesys/*.c) \
 	$(wildcard filesys/fat/fat.c) \
-	$(wildcard klib/*.c)  # \
-	# $(wildcard tests/*.c)
+	$(wildcard processes/*.c)
 
 KERNEL_NASM_FILES1 = \
 	$(wildcard misc/*.asm) \

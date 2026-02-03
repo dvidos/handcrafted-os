@@ -1,6 +1,6 @@
 #include <bits.h>
 #include "../misc/cpu.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../memory/kheap.h"
 #include "pci.h"
 
@@ -272,23 +272,23 @@ void collect_pci_devices() {
 }
 
 void test_pci_device(uint8_t dev_no) {
-    klog_debug("Testing device %d");
+    log_debug("Testing device %d");
     uint8_t bytes[16];
     uint16_t words[8];
     uint32_t dwords[4];
 
     if (dev_no == 3) {
-        // klog_debug("Device 3 on my QEMU environment.");
-        klog_debug("- Vendor = 8006 (Intel)");
-        klog_debug("- Device = 100E (Gigabit Ethernet Controller)");
-        klog_debug("- Class = 02    (Network Controller)");
-        klog_debug("- Subclass = 00 (Ethernet Controller)");
+        // log_debug("Device 3 on my QEMU environment.");
+        log_debug("- Vendor = 8006 (Intel)");
+        log_debug("- Device = 100E (Gigabit Ethernet Controller)");
+        log_debug("- Class = 02    (Network Controller)");
+        log_debug("- Subclass = 00 (Ethernet Controller)");
     } else if (dev_no == 4) {
-        // klog_debug("Device 4 on my QEMU environment.");
-        klog_debug("- Vendor = 8006 (Intel)");
-        klog_debug("- Device = 2922 (6 port SATA Controller [AHCI mode])");
-        klog_debug("- Class = 01    (Mass Storage Controller)");
-        klog_debug("- Subclass = 06 (Serial ATA Controller)");
+        // log_debug("Device 4 on my QEMU environment.");
+        log_debug("- Vendor = 8006 (Intel)");
+        log_debug("- Device = 2922 (6 port SATA Controller [AHCI mode])");
+        log_debug("- Class = 01    (Mass Storage Controller)");
+        log_debug("- Subclass = 06 (Serial ATA Controller)");
     }
     for (int i = 0; i < 16; i++)
         bytes[i] = pci_read_config_byte(0, dev_no, 0, i);
@@ -299,22 +299,22 @@ void test_pci_device(uint8_t dev_no) {
     for (int i = 0; i < 4; i++)
         dwords[i] = pci_read_config_dword(0, dev_no, 0, i << 2);
     
-    klog_debug("Using  8 bits: %02x %02x %02x %02x", bytes[0], bytes[1], bytes[2], bytes[3]);
-    klog_debug("               %02x %02x %02x %02x", bytes[4], bytes[5], bytes[6], bytes[7]);
-    klog_debug("               %02x %02x %02x %02x", bytes[8], bytes[9], bytes[10], bytes[11]);
-    klog_debug("               %02x %02x %02x %02x", bytes[12], bytes[13], bytes[14], bytes[15]);
-    klog_debug("Using 16 bits: %04x %04x", words[0], words[1]);
-    klog_debug("               %04x %04x", words[2], words[3]);
-    klog_debug("               %04x %04x", words[4], words[5]);
-    klog_debug("               %04x %04x", words[6], words[7]);
-    klog_debug("Using 32 bits: %08x", dwords[0]);
-    klog_debug("               %08x", dwords[1]);
-    klog_debug("               %08x", dwords[2]);
-    klog_debug("               %08x", dwords[3]);
+    log_debug("Using  8 bits: %02x %02x %02x %02x", bytes[0], bytes[1], bytes[2], bytes[3]);
+    log_debug("               %02x %02x %02x %02x", bytes[4], bytes[5], bytes[6], bytes[7]);
+    log_debug("               %02x %02x %02x %02x", bytes[8], bytes[9], bytes[10], bytes[11]);
+    log_debug("               %02x %02x %02x %02x", bytes[12], bytes[13], bytes[14], bytes[15]);
+    log_debug("Using 16 bits: %04x %04x", words[0], words[1]);
+    log_debug("               %04x %04x", words[2], words[3]);
+    log_debug("               %04x %04x", words[4], words[5]);
+    log_debug("               %04x %04x", words[6], words[7]);
+    log_debug("Using 32 bits: %08x", dwords[0]);
+    log_debug("               %08x", dwords[1]);
+    log_debug("               %08x", dwords[2]);
+    log_debug("               %08x", dwords[3]);
 
     pci_device_t *pci_dev = read_pci_device_configuration(0, dev_no, 0);
-    klog_debug("Using configuration header");
-    klog_debug("  vendor %04x, dev.id %04x, status %04x, class %02x, subclass %02x, hdr %02x",
+    log_debug("Using configuration header");
+    log_debug("  vendor %04x, dev.id %04x, status %04x, class %02x, subclass %02x, hdr %02x",
         pci_dev->config.vendor_id,
         pci_dev->config.device_id,
         pci_dev->config.status,
@@ -333,9 +333,9 @@ void test_pci_device(uint8_t dev_no) {
     } __attribute__((packed)) u;
 
     u.value = 0x80;
-    klog_debug("Bits distribution: value=%x, high bit=%x, low bit=%x", u.value, u.bits.high_bit, u.bits.low_bit);
+    log_debug("Bits distribution: value=%x, high bit=%x, low bit=%x", u.value, u.bits.high_bit, u.bits.low_bit);
     u.value = 0x01;
-    klog_debug("Bits distribution: value=%x, high bit=%x, low bit=%x", u.value, u.bits.high_bit, u.bits.low_bit);
+    log_debug("Bits distribution: value=%x, high bit=%x, low bit=%x", u.value, u.bits.high_bit, u.bits.low_bit);
 }
 
 char *get_pci_class_name(uint8_t class) {
@@ -539,14 +539,14 @@ static void find_device_driver(pci_device_t *dev) {
             continue;
         }
         
-        klog_debug("Trying driver %s for device of class/subclass %02x/%02x", 
+        log_debug("Trying driver %s for device of class/subclass %02x/%02x", 
             reg->driver->name, 
             reg->class,
             reg->subclass
         );
         int err = reg->driver->probe(dev);
         if (err == 0) {
-            // klog_debug("PCI driver \"%s\" reported capturing device %d:%d:%d", reg->driver->name, dev->bus_no, dev->device_no, dev->func_no);
+            // log_debug("PCI driver \"%s\" reported capturing device %d:%d:%d", reg->driver->name, dev->bus_no, dev->device_no, dev->func_no);
             break;
         }
         reg = reg->next;
@@ -554,13 +554,13 @@ static void find_device_driver(pci_device_t *dev) {
 }
 
 void init_pci() {
-    klog_debug("Collecting PCI devices...");
+    log_debug("Collecting PCI devices...");
     collect_pci_devices();
 
     // now print them
     pci_device_t *dev = pci_devices_list;
     while (dev != NULL) {
-        klog_debug("%d:%d:%d, vend/dev %04x/%04x, class/sub %02x/%02x, hdr %02x",
+        log_debug("%d:%d:%d, vend/dev %04x/%04x, class/sub %02x/%02x, hdr %02x",
             dev->bus_no,
             dev->device_no,
             dev->func_no,
@@ -570,7 +570,7 @@ void init_pci() {
             dev->config.sub_class,
             dev->config.header_type
         );
-        klog_debug("       %s - %s", 
+        log_debug("       %s - %s", 
             get_pci_class_name(dev->config.class_type),
             get_pci_subclass_name(dev->config.class_type, dev->config.sub_class)
         );

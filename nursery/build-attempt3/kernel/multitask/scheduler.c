@@ -3,7 +3,7 @@
 #include "proclist.h"
 #include "../misc/cpu.h"
 #include "../drivers/timer.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../memory/virtmem.h"
 #include <bits.h>
 
@@ -92,7 +92,7 @@ void schedule() {
     running_proc->state = RUNNING;
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
-    klog_trace("scheduler(): switching \"%s\" --> \"%s\", page dir 0x%p", previous->name, next->name, next->page_directory);
+    log_trace("scheduler(): switching \"%s\" --> \"%s\", page dir 0x%p", previous->name, next->name, next->page_directory);
     
     /**
      * -------------------------------------------------------------------
@@ -119,11 +119,11 @@ void schedule() {
     // check stack underflow
     if (running_proc->allocated_kernel_stack != NULL) {
         if (*(uint32_t *)running_proc->allocated_kernel_stack != STACK_BOTTOM_MAGIC_VALUE)
-            klog_crit("Process %s[%d] kernel stack bottom magic number mismatch (expected 0x%x, got 0x%x)", running_proc->name, running_proc->pid, STACK_BOTTOM_MAGIC_VALUE, *(uint32_t *)running_proc->allocated_kernel_stack);
+            log_critical("Process %s[%d] kernel stack bottom magic number mismatch (expected 0x%x, got 0x%x)", running_proc->name, running_proc->pid, STACK_BOTTOM_MAGIC_VALUE, *(uint32_t *)running_proc->allocated_kernel_stack);
     }
     if (running_proc->user_proc.stack_bottom != NULL) {
         if (*(uint32_t *)running_proc->user_proc.stack_bottom != STACK_BOTTOM_MAGIC_VALUE)
-            klog_crit("Process %s[%d] user stack bottom magic number mismatch (expected 0x%x, got 0x%x)", running_proc->name, running_proc->pid, STACK_BOTTOM_MAGIC_VALUE, *(uint32_t *)running_proc->user_proc.stack_bottom);
+            log_critical("Process %s[%d] user stack bottom magic number mismatch (expected 0x%x, got 0x%x)", running_proc->name, running_proc->pid, STACK_BOTTOM_MAGIC_VALUE, *(uint32_t *)running_proc->user_proc.stack_bottom);
     }
 }
 

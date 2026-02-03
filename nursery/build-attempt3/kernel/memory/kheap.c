@@ -1,6 +1,6 @@
 #include "../utils/panic.h"
 #include "../klib/string.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "kheap.h"
 
 #define KMEM_MAGIC       0xAAA // something that fits in 12 bits
@@ -68,7 +68,7 @@ void init_kernel_heap(void *heap_start, size_t heap_size) {
     kernel_heap.list_head = head;
     kernel_heap.list_tail = tail;
 
-    klog_debug("Kernel heap initialized in range 0x%x - 0x%x, %u KB available",
+    log_debug("Kernel heap initialized in range 0x%x - 0x%x, %u KB available",
         kernel_heap.start_address,
         kernel_heap.end_address,
         kernel_heap.available_memory / 1024
@@ -89,7 +89,7 @@ void *__kmalloc(size_t size, char *explanation, char *file, uint16_t line) {
         curr = curr->next;
     }
     if (curr == NULL) {
-        klog_warn("kmalloc(%u) -> Could not find a free block, returning null", size);
+        log_warn("kmalloc(%u) -> Could not find a free block, returning null", size);
         panic("malloc failed. what now?");
         return NULL;
     }
@@ -135,19 +135,19 @@ void *__kmalloc(size_t size, char *explanation, char *file, uint16_t line) {
     char *ptr = (char *)curr + sizeof(memory_block_t);
     memset(ptr, 0, curr->size); // contrary to traditional unix, we clear our memory
 
-    klog_trace("kmalloc(%u = %s) -> 0x%p, at %s:%d", size, explanation, ptr, file, line);
+    log_trace("kmalloc(%u = %s) -> 0x%p, at %s:%d", size, explanation, ptr, file, line);
     return ptr;
 }
 
 
 // checks magic numbers and logs possible overflow/underflow
 void __kcheck(void *ptr, char *name, char *file, int line) {
-    klog_trace("kcheck(0x%p, \"%s\") at %s:%d", ptr, name, file, line);
+    log_trace("kcheck(0x%p, \"%s\") at %s:%d", ptr, name, file, line);
     memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
     bool healthy = false;
 
     if (ptr < kernel_heap.start_address || ptr > kernel_heap.end_address) {
-        klog_crit("- ptr 0x%p (%s): pointer is not managed by kernel heap (heap is 0x%x..0x%x)", 
+        log_critical("- ptr 0x%p (%s): pointer is not managed by kernel heap (heap is 0x%x..0x%x)", 
             ptr, name, kernel_heap.start_address, kernel_heap.end_address);
         healthy = false;
     } else {
@@ -156,7 +156,7 @@ void __kcheck(void *ptr, char *name, char *file, int line) {
         if (!healthy) {
             void *addr = ptr - 0x60; // ample room to detet underflow/overflow
             int size = 0x60 + sizeof(memory_block_t) + 0x60;
-            klog_debug_hex(addr, size, (uint32_t)addr);
+            log_debug_hex(addr, size, (uint32_t)addr);
             kernel_heap_dump();
         }
     }
@@ -166,7 +166,7 @@ void __kcheck(void *ptr, char *name, char *file, int line) {
 }
 
 void kfree(void *ptr) {
-    klog_trace("kfree(0x%p)", ptr);
+    log_trace("kfree(0x%p)", ptr);
 
     memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
     memory_block_t *next = block->next;
@@ -235,7 +235,7 @@ uint32_t kernel_heap_block_size() {
 
 void kernel_heap_dump() {
     memory_block_t *block = kernel_heap.list_head;
-    klog_debug("  Pointer      Size Type Magic   Prev     Next     Alloc file:line - size explanation");
+    log_debug("  Pointer      Size Type Magic   Prev     Next     Alloc file:line - size explanation");
     //         "  0x000000 00000000 Used XXX XXX 0xXXXXXX 0xXXXXXX
     uint32_t free_mem = 0;
     uint32_t used_mem = 0;
@@ -252,7 +252,7 @@ void kernel_heap_dump() {
             free_blocks++;
         }
         #if DEBUG_HEAP_OPS
-            klog_debug("  0x%x %8u %s %x %x 0x%x 0x%x %s:%d - %s",
+            log_debug("  0x%x %8u %s %x %x 0x%x 0x%x %s:%d - %s",
                 (uint32_t)block + sizeof(memory_block_t), block->size,
                 block->used ? "Used" : "Free",
                 block->magic1, block->magic2,
@@ -261,7 +261,7 @@ void kernel_heap_dump() {
                 block->size_explanation
             );
         #else
-            klog_debug("  0x%x %8u %s %x %x 0x%x 0x%x",
+            log_debug("  0x%x %8u %s %x %x 0x%x 0x%x",
                 (uint32_t)block + sizeof(memory_block_t), block->size,
                 block->used ? "Used" : "Free",
                 block->magic1, block->magic2,
@@ -275,13 +275,13 @@ void kernel_heap_dump() {
     int utilization = (used_mem * 100) / (free_mem + used_mem);
 
     int percent_free = (kernel_heap.available_memory * 100) / (kernel_heap.end_address - kernel_heap.start_address);
-    klog_debug("Free memory %u KB (%u%%), out of %u KB total",
+    log_debug("Free memory %u KB (%u%%), out of %u KB total",
         kernel_heap.available_memory / 1024,
         percent_free,
         (kernel_heap.end_address - kernel_heap.start_address) / 1024
     );
-    klog_debug("Total free memory  %u KB (%u blocks)", (uint32_t)free_mem, free_blocks);
-    klog_debug("Total used memory  %u KB (%u blocks) - %d%% utilization", (uint32_t)used_mem, used_blocks, utilization);
+    log_debug("Total free memory  %u KB (%u blocks)", (uint32_t)free_mem, free_blocks);
+    log_debug("Total used memory  %u KB (%u blocks) - %d%% utilization", (uint32_t)used_mem, used_blocks, utilization);
 }
 
 
@@ -291,27 +291,27 @@ static bool __check_block(memory_block_t *block) {
     void *ptr = ((void *)block) + sizeof(memory_block_t);
 
     if (block->magic1 != KMEM_MAGIC) {
-        klog_error("block for 0x%x has bad magic 1 (%x)", ptr, block->magic1);
+        log_error("block for 0x%x has bad magic 1 (%x)", ptr, block->magic1);
         healthy = false;
     }
     if (block->magic2 != KMEM_MAGIC) {
-        klog_error("block for 0x%x bad magic 2 (%x)", ptr, block->magic2);
+        log_error("block for 0x%x bad magic 2 (%x)", ptr, block->magic2);
         healthy = false;
     }
     if (block->size > max_size) {
-        klog_error("block for 0x%x bad size (%d, max is %d)", ptr, block->size, max_size);
+        log_error("block for 0x%x bad size (%d, max is %d)", ptr, block->size, max_size);
         healthy = false;
     }
     if (block->prev != NULL && (
         (void *)block->prev < kernel_heap.start_address ||
         (void *)block->prev > kernel_heap.end_address)) {
-        klog_error("block for 0x%x prev ptr outside heap boundaries (0x%x)", ptr, block->prev, max_size);
+        log_error("block for 0x%x prev ptr outside heap boundaries (0x%x)", ptr, block->prev, max_size);
         healthy = false;
     }
     if (block->next != NULL && (
         (void *)block->next < kernel_heap.start_address ||
         (void *)block->next > kernel_heap.end_address)) {
-        klog_error("block for 0x%x next ptr outside heap boundaries (0x%x)", ptr, block->next, max_size);
+        log_error("block for 0x%x next ptr outside heap boundaries (0x%x)", ptr, block->next, max_size);
         healthy = false;
     }
 
@@ -319,19 +319,19 @@ static bool __check_block(memory_block_t *block) {
         bool is_last_block = block->size == 0 && block->next == NULL;
         if (block->used && !is_last_block) {
             if (block->ff_indicator != 0xFFFF) {
-                klog_error("block for 0x%x bad ff indicator (0x%x)", ptr, block->ff_indicator);
+                log_error("block for 0x%x bad ff indicator (0x%x)", ptr, block->ff_indicator);
                 healthy = false;
             }
             if (block->file == NULL || strlen(block->file) == 0 || strlen(block->file) > 120) {
-                klog_error("block for 0x%x invalid file indicator (%s)", ptr, block->file);
+                log_error("block for 0x%x invalid file indicator (%s)", ptr, block->file);
                 healthy = false;
             }
             if (block->line <= 0 || block->line > 10000) {
-                klog_error("block for 0x%x invalid line indicator (%d)", ptr, block->line);
+                log_error("block for 0x%x invalid line indicator (%d)", ptr, block->line);
                 healthy = false;
             }
             if (block->size_explanation == NULL || strlen(block->size_explanation) == 0 || strlen(block->size_explanation) > 120) {
-                klog_error("block for 0x%x invalid size explanation (%s)", ptr, block->size_explanation);
+                log_error("block for 0x%x invalid size explanation (%s)", ptr, block->size_explanation);
                 healthy = false;
             }
         }
@@ -352,9 +352,9 @@ void __kernel_heap_verify(char *file, int line) {
     }
 
     if (healthy) {
-        klog_debug("kernel heap healthy at %s:%d", file, line);
+        log_debug("kernel heap healthy at %s:%d", file, line);
     } else {
-        klog_crit("kernel heap issues, detected at %s:%d", file, line);
+        log_critical("kernel heap issues, detected at %s:%d", file, line);
         kernel_heap_dump();
         panic("Bad heap state");
     }

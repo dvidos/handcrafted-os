@@ -10,7 +10,7 @@
 #include "multitask.h"
 #include "../memory/kheap.h"
 #include "../memory/virtmem.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include <uapi/errors.h>
 #include "strvec.h"
 #include "../filesys/mount.h"
@@ -116,7 +116,7 @@ void proc_block(int reason, void *channel) {
     p->block_reason = reason;
     p->block_channel = channel;
     append(&blocked_list, p);
-    klog_trace("process %s got blocked, reason %d, channel %p", p->name, reason, channel);
+    log_trace("process %s got blocked, reason %d, channel %p", p->name, reason, channel);
     schedule(); // allow someone else to run
     unlock_scheduler();
 }
@@ -132,7 +132,7 @@ void unblock_process(process_t *proc) {
     proc->block_reason = 0;
     proc->block_channel = NULL;
     prepend(&ready_lists[proc->priority], proc);
-    klog_trace("process %s unblocked and added to ready list", proc->name);
+    log_trace("process %s unblocked and added to ready list", proc->name);
 
     // if the running process has a lower priority than the new task,
     // let's preempt it, as we are higher priority, 
@@ -151,7 +151,7 @@ void unblock_process_that(enum block_reasons block_reason, void *block_channel) 
     process_t *proc = blocked_list.head;
     while (proc != NULL) {
         if (proc->block_reason == block_reason && proc->block_channel == block_channel) {
-            klog_trace("process %s getting unblocked", proc->name);
+            log_trace("process %s getting unblocked", proc->name);
             unlist(&blocked_list, proc);
             proc->state = READY;
             proc->block_reason = 0;
@@ -182,13 +182,13 @@ int proc_fork() {
 }
 
 bool proc_has_children(process_t *parent) {
-    klog_debug("Checking if proc %s[%d] has children", parent->name, parent->pid);
+    log_debug("Checking if proc %s[%d] has children", parent->name, parent->pid);
     bool has_children = false;
     lock_scheduler();
 
     // first check the running process
     if (running_proc->parent == parent) {
-        klog_debug("The running process (%d) is a parent of %d", running_proc->pid, parent->pid);
+        log_debug("The running process (%d) is a parent of %d", running_proc->pid, parent->pid);
         has_children = true;
         goto exit;
     }
@@ -197,9 +197,9 @@ bool proc_has_children(process_t *parent) {
     for (int priority = 0; priority < PROCESS_PRIORITY_LEVELS; priority++) {
         process_t *p = ready_lists[priority].head;
         while (p != NULL) {
-            klog_debug("Checking priority %d, proc %s[%d]", priority, p->name, p->pid);
+            log_debug("Checking priority %d, proc %s[%d]", priority, p->name, p->pid);
             if (p->parent == parent) {
-                klog_debug("Found pid %d as a child of pid %d", p->pid, parent->pid);
+                log_debug("Found pid %d as a child of pid %d", p->pid, parent->pid);
                 has_children = true;
                 goto exit;
             }
@@ -210,9 +210,9 @@ bool proc_has_children(process_t *parent) {
     // look at block queue
     process_t *p = blocked_list.head;
     while (p != NULL) {
-        klog_debug("Checking proc %s[%d]", p->name, p->pid);
+        log_debug("Checking proc %s[%d]", p->name, p->pid);
         if (p->parent == parent) {
-            klog_debug("Found pid %d as a child of pid %d", p->pid, parent->pid);
+            log_debug("Found pid %d as a child of pid %d", p->pid, parent->pid);
             has_children = true;
             goto exit;
         }
@@ -229,15 +229,15 @@ int proc_wait_child(int *exit_code) {
     lock_scheduler();
 
     process_t *p = running_process();
-    klog_trace("proc_wait_child() called, from process %s[%d]", p->name, p->pid);
+    log_trace("proc_wait_child() called, from process %s[%d]", p->name, p->pid);
 
     if (!proc_has_children(p)) {
-        klog_error("Process has no children, exiting!");
+        log_error("Process has no children, exiting!");
         unlock_scheduler();
         return ERR_NOT_SUPPORTED;
     }
 
-    klog_trace("proc_wait_child(): process %s[%d] will sleep, waiting for children", p->name, p->pid);
+    log_trace("proc_wait_child(): process %s[%d] will sleep, waiting for children", p->name, p->pid);
 
     // then block us, let the exit() call wake us up.
     p->state = BLOCKED;
@@ -251,14 +251,14 @@ int proc_wait_child(int *exit_code) {
     // in theory we'll be here when exit() will unlock us...
     // maybe the "running_proc" var already has our pointer, so we could hook some exit data there...
     p = running_process();
-    klog_debug("proc_wait_child(): after scheduler scheduled, running_proc points to %s[%d] (should be the original parent)", p->name, p->pid);
+    log_debug("proc_wait_child(): after scheduler scheduled, running_proc points to %s[%d] (should be the original parent)", p->name, p->pid);
     *exit_code = p->terminated_child_exit_code;
     return p->terminated_child_pid;
 }
 
 // voluntarily give up the CPU to another task
 void proc_yield() {
-    klog_trace("process %s is yielding", running_proc->name);
+    log_trace("process %s is yielding", running_proc->name);
     lock_scheduler();
     schedule(); // allow someone else to run
     unlock_scheduler();
@@ -271,7 +271,7 @@ void proc_sleep(int milliseconds) {
     lock_scheduler();
     process_t *p = running_process();
 
-    // klog_trace("process %s going to sleep for %d msecs", running_proc->name, milliseconds);
+    // log_trace("process %s going to sleep for %d msecs", running_proc->name, milliseconds);
     p->wake_up_time = timer_get_uptime_msecs() + milliseconds;
     p->state = BLOCKED;
     p->block_reason = SLEEPING;
@@ -295,15 +295,15 @@ void proc_exit(int exit_code) {
     p->state = TERMINATED;
     p->exit_code = exit_code;
     append(&terminated_list, p);
-    klog_trace("Process %s[%d] exited, exit code %d", p->name, p->pid, exit_code);
+    log_trace("Process %s[%d] exited, exit code %d", p->name, p->pid, exit_code);
 
     // possibly wake up parent process
     process_t *parent = p->parent;
     if (parent != NULL && parent->state == BLOCKED && parent->block_reason == WAIT_CHILD_EXIT) {
-        klog_trace("Will unblock parent process %s[%d]", parent->name, parent->pid);
+        log_trace("Will unblock parent process %s[%d]", parent->name, parent->pid);
         parent->terminated_child_pid = p->pid;
         parent->terminated_child_exit_code = exit_code;
-        klog_debug("Added pid %d and exit code %d to parent", p->pid, exit_code);
+        log_debug("Added pid %d and exit code %d to parent", p->pid, exit_code);
         unblock_process(parent);
     }
 
@@ -366,13 +366,13 @@ static void scheduler_unlocking_entry_point() {
     running_proc->entry_point();
 
     // terminate and later free the process
-    klog_warn("process(): It seems main returned");
+    log_warn("process(): It seems main returned");
     proc_exit(-7);
 }
 
 process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
-        klog_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
+        log_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
     }
 
@@ -409,7 +409,7 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pr
     // set working directory
     proc_chdir(p, "/");
 
-    klog_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
+    log_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;
 }
 
@@ -526,9 +526,9 @@ int proc_opendir(process_t *proc, char *name) {
     if (err) return err;
 
     int handle = allocate_file_handle(proc, file);
-    klog_trace("proc_opendir() -> %d", handle);
-    klog_debug("Process handles table follows");
-    klog_debug_hex((void *)proc->file_handles, sizeof(file_t) * MAX_FILE_HANDLES, 0);
+    log_trace("proc_opendir() -> %d", handle);
+    log_debug("Process handles table follows");
+    log_debug_hex((void *)proc->file_handles, sizeof(file_t) * MAX_FILE_HANDLES, 0);
     return handle;
 }
 
@@ -544,7 +544,7 @@ int proc_readdir(process_t *proc, int handle, dirent_t *entry) {
         strncpy(entry->name, fd->name, sizeof(entry->name));
         destroy_file_descriptor(fd);
     }
-    klog_trace("proc_readdir() -> %d", err);
+    log_trace("proc_readdir() -> %d", err);
     return err;
 }
 
@@ -562,7 +562,7 @@ int proc_closedir(process_t *proc, int handle) {
 
 
 static void dump_process(process_t *proc) {
-    klog_info("%-4d %-4d %-20s %08x %08x %-10s %-10s %4us", 
+    log_info("%-4d %-4d %-20s %08x %08x %-10s %-10s %4us", 
         proc->pid,
         proc->parent == NULL ? 0 : proc->parent->pid,
         proc->name, 
@@ -583,8 +583,8 @@ static void dump_process_list(proc_list_t *list) {
 }
 
 void dump_process_table() {
-    klog_info("Process list:");
-    klog_info("PID  PPID Name                 ESP      EIP      State      Blck Reasn    CPU");
+    log_info("Process list:");
+    log_info("PID  PPID Name                 ESP      EIP      State      Blck Reasn    CPU");
     dump_process((process_t *)running_proc);
     for (int pri = 0; pri < PROCESS_PRIORITY_LEVELS; pri++) {
         dump_process_list(&ready_lists[pri]);

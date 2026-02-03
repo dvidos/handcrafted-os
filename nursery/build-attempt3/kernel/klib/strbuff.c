@@ -1,7 +1,7 @@
 #include "../memory/kheap.h"
 #include "string.h"
 #include "strbuff.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 MODULE("SBUFF");
 
@@ -65,13 +65,13 @@ void sb_insert(strbuff_t *sb, int pos, char *str) {
         // if exceeds to the right, trim
         if (pos + len > sb->capacity - 1) {
             len = sb->capacity - pos - 1;
-            klog_debug("trimming from right, len=%d", len);
+            log_debug("trimming from right, len=%d", len);
         }
 
         // if current buffer will overflow, trim it
         if (len + sb->length > sb->capacity - 1) {
             sb->length = sb->capacity - 1 - len;
-            klog_debug("trimming from buffer, sb->length=%d", sb->length);
+            log_debug("trimming from buffer, sb->length=%d", sb->length);
         }
 
     } else if (sb->flags == SB_SCROLL) {
@@ -111,7 +111,7 @@ void sb_insert(strbuff_t *sb, int pos, char *str) {
     
     // we should now be in position to insert
     if (len > sb->capacity - sb->length - 1) {
-        klog_error("oops, there should be space for str of %d bytes in buffer[%d], with length=%d", len, sb->capacity, sb->length);
+        log_error("oops, there should be space for str of %d bytes in buffer[%d], with length=%d", len, sb->capacity, sb->length);
         return;
     }
     

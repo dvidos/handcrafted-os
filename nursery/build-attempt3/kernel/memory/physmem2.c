@@ -1,6 +1,6 @@
 #include "../utils/panic.h"
 #include "../misc/cpu.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "physmem2.h"
 
 // 4GB of memory / 4K page size --> 1M pages
@@ -249,7 +249,7 @@ static void _debug_bitmap_ranges() {
     uint32_t start_page = 0;
     bool current_used = (pmm_data.bitmap[0] & 1) != 0; // first page
     
-    klog_info("Physical memory manager bitmap ranges");
+    log_info("Physical memory manager bitmap ranges");
     for (uint32_t i = 1; i < pmm_data.total_pages; i++) {
         uint32_t word = pmm_data.bitmap[i / 32];
         bool used = (word >> (i % 32)) & 1;
@@ -258,7 +258,7 @@ static void _debug_bitmap_ranges() {
             // Print the previous range
             uint64_t start_addr = (uint64_t)start_page * PAGE_SIZE;
             uint64_t end_addr = (uint64_t)i * PAGE_SIZE;
-            klog_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
+            log_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
                    current_used ? "used" : "free",
                    start_addr,
                    end_addr - 1, 
@@ -275,7 +275,7 @@ static void _debug_bitmap_ranges() {
     // Print the last range
     uint64_t start_addr = (uint64_t)start_page * PAGE_SIZE;
     uint64_t end_addr = (uint64_t)pmm_data.total_pages * PAGE_SIZE;
-    klog_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
+    log_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
             current_used ? "used" : "free",
             start_addr,
             end_addr - 1, 

@@ -1,7 +1,7 @@
 #include "vfs.h"
 #include "../klib/string.h"
 #include "../memory/kheap.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 MODULE("VFS");
 
@@ -17,9 +17,9 @@ file_t *create_file_t(superblock_t *superblock, file_descriptor_t *descriptor) {
 
 
 void debug_file_t(file_t *file) {
-    klog_debug("  file->superblock : 0x%x", file->superblock);
-    klog_debug("  file->desciptor : 0x%x", file->descriptor);
-    klog_debug("  file->fs_driver_private_data: 0x%x", file->fs_driver_private_data);
+    log_debug("  file->superblock : 0x%x", file->superblock);
+    log_debug("  file->desciptor : 0x%x", file->descriptor);
+    log_debug("  file->fs_driver_private_data: 0x%x", file->fs_driver_private_data);
 }
 
 void destroy_file_t(file_t *file) {

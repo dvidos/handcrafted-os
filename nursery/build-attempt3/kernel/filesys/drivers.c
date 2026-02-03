@@ -1,7 +1,7 @@
 #include "../devices/storage_dev.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "vfs.h"
 #include "drivers.h"
 #include <uapi/errors.h>

@@ -1,6 +1,6 @@
 #include "../memory/kheap.h"
 #include "../klib/string.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 MODULE("STRVEC");
 
@@ -50,13 +50,13 @@ void debug_strvec(char *varname, char **strvec) {
     char **p = strvec;
     int index = 0;
     while (*p != NULL) {
-        klog_debug("%s[%d] -> \"%s\"", varname, index, *p);
+        log_debug("%s[%d] -> \"%s\"", varname, index, *p);
         p++;
         index++;
         if (index > 99) {
-            klog_debug("... more than 100 entries, stopping");
+            log_debug("... more than 100 entries, stopping");
             return;
         }
     }
-    klog_debug("%s[%d] -> (null)", varname, index);
+    log_debug("%s[%d] -> (null)", varname, index);
 }

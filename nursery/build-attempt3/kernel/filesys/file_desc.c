@@ -1,7 +1,7 @@
 #include "vfs.h"
 #include "../klib/string.h"
 #include "../memory/kheap.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 MODULE("VFS");
 
@@ -88,10 +88,10 @@ void debug_file_descriptor(const file_descriptor_t *fd, int depth) {
     if (depth <= (int)((sizeof(indent) - 1) / 3))
         indent[depth * 3] = 0;
     
-    klog_debug("%s  file descriptor at 0x%x, name: \"%s\"", indent, fd, fd->name);
-    klog_debug("%s  flags: 0x%02x / %08bb (file=%d, dir=%d)", indent, fd->flags, fd->flags, FD_FILE, FD_DIR);
-    klog_debug("%s  location: %u, size: %u, ctime: %u, mtime: %u", indent, fd->location, fd->size, fd->ctime, fd->mtime);
-    klog_debug("%s  superblock: 0x%x,  parent: 0x%x", indent, fd->superblock, fd->owning_directory);
+    log_debug("%s  file descriptor at 0x%x, name: \"%s\"", indent, fd, fd->name);
+    log_debug("%s  flags: 0x%02x / %08bb (file=%d, dir=%d)", indent, fd->flags, fd->flags, FD_FILE, FD_DIR);
+    log_debug("%s  location: %u, size: %u, ctime: %u, mtime: %u", indent, fd->location, fd->size, fd->ctime, fd->mtime);
+    log_debug("%s  superblock: 0x%x,  parent: 0x%x", indent, fd->superblock, fd->owning_directory);
 
     if (fd->owning_directory != NULL)
         debug_file_descriptor(fd->owning_directory, depth + 1);

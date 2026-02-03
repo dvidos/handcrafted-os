@@ -3,7 +3,7 @@
 #include "../drivers/screen.h"
 #include <uapi/key_codes.h>
 #include <uapi/key_event.h>
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../misc/cpu.h"
 #include "../klib/string.h"
 #include "../misc/lock.h"
@@ -185,7 +185,7 @@ void tty_read_key(key_event_t *event) {
 
         // if unblocked, it means we got a key!
         if (tty->keys_buffer_len == 0)
-            klog_error("tty unblocked for key event, but no keys in buffer!");
+            log_error("tty unblocked for key event, but no keys in buffer!");
         dequeue_key_event(tty, event);
     }
 }
@@ -216,7 +216,7 @@ void tty_write_specific_tty(tty_t *tty, char *buffer) {
     // put something on the buffer of the tty 
     // if tty is visibile, put it on the screen as well    
     int len = strlen(buffer);
-    //klog_trace("tty: writing %d bytes on tty %d", len, tty->dev_no);
+    //log_trace("tty: writing %d bytes on tty %d", len, tty->dev_no);
     
     bool need_screen_redraw = false;
     virtual_buffer_put_buffer(tty, buffer, len, &need_screen_redraw);
@@ -314,10 +314,10 @@ void tty_set_title_specific_tty(tty_t *tty, char *title) {
 
 static void enqueue_key_event(tty_t *tty, key_event_t *event) {
     if (tty->keys_buffer_len >= KEYS_BUFFER_SIZE) {
-        klog_warn("Key buffer full for tty %d, dropping event", tty->dev_no);
+        log_warn("Key buffer full for tty %d, dropping event", tty->dev_no);
         return;
     }
-    // klog_trace("tty: enqueueing key event on tty %d", tty->dev_no);
+    // log_trace("tty: enqueueing key event on tty %d", tty->dev_no);
     acquire(&tty->keys_buffer_lock);
     memcpy(&tty->keys_buffer[tty->keys_buffer_len], event, sizeof(key_event_t));
     tty->keys_buffer_len++;
@@ -329,7 +329,7 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
         memset(event, 0, sizeof(key_event_t));
         return;
     }
-    // klog_trace("tty: dequeueing key event from tty %d", tty->dev_no);
+    // log_trace("tty: dequeueing key event from tty %d", tty->dev_no);
     acquire(&tty->keys_buffer_lock);
     memcpy(event, &tty->keys_buffer[0], sizeof(key_event_t));
     tty->keys_buffer_len--;
@@ -341,7 +341,7 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
 static void draw_tty_buffer_to_screen(tty_t *tty) {
     // this to be used when switching ttys and when scrolling
     // try to avoid flicker
-    // klog_trace("tty: drawing tty %d to screen", tty->dev_no);
+    // log_trace("tty: drawing tty %d to screen", tty->dev_no);
     
     uint8_t header_color = (VGA_COLOR_BLUE << 4) | VGA_COLOR_LIGHT_CYAN;
     int row;
@@ -399,7 +399,7 @@ static void scroll_tty_screenful(tty_t *tty, bool up) {
 }
 
 static void switch_to_tty(int dev_no) {
-    klog_debug("tty: switching to tty %d", dev_no);
+    log_debug("tty: switching to tty %d", dev_no);
 
     tty_t *tty = tty_mgr_data.ttys_list;
     while (tty != NULL) {

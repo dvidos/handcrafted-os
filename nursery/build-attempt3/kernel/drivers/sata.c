@@ -4,7 +4,7 @@
 #include "../memory/physmem2.h"
 #include "../memory/kheap.h"
 #include "../drivers/pci.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "clock.h"
 #include "../devices/storage_dev.h"
 
@@ -333,7 +333,7 @@ static int find_free_cmd_slot(HBA_PORT *port)
         if (!IS_BIT(slots, i))
             return i;
     }
-    klog_info("SATA: Cannot find free command list entry\n");
+    log_info("SATA: Cannot find free command list entry\n");
     return -1;
 }
 
@@ -388,7 +388,7 @@ static int find_free_cmd_slot(HBA_PORT *port)
 // to "buf" with LBA48 mode from HBA "port"
 // Every PRDT entry contains 8K bytes data payload at most.
 static int sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint32_t sector_hi, uint32_t count, uint8_t *buffer) {
-    klog_trace("sata_rw_operation(op=%s, port=0x%x, sec_lo=0x%x, sec_hi=0x%x, count=%d, buffer=0x%p)", 
+    log_trace("sata_rw_operation(op=%s, port=0x%x, sec_lo=0x%x, sec_hi=0x%x, count=%d, buffer=0x%p)", 
         read ? "read" : "write", port, sector_lo, sector_hi, count, buffer);
 
     // Clear pending interrupt bits
@@ -451,7 +451,7 @@ static int sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint
     while ((port->tfd & (ATA_SR_BUSY | ATA_SR_DATA_REQ)) && times < 1000000)
         times++;
     if (times == 1000000) {
-        klog_error("SATA: Port %p is hung\n", port);
+        log_error("SATA: Port %p is hung\n", port);
         return -ERR_PORT_HUNG_BSY;
     }
  
@@ -466,14 +466,14 @@ static int sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, uint
             break;
         if (port->is & HBA_PxIS_TFES) {
             // Task file error
-            klog_error("SATA: Read disk error, port %p\n", port);
+            log_error("SATA: Read disk error, port %p\n", port);
             return -ERR_TASK_FILE_ERROR;
         }
     }
     
     // Check again
     if (port->is & HBA_PxIS_TFES) {
-        klog_error("Read disk error, port %p\n", port);
+        log_error("Read disk error, port %p\n", port);
         return -ERR_TASK_FILE_ERROR;
     }
  
@@ -589,33 +589,33 @@ static struct storage_dev_ops sata_ops = {
 // probing method, must return zero if successfully claimed device
 static int probe(pci_device_t *pci_dev) {
     uint32_t base_mem_register = pci_dev->config.headers.h00.bar5;
-    // klog_debug("base mem reg for sata is %x", base_mem_register);
-    // klog_debug("interrupt pin %d, interrupt line %d", pci_dev->config.headers.h00.interrupt_pin, pci_dev->config.headers.h00.interrupt_line);
+    // log_debug("base mem reg for sata is %x", base_mem_register);
+    // log_debug("interrupt pin %d, interrupt line %d", pci_dev->config.headers.h00.interrupt_pin, pci_dev->config.headers.h00.interrupt_line);
     if (base_mem_register == 0)
         return -1;
 
     HBA_MEM *memory = (HBA_MEM *)base_mem_register;
-    // klog_debug("AHCI memory area");
-    // klog_debug("  Host capability             : 0x%x", memory->cap);
-    // klog_debug("  Global host control         : 0x%x", memory->ghc);
-    // klog_debug("     AHCI enable      : %d", (bool)(memory->ghc & HBA_GHC_AHCI_ENABLE));
-    // klog_debug("     Interrupt enable : %d", (bool)(memory->ghc & HBA_GHC_INTERRUPT_ENABLE));
-    // klog_debug("  Interrupt status            : 0x%x", memory->is);
-    // klog_debug("  Port Implimented            : 0x%x (%bb)", memory->pi, memory->pi);
-    // klog_debug("  Version                     : 0x%x", memory->vs);
-    // klog_debug("  Cmd compl coalescing control: 0x%x", memory->ccc_ctl);
-    // klog_debug("  Cmd compl coalescing ports  : 0x%x", memory->ccc_pts);
-    // klog_debug("  Encl mgm location           : 0x%x", memory->em_loc);
-    // klog_debug("  Encl mgm control            : 0x%x", memory->em_ctl);
-    // klog_debug("  Host capabilities ext       : 0x%x", memory->cap2);
-    // klog_debug("  BIOS handoff ctrl/status    : 0x%x", memory->bohc);
+    // log_debug("AHCI memory area");
+    // log_debug("  Host capability             : 0x%x", memory->cap);
+    // log_debug("  Global host control         : 0x%x", memory->ghc);
+    // log_debug("     AHCI enable      : %d", (bool)(memory->ghc & HBA_GHC_AHCI_ENABLE));
+    // log_debug("     Interrupt enable : %d", (bool)(memory->ghc & HBA_GHC_INTERRUPT_ENABLE));
+    // log_debug("  Interrupt status            : 0x%x", memory->is);
+    // log_debug("  Port Implimented            : 0x%x (%bb)", memory->pi, memory->pi);
+    // log_debug("  Version                     : 0x%x", memory->vs);
+    // log_debug("  Cmd compl coalescing control: 0x%x", memory->ccc_ctl);
+    // log_debug("  Cmd compl coalescing ports  : 0x%x", memory->ccc_pts);
+    // log_debug("  Encl mgm location           : 0x%x", memory->em_loc);
+    // log_debug("  Encl mgm control            : 0x%x", memory->em_ctl);
+    // log_debug("  Host capabilities ext       : 0x%x", memory->cap2);
+    // log_debug("  BIOS handoff ctrl/status    : 0x%x", memory->bohc);
 
     for (int port_no = 0; port_no < 32; port_no++) {
         if (!IS_BIT(memory->pi, port_no))
             continue;
         
         HBA_PORT *port = &memory->ports[port_no];
-        klog_debug("Port %d, status 0x%x (%bb), signature 0x%x", port_no, port->ssts, port->ssts, port->sig);
+        log_debug("Port %d, status 0x%x (%bb), signature 0x%x", port_no, port->ssts, port->ssts, port->sig);
         uint8_t interface_power_mgm = (port->ssts >> 8) & 0xF;
         uint8_t device_detection = (port->ssts & 0xF);
 
@@ -637,7 +637,7 @@ static int probe(pci_device_t *pci_dev) {
         // memset(buffer, '-', PAGE_SIZE);
         // int sector = 0x16000 / 512;
         // bool success = sata_read(port, sector, 0, 1, buffer);
-        // klog_debug("reading sector %d: %s", sector, success ? "success" : "failure");
+        // log_debug("reading sector %d: %s", sector, success ? "success" : "failure");
         // klog_hex16_info((uint8_t *)buffer, 112, 0);
         // /*
         //     sata_read(p=xFEBB1100, slo=xB0, shi=x0, count=1, buffer=x4000)
@@ -657,12 +657,12 @@ static int probe(pci_device_t *pci_dev) {
         // buffer[0x51] = '0' + (time.seconds / 10);
         // buffer[0x52] = '0' + (time.seconds % 10);
         // success = sata_write(port, sector, 0, 1, buffer);
-        // klog_debug("writing sector %d: %s", sector, success ? "success" : "failure");
+        // log_debug("writing sector %d: %s", sector, success ? "success" : "failure");
         // memset(buffer, 0, PAGE_SIZE);
         // 
         // // try to read something.
         // success = sata_read(port, sector, 0, 1, buffer);
-        // klog_debug("re-reading sector %d: %s", sector, success ? "success" : "failure");
+        // log_debug("re-reading sector %d: %s", sector, success ? "success" : "failure");
         // klog_hex16_info((uint8_t *)buffer, 112, 0);
         // free_physical_page(buffer);
         // /*

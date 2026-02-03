@@ -1,7 +1,7 @@
 #include <bits.h>
 #include "physmem2.h"
 #include "../utils/panic.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../misc/cpu.h"
 #include "../klib/string.h"
 
@@ -197,20 +197,20 @@ void *resolve_virtual_to_physical_address(void *virtual_addr, void *page_dir_add
 // map the virtual address to resolve to the physical one for the particular page directory.
 void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, void *page_dir_addr, bool skip_logging) {
     if (!skip_logging) {
-        klog_trace("Mapping phys addr 0x%x to virt addr 0x%x, page dir 0x%x", physical_addr, virtual_addr, page_dir_addr);
+        log_trace("Mapping phys addr 0x%x to virt addr 0x%x, page dir 0x%x", physical_addr, virtual_addr, page_dir_addr);
     }
 
     uint32_t page_dir_index = virt_addr_to_page_directory_index(virtual_addr);
     uint32_t page_dir_entry = get_table_entry(page_dir_addr, page_dir_index);
     void *page_table_address;
-    // klog_debug("pd address = 0x%p, pd index = %d, pd entry = 0x%x", page_dir_addr, page_dir_index, page_dir_entry);
+    // log_debug("pd address = 0x%p, pd index = %d, pd entry = 0x%x", page_dir_addr, page_dir_index, page_dir_entry);
 
     if (is_entry_present(page_dir_entry)) {
         page_table_address = get_entry_address(page_dir_entry);
     } else {
         // we need to create one
         page_table_address = (void *)pmm.allocate_physical_page((void *)0);
-        klog_debug("Allocated new physical page at 0x%p for new page table", page_table_address);
+        log_debug("Allocated new physical page at 0x%p for new page table", page_table_address);
         memset(page_table_address, 0, 4096);
         uint32_t page_dir_value = create_directory_entry_value(
             page_table_address,
@@ -220,7 +220,7 @@ void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, vo
             true, // write enabled
             true  // page present
         );
-        // klog_debug("new page_dir entry value = 0x%08x", page_dir_value);
+        // log_debug("new page_dir entry value = 0x%08x", page_dir_value);
         set_table_entry(page_dir_addr, page_dir_index, page_dir_value);
     }
 
@@ -240,7 +240,7 @@ void map_virtual_address_to_physical(void *virtual_addr, void *physical_addr, vo
         true, // writable
         true  // page present
     );
-    // klog_debug("new page_table entry value = 0x%08x", page_table_entry);
+    // log_debug("new page_table entry value = 0x%08x", page_table_entry);
     set_table_entry(page_table_address, page_table_index, page_table_entry);
 }
 
@@ -249,7 +249,7 @@ void unmap_virtual_address(void *virtual_addr, void *page_dir_addr) {
     // clear the entry of the page table, if all the page table is clear, 
     // maybe remove the entry from the page directory and free the page.
 
-    klog_trace("Unmapping virt addr 0x%x, page dir 0x%x", virtual_addr, page_dir_addr);
+    log_trace("Unmapping virt addr 0x%x, page dir 0x%x", virtual_addr, page_dir_addr);
 
     // find page table address
     uint32_t page_dir_index = virt_addr_to_page_directory_index(virtual_addr);
@@ -271,7 +271,7 @@ void unmap_virtual_address(void *virtual_addr, void *page_dir_addr) {
         }
     }
     if (page_table_completely_empty) {
-        klog_debug("Page table is clear, freeing physical page at 0x%x", page_table_address);
+        log_debug("Page table is clear, freeing physical page at 0x%x", page_table_address);
         pmm.free_physical_page((phys_addr_t)page_table_address);
         // remove entry from page directory
         set_table_entry(page_dir_addr, page_dir_index, 0);
@@ -280,7 +280,7 @@ void unmap_virtual_address(void *virtual_addr, void *page_dir_addr) {
 
 // map a range to itself
 void identity_map_range(void *start_addr, void *end_addr, void *page_dir_addr) {
-    klog_trace("Identity mapping range 0x%p - 0x%p, page_dir=0x%p", start_addr, end_addr, page_dir_addr);
+    log_trace("Identity mapping range 0x%p - 0x%p, page_dir=0x%p", start_addr, end_addr, page_dir_addr);
     for (void *addr = start_addr; addr <= end_addr; addr += 4096) {
         map_virtual_address_to_physical(addr, addr, page_dir_addr, true);
     }
@@ -291,7 +291,7 @@ void identity_map_range(void *start_addr, void *end_addr, void *page_dir_addr) {
 // to load CR3 with the address of the page directory 
 // and to set the paging (PG) and protection (PE) bits of CR0.
 void set_page_directory_register(void *address) {
-    klog_trace("Setting CR3 to 0x%x", address);
+    log_trace("Setting CR3 to 0x%x", address);
 
     __asm__ __volatile__(
         "mov %0, %%eax\n\t"
@@ -322,7 +322,7 @@ inline void invalidate_paging_cached_address(void *virtual_addr) {
 }
 
 static void enable_memory_paging_cpu_bit() {
-    klog_trace("Enabling memory paging in CPU");
+    log_trace("Enabling memory paging in CPU");
 
     __asm__ __volatile__(
         "mov %%cr0, %%eax\n\t"
@@ -335,7 +335,7 @@ static void enable_memory_paging_cpu_bit() {
 }
 
 static void disable_memory_paging_cpu_bit() {
-    klog_trace("Disabling memory paging in CPU");
+    log_trace("Disabling memory paging in CPU");
 
     __asm__ __volatile__(
         "mov %%cr0, %%eax\n\t"
@@ -363,22 +363,22 @@ void init_virtual_memory_paging(void *kernel_start_address, void *kernel_end_add
     // create a page directory for kernel.
     kernel_info.page_directory = create_page_directory(true);
 
-    // klog_debug("Kernel page directory contents:");
-    // klog_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
+    // log_debug("Kernel page directory contents:");
+    // log_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
 
     // void *pt = get_entry_address(get_table_entry(kernel_page_direcory, 0));
-    // klog_debug("Kernel first page table contents:");
-    // klog_debug_hex(pt, 4096, (uint32_t)pt);
+    // log_debug("Kernel first page table contents:");
+    // log_debug_hex(pt, 4096, (uint32_t)pt);
 
     // void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
     // void *pa = resolve_virtual_to_physical_address(va, kernel_page_direcory);
-    // klog_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
+    // log_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
 
     // now enable paging (fingers crossed!)
     set_page_directory_register(kernel_info.page_directory);
     enable_memory_paging_cpu_bit();
 
-    klog_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
+    log_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
 }
 
 void *get_kernel_page_directory() {
@@ -399,7 +399,7 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
     void *page_dir_address = 0;
     __asm__ __volatile__("mov %%cr3, %0" : "=g"(page_dir_address));
 
-    klog_warn("Page fault, %s %s page by %s process, at 0x%x, page dir at 0x%p",
+    log_warn("Page fault, %s %s page by %s process, at 0x%x, page dir at 0x%p",
         write_attempt ? "writing on" : "reading a",
         page_present ? "protected" : "missing",
         supervisor_code ? "supervisor" : "user",
@@ -427,14 +427,14 @@ void *create_page_directory(bool map_kernel_space) {
         identity_map_range(kernel_info.start_address, kernel_info.end_address, page_dir);
     }
 
-    klog_trace("create_page_directory() -> 0x%p", page_dir);
+    log_trace("create_page_directory() -> 0x%p", page_dir);
     return page_dir;
 }
 
 // allocates pages and maps them to the virtual addresses requested
 // end address is non-inclusive
 void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, void *page_dir_addr) {
-    klog_trace("allocate_virtual_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
+    log_trace("allocate_virtual_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
 
     for (void *virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         void *phys_page_addr = (void *)pmm.allocate_physical_page();
@@ -444,7 +444,7 @@ void allocate_virtual_memory_range(void *virt_addr_start, void *virt_addr_end, v
 
 // frees any pointed pages, page tables, and the page directory itself
 void destroy_page_directory(void *page_dir_address) {
-    klog_trace("destroy_page_directory(0x%x)", page_dir_address);
+    log_trace("destroy_page_directory(0x%x)", page_dir_address);
     pushcli();
 
     // free linked tables and pages 
@@ -487,14 +487,14 @@ static void _dump_page_directory_print(uint32_t virt_mem_group_start, uint32_t v
 
     if (virt_mem_group_start == virt_mem_group_end) {
         // single mapping
-        klog_debug("Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
+        log_debug("Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
             virt_mem_group_start >> 12, 
             phys_mem_group_start >> 12,
             virt_mem_group_start == phys_mem_group_start ? "(identity)" : ""
         );
     } else {
         // group mapping
-        klog_debug("Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
+        log_debug("Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
             virt_mem_group_start >> 12, 
             virt_mem_group_end   >> 12, 
             phys_mem_group_start >> 12,
@@ -555,7 +555,7 @@ static void _dump_page_directory_aggregate(int call, uint32_t virt_addr, uint32_
 void dump_page_directory(void *page_dir_address) {
     // essentially, map the mapping that a page directory has.
     // try to group common areas together.
-    klog_debug("Page directory at 0x%x mapping", page_dir_address);
+    log_debug("Page directory at 0x%x mapping", page_dir_address);
 
     uint32_t entry;
 

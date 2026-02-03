@@ -4,7 +4,7 @@
 #include "../vfs.h"
 #include "../../memory/kheap.h"
 #include "../../klib/string.h"
-#include "../../misc/klog.h"
+#include "../../utils/logger.h"
 #include "../../misc/lock.h"
 #include <uapi/errors.h>
 #include "fat_priv.h"
@@ -12,7 +12,7 @@
 
 
 static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size, fat_priv_file_info **ppf) {
-    klog_trace("priv_file_open(cluster=%d, size=%d)", cluster_no, file_size);
+    log_trace("priv_file_open(cluster=%d, size=%d)", cluster_no, file_size);
     int err;
 
     fat_priv_file_info *pf = kmalloc(sizeof(fat_priv_file_info));
@@ -50,7 +50,7 @@ out:
 }
 
 static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length) {
-    klog_trace("priv_file_read(length=%d)", length);
+    log_trace("priv_file_read(length=%d)", length);
     int bytes_actually_read = 0;
     int err;
 
@@ -67,12 +67,12 @@ static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer
         int offset_in_cluster = pf->offset - (pf->cluster_n_index * fat->bytes_per_cluster);
         int available_in_cluster = fat->bytes_per_cluster - offset_in_cluster;
         int chunk_len = min(length, available_in_cluster);
-        klog_debug("offset in cluster %d, available in cluster %d, chunk len %d", 
+        log_debug("offset in cluster %d, available in cluster %d, chunk len %d", 
             offset_in_cluster,
             available_in_cluster,
             chunk_len
         );
-        klog_debug("Copying %d bytes from %p to %p", 
+        log_debug("Copying %d bytes from %p to %p", 
             chunk_len,
             pf->cluster->buffer + offset_in_cluster,
             buffer + bytes_actually_read
@@ -92,12 +92,12 @@ static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer
     }
 
     // instead of success, we return the bytes we actually read
-    klog_debug("priv_file_read() done, returning %d", bytes_actually_read);
+    log_debug("priv_file_read() done, returning %d", bytes_actually_read);
     return bytes_actually_read;
 }
 
 static int priv_file_write(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer, int length) {
-    klog_trace("priv_file_write(length=%d)", length);
+    log_trace("priv_file_write(length=%d)", length);
     int bytes_actually_written = 0;
     int err = 0;
 
@@ -156,13 +156,13 @@ static uint32_t calculate_new_file_offset(uint32_t old_position, uint32_t size, 
             new_position = old_position - min(positive_offset, old_position);
     }
 
-    klog_trace("calculate_new_file_offset(ofs=%d, ori=%d, pos=%d, siz=%d) --> %d",
+    log_trace("calculate_new_file_offset(ofs=%d, ori=%d, pos=%d, siz=%d) --> %d",
         offset, origin, old_position, size, new_position );
     return new_position;
 }
 
 static int priv_file_seek(fat_info *fat, fat_priv_file_info *pf, int offset, enum seek_origin origin) {
-    klog_trace("priv_file_seek(offset=%d, origin=%d)", offset, origin);
+    log_trace("priv_file_seek(offset=%d, origin=%d)", offset, origin);
     int err;
 
     uint32_t final_position = calculate_new_file_offset(pf->offset, pf->size, offset, origin);
@@ -176,7 +176,7 @@ static int priv_file_seek(fat_info *fat, fat_priv_file_info *pf, int offset, enu
 }
 
 static int priv_file_close(fat_info *fat, fat_priv_file_info *pf) {
-    klog_trace("priv_file_close()");
+    log_trace("priv_file_close()");
 
     // possibly write any current cluster if dirty
     if (pf->cluster->cluster_no > 0 && pf->cluster->dirty) {

@@ -5,7 +5,7 @@
 #include "../devices/storage_dev.h"
 #include "../memory/kheap.h"
 #include "../memory/physmem2.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "pci.h"
 
 MODULE("ATA");
@@ -234,7 +234,7 @@ static uint8_t poll(struct ide_channel *channel, bool advanced_check) {
     // this is helpful for some commands
     if (advanced_check) {
         uint8_t state = read_register(channel, ATA_REG_STATUS); 
-        klog_debug("IDE poll, state=0x%02x (%08bb)", state, state);
+        log_debug("IDE poll, state=0x%02x (%08bb)", state, state);
 
         // check for error
         if (state & ATA_SR_ERR)
@@ -260,7 +260,7 @@ static uint8_t poll(struct ide_channel *channel, bool advanced_check) {
    edi is the offset in that segment. (the memory address for the data buffer)
 */
 static uint8_t ata_rw_operation(struct pci_dev_driver_data *data, uint8_t direction, uint8_t drive_no, uint32_t lba, uint8_t numsects, uint16_t data_seg, uint32_t data_ptr) {
-    klog_trace("ata_rw_operation(dir=%s, drive_no=%d, lba=%d, num_sects=%d, data_seg=0x%x, data_ptr=0x%x)", 
+    log_trace("ata_rw_operation(dir=%s, drive_no=%d, lba=%d, num_sects=%d, data_seg=0x%x, data_ptr=0x%x)", 
         direction == ATA_WRITE ? "WRITE" : "READ", drive_no, lba, numsects, data_seg, data_ptr);
 
     struct ide_drive   *drive   = &data->drives[drive_no];
@@ -403,11 +403,11 @@ static uint8_t ata_rw_operation(struct pci_dev_driver_data *data, uint8_t direct
 
 static char read_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uint32_t lba, uint8_t numsects, uint16_t es, uint32_t edi)
 {
-    klog_trace("IDE: read_sectors(drive_no=%d, lba=%d, num_sects=%d)", drive_no, lba, numsects);
+    log_trace("IDE: read_sectors(drive_no=%d, lba=%d, num_sects=%d)", drive_no, lba, numsects);
 
     // Check if the drive presents
     if (drive_no > 3 || !data->drives[drive_no].detected) {
-        klog_debug("read_sectors() - a (detected=%d)", data->drives[drive_no].detected);
+        log_debug("read_sectors() - a (detected=%d)", data->drives[drive_no].detected);
         return IDE_ERR_DRIVE_NOT_FOUND;
     }
 
@@ -416,7 +416,7 @@ static char read_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uin
         return IDE_ERR_INVALID_ADDRESS;
 
     if (data->drives[drive_no].type != IDE_ATA) {
-        klog_debug("read_sectors() - c");
+        log_debug("read_sectors() - c");
         return IDE_ERR_DRIVE_NOT_FOUND;
     }
 
@@ -426,7 +426,7 @@ static char read_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uin
 
 static char write_sectors(struct pci_dev_driver_data *data, uint8_t drive_no, uint32_t lba, uint8_t numsects, uint16_t es, uint32_t edi) {
 
-    klog_trace("IDE: write_sectors(drive_no=%d, lba=%d, num_sects=%d)", drive_no, lba, numsects);
+    log_trace("IDE: write_sectors(drive_no=%d, lba=%d, num_sects=%d)", drive_no, lba, numsects);
 
     // Check if the drive presents
     if (drive_no > 3 || !data->drives[drive_no].detected)
@@ -544,13 +544,13 @@ static bool probe_drive(struct ide_drive *drive, struct ide_channel *channel, ch
 
         // ide_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
         // timer_pause_blocking(1);
-        klog_trace("Seems like an ATAPI device, not supported for now");
+        log_trace("Seems like an ATAPI device, not supported for now");
         return false; // we dont care to support ATAPI for now.
     }
 
     // read identification space of the device
     read_buffer_pio(channel, ATA_REG_DATA, (uint32_t *)buffer, 128);
-    // klog_info("Identify results");
+    // log_info("Identify results");
     // klog_hex16_info(buffer, 512, 0);
 
     drive->detected     = 1;
@@ -586,7 +586,7 @@ static bool probe_drive(struct ide_drive *drive, struct ide_channel *channel, ch
 static int probe(pci_device_t *pci_dev) {
 
     uint8_t pif = pci_dev->config.prog_if;
-    klog_debug("IDE driver probing device %d:%d:%d, pif 0x%x (%8bb)", pci_dev->bus_no, pci_dev->device_no, pci_dev->func_no, pif, pif);
+    log_debug("IDE driver probing device %d:%d:%d, pif 0x%x (%8bb)", pci_dev->bus_no, pci_dev->device_no, pci_dev->func_no, pif, pif);
 
     struct pci_dev_driver_data *driver_data = kmalloc(sizeof(struct pci_dev_driver_data));
     memset(driver_data, 0, sizeof(struct pci_dev_driver_data));
@@ -625,7 +625,7 @@ static int probe(pci_device_t *pci_dev) {
             if (!probe_drive(drive, channel, page))
                 continue;
             
-            klog_info("Detected %s %s %s drive: \"%s\"",
+            log_info("Detected %s %s %s drive: \"%s\"",
                 drive->channel_no == 0 ? "primary" : "secondary",
                 drive->master_slave == 0 ? "master" : "slave",
                 drive->type == 0 ? "ATA" : "ATAPI",
@@ -633,10 +633,10 @@ static int probe(pci_device_t *pci_dev) {
             );
 
             // let's try to read a sector or two.
-            // klog_info("Reading boot sector");
+            // log_info("Reading boot sector");
             // ata_rw_operation(ATA_READ, drive_no, 0, 1, 0, (uint32_t)buffer);
             // klog_hex16_info(buffer, 512, 0);
-            // klog_info("Reading second sector");
+            // log_info("Reading second sector");
             // ata_rw_operation(ATA_READ, drive_no, 1, 1, 0, (uint32_t)buffer);
             // klog_hex16_info(buffer, 512, 512);
 
@@ -647,9 +647,9 @@ static int probe(pci_device_t *pci_dev) {
     pmm.free_physical_page((phys_addr_t)page);
 
     // let's print them
-    klog_debug("IDE Drives:");
+    log_debug("IDE Drives:");
     for (int i = 0; i < 4; i++) {
-        klog_debug("  %d: det=%d, chn=%d, slv=%d, sig=0x%x, cap=0x%x, cmd=0x%x \"%s\"",
+        log_debug("  %d: det=%d, chn=%d, slv=%d, sig=0x%x, cap=0x%x, cmd=0x%x \"%s\"",
             i,
             driver_data->drives[i].detected,
             driver_data->drives[i].channel_no,

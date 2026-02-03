@@ -2,7 +2,7 @@
 #include "semaphore.h"
 #include "scheduler.h"
 #include "../memory/kheap.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../klib/string.h"
 
 MODULE("SEMA");
@@ -20,10 +20,10 @@ void acquire_semaphore(semaphore_t *semaphore) {
 
     if (semaphore->count < semaphore->limit) {
         semaphore->count++;
-        klog_trace("process %s acquired semaphore", running_process()->name);
+        log_trace("process %s acquired semaphore", running_process()->name);
         // we got it!
     } else {
-        klog_trace("process %s getting blocked on semaphore", running_process()->name);
+        log_trace("process %s getting blocked on semaphore", running_process()->name);
         // we cannot acquire, we'll just block until it's free
         semaphore->waiting_processes++;
         proc_block(SEMAPHORE, semaphore);
@@ -39,7 +39,7 @@ void release_semaphore(semaphore_t *semaphore) {
     bool unblocked_a_process = false;
     process_t *target_proc = NULL;
     if (semaphore->waiting_processes > 0) {
-        klog_trace("semaphore releasing, there are waiting processes");
+        log_trace("semaphore releasing, there are waiting processes");
         // if there are processes waiting, let's unblock them now
         target_proc = blocked_list.head;
         while (target_proc != NULL) {
@@ -57,12 +57,12 @@ void release_semaphore(semaphore_t *semaphore) {
     if (unblocked_a_process) {
         // somebody was waiting and we liberated them
         // we don't lower the count, they now hold the semaphore
-        klog_trace("waiting process %s now unblocked to own the semaphore", target_proc->name);
+        log_trace("waiting process %s now unblocked to own the semaphore", target_proc->name);
         semaphore->waiting_processes--;
     } else {
         // either nobody was waiting, or we did not find them (they may have been killed)
         // lower number as expected
-        klog_trace("semaphore released by process %s", running_process()->name);
+        log_trace("semaphore released by process %s", running_process()->name);
         semaphore->count--;
     }
 

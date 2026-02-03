@@ -1,6 +1,6 @@
 #include "string.h"
 #include <uapi/errors.h>
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 MODULE("PATH");
 
@@ -80,7 +80,7 @@ char *pathname(char *path) {
 
 
 int get_next_path_part(char *path, int *offset, char *buffer) {
-    klog_trace("get_next_path_part(path=\"%s\", offset=%d)", path, *offset);
+    log_trace("get_next_path_part(path=\"%s\", offset=%d)", path, *offset);
     char *start = path + *offset;
     if (*start == '/') {
         start++;

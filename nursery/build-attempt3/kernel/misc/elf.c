@@ -1,5 +1,5 @@
 #include <uapi/errors.h>
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../filesys/vfs.h"
 #include "../memory/virtmem.h"
 #include "../memory/kheap.h"
@@ -146,7 +146,7 @@ typedef struct {
 
 // returns SUCCESS or ERR_NOT_SUPPORTED accordingly
 int verify_elf_executable(file_t *file) {
-    klog_trace("verify_elf_executable(\"%s\")", file->descriptor->name);
+    log_trace("verify_elf_executable(\"%s\")", file->descriptor->name);
     char identification[16];
 
     int err = vfs_seek(file, 0, SEEK_START);
@@ -189,7 +189,7 @@ int verify_elf_executable(file_t *file) {
 
 // calcualtes information for setting up a new process
 int get_elf_load_information(file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point) {
-    klog_trace("get_elf_load_information(\"%s\")", file->descriptor->name);
+    log_trace("get_elf_load_information(\"%s\")", file->descriptor->name);
 
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -250,7 +250,7 @@ exit:
 
 // loads segments from the file into memory
 int load_elf_into_memory(file_t *file) {
-    klog_trace("load_elf_into_memory(\"%s\")", file->descriptor->name);
+    log_trace("load_elf_into_memory(\"%s\")", file->descriptor->name);
     
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -288,7 +288,7 @@ int load_elf_into_memory(file_t *file) {
         if (program->p_type != PT_LOAD)
             continue;
         
-        klog_trace("loading elf segment from file offset 0x%x (%d bytes) into memory addr 0x%x (%d bytes)", 
+        log_trace("loading elf segment from file offset 0x%x (%d bytes) into memory addr 0x%x (%d bytes)", 
             program->p_offset, program->p_filesz, program->p_vaddr, program->p_memsz);
         
         uint8_t *segment_ptr = (uint8_t *)program->p_vaddr;
@@ -331,7 +331,7 @@ int dump_elf_information(file_t *file) {
     err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
     if (err < 0) goto exit;
 
-    klog_info("ELF header for file \"%s\"", file->descriptor->name);
+    log_info("ELF header for file \"%s\"", file->descriptor->name);
     dump_elf_header(header);
 
     // so now we can load all section headers and all program headers
@@ -345,16 +345,16 @@ int dump_elf_information(file_t *file) {
     err = vfs_read(file, section_headers, sec_hdr_bytes);
     if (err < 0) goto exit;
     
-    klog_info("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
-    klog_debug_hex((void *)section_headers, header->shnum * header->shentsize, 0);
+    log_info("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
+    log_debug_hex((void *)section_headers, header->shnum * header->shentsize, 0);
 
     err = vfs_seek(file, header->phoff, SEEK_START);
     if (err < 0) goto exit;
     err = vfs_read(file, program_headers, prg_hdr_bytes);
     if (err < 0) goto exit;
     
-    klog_info("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
-    klog_debug_hex((void *)program_headers, header->phnum * header->phentsize, 0);
+    log_info("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
+    log_debug_hex((void *)program_headers, header->phnum * header->phentsize, 0);
     
     if (header->shstrndx != 0) {
         elf32_section_header_t *names_header = (elf32_section_header_t *)(section_headers + (header->shstrndx * header->shentsize));
@@ -365,11 +365,11 @@ int dump_elf_information(file_t *file) {
         err = vfs_read(file, names_data, names_header->sh_size);
         if (err < 0) goto exit;
 
-        klog_info("Names from names section");
-        klog_debug_hex(names_data, names_header->sh_size, 0);
+        log_info("Names from names section");
+        log_debug_hex(names_data, names_header->sh_size, 0);
     }
 
-    klog_info("Sections");
+    log_info("Sections");
     dump_elf_section_header(true, 0, NULL, NULL);
     for (int i = 0; i < header->shnum; i++) {
         elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
@@ -383,7 +383,7 @@ int dump_elf_information(file_t *file) {
         dump_elf_raw_data(file, title, section->sh_offset, section->sh_size);
     }
 
-    klog_info("Programs");
+    log_info("Programs");
     dump_elf_program_header(true, NULL);
     for (int i = 0; i < header->phnum; i++) {
         elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
@@ -411,7 +411,7 @@ static void dump_elf_header(elf32_header_t *header) {
         "DYNAMIC",
         "CORE"
     };
-    klog_info("ELF identification: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+    log_info("ELF identification: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
         header->identification[0],
         header->identification[1],
         header->identification[2],
@@ -430,19 +430,19 @@ static void dump_elf_header(elf32_header_t *header) {
         header->identification[15]
     );
 
-    klog_info("  elf type:                   %d (%s)", header->type, elf_types[header->type]);
-    klog_info("  machine:                    %d (3 = 386)", header->machine);
-    klog_info("  version:                    %d", header->version);
-    klog_info("  entry point address:        0x%x", header->entry);
-    klog_info("  start of program headers:   0x%x", header->phoff);
-    klog_info("  start of section headers:   0x%x", header->shoff);
-    klog_info("  flags:                      0x%x", header->flags);
-    klog_info("  elf header size:            0x%x", header->ehsize);
-    klog_info("  program header entry size:  0x%x", header->phentsize);
-    klog_info("  program headers count:      %d", header->phnum);
-    klog_info("  section header entry size:  0x%x", header->shentsize);
-    klog_info("  section headers count:      %d", header->shnum);
-    klog_info("  section name string index:  %d", header->shstrndx);
+    log_info("  elf type:                   %d (%s)", header->type, elf_types[header->type]);
+    log_info("  machine:                    %d (3 = 386)", header->machine);
+    log_info("  version:                    %d", header->version);
+    log_info("  entry point address:        0x%x", header->entry);
+    log_info("  start of program headers:   0x%x", header->phoff);
+    log_info("  start of section headers:   0x%x", header->shoff);
+    log_info("  flags:                      0x%x", header->flags);
+    log_info("  elf header size:            0x%x", header->ehsize);
+    log_info("  program header entry size:  0x%x", header->phentsize);
+    log_info("  program headers count:      %d", header->phnum);
+    log_info("  section header entry size:  0x%x", header->shentsize);
+    log_info("  section headers count:      %d", header->shnum);
+    log_info("  section name string index:  %d", header->shstrndx);
 }
 
 static void dump_elf_section_header(bool title_line, int num, elf32_section_header_t *section, char *names_data) {
@@ -462,10 +462,10 @@ static void dump_elf_section_header(bool title_line, int num, elf32_section_head
     };
 
     if (title_line) {
-        klog_info("  No Name             Type         Addr     Offset   Size     ES Flg Lk Inf Al");
+        log_info("  No Name             Type         Addr     Offset   Size     ES Flg Lk Inf Al");
         //            XX 1234567890123456 123456789012 12345678 12345678 12345678
     } else {
-        klog_info("  %2d %-16s %-12s %08x %08x %08x %02x %c%c%c %2d %3d %2d",
+        log_info("  %2d %-16s %-12s %08x %08x %08x %02x %c%c%c %2d %3d %2d",
             num,
             names_data == NULL ? "?" : names_data + section->sh_name, // we have to resolve this.
             stypes[section->sh_type],
@@ -495,10 +495,10 @@ static void dump_elf_program_header(bool title_line, elf32_program_header_t *pro
     };
 
     if (title_line) {
-        klog_info("  Type     Offset     Virt Addr  Phys Addr  FileSiz    MemSiz     Flg Align");
+        log_info("  Type     Offset     Virt Addr  Phys Addr  FileSiz    MemSiz     Flg Align");
         //            12345678 0x12345678 0x12345678 0x12345678 0x12345678 0x12345678 123 0x0000
     } else {
-        klog_info("  %-8s 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x %c%c%c 0x%04x",
+        log_info("  %-8s 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x %c%c%c 0x%04x",
             program->p_type <= 6 ? ptypes[program->p_type] : "?",
             program->p_offset,
             program->p_vaddr,
@@ -525,8 +525,8 @@ static void dump_elf_raw_data(file_t *file, char *title, uint32_t offset, uint32
         kfree(p);
         return;
     }
-    klog_info(title);
-    klog_debug_hex(p, length, 0);
+    log_info(title);
+    log_debug_hex(p, length, 0);
     kfree(p);
 }
 

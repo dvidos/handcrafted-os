@@ -3,7 +3,7 @@
 #include "../misc/cpu.h"
 #include "../misc/idt.h"
 #include "../misc/lock.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 #include <uapi/key_codes.h>
 #include <uapi/key_event.h>
@@ -158,7 +158,7 @@ void keyboard_handler(registers_t* regs) {
     (void)regs;
 
     uint8_t scancode = inb(0x60);
-    // klog_debug("keyboard: received scancode 0x%02x", scancode);
+    // log_debug("keyboard: received scancode 0x%02x", scancode);
     if (scancode == 0xE0) {
         extended = true;
         // we'll get the next value in a subsequent interrupt

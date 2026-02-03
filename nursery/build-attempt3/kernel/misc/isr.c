@@ -5,7 +5,7 @@
 #include "../drivers/clock.h"
 #include "../memory/virtmem.h"
 #include "pic.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include <bits.h>
 #include "../multitask/multitask.h"
 
@@ -29,7 +29,7 @@ void isr_handler(registers_t regs) {
             break;
         case 0x0E:
             // Page Fault: https://wiki.osdev.org/Exceptions#Page_Fault
-            klog_warn("Page fault detected");
+            log_warn("Page fault detected");
             virtual_memory_page_fault_handler(regs.err_code);
             break;
         case 0x0D:
@@ -38,14 +38,14 @@ void isr_handler(registers_t regs) {
             bool external = regs.err_code & 0x1;
             int table = BIT_RANGE(regs.err_code, 2, 1);
             int entry = BIT_RANGE(regs.err_code, 15, 3);
-            klog_error("Received General Protection Fault (int 0x%x), error_code=0x%x, is_external=%d, table=%s, index=%d", 
+            log_error("Received General Protection Fault (int 0x%x), error_code=0x%x, is_external=%d, table=%s, index=%d", 
                 regs.int_no, 
                 regs.err_code,
                 external,
                 table < 4 ? tables[table] : "?",
                 entry
             );
-            klog_error(" Registers contents follow\n"
+            log_error(" Registers contents follow\n"
                 "  EAX = 0x%08x    CS  = 0x%x\n"
                 "  EBX = 0x%08x    DS  = 0x%x\n"
                 "  ECX = 0x%08x    SS  = 0x%x\n"
@@ -69,8 +69,8 @@ void isr_handler(registers_t regs) {
 
             break;
         default:
-            klog_warn("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code);
-            klog_warn(" Registers contents follow\n"
+            log_warn("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code);
+            log_warn(" Registers contents follow\n"
                 "  EAX = 0x%08x    CS  = 0x%x\n"
                 "  EBX = 0x%08x    DS  = 0x%x\n"
                 "  ECX = 0x%08x    SS  = 0x%x\n"

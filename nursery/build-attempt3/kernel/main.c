@@ -16,7 +16,7 @@
 #include "devices/tty.h"
 #include "memory/virtmem.h"
 #include "memory/kheap.h"
-#include "misc/klog.h"
+#include "utils/logger.h"
 #include "klib/string.h"
 #include "memory/physmem2.h"
 #include "multitask/multitask.h"
@@ -29,7 +29,7 @@
 #include "filesys/ext2.h"
 #include "filesys/drivers.h"
 #include "filesys/mount.h"
-#include "misc/monitor.h"
+#include "processes/monitor.h"
 #include "../stage2/boot_info.h" // passed from 2nd stage
 #include "../config.h" // compilation configuration
 
@@ -82,75 +82,75 @@ void kernel_main(boot_info_t* boot)
     // to allow us to set up our Interrupt Table
 
     // initialize in-memory log
-    init_klog();
-    klog_appender_level(LOGAPP_MEMORY, LOGLEV_DEBUG);
-    // klog_module_level("VFS", LOGLEV_DEBUG);
-    // klog_module_level("FAT", LOGLEV_TRACE);
-    // klog_module_level("KHEAP", LOGLEV_DEBUG);
-    // klog_module_level("VMEM", LOGLEV_TRACE);
+    init_logger();
+    logger_set_appender_log_level(LOG_APPENDER_MEMORY, LOG_LEVEL_DEBUG);
+    // logger_set_module_log_level("VFS", LOG_LEVEL_DEBUG);
+    // logger_set_module_log_level("FAT", LOG_LEVEL_TRACE);
+    // logger_set_module_log_level("KHEAP", LOG_LEVEL_DEBUG);
+    // logger_set_module_log_level("VMEM", LOG_LEVEL_TRACE);
 
     // initialize screen and allow logs to be written to it
     screen_init();
-    klog_appender_level(LOGAPP_SCREEN, LOGLEV_DEBUG);
+    logger_set_appender_log_level(LOG_APPENDER_SCREEN, LOG_LEVEL_DEBUG);
     
-    klog_info("Kernel starting");
-    klog_info("Version %s, (%s), built %s", VERSION, GIT_HASH, DATE_BUILT);
+    log_info("Kernel starting");
+    log_info("Version %s, (%s), built %s", VERSION, GIT_HASH, DATE_BUILT);
 
     print_stage2_boot_info(boot);
     memcpy((char *)&saved_multiboot_info, (char *)boot, sizeof(boot_info_t));
 
     // kernel code segment selector: 0x08 (8)
     // kernel data segment selector: 0x10 (16)
-    klog_info("Initializing Global Descriptor Table...");
+    log_info("Initializing Global Descriptor Table...");
     init_gdt();
 
-    klog_info("Initializing Interrupts Descriptor Table...");
+    log_info("Initializing Interrupts Descriptor Table...");
     init_idt(0x8);
 
-    klog_info("Initializing Programmable Interrupt Controller...");
+    log_info("Initializing Programmable Interrupt Controller...");
     init_pic();
 
-    klog_info("Initializing Programmable Interval Timer...");
+    log_info("Initializing Programmable Interval Timer...");
     init_timer();
 
-    klog_info("Initializing Real Time Clock...");
+    log_info("Initializing Real Time Clock...");
     init_real_time_clock(15);
 
-    klog_info("Initializing Physical Memory Manager...");
+    log_info("Initializing Physical Memory Manager...");
     initialize_physical_memory(boot);
 
-    klog_info("Initializing Serial Port 1 for logging...");
+    log_info("Initializing Serial Port 1 for logging...");
     init_serial_port();
 
     // maybe tomorrow to a file
-    klog_info("Switching logging to serial port");
-    klog_appender_level(LOGAPP_SERIAL, LOGLEV_TRACE);
+    log_info("Switching logging to serial port");
+    logger_set_appender_log_level(LOG_APPENDER_SERIAL, LOG_LEVEL_TRACE);
     
-    klog_info("Initializing Kernel Heap...");
+    log_info("Initializing Kernel Heap...");
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
 
 
 
 
-    klog_info("Initializing virtual memory mapping...");
+    log_info("Initializing virtual memory mapping...");
     init_virtual_memory_paging(0, (void *)pmm.get_top_identity_address());
 
 
-    klog_info("Enabling interrupts & NMI...");
+    log_info("Enabling interrupts & NMI...");
     sti();
     enable_nmi();
 
-    klog_info("Detecting PCI devices...");
+    log_info("Detecting PCI devices...");
     ata_register_pci_driver();
     sata_register_pci_driver();
     init_pci();
 
-    klog_info("Creating RAM disk...");
+    log_info("Creating RAM disk...");
     init_ramdisk(KERNEL_RAMDISK_ADDRESS, KERNEL_RAMDISK_SIZE_KB * 1024);
 
-    klog_info("Initializing file system...");
-    klog_module_level("MOUNT", LOGLEV_TRACE);
+    log_info("Initializing file system...");
+    logger_set_module_log_level("MOUNT", LOG_LEVEL_TRACE);
     discover_storage_dev_partitions(get_storage_devices_list());
     fat_register_vfs_driver();
     ext2_register_vfs_driver();
@@ -159,11 +159,11 @@ void kernel_main(boot_info_t* boot)
     for(;;); // TODO: remove when we have the correct filesystem mounted
 
 
-    klog_info("Initializing multi-tasking...");
+    log_info("Initializing multi-tasking...");
     init_multitasking();
 
-    klog_info("Giving the console to TTY manager...");
-    klog_appender_level(LOGAPP_SCREEN, LOGLEV_NONE);
+    log_info("Giving the console to TTY manager...");
+    logger_set_appender_log_level(LOG_APPENDER_SCREEN, LOG_LEVEL_NONE);
 
     // tty 0-3 - Alt+1 through Alt+4: Shell
     // tty 4 - Alt+5: process monitor (memory, heap, processes)
@@ -172,14 +172,14 @@ void kernel_main(boot_info_t* boot)
     init_tty_manager(7, 100);
 
     // now that we have ttys, let's dedicate one to syslog
-    klog_set_tty(tty_manager_get_device(6));
-    klog_appender_level(LOGAPP_TTY, LOGLEV_INFO);
+    logger_set_tty(tty_manager_get_device(6));
+    logger_set_appender_log_level(LOG_APPENDER_TTY, LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
     launch_initial_processes();
 
     // start_multitasking() will never return
-    klog_info("Starting multitasking, goodbye from main()!");
+    log_info("Starting multitasking, goodbye from main()!");
     start_multitasking();
     panic("start_multitasking() returned to main");
 }
@@ -205,7 +205,7 @@ void launch_initial_processes() {
 }
 
 void shell_launcher() {
-    klog_info("Shell launcher started, PID %d", proc_getpid());
+    log_info("Shell launcher started, PID %d", proc_getpid());
     tty_set_title("Shell");
 
     while (true) {
@@ -272,19 +272,19 @@ void initialize_physical_memory(boot_info_t *info) {
             kernel_top_address = chunk_top;
     }
 
-    klog_info("Machine maximum memory address 0x%08x.%08x (%u KB, %u MB, %u GB)",
+    log_info("Machine maximum memory address 0x%08x.%08x (%u KB, %u MB, %u GB)",
         (uint32_t)(machine_max_memory_64 >> 32),
         (uint32_t)(machine_max_memory_64 & 0xFFFFFFFF),
         (uint32_t)(machine_max_memory_64 / 1024),
         (uint32_t)(machine_max_memory_64 / (1024 * 1024)),
         (uint32_t)(machine_max_memory_64 / (1024 * 1024 * 1024))
     );
-    klog_info("Kernel area topmost address 0x%08x", kernel_top_address);
-    klog_info("Kernel memory             From          To   From KB     To KB   Size KB");
+    log_info("Kernel area topmost address 0x%08x", kernel_top_address);
+    log_info("Kernel memory             From          To   From KB     To KB   Size KB");
     //         - 1234567890123456  0x12345678  0x12345678 123456789 123456789   1234567
     for (int i = 0; i < KERNEL_CHUNKS; i++) {
         mem_chunk_t *chunk = &kernel_chunks[i];
-        klog_info("- %-16s  0x%08x  0x%08x %9u %9u   %7u",
+        log_info("- %-16s  0x%08x  0x%08x %9u %9u   %7u",
             chunk->name,
             chunk->start,
             chunk->start + chunk->length,
@@ -302,7 +302,7 @@ void initialize_physical_memory(boot_info_t *info) {
     pmm.mark_region_reserved((phys_addr_t)0, (size_t)kernel_top_address);
     pmm.finish_initialization();
 
-    klog_info("Physical memory manager initialized. %u total pages, %u (%u KB or %u%%) reserved, %u (%u KB or %u%%) available",
+    log_info("Physical memory manager initialized. %u total pages, %u (%u KB or %u%%) reserved, %u (%u KB or %u%%) available",
         pmm.total_pages(),
         pmm.used_pages(),
         pmm.used_pages() * 4,
@@ -316,21 +316,21 @@ void initialize_physical_memory(boot_info_t *info) {
 }
 
 void print_stage2_boot_info(boot_info_t *info) {
-    klog_info("boot_info from stage 2 (ptr address 0x%08x)", info);
-    klog_info("- cmd line: \"%s\"", info->cmdline);
-    klog_info("- memory map (total of %u entries)", info->mem.count);
-    klog_info("    No              Address               Length  Type  ACPI");
+    log_info("boot_info from stage 2 (ptr address 0x%08x)", info);
+    log_info("- cmd line: \"%s\"", info->cmdline);
+    log_info("- memory map (total of %u entries)", info->mem.count);
+    log_info("    No              Address               Length  Type  ACPI");
     //             00  0x12345678-12345678  0x12345678-12345678  1234  1234
     for (uint32_t i = 0; i < info->mem.count; i++) {
         e820_memory_entry *mm = &info->mem.entries[i];
-        klog_info("    %2u  0x%08x-%08x  0x%08x-%08x  %4u  %4u", 
+        log_info("    %2u  0x%08x-%08x  0x%08x-%08x  %4u  %4u", 
             i,
             HIGH_DWORD(mm->base), LOW_DWORD(mm->base),
             HIGH_DWORD(mm->length), LOW_DWORD(mm->length),
             mm->type, 
             mm->acpi_ext);
     }
-    klog_info("- VBE framebuffer at 0x%08x-%08x, %u x %u x %u, pitch %u", 
+    log_info("- VBE framebuffer at 0x%08x-%08x, %u x %u x %u, pitch %u", 
         HIGH_DWORD(info->fb.fb_addr),
         LOW_DWORD(info->fb.fb_addr),
         info->fb.width,

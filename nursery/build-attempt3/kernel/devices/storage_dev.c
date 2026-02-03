@@ -1,5 +1,5 @@
 #include "../misc/lock.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "storage_dev.h"
 
 
@@ -25,7 +25,7 @@ void register_storage_device(struct storage_dev *dev) {
         p->next = dev;
     }
     release(&devices_list_lock);
-    klog_debug("Device \"%s\" registered as storage dev #%d", dev->name, dev->dev_no);
+    log_debug("Device \"%s\" registered as storage dev #%d", dev->name, dev->dev_no);
 }
 
 struct storage_dev *get_storage_devices_list() {

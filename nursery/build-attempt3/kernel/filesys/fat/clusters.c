@@ -1,6 +1,6 @@
 #include "fat_priv.h"
 #include <uapi/errors.h>
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 
 
@@ -14,7 +14,7 @@ static int read_allocation_table_sector(fat_info *fat, uint32_t sector_no, secto
         sector->dirty = false;
         sector->loaded = true;
     }
-    klog_trace("read_allocation_table_sector(sector=%d) -> %d", sector_no, err);
+    log_trace("read_allocation_table_sector(sector=%d) -> %d", sector_no, err);
     return err;
 }
 
@@ -23,7 +23,7 @@ static int write_allocation_table_sector(fat_info *fat, sector_t *sector) {
         fat->fat_starting_lba + sector->sector_no, 0,
         1, sector->buffer
     );
-    klog_trace("write_allocation_table_sector(sector=%d) -> %d", sector->sector_no, err);
+    log_trace("write_allocation_table_sector(sector=%d) -> %d", sector->sector_no, err);
     if (err == 0) {
         sector->dirty = false;
     }
@@ -55,8 +55,8 @@ static int get_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t 
         sector->sector_no = fat_sector_no;
         sector->loaded = true;
 
-        klog_debug("allocation table sector No %d, contents follow, our offset is %d (0x%x)", fat_sector_no, offset_in_sector, offset_in_sector);
-        klog_debug_hex(sector->buffer, fat->bytes_per_sector, 0);
+        log_debug("allocation table sector No %d, contents follow, our offset is %d (0x%x)", fat_sector_no, offset_in_sector, offset_in_sector);
+        log_debug_hex(sector->buffer, fat->bytes_per_sector, 0);
     }
 
     // now that we have the sector, extract the next cluster_no
@@ -82,12 +82,12 @@ static int get_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t 
         return ERR_NOT_SUPPORTED;
     }
 
-    klog_trace("get_allocation_table_entry(cluster=%d), new_value=%d", cluster_no, *value);
+    log_trace("get_allocation_table_entry(cluster=%d), new_value=%d", cluster_no, *value);
     return SUCCESS;
 }
 
 static int set_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value) {
-    klog_trace("set_allocation_table_entry(cluster=%d, value=%d)", cluster_no, value);
+    log_trace("set_allocation_table_entry(cluster=%d, value=%d)", cluster_no, value);
     uint32_t offset_in_fat;
     if (fat->fat_type == FAT12) {
         // multiply by 1.5 <==> 1 + (1/2), (rounding down err correction later)
@@ -144,7 +144,7 @@ static bool is_end_of_chain_entry_value(fat_info *fat, uint32_t value) {
 }
 
 static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluster_no) {
-    klog_trace("find_a_free_cluster()");
+    log_trace("find_a_free_cluster()");
     uint32_t value;
     for (uint32_t cl = 2; cl < fat->largest_cluster_no; cl++) {
         int err = get_allocation_table_entry(fat, sector, cl, &value);
@@ -152,7 +152,7 @@ static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluste
             return err;
         if (value == 0) {
             *cluster_no = cl;
-            klog_trace("find_a_free_cluster() -> free_cluster=%d)", *cluster_no);
+            log_trace("find_a_free_cluster() -> free_cluster=%d)", *cluster_no);
             return SUCCESS;
         }
     }
@@ -161,7 +161,7 @@ static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluste
 }
 
 static int get_n_index_cluster_no(fat_info *fat, sector_t *sector, uint32_t first_cluster, uint32_t cluster_n_index, uint32_t *cluster_no) {
-    klog_trace("get_n_index_cluster_no(cluster_n_index=%d)", cluster_n_index);
+    log_trace("get_n_index_cluster_no(cluster_n_index=%d)", cluster_n_index);
 
     uint32_t curr_cluster_no = first_cluster;
     uint32_t value = 0;
@@ -188,8 +188,8 @@ static int read_data_cluster(fat_info *fat, uint32_t cluster_no, cluster_t *clus
         cluster->cluster_no = cluster_no;
         cluster->dirty = false;
     }
-    klog_trace("read_data_cluster(cluster=%d) --> %d", cluster_no, err);
-    // klog_debug_hex(cluster->buffer, fat->bytes_per_cluster, 0);
+    log_trace("read_data_cluster(cluster=%d) --> %d", cluster_no, err);
+    // log_debug_hex(cluster->buffer, fat->bytes_per_cluster, 0);
     return err;
 }
 
@@ -204,7 +204,7 @@ static int write_data_cluster(fat_info *fat, cluster_t *cluster) {
     if (err == 0) {
         cluster->dirty = false;
     }
-    klog_trace("write_data_cluster(cluster=%d) --> %d", cluster->cluster_no, err);
+    log_trace("write_data_cluster(cluster=%d) --> %d", cluster->cluster_no, err);
     return err;
 }
 
@@ -332,7 +332,7 @@ static int allocate_new_cluster_chain(fat_info *fat, sector_t *sector, cluster_t
     if (err) return err;
 
     if (clear_data) {
-klog_debug("Clearing cluster data, for cluster %u", cluster_no);
+log_debug("Clearing cluster data, for cluster %u", cluster_no);
         cluster->cluster_no = cluster_no;
         err = fat->ops->read_data_cluster(fat, cluster_no, cluster);
         if (err) return err;
@@ -344,7 +344,7 @@ klog_debug("Clearing cluster data, for cluster %u", cluster_no);
     }
 
     *first_cluster_no = cluster_no;
-klog_debug("allocate_new_cluster_chain() -> %d", SUCCESS);
+log_debug("allocate_new_cluster_chain() -> %d", SUCCESS);
     return SUCCESS;
 }
 

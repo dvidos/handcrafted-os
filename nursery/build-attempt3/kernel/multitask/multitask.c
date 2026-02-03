@@ -3,7 +3,7 @@
 #include "../multitask/scheduler.h"
 #include "../drivers/timer.h"
 #include "../drivers/clock.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../memory/kheap.h"
 #include "../memory/virtmem.h"
 #include "../klib/string.h"
@@ -46,7 +46,7 @@ bool multitasking_enabled() {
 
 // this will never return
 void start_multitasking() {
-    klog_debug("Starting multitasking");
+    log_debug("Starting multitasking");
 
     // flag to our interrupt handler that we can start scheduling
     // after a while, the timer will switch us out and will switch something else in.
@@ -63,7 +63,7 @@ void start_multitasking() {
         // but maybe we can use it for some housekeeping
         while (terminated_list.head != NULL) {
             process_t *proc = dequeue(&terminated_list);
-            klog_trace("idle task cleaning up terminated process %s", proc->name);
+            log_trace("idle task cleaning up terminated process %s", proc->name);
             cleanup_process(proc);
         }
         
@@ -92,7 +92,7 @@ static void wake_sleeping_tasks() {
     process_t *proc = dequeue(&temp_list);
     while (proc != NULL) {
         if (proc->block_reason == SLEEPING && proc->wake_up_time > 0 && now >= proc->wake_up_time) {
-            // klog_trace("process %s ready to run, sleep time expired", proc->name);
+            // log_trace("process %s ready to run, sleep time expired", proc->name);
             proc->state = READY;
             proc->block_reason = 0;
             proc->block_channel = NULL;

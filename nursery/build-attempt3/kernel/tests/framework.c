@@ -3,14 +3,14 @@
 #include <drivers/screen.h>
 #include <memory/kheap.h>
 #include "framework.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 
 MODULE("UNITTEST");
 
 
 static void log_debug_any_value(char *prefix, const void *value) {
     #define prn(c)    (((c)>=32 && (c)<=127) ? (c) : '.')
-    klog_debug("%s int=%d, unsigned=%u, hex=0x%x, str=\"%c%c%c%c... (len=%d), bytes=%02x %02x %02x %02x...", 
+    log_debug("%s int=%d, unsigned=%u, hex=0x%x, str=\"%c%c%c%c... (len=%d), bytes=%02x %02x %02x %02x...", 
         prefix,
         (int)value,
         (uint32_t)value,
@@ -161,11 +161,11 @@ static void list_delete(list_node_t *head, list_node_t *node, actor payload_clea
 
 static void list_debug(list_node_t *head) {
     if (head == NULL) {
-        klog_debug("head = NULL");
+        log_debug("head = NULL");
         return;
     }
     for_list (node, head) {
-        klog_debug("- key  : %s", node->key);
+        log_debug("- key  : %s", node->key);
         log_debug_any_value("  value: ", node->payload);
     }
 }
@@ -287,16 +287,16 @@ static char *injected_func_get_unchecked_arg_name(injected_func_info_t *info) {
 
 static void injected_func_log_debug_info(injected_func_info_t *info) {
     if (!info->mock_values_list->ops->empty(info->mock_values_list)) {
-        klog_debug("      Mocked values:");
+        log_debug("      Mocked values:");
         for_list(node, info->mock_values_list) {
             log_debug_any_value("      - ", node->payload);
         }
     }
 
     if (!info->expected_args_list->ops->empty(info->expected_args_list)) {
-        klog_debug("      Arguments validations:");
+        log_debug("      Arguments validations:");
         for_list(arg_node,  info->expected_args_list) {
-            klog_debug("      - \"%s\"", arg_node->key);
+            log_debug("      - \"%s\"", arg_node->key);
             list_node_t *values_list = (list_node_t *)arg_node->payload;
             for_list(val_node, values_list) {
                 log_debug_any_value("        - ", val_node->payload);
@@ -389,15 +389,15 @@ static injected_func_info_t *test_case_get_injected_func_info(test_case_t *test_
 }
 
 static void test_case_log_debug_info(test_case_t *test_case) {
-    klog_debug("Debug info for test case \"%s\"", test_case->unit_test->func_name);
+    log_debug("Debug info for test case \"%s\"", test_case->unit_test->func_name);
     if (test_case->failed) {
-        klog_debug("  fail reason: %s %s", test_case->fail_message, test_case->fail_data);
-        klog_debug("  at %s, line %d", test_case->fail_file, test_case->fail_line);
+        log_debug("  fail reason: %s %s", test_case->fail_message, test_case->fail_data);
+        log_debug("  at %s, line %d", test_case->fail_file, test_case->fail_line);
     }
     if (!test_case->injected_funcs_list->ops->empty(test_case->injected_funcs_list)) {
-        klog_debug("  Injected functions mock information");
+        log_debug("  Injected functions mock information");
         for_list(node, test_case->injected_funcs_list) {
-            klog_debug("    - %s()", node->key);
+            log_debug("    - %s()", node->key);
             injected_func_info_t *func_info = (injected_func_info_t *)node->payload;
             func_info->ops->log_debug_info(func_info);
         }
@@ -517,21 +517,21 @@ static void after_running_tests_suite() {
     // newline after lots of dots
     printk("\n");
 
-    klog_info("%d tests executed, %d passed, %d failed", 
+    log_info("%d tests executed, %d passed, %d failed", 
         test_suite.tests_performed,
         test_suite.tests_passed,
         test_suite.tests_failed
     );
     
     if (test_suite.tests_failed) {
-        klog_info("Failed tests:");
+        log_info("Failed tests:");
         for_list (tc_node, test_suite.test_cases) {
             test_case_t *tc = tc_node->payload;
             if (!tc->failed)
                 continue;
             
-            klog_info("- %s()", tc->unit_test->func_name);
-            klog_info("  %s: %s, at %s:%d", tc->fail_message, tc->fail_data, tc->fail_file, tc->fail_line);
+            log_info("- %s()", tc->unit_test->func_name);
+            log_info("  %s: %s, at %s:%d", tc->fail_message, tc->fail_data, tc->fail_file, tc->fail_line);
         }
     }
 
@@ -543,7 +543,7 @@ static void after_running_tests_suite() {
     list_free(test_suite.test_cases, NULL, NULL);
 
     if (kernel_heap_free_size() != test_suite.free_heap_before) {
-        klog_error("Suspecting testing framework leaking memory of %u bytes", 
+        log_error("Suspecting testing framework leaking memory of %u bytes", 
             test_suite.free_heap_before - kernel_heap_free_size());
     }
 }

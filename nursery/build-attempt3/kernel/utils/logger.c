@@ -5,7 +5,7 @@
 #include "../drivers/serial.h"
 #include "../drivers/screen.h"
 #include "../drivers/timer.h"
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "../multitask/process.h"
 
 
@@ -32,7 +32,7 @@ typedef struct appender_info {
     bool have_dumped_memory;
 } appender_info_t;
 
-static appender_info_t appenders[LOGAPP_SIZE];
+static appender_info_t appenders[LOG_APPENDER_SIZE];
 
 
 typedef struct module_level {
@@ -55,42 +55,42 @@ static void file_log_append(const char *module_name, log_level_t level, char *st
 static void tty_log_append(const char *module_name, log_level_t level, char *str, bool decorated);
 static char printable(char c);
 
-void init_klog() {
+void init_logger() {
     memset(memlog.buffer, '-', sizeof(memlog.buffer));
     memlog.len = 0;
 
     memset(&appenders, 0, sizeof(appenders));
 
-    default_module_level = LOGLEV_INFO;
+    default_module_level = LOG_LEVEL_INFO;
     memset(&module_levels, 0, sizeof(module_levels));
 }
 
-void klog_appender_level(log_appender_t appender, log_level_t level) {
+void logger_set_appender_log_level(log_appender_t appender, log_level_t level) {
     bool prev_level = appenders[appender].level;
     appenders[appender].level = level;
 
     // this is also used to enable an appender, when they are available
     // maybe dump memory contents to this newly opened appender
-    if (appender != LOGAPP_MEMORY &&
-        prev_level == LOGLEV_NONE && 
-        level > LOGLEV_NONE &&
+    if (appender != LOG_APPENDER_MEMORY &&
+        prev_level == LOG_LEVEL_NONE && 
+        level > LOG_LEVEL_NONE &&
         !appenders[appender].have_dumped_memory
     ) {
-        if (appender == LOGAPP_SERIAL)
-            serial_log_append(NULL, LOGLEV_INFO, memlog.buffer, false);
-        else if (appender == LOGAPP_FILE)
-            file_log_append(NULL, LOGLEV_INFO, memlog.buffer, false);
-        else if (appender == LOGAPP_TTY && tty_appender != NULL)
-            tty_log_append(NULL, LOGLEV_INFO, memlog.buffer, false);
+        if (appender == LOG_APPENDER_SERIAL)
+            serial_log_append(NULL, LOG_LEVEL_INFO, memlog.buffer, false);
+        else if (appender == LOG_APPENDER_FILE)
+            file_log_append(NULL, LOG_LEVEL_INFO, memlog.buffer, false);
+        else if (appender == LOG_APPENDER_TTY && tty_appender != NULL)
+            tty_log_append(NULL, LOG_LEVEL_INFO, memlog.buffer, false);
         appenders[appender].have_dumped_memory = true;
     }
 }
 
-void klog_default_module_level(log_level_t level) {
+void logger_set_default_log_level(log_level_t level) {
     default_module_level = level;
 }
 
-void klog_module_level(char *module_name, log_level_t level) {
+void logger_set_module_log_level(char *module_name, log_level_t level) {
     
     // see if module exists, we can update
     for (int i = 0; i < MODULE_LEVELS_COUNT; i++) {
@@ -131,16 +131,16 @@ static log_level_t get_module_log_level(const char *module_name) {
     return default_module_level;
 }
 
-void klog_set_tty(tty_t *tty) {
+void logger_set_tty(tty_t *tty) {
     tty_appender = tty;
     tty_set_title_specific_tty(tty_appender, "Kernel Log Viewer");
 }
 
-void klog_user_syslog(int level, char *buffer) {
-    klog_append("USER", level, "%s[%d] %s", running_process()->name, running_process()->pid, buffer);
+void logger_append_user_syslog(int level, char *buffer) {
+    logger_append("USER", level, "%s[%d] %s", running_process()->name, running_process()->pid, buffer);
 }
 
-void klog_append(const char *module_name, log_level_t level, const char *format, ...) {
+void logger_append(const char *module_name, log_level_t level, const char *format, ...) {
 
     if (strlen(format) == 0)
         return;
@@ -164,7 +164,7 @@ void klog_append(const char *module_name, log_level_t level, const char *format,
     va_end(args);
 }
 
-void klog_append_hex(const char *module_name, log_level_t level,  uint8_t *buffer, size_t length, uint32_t start_address) {
+void logger_append_hex(const char *module_name, log_level_t level,  uint8_t *buffer, size_t length, uint32_t start_address) {
 
     if (length == 0)
         return;
@@ -175,7 +175,7 @@ void klog_append_hex(const char *module_name, log_level_t level,  uint8_t *buffe
 
     while (length > 0) {
         // using xxd's format, seems nice
-        klog_append(module_name, level,
+        logger_append(module_name, level,
             "%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
             start_address,
             buffer[0], buffer[1], buffer[2], buffer[3], 
@@ -212,7 +212,7 @@ static void memlog_write(char *str) {
 }
 
 static void memory_log_append(const char *module_name, log_level_t level, char *str) {
-    if (level > appenders[LOGAPP_MEMORY].level)
+    if (level > appenders[LOG_APPENDER_MEMORY].level)
         return;
 
     // first write preamble
@@ -226,14 +226,14 @@ static void memory_log_append(const char *module_name, log_level_t level, char *
 }
 
 static void screen_log_append(const char *module_name, log_level_t level, char *str, bool decorated) {
-    if (level > appenders[LOGAPP_SCREEN].level)
+    if (level > appenders[LOG_APPENDER_SCREEN].level)
         return;
 
     uint8_t old_color = screen_get_color();
     if (decorated) {
-        if (level < LOGLEV_ERROR)
+        if (level < LOG_LEVEL_ERROR)
             screen_set_color(VGA_COLOR_LIGHT_RED);
-        else if (level == LOGLEV_WARN)
+        else if (level == LOG_LEVEL_WARN)
             screen_set_color(VGA_COLOR_LIGHT_BROWN);    
 
     }
@@ -245,7 +245,7 @@ static void screen_log_append(const char *module_name, log_level_t level, char *
 }
 
 static void serial_log_append(const char *module_name, log_level_t level, char *str, bool decorated) {
-    if (level > appenders[LOGAPP_SERIAL].level)
+    if (level > appenders[LOG_APPENDER_SERIAL].level)
         return;
 
     if (decorated) {
@@ -267,7 +267,7 @@ static void file_log_append(const char *module_name, log_level_t level, char *st
 static void tty_log_append(const char *module_name, log_level_t level, char *str, bool decorated) {
     if (tty_appender == NULL)
         return;
-    if (level > appenders[LOGAPP_TTY].level)
+    if (level > appenders[LOG_APPENDER_TTY].level)
         return;
 
     if (decorated) {

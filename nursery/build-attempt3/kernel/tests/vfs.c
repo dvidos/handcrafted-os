@@ -3,7 +3,7 @@
 #include <memory/kheap.h>
 #include <klib/string.h>
 #include <uapi/errors.h>
-#include "../misc/klog.h"
+#include "../utils/logger.h"
 #include "framework.h"
 
 MODULE("VFS_UNIT_TEST")
@@ -103,11 +103,11 @@ void test_vfs() {
     _mock_filesys_lookup_data[1].result = sh;
     _mock_filesys_lookup_data[1].ret_val = SUCCESS;
 
-    klog_module_level("VFS", LOGLEV_TRACE);
+    logger_set_module_log_level("VFS", LOG_LEVEL_TRACE);
 
     // see resolution of bin, even if curr dir does not exist.
     err = vfs_resolve("/bin", root, NULL, false, &target);
-    klog_info("Returned %d", err);
+    log_info("Returned %d", err);
     assert(err == SUCCESS);
     assert(target != NULL);
     assert(target->location == bin->location);
