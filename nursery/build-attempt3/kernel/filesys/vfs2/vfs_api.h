@@ -7,7 +7,7 @@
 
 
 // mount management (allocates superblock_t, assigns fs_id, calls driver->mount(sb), inserts mount object into mount table)
-int vfs_mount(const char *path, block_device_t *bdev, fs_driver_ops_t *driver);
+int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver);
 int vfs_unmount(const char *path);
 int vfs_sync(void);
 
@@ -40,3 +40,13 @@ int vfs_create(const char *path, int type);
 int vfs_unlink(const char *path);
 int vfs_mkdir(const char *path);
 int vfs_rmdir(const char *path);
+
+
+
+// vfs holds the mount table, does not cache things.
+// it puts the FD in the process file descriptor table (???)
+
+
+// initial probing of storage devices is outside of VFS
+void fs_register(fs_driver_ops_t *drv);
+fs_driver_ops_t *fs_probe(block_device_t *bdev);

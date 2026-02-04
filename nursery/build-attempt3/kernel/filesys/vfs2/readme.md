@@ -56,7 +56,7 @@ typedef struct fs_driver_ops {
 
 typedef struct superblock {       // lives for duration of mount()
     fs_driver_ops_t *driver;      // plugin contract
-    struct block_device *bdev;    // partition / disk
+    struct block_device *dev;    // partition / disk
     void *fs_private_data;        // FS-specific superblock data
     int fs_id;                    // unique mount id (= global_monotonic_counter++)
     lock_t lock;                  // protects fs-level metadata

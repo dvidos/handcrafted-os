@@ -6,11 +6,11 @@
 
 static uint32_t monotonic_fs_id_counter = 0;
 
-static superblock_t *_superblock_create(fs_driver_ops_t *driver, struct block_device *bdev) {
+static superblock_t *_superblock_create(fs_driver_ops_t *driver, struct block_device *dev) {
     superblock_t *sb = (superblock_t *)kmalloc(sizeof(superblock_t));
 
     sb->driver = driver;            // plugin contract
-    sb->bdev = bdev;                // partition / disk
+    sb->dev = dev;                // partition / disk
     sb->fs_private_data = 0;        // FS-specific superblock data
     sb->fs_id = ++monotonic_fs_id_counter;    // unique mount id (= global_monotonic_counter++)
     sb->lock = 0;                   // protects fs-level metadata

@@ -1,7 +1,8 @@
-#include "../vfs_contract.h"
+#include "../fs_driver_ops.h"
 
 
 // mount.c
+int _skeleton_fs_probe(block_device_t *dev);
 int _skeleton_fs_mount(superblock_t *sb);
 int _skeleton_fs_unmount(superblock_t *sb);
 int _skeleton_fs_sync(superblock_t *sb);
@@ -33,6 +34,7 @@ int _skeleton_fs_truncate(file_descriptor_t *fd, size_t size);
 
 
 fs_driver_ops_t skeleton_fs_ops = {
+    .probe        = _skeleton_fs_probe,
     .mount        = _skeleton_fs_mount,
     .unmount      = _skeleton_fs_unmount,
     .sync         = _skeleton_fs_sync,
