@@ -1,6 +1,7 @@
 #pragma once
 #include <ctypes.h>
-#include "drivers/vfs_contract.h"
+#include "superblock.h"
+#include "file_descriptor.h"
 
 
 struct superblock_ops {

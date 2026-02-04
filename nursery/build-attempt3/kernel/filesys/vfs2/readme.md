@@ -17,7 +17,6 @@ Naming convetions:
 * `file_descriptor` is the description of a closed file (e.g. inode)
 * `open_file` is the representation of an open file (e.g. mode, position, etc)
 
-
 ## responsibilities
 
 The driver provides
