@@ -34,7 +34,7 @@ static open_handle *opened_files_find_unused_handle_slot(mounted_data *mt) {
     return NULL;
 }
 
-static int opened_files_register(mounted_data *mt, cached_inode *cinode, open_handle **handle_ptr) {
+static int opened_files_register(mounted_data *mt, cached_inode *cinode, open_handle *handle_ptr) {
 
     // now find a slot top open the handle on
     open_handle *ohandle = opened_files_find_unused_handle_slot(mt);

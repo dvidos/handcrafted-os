@@ -247,7 +247,7 @@ static int populate_superblock(const char *label, uint32_t sector_size, uint32_t
 static void superblock_dump_debug_info(stored_superblock *sb);
 
 // inode_cache.inc.c
-static int icache_get(mounted_data *mt, int inode_id, cached_inode **ptr);
+static int icache_get(mounted_data *mt, int inode_id, cached_inode *ptr);
 static int icache_invalidate_inode(mounted_data *mt, int inode_id); // when inode is deleted
 static int icache_flush_all(mounted_data *mt);
 static int icache_is_inode_cached(mounted_data *mt, int inode_id); // for debugging purposes
@@ -255,7 +255,7 @@ static void icache_dump_debug_info(mounted_data *mt);
 
 // open.inc.c
 static int opened_handles_release(mounted_data *mt, open_handle *handle);
-static int opened_files_register(mounted_data *mt, cached_inode *node, open_handle **handle_ptr);
+static int opened_files_register(mounted_data *mt, cached_inode *node, open_handle *handle_ptr);
 static void opened_files_dump_debug_info(mounted_data *mt);
 
 // dirs.inc.c
@@ -273,5 +273,5 @@ static void path_get_first_part(const char *path, char *filename_buffer, int fil
 static const char *path_get_last_part(const char *path);
 
 // resolution.inc.c
-static int resolve_path_to_inode(mounted_data *mt, const char *path, cached_inode **cached_inode_ptr);
-static int resolve_path_parent_to_inode(mounted_data *mt, const char *path, cached_inode **cached_inode_ptr);
+static int resolve_path_to_inode(mounted_data *mt, const char *path, cached_inode *cached_inode_ptr);
+static int resolve_path_parent_to_inode(mounted_data *mt, const char *path, cached_inode *cached_inode_ptr);

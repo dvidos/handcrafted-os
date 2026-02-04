@@ -26,7 +26,6 @@
 #include "filesys/partition.h"
 #include "filesys/vfs.h"
 #include "filesys/fat.h"
-#include "filesys/ext2.h"
 #include "filesys/drivers.h"
 #include "filesys/mount.h"
 #include "processes/monitor.h"
@@ -153,7 +152,6 @@ void kernel_main(boot_info_t* boot)
     logger_set_module_log_level("MOUNT", LOG_LEVEL_TRACE);
     discover_storage_dev_partitions(get_storage_devices_list());
     fat_register_vfs_driver();
-    ext2_register_vfs_driver();
     vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
 
     for(;;); // TODO: remove when we have the correct filesystem mounted

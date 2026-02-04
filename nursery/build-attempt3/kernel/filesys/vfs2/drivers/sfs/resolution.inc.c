@@ -2,7 +2,7 @@
 
 
 
-static int flexible_path_resolution(mounted_data *mt, const char *path, int resolve_parent_dir_only, cached_inode **cached_inode_ptr) {
+static int flexible_path_resolution(mounted_data *mt, const char *path, int resolve_parent_dir_only, cached_inode *cached_inode_ptr) {
     char part_name[MAX_FILENAME_LENGTH + 1];
     int err;
     
@@ -63,10 +63,10 @@ static int flexible_path_resolution(mounted_data *mt, const char *path, int reso
     return ERR_NOT_FOUND;
 }
 
-static int resolve_path_to_inode(mounted_data *mt, const char *path, cached_inode **cached_inode_ptr) {
+static int resolve_path_to_inode(mounted_data *mt, const char *path, cached_inode *cached_inode_ptr) {
     return flexible_path_resolution(mt, path, 0, cached_inode_ptr);
 }
 
-static int resolve_path_parent_to_inode(mounted_data *mt, const char *path, cached_inode **cached_inode_ptr) {
+static int resolve_path_parent_to_inode(mounted_data *mt, const char *path, cached_inode *cached_inode_ptr) {
     return flexible_path_resolution(mt, path, 1, cached_inode_ptr);
 }

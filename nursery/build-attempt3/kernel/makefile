@@ -38,6 +38,7 @@ KERNEL_C_FILES = \
 	$(wildcard devices/*.c) \
 	$(wildcard filesys/*.c) \
 	$(wildcard filesys/fat/fat.c) \
+	$(wildcard filesys/fat/simple_file_system.c) \
 	$(wildcard processes/*.c)
 
 KERNEL_NASM_FILES1 = \

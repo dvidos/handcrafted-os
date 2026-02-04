@@ -172,7 +172,7 @@ static int sfs_unmount(simple_filesystem *sfs) {
     return OK;
 }
 
-static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_handle **handle_ptr) {
+static int sfs_open(simple_filesystem *sfs, char *filename, int options, sfs_handle *handle_ptr) {
     if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
     if (data == NULL) return ERR_NOT_SUPPORTED;
@@ -305,7 +305,7 @@ static int sfs_tell(simple_filesystem *sfs, sfs_handle *h) {
     return handle->file_position;
 }
 
-static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle **handle_ptr) {
+static int sfs_open_dir(simple_filesystem *sfs, char *path, sfs_handle *handle_ptr) {
     if (sfs == NULL) return ERR_NOT_SUPPORTED;
     filesys_data *data = sfs->sfs_data;
     if (data == NULL) return ERR_NOT_SUPPORTED;

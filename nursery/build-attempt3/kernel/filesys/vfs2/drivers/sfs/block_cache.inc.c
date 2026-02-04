@@ -99,7 +99,7 @@ static inline void bcache_promote_recently_used_entry(block_cache *data, bcache_
     data->lru_list_newest = entry;
 }
 
-static inline int bcache_evict_least_recently_used(block_cache *data, bcache_entry **evicted_ptr) {
+static inline int bcache_evict_least_recently_used(block_cache *data, bcache_entry *evicted_ptr) {
     bcache_entry *oldest = data->lru_list_oldest;
     if (oldest == NULL) // there are no nodes in cache
         return OK;
@@ -184,7 +184,7 @@ static inline int bcache_add_entry_to_lists(block_cache *data, bcache_entry *ent
     return OK;
 }
 
-static int bcache_find_unused_slot(block_cache *data, bcache_entry **entry) {
+static int bcache_find_unused_slot(block_cache *data, bcache_entry *entry) {
     if (data->entries_used >= CACHE_SLOTS)
         return ERR_RESOURCES_EXHAUSTED;
     

@@ -39,14 +39,14 @@ struct simple_filesystem {
     int (*sync)(simple_filesystem *sfs);
     int (*unmount)(simple_filesystem *sfs);
     
-    int (*open)(simple_filesystem *sfs, char *path, int options, sfs_handle **handle_ptr);
+    int (*open)(simple_filesystem *sfs, char *path, int options, sfs_handle *handle_ptr);
     int (*read)(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size);
     int (*write)(simple_filesystem *sfs, sfs_handle *h, void *buffer, uint32_t size);
     int (*close)(simple_filesystem *sfs, sfs_handle *h);
     int (*seek)(simple_filesystem *sfs, sfs_handle *h, int offset, int origin);
     int (*tell)(simple_filesystem *sfs, sfs_handle *h);
 
-    int (*open_dir)(simple_filesystem *sfs, char *path, sfs_handle **handle_ptr);
+    int (*open_dir)(simple_filesystem *sfs, char *path, sfs_handle *handle_ptr);
     int (*read_dir)(simple_filesystem *sfs, sfs_handle *h, sfs_dir_entry *entry);
     int (*close_dir)(simple_filesystem *sfs, sfs_handle *h);
 

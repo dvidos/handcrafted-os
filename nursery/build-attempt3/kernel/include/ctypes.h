@@ -48,7 +48,7 @@ typedef signed long long int s64;
 #define true	((_Bool)1)
 #define false	((_Bool)0)
 
-#define NULL    ((void *)0)
+#define NULL    0
 
 // semantic types (short=16 bits, long=32 bits)
 typedef unsigned long  int size_t;      // unsigned size of objects in memory, 32 bit
