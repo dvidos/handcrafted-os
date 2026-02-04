@@ -1,9 +1,10 @@
-#include "../vfs_contract.h"
+#include "../fs_driver_ops.h"
 #include "internal.h"
-#include "../../../../include/uapi/errors.h"
+#include "../../../include/uapi/errors.h"
 
 
 int _skeleton_fs_opendir(file_descriptor_t *dir, open_file_t *dir_handle) {
+    // create private data, store in dir_handle->driver_priv_data
     return ERR_NOT_IMPLEMENTED;
 }
 
@@ -16,6 +17,7 @@ int _skeleton_fs_rewinddir(open_file_t *dir_handle) {
 }
 
 int _skeleton_fs_closedir(open_file_t *dir_handle) {
+    // destroy private data from dir_handle->driver_priv_data
     return ERR_NOT_IMPLEMENTED;
 }
 

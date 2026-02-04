@@ -1,6 +1,6 @@
-#include "../vfs_contract.h"
+#include "../fs_driver_ops.h"
 #include "internal.h"
-#include "../../../../include/uapi/errors.h"
+#include "../../../include/uapi/errors.h"
 
 
 int _skeleton_fs_create(file_descriptor_t *parent, const char *name, int type, file_descriptor_t *out) {
@@ -8,6 +8,8 @@ int _skeleton_fs_create(file_descriptor_t *parent, const char *name, int type, f
 }
 
 int _skeleton_fs_unlink(file_descriptor_t *parent, const char *name) {
+    // remove directory entry.
+    // if inode counter reaches zero, remove file and blocks as well.
     return ERR_NOT_IMPLEMENTED;
 }
 

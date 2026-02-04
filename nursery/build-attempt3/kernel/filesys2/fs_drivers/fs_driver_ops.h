@@ -3,7 +3,6 @@
 // this file contains the contract that drivers must implement,
 // in order to participate in the VFS system
 
-#include "../../misc/lock.h"
 #include "../../include/uapi/vfs2_file_flags.h"
 #include "../../include/uapi/vfs2_stat.h"
 #include "../vfs_objects/block_device.h"

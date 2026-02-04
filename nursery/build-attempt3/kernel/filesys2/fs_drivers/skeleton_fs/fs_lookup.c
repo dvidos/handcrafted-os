@@ -1,6 +1,6 @@
-#include "../vfs_contract.h"
+#include "../fs_driver_ops.h"
 #include "internal.h"
-#include "../../../../include/uapi/errors.h"
+#include "../../../include/uapi/errors.h"
 
 
 int _skeleton_fs_get_root_dir(superblock_t *sb, file_descriptor_t *out) {

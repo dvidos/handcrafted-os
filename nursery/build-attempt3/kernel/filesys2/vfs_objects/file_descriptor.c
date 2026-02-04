@@ -1,4 +1,3 @@
-#pragma once
 #include "file_descriptor.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
