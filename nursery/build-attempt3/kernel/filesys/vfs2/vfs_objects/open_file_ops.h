@@ -1,6 +1,6 @@
 #pragma once
 #include <ctypes.h>
-#include "drivers/vfs_contract.h"
+#include "drivers/fs_driver_ops.h"
 
 
 struct open_file_ops {
