@@ -3,7 +3,8 @@
 #include "drivers/fs_driver_ops.h"
 
 
-// these are the operations that VFS exports to the rest of the kernel
+// below are the operations that VFS exports to the rest of the kernel
+// --------------------------------------------------------------------
 
 
 // mount management (allocates superblock_t, assigns fs_id, calls driver->mount(sb), inserts mount object into mount table)
@@ -49,4 +50,4 @@ int vfs_rmdir(const char *path);
 
 // initial probing of storage devices is outside of VFS
 void fs_register(fs_driver_ops_t *drv);
-fs_driver_ops_t *fs_probe(block_device_t *bdev);
+fs_driver_ops_t *fs_probe(block_device_t *dev);

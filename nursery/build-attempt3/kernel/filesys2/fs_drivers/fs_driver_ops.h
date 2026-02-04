@@ -16,7 +16,7 @@ typedef struct fs_driver_ops   fs_driver_ops_t;
 
 // this is all a driver needs to support
 struct fs_driver_ops {
-    int (*probe)(block_device_t *bdev);
+    int (*probe)(block_device_t *dev);
     int (*mount)(superblock_t *sb);
     int (*unmount)(superblock_t *sb);
     int (*sync)(superblock_t *sb);
