@@ -11,7 +11,7 @@ char *dirname(char *path);
 char *pathname(char *path);
 
 // copies the next path component to buffer, advances offset.
-int get_next_path_part(char *path, int *offset, char *buffer);
+int get_next_path_part(const char *path, int *offset, char *buffer);
 
 // returns how many parts in the path. leading and trailing '/' are ignored
 int count_path_parts(char *path);

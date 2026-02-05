@@ -4,7 +4,7 @@
 
 static file_descriptor_t *_file_descriptor_create(superblock_t *sb, uint64_t inode, file_descriptor_t *dir, const char *name);
 static file_descriptor_t *_file_descriptor_clone(const file_descriptor_t *src);
-static int _file_descriptor_equals(const file_descriptor_t *a, const file_descriptor_t *b);
+static bool _file_descriptor_equals(const file_descriptor_t *a, const file_descriptor_t *b);
 static void _file_descriptor_destroy(file_descriptor_t *fd);
 
 
@@ -13,7 +13,6 @@ static file_descriptor_t *_file_descriptor_create(superblock_t *sb, uint64_t ino
 
     fd->sb     = sb;     // which mounted FS
     fd->inode  = inode;  // inode / cluster / object id
-    fd->type   = 0;      // file, dir, symlink
     fd->mode   = 0;      // permissions
     fd->size   = 0;      // file size in bytes
     fd->blocks = 0;      // allocated blocks
@@ -38,7 +37,6 @@ static file_descriptor_t *_file_descriptor_clone(const file_descriptor_t *src) {
         return NULL;
     
     file_descriptor_t *clone = _file_descriptor_create(src->sb, src->inode, src->parent, src->name);
-    clone->type   = src->type;
     clone->mode   = src->mode;
     clone->size   = src->size;
     clone->blocks = src->blocks;
@@ -49,22 +47,21 @@ static file_descriptor_t *_file_descriptor_clone(const file_descriptor_t *src) {
     return clone;
 }
 
-static int _file_descriptor_equals(const file_descriptor_t *a, const file_descriptor_t *b) {
-    // compare by value
-    if (a == NULL && b == NULL) return 1; // both are null
-    if (a == NULL || b == NULL) return 0; // only one is null
+static bool _file_descriptor_equals(const file_descriptor_t *a, const file_descriptor_t *b) {
+    if (a == b) return true;
+    if (a == NULL && b == NULL) return true; // both are null
+    if (a == NULL || b == NULL) return false; // only one is null
 
-    if (a->sb     != b->sb)     return 0;
-    if (a->inode  != b->inode)  return 0;
-    if (a->type   != b->type)   return 0;
-    if (a->mode   != b->mode)   return 0;
-    if (a->size   != b->size)   return 0;
-    if (a->blocks != b->blocks) return 0;
-    if (a->atime  != b->atime)  return 0;
-    if (a->mtime  != b->mtime)  return 0;
-    if (a->ctime  != b->ctime)  return 0;
+    if (a->sb     != b->sb)     return false;
+    if (a->inode  != b->inode)  return false;
+    if (a->mode   != b->mode)   return false;
+    if (a->size   != b->size)   return false;
+    if (a->blocks != b->blocks) return false;
+    if (a->atime  != b->atime)  return false;
+    if (a->mtime  != b->mtime)  return false;
+    if (a->ctime  != b->ctime)  return false;
     
-    return 1;
+    return true;
 }
 
 static void _file_descriptor_destroy(file_descriptor_t *fd) {

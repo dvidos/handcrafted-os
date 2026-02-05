@@ -10,7 +10,7 @@ int strcpy(char *target, const char *source);
 int strcat(char *target, const char *source);
 void strncpy(char *target, char *source, size_t target_size);
 
-char *strchr(char *str, char c);
+char *strchr(const char *str, char c);
 char *strstr(char *heystack, char *needle);
 
 // tokenize string (modifies str), return first token, zero terminated

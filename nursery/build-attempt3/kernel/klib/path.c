@@ -79,9 +79,9 @@ char *pathname(char *path) {
 }
 
 
-int get_next_path_part(char *path, int *offset, char *buffer) {
+int get_next_path_part(const char *path, int *offset, char *buffer) {
     log_trace("get_next_path_part(path=\"%s\", offset=%d)", path, *offset);
-    char *start = path + *offset;
+    const char *start = path + *offset;
     if (*start == '/') {
         start++;
         (*offset)++;

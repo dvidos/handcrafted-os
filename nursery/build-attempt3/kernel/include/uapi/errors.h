@@ -8,6 +8,7 @@
 // positive:  some value
 
 
+#define OK                        SUCCESS
 #define SUCCESS                   NO_ERROR
 #define NO_ERROR                  0
 
@@ -16,9 +17,10 @@
 #define ERR_PARTIAL_CONTENT_ONLY  -3   // reading dirs etc, means loading next sector is needed
 #define ERR_NOT_SUPPORTED         -4
 #define ERR_NOT_IMPLEMENTED       -5
-#define ERR_BAD_ARGUMENT          -6
-#define ERR_BAD_VALUE             -7
-#define ERR_ALREADY_EXISTS        -8
+#define ERR_NOT_PERMITTED         -6
+#define ERR_BAD_ARGUMENT          -7
+#define ERR_BAD_VALUE             -8
+#define ERR_ALREADY_EXISTS        -9
 
 #define ERR_NO_DEVICE            -10
 #define ERR_NO_PARTITION         -11
@@ -33,6 +35,7 @@
 #define ERR_READING_FILE         -20
 #define ERR_WRITING_FILE         -21
 #define ERR_HANDLES_EXHAUSTED    -22
+#define ERR_EOF                  -23
 
 
 #endif

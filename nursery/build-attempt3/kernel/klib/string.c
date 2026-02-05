@@ -201,10 +201,10 @@ void u64toa(uint64_t num, char *buffer, int base) {
     reverse(buffer, pos);
 }
 
-char *strchr(char *str, char c) {
+char *strchr(const char *str, char c) {
     while (*str != '\0') {
         if (*str == c)
-            return str;
+            return (char *)str;
         str++;
     }
     return NULL;

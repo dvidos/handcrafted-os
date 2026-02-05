@@ -1,7 +1,9 @@
 #include "../fs_driver_ops.h"
 #include "../../../include/uapi/errors.h"
-
-
+#include "../../../memory/kheap.h"
+#include "../../../klib/string.h"
+#include "../../../klib/cache.h"
+#include "../../../klib/list.h"
 
 
 static int _skeleton_fs_probe(block_device_t *dev) {
@@ -23,15 +25,15 @@ static int _skeleton_fs_sync(superblock_t *sb) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_get_root_dir(superblock_t *sb, file_descriptor_t *out) {
+static int _skeleton_fs_get_root_dir(superblock_t *sb, file_descriptor_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_lookup(file_descriptor_t *dir, const char *name, file_descriptor_t *out) {
+static int _skeleton_fs_lookup(file_descriptor_t *dir, const char *name, file_descriptor_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_open(file_descriptor_t *fd, int flags, open_file_t *file) {
+static int _skeleton_fs_open(file_descriptor_t *fd, int flags, open_file_t **file_handle) {
     // create private data, store in file->driver_priv_data
     return ERR_NOT_IMPLEMENTED;
 }
@@ -55,12 +57,12 @@ static int _skeleton_fs_flush(open_file_t *file) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_opendir(file_descriptor_t *dir, open_file_t *dir_handle) {
+static int _skeleton_fs_opendir(file_descriptor_t *dir, open_file_t **dir_handle) {
     // create private data, store in dir_handle->driver_priv_data
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_readdir(open_file_t *dir_handle, file_descriptor_t *out) {
+static int _skeleton_fs_readdir(open_file_t *dir_handle, file_descriptor_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
@@ -84,7 +86,7 @@ static int _skeleton_fs_rmdir(file_descriptor_t *parent, const char *name) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_create(file_descriptor_t *parent, const char *name, int type, file_descriptor_t *out) {
+static int _skeleton_fs_create(file_descriptor_t *parent, const char *name, int type, file_descriptor_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
