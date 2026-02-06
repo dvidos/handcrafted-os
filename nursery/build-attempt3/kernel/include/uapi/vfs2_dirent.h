@@ -6,5 +6,6 @@
 // intentionally minimal
 struct dirent {
     uint32_t       d_ino;    // inode number
+    uint32_t       d_type;   // file type (see S_Ixxx flags)
     char           d_name[]; // null-terminated filename
 };

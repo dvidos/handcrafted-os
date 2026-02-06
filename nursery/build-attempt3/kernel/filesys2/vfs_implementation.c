@@ -1,5 +1,7 @@
 #include "vfs_api.h"
 #include "../include/uapi/errors.h"
+#include "../include/uapi/vfs2_seek_flags.h"
+#include "../include/uapi/vfs2_dirent.h"
 #include "fs_drivers/fs_driver_ops.h"
 #include "vfs_objects/superblock.h"
 #include "vfs_objects/file_descriptor.h"
@@ -173,57 +175,114 @@ int vfs2_unmount(const char *path) {
 }
 
 int vfs2_sync(void) {
-    int err;
-    mount_entry_t *entry;
-
-    for (entry = mtab.get_entries_list(); entry != NULL; entry = entry->next) {
+    for (mount_entry_t *entry = mtab.get_entries_list(); entry; entry = entry->next) {
         // ignore errors and try to sync all, anyway
         entry->sb->driver->sync(entry->sb);
     }
+    return OK;
+}
+
+int vfs2_open(const char *path, int flags, open_file_t **file) {
+    int err;
+    file_descriptor_t *fd;
+
+    err = vfs2_lookup_target(path, &fd);
+    if (err) return err;
+    if (!file_descriptors.is_file(fd))
+        return ERR_NOT_A_FILE;
+
+    err = fd->sb->driver->open(fd, flags, file);
+    if (err) return err;
+
+    // cache size for offset calculations
+    (*file)->size = fd->size;
+    (*file)->offset = 0;
 
     return OK;
 }
 
-int vfs2_open(const char *path, int flags, int *out_fd) {
-    // file open/close (resolve path -> file_descriptor_t, allocate open_file_t, call fd->sb->driver->open(fd, flags, open_file), store open_file_t in process FD table)
+int vfs2_close(open_file_t *file) {
+    int err = file->sb->driver->close(file);
+    if (err) return err;
+
+    open_files.destroy(file);
+    return OK;
+}
+
+ssize_t vfs2_read(open_file_t *file, void *buf, size_t len) {
+    ssize_t bytes = file->sb->driver->read(file, buf, len);
+    if (bytes < 0) // negative numbers are errors
+        return bytes;
+    
+    // do we need copy-to-user?
+    file->offset += bytes;
+    return bytes;
+}
+
+ssize_t vfs2_write(open_file_t *file, const void *buf, size_t len) {
+    ssize_t bytes = file->sb->driver->write(file, buf, len);
+    if (bytes < 0) // negative numbers are errors
+        return bytes;
+    // do we need to update the offset and file size?
+
+    // do we need copy-from-user?
+
+    file->offset += bytes;
+    if (file->offset > file->size)
+        file->size = file->offset;
+    return bytes;
+}
+
+off_t vfs2_seek(open_file_t *file, off_t offset, int whence) {
+    off_t new_offset;
+    switch (whence) {
+        case SEEK_SET: new_offset = offset; break;
+        case SEEK_CUR: new_offset = file->offset + offset; break;
+        case SEEK_END: new_offset = file->size + offset; break;
+        default: return ERR_BAD_ARGUMENT;
+    }
+    if (new_offset < 0) new_offset = 0;
+    if (new_offset > (off_t)file->size) new_offset = (off_t)file->size;
+    file->offset = new_offset;
+    return new_offset;
+}
+
+int vfs2_flush(open_file_t *file) {
+    int err = file->sb->driver->flush(file);
+    if (err) return err;
+
+    return OK;
+}
+
+int vfs2_opendir(const char *path, open_file_t **dir) {
+    int err;
+    file_descriptor_t *fd;
+
+    err = vfs2_lookup_target(path, &fd);
+    if (err) return err;
+    if (!file_descriptors.is_dir(fd))
+        return ERR_NOT_A_DIRECTORY;
+
+    err = fd->sb->driver->opendir(fd, dir);
+    if (err) return err;
+
+    // cache size for offset calculations
+    (*dir)->size = fd->size;
+    (*dir)->offset = 0;
+
+    return OK;
+}
+
+int vfs2_readdir(open_file_t *dir, struct dirent *out) {
+    // to update after the break... 
     return ERR_NOT_IMPLEMENTED;
 }
 
-int vfs2_close(int fd) {
+int vfs2_rewinddir(open_file_t *dir) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-ssize_t vfs2_read(int fd, void *buf, size_t len) {
-    // i/o (validate FD, copy buffers if needed, call driver read/write/flush, offset lives in open_file_t)
-    return ERR_NOT_IMPLEMENTED;
-}
-
-ssize_t vfs2_write(int fd, const void *buf, size_t len) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-off_t vfs2_seek(int fd, off_t off, int whence) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-int vfs2_flush(int fd) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-int vfs2_opendir(const char *path, int *out_fd) {
-    // directory operations (same FD table as files, type check (must be directory), driver handles iteration state in open_file_t))
-    return ERR_NOT_IMPLEMENTED;
-}
-
-int vfs2_readdir(int fd, struct dirent *out) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-int vfs2_rewinddir(int fd) {
-    return ERR_NOT_IMPLEMENTED;
-}
-
-int vfs2_closedir(int fd) {
+int vfs2_closedir(open_file_t *dir) {
     return ERR_NOT_IMPLEMENTED;
 }
 
@@ -232,7 +291,7 @@ int vfs2_stat(const char *path, struct stat *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-int vfs2_fstat(int fd, struct stat *out) {
+int vfs2_fstat(open_file_t *file, struct stat *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 

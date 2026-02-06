@@ -11,7 +11,8 @@ typedef struct open_file open_file_t;
 struct open_file {           
     superblock_t *sb;
     file_descriptor_t *fd;        // immutable identity
-    uint64_t offset;              // VFS-owned file position
+    uint64_t offset;              // VFS-maintained file position
+    uint64_t size;                // VFS-maintained size copy
     uint32_t flags;               // RDONLY, WRONLY, APPEND, etc
     void *driver_priv_data;       // driver-specific open context
     lock_t lock;                  // protects offset & state

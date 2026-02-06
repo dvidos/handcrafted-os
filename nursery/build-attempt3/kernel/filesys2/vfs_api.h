@@ -13,24 +13,24 @@ int vfs2_unmount(const char *path);
 int vfs2_sync(void);
 
 // file open/close (resolve path -> file_descriptor_t, allocate open_file_t, call fd->sb->driver->open(fd, flags, open_file);, store open_file_t in process FD table)
-int vfs2_open(const char *path, int flags, int *out_fd);
-int vfs2_close(int fd);
+int vfs2_open(const char *path, int flags, open_file_t **file);
+int vfs2_close(open_file_t *file);
 
 // i/o (validate FD, copy buffers if needed, call driver read/write/flush, offset lives in open_file_t)
-ssize_t vfs2_read(int fd, void *buf, size_t len);
-ssize_t vfs2_write(int fd, const void *buf, size_t len);
-off_t vfs2_seek(int fd, off_t off, int whence);
-int vfs2_flush(int fd);
+ssize_t vfs2_read(open_file_t *file, void *buf, size_t len);
+ssize_t vfs2_write(open_file_t *file, const void *buf, size_t len);
+off_t vfs2_seek(open_file_t *file, off_t off, int whence);
+int vfs2_flush(open_file_t *file);
 
 // directory operations (same FD table as files, type check (must be directory), driver handles iteration state in open_file_t))
-int vfs2_opendir(const char *path, int *out_fd);
-int vfs2_readdir(int fd, struct dirent *out);
-int vfs2_rewinddir(int fd);
-int vfs2_closedir(int fd);
+int vfs2_opendir(const char *path, open_file_t **dir);
+int vfs2_readdir(open_file_t *dir, struct dirent *out);
+int vfs2_rewinddir(open_file_t *dir);
+int vfs2_closedir(open_file_t *dir);
 
 // metadata ops (resolve path or FD, call driver stat/truncate)
 int vfs2_stat(const char *path, struct stat *out);
-int vfs2_fstat(int fd, struct stat *out);
+int vfs2_fstat(open_file_t *file, struct stat *out);
 int vfs2_truncate(const char *path, size_t size);
 
 // creation/removal (resolve parent directory, extract final component name, call driver create/unlink/mkdir/rmdir)
