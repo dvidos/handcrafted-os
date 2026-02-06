@@ -30,7 +30,8 @@
 #define ERR_NO_SPACE_LEFT        -15
 #define ERR_NO_FS_MOUNTED        -16
 #define ERR_DIR_NOT_EMPTY        -17
-#define ERR_NO_RUNNING_PROCESS   -18
+#define ERR_DIR_HAS_MOUNT        -18
+#define ERR_NO_RUNNING_PROCESS   -19
 
 #define ERR_READING_FILE         -20
 #define ERR_WRITING_FILE         -21

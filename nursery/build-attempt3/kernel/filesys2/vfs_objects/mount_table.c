@@ -1,12 +1,17 @@
 #include "mount_table.h"
 #include "../../memory/kheap.h"
+#include "../../include/uapi/errors.h"
 
 
 // THE entry point
-mount_entry_t *mtab_entries_list_head = NULL;
+static mount_entry_t *mtab_entries_list_head = NULL;
 
 
-mount_entry_t *create_mount_entry(file_descriptor_t *host_dir, file_descriptor_t *new_root_dir) {
+static mount_entry_t *_mtab_get_entries_list() {
+    return mtab_entries_list_head;
+}
+
+static mount_entry_t *_mtab_create_entry(file_descriptor_t *host_dir, file_descriptor_t *new_root_dir) {
     mount_entry_t *e = (mount_entry_t *)kmalloc(sizeof(mount_entry_t));
 
     e->host_dir = host_dir;
@@ -19,11 +24,11 @@ mount_entry_t *create_mount_entry(file_descriptor_t *host_dir, file_descriptor_t
     return e;
 }
 
-void destroy_mount_entry(mount_entry_t *e) {
+static void _mtab_destroy_entry(mount_entry_t *e) {
     if (e) kfree(e);
 }
 
-void mtab_mount(mount_entry_t *e) {
+static int _mtab_add_entry(mount_entry_t *e) {
     if (mtab_entries_list_head == 0) {
         mtab_entries_list_head = e;
         e->next = 0;
@@ -37,9 +42,11 @@ void mtab_mount(mount_entry_t *e) {
         e->next = 0;
 
     }
+
+    return OK;
 }
 
-void mtab_unmount(mount_entry_t *e) {
+static int _mtab_remove_entry(mount_entry_t *e) {
     if (mtab_entries_list_head == e) {
         mtab_entries_list_head = e->next;
         e->next = NULL;
@@ -53,9 +60,11 @@ void mtab_unmount(mount_entry_t *e) {
             e->next = NULL;
         }
     }
+
+    return OK;
 }
 
-mount_entry_t *mtab_find_by_host_dir(file_descriptor_t *fd) {
+static mount_entry_t *_mtab_find_entry_by_host_dir(file_descriptor_t *fd) {
     for (mount_entry_t *e = mtab_entries_list_head; e != NULL; e = e->next) {
         if (file_descriptors.equals(fd, e->host_dir))
             return e;
@@ -64,7 +73,7 @@ mount_entry_t *mtab_find_by_host_dir(file_descriptor_t *fd) {
     return NULL;
 }
 
-mount_entry_t *mtab_find_by_root_dir(file_descriptor_t *fd) {
+static mount_entry_t *_mtab_find_entry_by_root_dir(file_descriptor_t *fd) {
     for (mount_entry_t *e = mtab_entries_list_head; e != NULL; e = e->next) {
         if (file_descriptors.equals(fd, e->root_dir))
             return e;
@@ -72,3 +81,13 @@ mount_entry_t *mtab_find_by_root_dir(file_descriptor_t *fd) {
     
     return NULL;
 }
+
+struct mount_table_ops mtab = {
+    .get_entries_list       = _mtab_get_entries_list,
+    .create_entry           = _mtab_create_entry,
+    .destroy_entry          = _mtab_destroy_entry,
+    .add_entry              = _mtab_add_entry,
+    .remove_entry           = _mtab_remove_entry,
+    .find_entry_by_host_dir = _mtab_find_entry_by_host_dir,
+    .find_entry_by_root_dir = _mtab_find_entry_by_root_dir,
+};

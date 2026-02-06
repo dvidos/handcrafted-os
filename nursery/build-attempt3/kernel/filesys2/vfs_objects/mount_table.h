@@ -18,17 +18,18 @@ struct mount_entry {
     uint32_t flags;  // see VFS_MOUNT_*
     int ref_count;
 
-    mount_entry_t *next;
+    mount_entry_t *next; // for mtab list
 };
 
 
-extern mount_entry_t *mtab_entries_list_head;  // THE filesystem variable
+struct mount_table_ops {
+    mount_entry_t *(*get_entries_list)();
+    mount_entry_t *(*create_entry)(file_descriptor_t *host_dir, file_descriptor_t *new_root_dir);
+    void (*destroy_entry)(mount_entry_t *e);
+    int (*add_entry)(mount_entry_t *e);
+    int (*remove_entry)(mount_entry_t *e);
+    mount_entry_t *(*find_entry_by_host_dir)(file_descriptor_t *fd);
+    mount_entry_t *(*find_entry_by_root_dir)(file_descriptor_t *fd);
+};
 
-
-mount_entry_t *create_mount_entry(file_descriptor_t *host_dir, file_descriptor_t *new_root_dir);
-void destroy_mount_entry(mount_entry_t *e);
-void mtab_mount(mount_entry_t *e);
-void mtab_unmount(mount_entry_t *e);
-mount_entry_t *mtab_find_by_host_dir(file_descriptor_t *fd);
-mount_entry_t *mtab_find_by_root_dir(file_descriptor_t *fd);
-
+extern struct mount_table_ops mtab;

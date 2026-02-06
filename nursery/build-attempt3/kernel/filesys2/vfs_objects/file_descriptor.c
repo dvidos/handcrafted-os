@@ -1,4 +1,5 @@
 #include "file_descriptor.h"
+#include "../../include/uapi/vfs2_file_flags.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 
@@ -76,9 +77,19 @@ static void _file_descriptor_destroy(file_descriptor_t *fd) {
     kfree(fd);
 }
 
+static bool _file_descriptor_is_dir(file_descriptor_t *fd) {
+    return (fd->mode & S_IFMT) == S_IFDIR;
+}
+
+static bool _file_descriptor_is_file(file_descriptor_t *fd) {
+    return (fd->mode & S_IFMT) == S_IFREG;
+}
+
 struct file_descriptor_ops file_descriptors = {
     .create  = _file_descriptor_create,
     .clone   = _file_descriptor_clone,
     .equals  = _file_descriptor_equals,
     .destroy = _file_descriptor_destroy,
+    .is_dir  = _file_descriptor_is_dir,
+    .is_file = _file_descriptor_is_file,
 };

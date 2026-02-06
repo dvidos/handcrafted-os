@@ -12,9 +12,6 @@ int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver);
 int vfs2_unmount(const char *path);
 int vfs2_sync(void);
 
-// path resolution (walks path components, handles . / .., crosses mount points, repeatedly calls lookup())
-int vfs2_resolve(const char *path, file_descriptor_t *start, file_descriptor_t **out);
-
 // file open/close (resolve path -> file_descriptor_t, allocate open_file_t, call fd->sb->driver->open(fd, flags, open_file);, store open_file_t in process FD table)
 int vfs2_open(const char *path, int flags, int *out_fd);
 int vfs2_close(int fd);

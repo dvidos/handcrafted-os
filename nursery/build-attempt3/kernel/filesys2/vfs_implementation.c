@@ -8,12 +8,24 @@
 #include "../klib/path.h"
 #include "../klib/string.h"
 
+typedef enum vfs_lookup_method {
+    VFS_LOOKUP_NORMAL,
+    VFS_LOOKUP_PARENT
+} vfs_lookup_method;
 
-static int vfs2_lookup(file_descriptor_t *start, const char *path, file_descriptor_t **out) {
-    if (path == NULL || *path == 0)
+typedef struct vfs_lookup_result {
+    file_descriptor_t *fd;         // when normal lookup
+    file_descriptor_t *parent_dir; // when parent lookup
+    const char *last_name;
+} vfs_lookup_result;
+
+static int vfs2_lookup(file_descriptor_t *start, const char *path, vfs_lookup_method method, vfs_lookup_result *result) {
+    if (path == NULL || *path == 0 || path[0] != '/')
         return ERR_BAD_ARGUMENT;
+    if (mtab.get_entries_list() == NULL)
+        return ERR_NO_FS_MOUNTED;
 
-    file_descriptor_t *curr = start;
+    file_descriptor_t *curr = file_descriptors.clone(start);
     file_descriptor_t *next = NULL;
     mount_entry_t *mte;
 
@@ -23,11 +35,20 @@ static int vfs2_lookup(file_descriptor_t *start, const char *path, file_descript
     int err;
 
     if (path[part_start] == '/') {
-        curr = mtab_entries_list_head->root_dir;
+        curr = mtab.get_entries_list()->root_dir;
         part_start++;
     }
 
     while (part_start < path_len) {
+
+        // see if we are looking for parent dir and we are done
+        if (method == VFS_LOOKUP_PARENT && strchr(path + part_start, '/') == 0) {
+            result->parent_dir = curr;
+            result->last_name = path + part_start;
+            return OK;
+        }
+
+        // else, we need to continue the path
         err = get_next_path_part(path, &part_start, path_part);
         if (err) return err;
 
@@ -36,48 +57,131 @@ static int vfs2_lookup(file_descriptor_t *start, const char *path, file_descript
         
         if (strcmp(path_part, "..") == 0) {
             // we may cross a mount point
-            mte = mtab_find_by_root_dir(curr);
-            if (mte != NULL && mte->host_dir != NULL)
-                curr = mte->host_dir;
+            mte = mtab.find_entry_by_root_dir(curr);
+            if (mte != NULL && mte->host_dir != NULL) {
+                file_descriptors.destroy(curr);
+                curr = file_descriptors.clone(mte->host_dir);
+            }
             // fallback into leaving the fs driver find the ".." entry
         }
 
-        if ((curr->mode & S_IFMT) != S_IFDIR)
+        if (!file_descriptors.is_dir(curr))
             return ERR_NOT_A_DIRECTORY;
-
+        
         err = curr->sb->driver->lookup(curr, path_part, &next);
         if (err) return err;
 
         // we may cross a mount point
-        mte = mtab_find_by_host_dir(next);
+        mte = mtab.find_entry_by_host_dir(next);
         if (mte != NULL) {
-            next = mte->root_dir;
+            file_descriptors.destroy(next);
+            next = file_descriptors.clone(mte->root_dir);
         }
 
+        file_descriptors.destroy(curr);
         curr = next;
     }
 
-    *out = curr;
+    result->fd = curr;
     return OK;
 }
+
+static int vfs2_lookup_target(const char *path, file_descriptor_t **target_out) {
+    if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
+
+    vfs_lookup_result result;
+    int err = vfs2_lookup(NULL, path, VFS_LOOKUP_NORMAL, &result);
+    if (err) return err;
+
+    *target_out = result.fd;
+    return OK;
+}
+
+static int vfs2_lookup_parent(const char *path, file_descriptor_t **parent_out, const char **final_name) {
+    if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
+
+    vfs_lookup_result result;
+    int err = vfs2_lookup(NULL, path, VFS_LOOKUP_PARENT, &result);
+    if (err) return err;
+
+    *parent_out = result.parent_dir;
+    *final_name = result.last_name;
+    return OK;
+}
+
 
 // ----------------------------------------------------------------------------------------
 
 int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
-    return ERR_NOT_IMPLEMENTED;
+    int err;
+    file_descriptor_t *host_dir;
+
+    if (strcmp(path, "/") == 0) {
+        // mount without parent
+        if (mtab.get_entries_list() != NULL)
+            return ERR_DIR_HAS_MOUNT;
+        host_dir = NULL;
+
+    } else {
+        err = vfs2_lookup_target(path, &host_dir);
+        if (err != OK) return err;
+
+        if (!file_descriptors.is_dir(host_dir))
+            return ERR_NOT_A_DIRECTORY;
+
+        mount_entry_t *me = mtab.find_entry_by_host_dir(host_dir);
+        if (me != NULL) return ERR_DIR_HAS_MOUNT;
+    }
+
+    superblock_t *sb = superblocks.create(driver, dev);
+    err = driver->mount(sb);
+    if (err) return err;
+
+    file_descriptor_t *new_root_dir;
+    err = driver->get_root_dir(sb, &new_root_dir);
+    if (err) return err;
+
+    mount_entry_t *entry = mtab.create_entry(host_dir, new_root_dir);
+    err = mtab.add_entry(entry);
+    if (err) return err;
+
+    // should release memory if failed
+    return OK;
 }
 
 int vfs2_unmount(const char *path) {
-    return ERR_NOT_IMPLEMENTED;
+    int err;
+    file_descriptor_t *dir;
+
+    err = vfs2_lookup_target(path, &dir);
+    if (err) return err;
+
+    mount_entry_t *entry = mtab.find_entry_by_host_dir(dir);
+    if (entry == NULL) return ERR_NOT_FOUND;
+
+    err = entry->sb->driver->sync(entry->sb);
+    if (err) return err;
+
+    err = entry->sb->driver->unmount(entry->sb);
+    if (err) return err;
+
+    err = mtab.remove_entry(entry);
+    if (err) return err;
+    
+    mtab.destroy_entry(entry);
+    return OK;
 }
 
 int vfs2_sync(void) {
-    return ERR_NOT_IMPLEMENTED;
-}
+    int err;
+    mount_entry_t *entry;
 
-int vfs2_resolve(const char *path, file_descriptor_t *start, file_descriptor_t **out) {
-    // path resolution (walks path components, handles . / .., crosses mount points, repeatedly calls lookup())
-    return ERR_NOT_IMPLEMENTED;
+    for (entry = mtab.get_entries_list(); entry != NULL; entry = entry->next) {
+        // ignore errors and try to sync all, anyway
+        entry->sb->driver->sync(entry->sb);
+    }
+
+    return OK;
 }
 
 int vfs2_open(const char *path, int flags, int *out_fd) {
