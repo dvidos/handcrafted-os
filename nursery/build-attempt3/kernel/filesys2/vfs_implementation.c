@@ -223,10 +223,10 @@ ssize_t vfs2_write(open_file_t *file, const void *buf, size_t len) {
     ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
-    // do we need to update the offset and file size?
 
     // do we need copy-from-user?
 
+    // maintain offset and size of seek
     file->offset += bytes;
     if (file->offset > file->size)
         file->size = file->offset;
@@ -274,45 +274,104 @@ int vfs2_opendir(const char *path, open_file_t **dir) {
 }
 
 int vfs2_readdir(open_file_t *dir, struct dirent *out) {
-    // to update after the break... 
-    return ERR_NOT_IMPLEMENTED;
+    int bytes;
+
+    bytes = dir->sb->driver->readdir(dir, out);
+    if (bytes < 0) return bytes; // negative numbers are errors
+
+    dir->offset += bytes;
+    return bytes;
 }
 
 int vfs2_rewinddir(open_file_t *dir) {
-    return ERR_NOT_IMPLEMENTED;
+    int err = dir->sb->driver->rewinddir(dir);
+    if (err) return err;
+
+    dir->offset = 0;
+    return OK;
 }
 
 int vfs2_closedir(open_file_t *dir) {
-    return ERR_NOT_IMPLEMENTED;
+    int err = dir->sb->driver->closedir(dir);
+    if (err) return err;
+
+    open_files.destroy(dir);
+    return OK;
 }
 
 int vfs2_stat(const char *path, struct stat *out) {
-    // metadata ops (resolve path or FD, call driver stat/truncate)
-    return ERR_NOT_IMPLEMENTED;
+    file_descriptor_t *fd;
+    int err = vfs2_lookup_target(path, &fd);
+    if (err) return err;
+
+    err = fd->sb->driver->stat(fd, out);
+    if (err) return err;
+
+    return OK;
 }
 
 int vfs2_fstat(open_file_t *file, struct stat *out) {
-    return ERR_NOT_IMPLEMENTED;
+    return file->sb->driver->stat(file->fd, out);
 }
 
 int vfs2_truncate(const char *path, size_t size) {
-    return ERR_NOT_IMPLEMENTED;
+    file_descriptor_t *fd;
+    int err = vfs2_lookup_target(path, &fd);
+    if (err) return err;
+
+    err = fd->sb->driver->truncate(fd, size);
+    if (err) return err;
+
+    return OK;
 }
 
 int vfs2_create(const char *path, int type) {
-    // creation/removal (resolve parent directory, extract final component name, call driver create/unlink/mkdir/rmdir)
-    return ERR_NOT_IMPLEMENTED;
+    file_descriptor_t *dir;
+    const char *name_ptr;
+    int err = vfs2_lookup_parent(path, &dir, &name_ptr);
+    if (err) return err;
+
+    file_descriptor_t *new_file;
+    err = dir->sb->driver->create(dir, name_ptr, type, &new_file);
+    if (err) return err;
+
+    return OK;
 }
 
 int vfs2_unlink(const char *path) {
-    return ERR_NOT_IMPLEMENTED;
+    file_descriptor_t *dir;
+    const char *name_ptr;
+    int err = vfs2_lookup_parent(path, &dir, &name_ptr);
+    if (err) return err;
+
+    file_descriptor_t *new_file;
+    err = dir->sb->driver->unlink(dir, name_ptr);
+    if (err) return err;
+
+    return OK;
 }
 
 int vfs2_mkdir(const char *path) {
-    return ERR_NOT_IMPLEMENTED;
+    file_descriptor_t *dir;
+    const char *name_ptr;
+    int err = vfs2_lookup_parent(path, &dir, &name_ptr);
+    if (err) return err;
+
+    err = dir->sb->driver->mkdir(dir, name_ptr);
+    if (err) return err;
+
+    return OK;
 }
 
 int vfs2_rmdir(const char *path) {
-    return ERR_NOT_IMPLEMENTED;
+    file_descriptor_t *dir;
+    const char *name_ptr;
+    int err = vfs2_lookup_parent(path, &dir, &name_ptr);
+    if (err) return err;
+
+    err = dir->sb->driver->rmdir(dir, name_ptr);
+    if (err) return err;
+
+    return OK;
 }
 
