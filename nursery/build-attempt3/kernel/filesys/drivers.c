@@ -32,7 +32,7 @@ struct filesys_driver *find_vfs_driver_for_partition(struct partition *partition
     struct filesys_driver *driver = drivers_list;
     while (driver != NULL) {
         int result = driver->supported(partition);
-        if (result == SUCCESS)
+        if (result == OK)
             return driver;
         driver = driver->next;
     }

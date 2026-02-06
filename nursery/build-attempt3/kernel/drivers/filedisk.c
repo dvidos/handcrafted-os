@@ -30,7 +30,7 @@ static int filedisk_read(struct storage_dev *dev, uint32_t sector_low, uint32_t 
     
     vfs_seek(filedisk_info.file, sector_low * SECTOR_SIZE, SEEK_START);
     vfs_read(filedisk_info.file, buffer, SECTOR_SIZE);
-    return SUCCESS;
+    return OK;
 }
 
 static int filedisk_write(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
@@ -39,7 +39,7 @@ static int filedisk_write(struct storage_dev *dev, uint32_t sector_low, uint32_t
     
     vfs_seek(filedisk_info.file, sector_low * SECTOR_SIZE, SEEK_START);
     vfs_write(filedisk_info.file, buffer, SECTOR_SIZE);
-    return SUCCESS;
+    return OK;
 }
 
 // creates a ram disk of some size and registers with device manager

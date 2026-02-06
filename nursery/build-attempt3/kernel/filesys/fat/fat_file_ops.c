@@ -37,7 +37,7 @@ static int priv_file_open(fat_info *fat, uint32_t cluster_no, uint32_t file_size
     pf->first_cluster_no = cluster_no;
     pf->size = file_size;
     pf->offset = 0;
-    err = SUCCESS;
+    err = OK;
     goto out;
 error:
     if (pf->cluster != NULL && pf->cluster->buffer != NULL) kfree(pf->cluster->buffer);
@@ -56,7 +56,7 @@ static int priv_file_read(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffer
 
     length = max(length, 0);
     if (length == 0)
-        return SUCCESS;
+        return OK;
     
     // don't allow reading past EOF
     if (pf->offset + length > pf->size)
@@ -103,7 +103,7 @@ static int priv_file_write(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffe
 
     length = max(length, 0);
     if (length == 0)
-        return SUCCESS;
+        return OK;
     
     // ensure there is a cluster to write, even a first one, for new files
     fat->ops->ensure_first_cluster_allocated(fat, pf);
@@ -122,7 +122,7 @@ static int priv_file_write(fat_info *fat, fat_priv_file_info *pf, uint8_t *buffe
 
         length -= chunk_len;
         if (length == 0)
-            return SUCCESS;
+            return OK;
 
         // move to next cluster, writing this if dirty
         err = fat->ops->move_to_next_data_cluster(fat, pf, true);
@@ -192,7 +192,7 @@ static int priv_file_close(fat_info *fat, fat_priv_file_info *pf) {
     kfree(pf->cluster);
     kfree(pf);
 
-    return SUCCESS;
+    return OK;
 }
 
 

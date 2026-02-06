@@ -104,7 +104,7 @@ int get_next_path_part(const char *path, int *offset, char *buffer) {
         buffer[length] = '\0';
     }
     (*offset) += strlen(buffer);
-    return SUCCESS;
+    return OK;
 }
 
 
@@ -155,6 +155,6 @@ int get_n_index_path_part(char *path, int n, char *buffer) {
             return err;
     }
     
-    return SUCCESS;
+    return OK;
 }
 

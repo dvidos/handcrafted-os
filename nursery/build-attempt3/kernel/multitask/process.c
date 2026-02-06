@@ -328,7 +328,7 @@ int proc_getcwd(process_t *proc, char *buffer, int size) {
     // how is this updated when the folder is deleted from the filesystem?
     // maybe a message should be broadcasted to all processes?
     strcpy(buffer, proc->curr_dir_path);
-    return SUCCESS;
+    return OK;
 }
 
 // in unices, this would be called chdir(), especially in libc
@@ -351,7 +351,7 @@ int proc_chdir(process_t *proc, const char *path) {
         kfree(proc->curr_dir_path);
     file_descriptor_get_full_path(proc->curr_dir, &proc->curr_dir_path);
     
-    return SUCCESS;
+    return OK;
 }
 
 static void scheduler_unlocking_entry_point() {
@@ -478,7 +478,7 @@ static int free_file_handle(process_t *proc, int handle) {
     memset(&proc->file_handles[handle], 0, sizeof(file_t));
     release(&proc->process_lock);
 
-    return SUCCESS;
+    return OK;
 }
 
 int proc_open(process_t *proc, char *name) {
@@ -516,7 +516,7 @@ int proc_close(process_t *proc, int handle) {
     if (err) return err;
 
     free_file_handle(proc, handle);
-    return SUCCESS;
+    return OK;
 }
 
 int proc_opendir(process_t *proc, char *name) {
@@ -556,7 +556,7 @@ int proc_closedir(process_t *proc, int handle) {
     if (err) return err;
 
     free_file_handle(proc, handle);
-    return SUCCESS;
+    return OK;
 }
 
 

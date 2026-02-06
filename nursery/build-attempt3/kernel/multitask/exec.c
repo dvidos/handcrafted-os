@@ -107,13 +107,13 @@ int execve(char *path, char *argv[], char *envp[]) {
     // usually here we have the parent as current process (e.g. vi was launched, we go sh as current)
     log_debug("execve(): after start_process() returned, current proc is %s[%d]", running_process()->name, running_process()->pid);
 
-    err = SUCCESS;
+    err = OK;
 exit:
     if (file_open)
         vfs_close(file);
     if (err)
         log_debug("execve() --> %d", err);
-    return err == SUCCESS ? new_proc->pid : err;
+    return err == OK ? new_proc->pid : err;
 }
 
 

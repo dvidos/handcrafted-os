@@ -27,7 +27,7 @@ static int ramdisk_read(struct storage_dev *dev, uint32_t sector_low, uint32_t s
     
     void *src = ramdisk_info.address + sector_low * SECTOR_SIZE;
     memcpy(buffer, src, SECTOR_SIZE);
-    return SUCCESS;
+    return OK;
 }
 
 static int ramdisk_write(struct storage_dev *dev, uint32_t sector_low, uint32_t sector_hi, uint32_t sectors, char *buffer) {
@@ -36,7 +36,7 @@ static int ramdisk_write(struct storage_dev *dev, uint32_t sector_low, uint32_t 
     
     void *dst = ramdisk_info.address + sector_low * SECTOR_SIZE;
     memcpy(dst, buffer, SECTOR_SIZE);
-    return SUCCESS;
+    return OK;
 }
 
 // creates a ram disk of some size and registers with device manager

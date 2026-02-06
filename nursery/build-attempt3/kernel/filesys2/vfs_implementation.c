@@ -263,14 +263,14 @@ off_t vfs2_seek(open_file_t *file, off_t offset, int whence) {
     return new_offset;
 }
 
-int vfs2_flush(open_file_t *file) {
+error_t vfs2_flush(open_file_t *file) {
     int err = file->sb->driver->flush(file);
     if (err) return err;
 
     return OK;
 }
 
-int vfs2_opendir(const char *path, open_file_t **dir) {
+error_t vfs2_opendir(const char *path, open_file_t **dir) {
     int err;
     file_descriptor_t *fd;
 
@@ -289,17 +289,17 @@ int vfs2_opendir(const char *path, open_file_t **dir) {
     return OK;
 }
 
-int vfs2_readdir(open_file_t *dir, struct dirent *out) {
+ssize_t vfs2_readdir(open_file_t *dir, struct dirent *out) {
     int bytes;
 
     bytes = dir->sb->driver->readdir(dir, out);
     if (bytes < 0) return bytes; // negative numbers are errors
 
     dir->offset += bytes;
-    return bytes;
+    return bytes; // returning 0 at end, is more POSIX like
 }
 
-int vfs2_rewinddir(open_file_t *dir) {
+error_t vfs2_rewinddir(open_file_t *dir) {
     int err = dir->sb->driver->rewinddir(dir);
     if (err) return err;
 
@@ -307,7 +307,7 @@ int vfs2_rewinddir(open_file_t *dir) {
     return OK;
 }
 
-int vfs2_closedir(open_file_t *dir) {
+error_t vfs2_closedir(open_file_t *dir) {
     int err = dir->sb->driver->closedir(dir);
     if (err) return err;
 
@@ -315,7 +315,7 @@ int vfs2_closedir(open_file_t *dir) {
     return OK;
 }
 
-int vfs2_stat(const char *path, struct stat *out) {
+error_t vfs2_stat(const char *path, struct stat *out) {
     file_descriptor_t *fd;
     int err = vfs2_lookup_target(path, &fd);
     if (err) return err;
@@ -326,11 +326,11 @@ int vfs2_stat(const char *path, struct stat *out) {
     return OK;
 }
 
-int vfs2_fstat(open_file_t *file, struct stat *out) {
+error_t vfs2_fstat(open_file_t *file, struct stat *out) {
     return file->sb->driver->stat(file->fd, out);
 }
 
-int vfs2_truncate(const char *path, size_t size) {
+error_t vfs2_truncate(const char *path, size_t size) {
     file_descriptor_t *fd;
     int err = vfs2_lookup_target(path, &fd);
     if (err) return err;
@@ -341,7 +341,7 @@ int vfs2_truncate(const char *path, size_t size) {
     return OK;
 }
 
-int vfs2_create(const char *path, int type) {
+error_t vfs2_create(const char *path, int type) {
     file_descriptor_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);
@@ -354,7 +354,7 @@ int vfs2_create(const char *path, int type) {
     return OK;
 }
 
-int vfs2_unlink(const char *path) {
+error_t vfs2_unlink(const char *path) {
     file_descriptor_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);
@@ -367,7 +367,7 @@ int vfs2_unlink(const char *path) {
     return OK;
 }
 
-int vfs2_mkdir(const char *path) {
+error_t vfs2_mkdir(const char *path) {
     file_descriptor_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);
@@ -379,7 +379,7 @@ int vfs2_mkdir(const char *path) {
     return OK;
 }
 
-int vfs2_rmdir(const char *path) {
+error_t vfs2_rmdir(const char *path) {
     file_descriptor_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);

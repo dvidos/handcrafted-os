@@ -41,7 +41,7 @@ static int priv_dir_open_root(fat_info *fat, fat_priv_dir_info **ppd) {
     log_debug("priv_dir_open_root(), read %d sectors at LBA %d", 1, fat->root_dir_starting_lba);
     log_debug_hex(pd->fat16_root_data.sector_buffer, fat->bytes_per_sector, 0);
 
-    return SUCCESS;
+    return OK;
 }
 
 static int priv_dir_open_cluster(fat_info *fat, uint32_t cluster_no, fat_priv_dir_info **ppd) {
@@ -86,7 +86,7 @@ static int priv_dir_find_and_open(fat_info *fat,  uint8_t *path, bool containing
         if (err) goto exit;
     }
 
-    err = SUCCESS;
+    err = OK;
 exit:
     if (entry != NULL)
         kfree(entry);
@@ -98,7 +98,7 @@ static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buf
     int err;
     if (!pd->is_fat16_root) {
         err = fat->ops->priv_file_read(fat, pd->pf, buffer32, BYTES_PER_DIR_SLOT);
-        return (err < 0) ? err : SUCCESS; // we don't care how many bytes we read
+        return (err < 0) ? err : OK; // we don't care how many bytes we read
     }
 
     // fat 16 root code here
@@ -129,7 +129,7 @@ static int priv_dir_read_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buf
     memcpy(buffer32, pd->fat16_root_data.sector_buffer + pd->fat16_root_data.offset_in_sector, BYTES_PER_DIR_SLOT);
     pd->fat16_root_data.offset_in_sector += BYTES_PER_DIR_SLOT;
 
-    return SUCCESS;
+    return OK;
 }
 
 static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *buffer32) {
@@ -137,7 +137,7 @@ static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *bu
     int err;
     if (!pd->is_fat16_root) {
         err = fat->ops->priv_file_write(fat, pd->pf, buffer32, BYTES_PER_DIR_SLOT);
-        return (err < 0) ? err : SUCCESS; // we don't care how many bytes we read
+        return (err < 0) ? err : OK; // we don't care how many bytes we read
     }
 
     // fat 16 root code here
@@ -169,7 +169,7 @@ static int priv_dir_write_slot(fat_info *fat, fat_priv_dir_info *pd, uint8_t *bu
     pd->fat16_root_data.offset_in_sector += BYTES_PER_DIR_SLOT;
     pd->fat16_root_data.sector_dirty = true;
 
-    return SUCCESS;
+    return OK;
 }
 
 static int priv_dir_get_slot_no(fat_info *fat, fat_priv_dir_info *pd) {
@@ -218,7 +218,7 @@ static int priv_dir_seek_slot(fat_info *fat, fat_priv_dir_info *pd, int slot_no)
 
     pd->fat16_root_data.offset_in_sector = (slot_no * BYTES_PER_DIR_SLOT) % fat->bytes_per_sector;
 
-    return SUCCESS;
+    return OK;
 }
 
 static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
@@ -240,7 +240,7 @@ static int priv_dir_close(fat_info *fat, fat_priv_dir_info *pd) {
         if (err) return err;
     }
     kfree(pd);
-    return SUCCESS;
+    return OK;
 }
 
 static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir_entry *entry) {
@@ -270,7 +270,7 @@ static int priv_dir_read_one_entry(fat_info *fat, fat_priv_dir_info *pd, fat_dir
         break;
     }
 
-    return SUCCESS;
+    return OK;
 }
 
 static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *name, uint32_t cluster_no, uint32_t size, bool directory) {
@@ -299,7 +299,7 @@ static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *nam
     while (true) {
         slot_no = priv_dir_get_slot_no(fat, pd);
         int err = priv_dir_read_slot(fat, pd, buffer32);
-        if (err != NO_ERROR && err != ERR_NO_MORE_CONTENT) goto exit;
+        if (err != OK && err != ERR_NO_MORE_CONTENT) goto exit;
 
         log_debug("priv_dir_read_slot() --> slot contents follow");
         log_debug_hex(buffer32, BYTES_PER_DIR_SLOT, 0);
@@ -324,7 +324,7 @@ static int priv_dir_create_entry(fat_info *fat, fat_priv_dir_info *pd, char *nam
         break;
     }
 
-    err = SUCCESS;
+    err = OK;
 exit:
     if (entry != NULL)
         kfree(entry);
@@ -362,7 +362,7 @@ static int priv_dir_entry_invalidate(fat_info *fat, fat_priv_dir_info *pd, fat_d
     err = priv_dir_write_slot(fat, pd, buffer32);
     if (err) return err;
 
-    return SUCCESS;
+    return OK;
 }
 
 
@@ -385,7 +385,7 @@ static int find_entry_in_dir(fat_info *fat, fat_priv_dir_info *pd, uint8_t *name
             break;
     }
     
-    return SUCCESS;
+    return OK;
 }
 
 // find the dir_entry for the containing dir of the path. we can then open it to perform operations.
@@ -393,7 +393,7 @@ static int find_path_dir_entry(fat_info *fat,  uint8_t *path, bool containing_di
     log_trace("find_path_dir_entry(path=\"%s\", containing=%s)", path, containing_dir ? "yes" : "no");
     fat_priv_dir_info *pd = NULL;
     int offset = 0;
-    int err = NO_ERROR;
+    int err = OK;
     char *name = kmalloc(strlen(path) + 1);
 
     int parts_count = count_path_parts(path);
@@ -431,7 +431,7 @@ static int find_path_dir_entry(fat_info *fat,  uint8_t *path, bool containing_di
 
         if (parts_so_far == parts_needed) {
             // we are done!
-            err = SUCCESS;
+            err = OK;
             break;
         }
         

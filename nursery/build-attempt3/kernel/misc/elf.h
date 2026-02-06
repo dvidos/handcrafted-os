@@ -10,7 +10,7 @@
 // though, for those we wouldn't call exec()...
 
 
-// returns SUCCESS or ERR_NOT_SUPPORTED accordingly
+// returns OK or ERR_NOT_SUPPORTED accordingly
 int verify_elf_executable(file_t *file);
 
 // calcualtes information for setting up a new process

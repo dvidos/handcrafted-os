@@ -121,7 +121,7 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
         mount->part->part_no,
         mount->driver->name,
         mount->mount_point);
-    return SUCCESS;
+    return OK;
 error:
     if (sb != NULL) kfree(sb);
     if (mount != NULL) {
@@ -158,7 +158,7 @@ int vfs_umount(char *path) {
     kfree(mount->mount_point);
     kfree(mount);
 
-    return SUCCESS;
+    return OK;
 }
 
 int vfs_discover_and_mount_filesystems(char *kernel_cmd_line) {
@@ -202,7 +202,7 @@ int vfs_discover_and_mount_filesystems(char *kernel_cmd_line) {
         part = part->next;
     }
 
-    return SUCCESS;
+    return OK;
 }
 
 

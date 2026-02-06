@@ -3,6 +3,7 @@
 // this file contains the contract that drivers must implement,
 // in order to participate in the VFS system
 
+#include "../../include/uapi/errors.h"
 #include "../../include/uapi/vfs2_file_flags.h"
 #include "../../include/uapi/vfs2_stat.h"
 #include "../../include/uapi/vfs2_dirent.h"
@@ -16,32 +17,32 @@ typedef struct fs_driver_ops   fs_driver_ops_t;
 
 // this is all a driver needs to support
 struct fs_driver_ops {
-    int (*probe)(block_device_t *dev);
-    int (*mount)(superblock_t *sb);
-    int (*unmount)(superblock_t *sb);
-    int (*sync)(superblock_t *sb);
-    int (*mkfs)(block_device_t *dev);
+    error_t (*probe)(block_device_t *dev);
+    error_t (*mount)(superblock_t *sb);
+    error_t (*unmount)(superblock_t *sb);
+    error_t (*sync)(superblock_t *sb);
+    error_t (*mkfs)(block_device_t *dev);
     
-    int (*get_root_dir)(superblock_t *sb, file_descriptor_t **out);
-    int (*lookup)(file_descriptor_t *dir, const char *name, file_descriptor_t **out);
+    error_t (*get_root_dir)(superblock_t *sb, file_descriptor_t **out);
+    error_t (*lookup)(file_descriptor_t *dir, const char *name, file_descriptor_t **out);
 
-    int (*open)(file_descriptor_t *fd, int flags, open_file_t **file_handle);
-    int (*close)(open_file_t *file);
-    int (*read)(open_file_t *file, void *buf, size_t len, off_t offset); // return bytes read
-    int (*write)(open_file_t *file, const void *buf, size_t len, off_t offset); // return bytes written
-    int (*flush)(open_file_t *file);
+    error_t (*open)(file_descriptor_t *fd, int flags, open_file_t **file_handle);
+    error_t (*close)(open_file_t *file);
+    ssize_t (*read)(open_file_t *file, void *buf, size_t len, off_t offset); // return bytes read
+    ssize_t (*write)(open_file_t *file, const void *buf, size_t len, off_t offset); // return bytes written
+    error_t (*flush)(open_file_t *file);
 
-    int (*opendir)(file_descriptor_t *dir, open_file_t **dir_handle);
-    int (*readdir)(open_file_t *dir_handle, struct dirent *out); // return bytes read
-    int (*rewinddir)(open_file_t *dir_handle);
-    int (*closedir)(open_file_t *dir_handle);
+    error_t (*opendir)(file_descriptor_t *dir, open_file_t **dir_handle);
+    error_t (*readdir)(open_file_t *dir_handle, struct dirent *out); // return bytes read
+    error_t (*rewinddir)(open_file_t *dir_handle);
+    error_t (*closedir)(open_file_t *dir_handle);
 
-    int (*create)(file_descriptor_t *parent, const char *name, int type, file_descriptor_t **out);
-    int (*unlink)(file_descriptor_t *parent, const char *name);
-    int (*mkdir)(file_descriptor_t *parent, const char *name); // dirs have special create semantics
-    int (*rmdir)(file_descriptor_t *parent, const char *name); // dirs have special delete semantics
+    error_t (*create)(file_descriptor_t *parent, const char *name, int type, file_descriptor_t **out);
+    error_t (*unlink)(file_descriptor_t *parent, const char *name);
+    error_t (*mkdir)(file_descriptor_t *parent, const char *name); // dirs have special create semantics
+    error_t (*rmdir)(file_descriptor_t *parent, const char *name); // dirs have special delete semantics
 
-    int (*stat)(file_descriptor_t *fd, struct stat *out);
-    int (*truncate)(file_descriptor_t *fd, size_t size);
+    error_t (*stat)(file_descriptor_t *fd, struct stat *out);
+    error_t (*truncate)(file_descriptor_t *fd, size_t size);
 };
 

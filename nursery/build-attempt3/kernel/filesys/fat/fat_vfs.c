@@ -50,11 +50,11 @@ static int fat_supported(struct partition *partition) {
     if (boot_sector->types.fat_12_16.boot_signature == 0x28 || 
         boot_sector->types.fat_12_16.boot_signature == 0x29) {
         log_debug("FAT12/16 detected");
-        err = SUCCESS;
+        err = OK;
     } else if (boot_sector->types.fat_32.boot_signature == 0x28 ||
         boot_sector->types.fat_32.boot_signature == 0x29) {
         log_debug("FAT32 detected");
-        err = SUCCESS;
+        err = OK;
     } else {
         log_debug("Neither FAT12/16, nor FAT32, unsupported");
         err = ERR_NOT_SUPPORTED;
@@ -231,7 +231,7 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     superblock->ops = fat_get_file_operations();
     superblock->priv_fs_driver_data = fat;
 
-    return SUCCESS;
+    return OK;
 
 error:
     if (boot_sector != NULL) kfree(boot_sector);
@@ -267,7 +267,7 @@ static int fat_close_superblock(struct superblock *superblock) {
     kfree(fat->ops);
     kfree(fat);
 
-    return SUCCESS;
+    return OK;
 }
 
 static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result) {
@@ -315,7 +315,7 @@ static int fat_open(file_descriptor_t *fd, int flags, file_t **file) {
 
     (*file) = create_file_t(fd->superblock, fd);
     (*file)->fs_driver_private_data = pfi;
-    return SUCCESS;
+    return OK;
 }
 
 static int fat_read(file_t *file, char *buffer, int length) {
@@ -359,7 +359,7 @@ static int fat_flush(file_t *file) {
         if (err) return err;
     }
 
-    return SUCCESS;
+    return OK;
 }
 
 static int fat_close(file_t *file) {
@@ -373,7 +373,7 @@ static int fat_close(file_t *file) {
 static int fat_root_descriptor(superblock_t *superblock, file_descriptor_t **fd) {
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
     *fd = fat->root_dir_descriptor;
-    return SUCCESS;
+    return OK;
 }
 
 
@@ -412,7 +412,7 @@ static int fat_readdir(file_t *file, file_descriptor_t **fd) {
     
     fat_dir_entry *fat_entry = kmalloc(sizeof(fat_dir_entry));
     int err = fat->ops->priv_dir_read_one_entry(fat, pdi, fat_entry);
-    if (err == SUCCESS) {
+    if (err == OK) {
         log_debug("fat_readdir(): gotten entry for \"%s\"", fat_entry->short_name);
         fat_dir_entry_to_file_descriptor(file->descriptor, fat_entry, fd);
     } else {
@@ -474,7 +474,7 @@ static int create_directory_entry(file_descriptor_t *parent_dir, char *name, uin
     err = fat->ops->priv_dir_create_entry(fat, pdi, name, cluster_no, size, want_directory);
     if (err) goto exit;
 
-    err = SUCCESS;
+    err = OK;
 exit:
     if (pdi != NULL)
         fat->ops->priv_dir_close(fat, pdi);
@@ -521,7 +521,7 @@ static int remove_directory_entry(file_descriptor_t *parent_dir, char *name, boo
     err = fat->ops->release_allocation_chain(fat, pdi->pf->sector, entry.first_cluster_no);
     if (err) goto exit;
 
-    err = SUCCESS;
+    err = OK;
 exit:
     if (pdi != NULL)
         fat->ops->priv_dir_close(fat, pdi);

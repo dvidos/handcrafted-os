@@ -83,7 +83,7 @@ static int get_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t 
     }
 
     log_trace("get_allocation_table_entry(cluster=%d), new_value=%d", cluster_no, *value);
-    return SUCCESS;
+    return OK;
 }
 
 static int set_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t cluster_no, uint32_t value) {
@@ -136,7 +136,7 @@ static int set_allocation_table_entry(fat_info *fat, sector_t *sector, uint32_t 
     }
 
     sector->dirty = true;
-    return SUCCESS;
+    return OK;
 }
 
 static bool is_end_of_chain_entry_value(fat_info *fat, uint32_t value) {
@@ -153,7 +153,7 @@ static int find_a_free_cluster(fat_info *fat, sector_t *sector, uint32_t *cluste
         if (value == 0) {
             *cluster_no = cl;
             log_trace("find_a_free_cluster() -> free_cluster=%d)", *cluster_no);
-            return SUCCESS;
+            return OK;
         }
     }
 
@@ -173,7 +173,7 @@ static int get_n_index_cluster_no(fat_info *fat, sector_t *sector, uint32_t firs
     }
 
     *cluster_no = curr_cluster_no;
-    return SUCCESS;
+    return OK;
 }
 
 static int read_data_cluster(fat_info *fat, uint32_t cluster_no, cluster_t *cluster) {
@@ -213,7 +213,7 @@ static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf)
     int err;
 
     if (pf->first_cluster_no > 0)
-        return SUCCESS;
+        return OK;
 
     // we see need to allocate. assuming caller has locked.
     // find a free cluster to allocate for this file
@@ -235,7 +235,7 @@ static int ensure_first_cluster_allocated(fat_info *fat, fat_priv_file_info *pf)
 
     // TODO: this needs to be persisted in the directory entry...
     pf->first_cluster_no = new_cluster_no;
-    return SUCCESS;
+    return OK;
 }
 
 // reads next data cluster, creating it if needed. pf->cluster assumed to contain current cluster
@@ -288,7 +288,7 @@ static int move_to_next_data_cluster(fat_info *fat, fat_priv_file_info *pf, bool
         return ERR_NO_MORE_CONTENT;
     }
 
-    return SUCCESS;
+    return OK;
 }
 
 // ensures the n'th cluster of the file is loaded
@@ -297,7 +297,7 @@ static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, u
 
     // maybe we don't need to do anything
     if (cluster_n_index == pf->cluster_n_index)
-        return SUCCESS;
+        return OK;
     
     // discover the cluster to load
     uint32_t target_cluster_no;
@@ -315,7 +315,7 @@ static int move_to_n_index_data_cluster(fat_info *fat, fat_priv_file_info *pf, u
     if (err) return err;
 
     pf->cluster_n_index = cluster_n_index;
-    return SUCCESS;
+    return OK;
 }
 
 static int allocate_new_cluster_chain(fat_info *fat, sector_t *sector, cluster_t *cluster, bool clear_data, uint32_t *first_cluster_no) {
@@ -344,8 +344,8 @@ log_debug("Clearing cluster data, for cluster %u", cluster_no);
     }
 
     *first_cluster_no = cluster_no;
-log_debug("allocate_new_cluster_chain() -> %d", SUCCESS);
-    return SUCCESS;
+log_debug("allocate_new_cluster_chain() -> %d", OK);
+    return OK;
 }
 
 static int release_allocation_chain(fat_info *fat, sector_t *sector, uint32_t first_cluster_no) {

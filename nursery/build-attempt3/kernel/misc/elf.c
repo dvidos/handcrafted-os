@@ -144,7 +144,7 @@ typedef struct {
 
 // -------------------------------------------------------------------------------------------------
 
-// returns SUCCESS or ERR_NOT_SUPPORTED accordingly
+// returns OK or ERR_NOT_SUPPORTED accordingly
 int verify_elf_executable(file_t *file) {
     log_trace("verify_elf_executable(\"%s\")", file->descriptor->name);
     char identification[16];
@@ -184,7 +184,7 @@ int verify_elf_executable(file_t *file) {
         return ERR_NOT_SUPPORTED;
  
     // yes, this is an ELF we can work with!
-    return SUCCESS;
+    return OK;
 }
 
 // calcualtes information for setting up a new process
@@ -238,7 +238,7 @@ int get_elf_load_information(file_t *file, void **virt_addr_start, void **virt_a
 
     *virt_addr_start = (void *)lowest_virtual_address;
     *virt_addr_end = (void *)highest_virtual_address;
-    err = SUCCESS;
+    err = OK;
 
 exit:
     if (elf_header != NULL)
@@ -301,7 +301,7 @@ int load_elf_into_memory(file_t *file) {
         if (err < 0) goto exit;
     }
 
-    err = SUCCESS;
+    err = OK;
 
 exit:
     if (elf_header != NULL)
@@ -390,7 +390,7 @@ int dump_elf_information(file_t *file) {
         dump_elf_program_header(false, program);
     }
 
-    err = SUCCESS;
+    err = OK;
 exit:
     if (names_data != NULL)
         kfree(names_data);

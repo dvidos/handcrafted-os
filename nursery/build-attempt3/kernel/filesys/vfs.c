@@ -75,7 +75,7 @@ static void debug_dir_entry_t(dir_entry_t *dir_entry) {
 int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
     log_trace("vfs_resolve(\"%s\", root=0x%x, curr=0x%x, container=%d)",
         path, root_dir, curr_dir, (int)containing_folder);
-    int err = SUCCESS;
+    int err = OK;
     char *path_copy = NULL;
     char *final_path = NULL;
     
@@ -173,7 +173,7 @@ int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_
     }
 
     // we visited all levels, we should be ok.
-    err = SUCCESS;
+    err = OK;
 out:
     if (path_copy != NULL)
         kfree(path_copy);
@@ -451,7 +451,7 @@ int vfs_rmdir(char *path) {
             log_debug("error %d opendir() directory to count contents", err);
             goto out;
         }
-        while (parent->superblock->ops->readdir(f, &fd) == SUCCESS) {
+        while (parent->superblock->ops->readdir(f, &fd) == OK) {
             if (strcmp(fd->name, ".") != 0 && strcmp(fd->name, "..") != 0)
                 dir_contents++;
             destroy_file_descriptor(fd);

@@ -30,23 +30,23 @@ void test_paths() {
     int err;
     
     err = get_next_path_part(path, &offset, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "usr") == 0);
     
     err = get_next_path_part(path, &offset, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "share") == 0);
     
     err = get_next_path_part(path, &offset, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "lib") == 0);
     
     err = get_next_path_part(path, &offset, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "kernel") == 0);
     
     err = get_next_path_part(path, &offset, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "klibc.a") == 0);
     
     err = get_next_path_part(path, &offset, buffer);
@@ -57,23 +57,23 @@ void test_paths() {
     assert(err == ERR_NOT_FOUND);
 
     err = get_n_index_path_part(path, 4, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "klibc.a") == 0);
 
     err = get_n_index_path_part(path, 3, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "kernel") == 0);
 
     err = get_n_index_path_part(path, 2, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "lib") == 0);
 
     err = get_n_index_path_part(path, 1, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "share") == 0);
 
     err = get_n_index_path_part(path, 0, buffer);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(strcmp(buffer, "usr") == 0);
 
 

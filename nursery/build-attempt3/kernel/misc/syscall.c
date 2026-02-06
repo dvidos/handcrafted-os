@@ -173,11 +173,11 @@ static int sys_get_clocktime(clocktime_t *ct) {
     ct->minutes = rtc.minutes;
     ct->seconds = rtc.seconds;
 
-    return SUCCESS;
+    return OK;
 }
 int sys_uptime(uint64_t *msecs) {
     *msecs = timer_get_uptime_msecs();
-    return SUCCESS;
+    return OK;
 }
 
 int isr_syscall(struct syscall_stack stack) {

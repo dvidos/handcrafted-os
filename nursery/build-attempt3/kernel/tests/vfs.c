@@ -46,7 +46,7 @@ void test_vfs() {
 
     // make sure that root dir can be returned, even if we have no current dir.
     err = vfs_resolve("/", root, NULL, false, &target);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(target != NULL);
     assert(target->superblock = superblock);
     assert(target->location == root->location);
@@ -56,7 +56,7 @@ void test_vfs() {
 
     // test root returned for the parent of something
     err = vfs_resolve("/something", root, NULL, true, &target);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(target != NULL);
     assert(target->superblock = superblock);
     assert(target->location == root->location);
@@ -66,7 +66,7 @@ void test_vfs() {
 
     // also, curr dir as well.
     err = vfs_resolve(".", root, curr, false, &target);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(target != NULL);
     assert(target->superblock = superblock);
     assert(target->location == curr->location);
@@ -76,7 +76,7 @@ void test_vfs() {
 
     // test curr dir returned for the parent of a file
     err = vfs_resolve("file", root, curr, true, &target);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(target != NULL);
     assert(target->superblock = superblock);
     assert(target->location == curr->location);
@@ -96,19 +96,19 @@ void test_vfs() {
     _mock_filesys_lookup_data[0].dir = root;
     _mock_filesys_lookup_data[0].name = "bin";
     _mock_filesys_lookup_data[0].result = bin;
-    _mock_filesys_lookup_data[0].ret_val = SUCCESS;
+    _mock_filesys_lookup_data[0].ret_val = OK;
 
     _mock_filesys_lookup_data[1].dir = bin;
     _mock_filesys_lookup_data[1].name = "sh";
     _mock_filesys_lookup_data[1].result = sh;
-    _mock_filesys_lookup_data[1].ret_val = SUCCESS;
+    _mock_filesys_lookup_data[1].ret_val = OK;
 
     logger_set_module_log_level("VFS", LOG_LEVEL_TRACE);
 
     // see resolution of bin, even if curr dir does not exist.
     err = vfs_resolve("/bin", root, NULL, false, &target);
     log_info("Returned %d", err);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(target != NULL);
     assert(target->location == bin->location);
     destroy_file_descriptor(target);
@@ -121,7 +121,7 @@ void test_vfs() {
     
     // see resolution of nested path
     err = vfs_resolve("/bin/sh", root, NULL, false, &target);
-    assert(err == SUCCESS);
+    assert(err == OK);
     assert(target != NULL);
     assert(target->superblock = superblock);
     assert(target->location == sh->location); // same location...
