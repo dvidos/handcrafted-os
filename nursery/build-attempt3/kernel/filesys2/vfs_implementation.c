@@ -210,7 +210,7 @@ int vfs2_close(open_file_t *file) {
 }
 
 ssize_t vfs2_read(open_file_t *file, void *buf, size_t len) {
-    ssize_t bytes = file->sb->driver->read(file, buf, len);
+    ssize_t bytes = file->sb->driver->read(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
     
@@ -220,7 +220,7 @@ ssize_t vfs2_read(open_file_t *file, void *buf, size_t len) {
 }
 
 ssize_t vfs2_write(open_file_t *file, const void *buf, size_t len) {
-    ssize_t bytes = file->sb->driver->write(file, buf, len);
+    ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
     // do we need to update the offset and file size?

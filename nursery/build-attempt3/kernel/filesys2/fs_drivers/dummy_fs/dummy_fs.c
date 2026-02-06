@@ -69,7 +69,7 @@ static int _dummy_fs_close(open_file_t *file) {
     return OK;
 }
 
-static int _dummy_fs_read(open_file_t *file, void *buf, size_t len) {
+static int _dummy_fs_read(open_file_t *file, void *buf, size_t len, off_t offset) {
     // grab private data and offset from file
     if (file->fd->inode != TEXT_FILE_INODE)
         return ERR_BAD_ARGUMENT;
@@ -85,7 +85,7 @@ static int _dummy_fs_read(open_file_t *file, void *buf, size_t len) {
     return read_size;
 }
 
-static int _dummy_fs_write(open_file_t *file, const void *buf, size_t len) {
+static int _dummy_fs_write(open_file_t *file, const void *buf, size_t len, off_t offset) {
     // grab private data and offset from file
     return ERR_NOT_PERMITTED;
 }
@@ -103,7 +103,7 @@ static int _dummy_fs_opendir(file_descriptor_t *dir, open_file_t **dir_handle) {
     return OK;
 }
 
-static int _dummy_fs_readdir(open_file_t *dir_handle, file_descriptor_t **out) {
+static int _dummy_fs_readdir(open_file_t *dir_handle, struct dirent *out) {
     if (dir_handle->offset == 0) {
         *out = file_descriptors.create(dir_handle->sb, TEXT_FILE_INODE, dir_handle->fd, TEXT_FILE_NAME);
         return OK;

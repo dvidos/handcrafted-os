@@ -26,12 +26,12 @@ struct fs_driver_ops {
 
     int (*open)(file_descriptor_t *fd, int flags, open_file_t **file_handle);
     int (*close)(open_file_t *file);
-    int (*read)(open_file_t *file, void *buf, size_t len);
-    int (*write)(open_file_t *file, const void *buf, size_t len);
+    int (*read)(open_file_t *file, void *buf, size_t len, off_t offset);
+    int (*write)(open_file_t *file, const void *buf, size_t len, off_t offset);
     int (*flush)(open_file_t *file);
 
     int (*opendir)(file_descriptor_t *dir, open_file_t **dir_handle);
-    int (*readdir)(open_file_t *dir_handle, file_descriptor_t **out);
+    int (*readdir)(open_file_t *dir_handle, struct dirent *out);
     int (*rewinddir)(open_file_t *dir_handle);
     int (*closedir)(open_file_t *dir_handle);
 

@@ -43,12 +43,12 @@ static int _skeleton_fs_close(open_file_t *file) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_read(open_file_t *file, void *buf, size_t len) {
+static int _skeleton_fs_read(open_file_t *file, void *buf, size_t len, off_t offset) {
     // grab private data and offset from file
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_write(open_file_t *file, const void *buf, size_t len) {
+static int _skeleton_fs_write(open_file_t *file, const void *buf, size_t len, off_t offset) {
     // grab private data and offset from file
     return ERR_NOT_IMPLEMENTED;
 }
@@ -62,7 +62,7 @@ static int _skeleton_fs_opendir(file_descriptor_t *dir, open_file_t **dir_handle
     return ERR_NOT_IMPLEMENTED;
 }
 
-static int _skeleton_fs_readdir(open_file_t *dir_handle, file_descriptor_t **out) {
+static int _skeleton_fs_readdir(open_file_t *dir_handle, struct dirent *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
