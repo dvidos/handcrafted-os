@@ -20,7 +20,8 @@ struct fs_driver_ops {
     int (*mount)(superblock_t *sb);
     int (*unmount)(superblock_t *sb);
     int (*sync)(superblock_t *sb);
-
+    int (*mkfs)(block_device_t *dev);
+    
     int (*get_root_dir)(superblock_t *sb, file_descriptor_t **out);
     int (*lookup)(file_descriptor_t *dir, const char *name, file_descriptor_t **out);
 

@@ -12,5 +12,3 @@ void panic(const char *message);
 typedef void (panic_writer_func)(const char *message);
 void panic_set_writer(panic_writer_func *writer);
 
-
-// TODO: remove panic from screen.h and migrate the whole codebase to use the above

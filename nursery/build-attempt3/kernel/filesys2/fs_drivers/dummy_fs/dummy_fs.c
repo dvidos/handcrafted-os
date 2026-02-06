@@ -38,6 +38,10 @@ static int _dummy_fs_sync(superblock_t *sb) {
     return OK;
 }
 
+static int _dummy_fs_mkfs(block_device_t *dev) {
+    return OK;
+}
+
 static int _dummy_fs_get_root_dir(superblock_t *sb, file_descriptor_t **out) {
     *out = file_descriptors.create(sb, ROOT_DIR_INODE, NULL, "/");
     return OK;
@@ -158,6 +162,7 @@ fs_driver_ops_t dummy_fs_ops = {
     .mount        = _dummy_fs_mount,
     .unmount      = _dummy_fs_unmount,
     .sync         = _dummy_fs_sync,
+    .mkfs         = _dummy_fs_mkfs,
     .get_root_dir = _dummy_fs_get_root_dir,
     .lookup       = _dummy_fs_lookup,
     .open         = _dummy_fs_open,

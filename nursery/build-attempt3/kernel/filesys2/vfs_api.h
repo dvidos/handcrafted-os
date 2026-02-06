@@ -48,3 +48,4 @@ int vfs2_rmdir(const char *path);
 // initial probing of storage devices is outside of VFS
 void fs_register(fs_driver_ops_t *drv);
 fs_driver_ops_t *fs_probe(block_device_t *dev);
+int fs_mkfs(block_device_t *dev, fs_driver_ops_t *ops);

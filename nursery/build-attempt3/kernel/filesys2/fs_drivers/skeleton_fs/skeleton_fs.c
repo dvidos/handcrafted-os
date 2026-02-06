@@ -25,6 +25,11 @@ static int _skeleton_fs_sync(superblock_t *sb) {
     return ERR_NOT_IMPLEMENTED;
 }
 
+static int _skeleton_fs_mkfs(block_device_t *dev) {
+    // just check if device seems to contain a supported filesystem
+    return ERR_NOT_IMPLEMENTED;
+}
+
 static int _skeleton_fs_get_root_dir(superblock_t *sb, file_descriptor_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
@@ -111,6 +116,7 @@ fs_driver_ops_t skeleton_fs_ops = {
     .mount        = _skeleton_fs_mount,
     .unmount      = _skeleton_fs_unmount,
     .sync         = _skeleton_fs_sync,
+    .mkfs         = _skeleton_fs_mkfs,
     .get_root_dir = _skeleton_fs_get_root_dir,
     .lookup       = _skeleton_fs_lookup,
     .open         = _skeleton_fs_open,

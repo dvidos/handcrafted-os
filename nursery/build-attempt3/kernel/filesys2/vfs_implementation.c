@@ -10,18 +10,32 @@
 #include "../klib/path.h"
 #include "../klib/string.h"
 
-typedef enum vfs_lookup_method {
-    VFS_LOOKUP_NORMAL,
-    VFS_LOOKUP_PARENT
-} vfs_lookup_method;
+struct substring {
+    const void *ptr;
+    unsigned len;
+};
 
-typedef struct vfs_lookup_result {
-    file_descriptor_t *fd;         // when normal lookup
-    file_descriptor_t *parent_dir; // when parent lookup
-    const char *last_name;
-} vfs_lookup_result;
+static struct substring get_path_first_substring(const char *path) {
+    if (path == NULL || *path == 0)
+        return (struct substring){.ptr = path, .len = 0};
+    
+    // skip initial slash
+    if (*path == '/')
+        path++;
+    if (*path == 0)
+        return (struct substring){.ptr = path, .len = 0};
+    
+    // find end slash, if any
+    char *slash = strchr(path, '/');
+    if (slash == 0)
+        return (struct substring){.ptr = path, .len = strlen(path)};
+    
+    // return just the part, without the final slash
+    return (struct substring){.ptr = path, .len = (slash - path)};
+}
 
-static int vfs2_lookup(file_descriptor_t *start, const char *path, vfs_lookup_method method, vfs_lookup_result *result) {
+
+static int vfs2_flex_lookup(file_descriptor_t *start, const char *path, bool lookup_parent, file_descriptor_t **fd_out, const char **name_out) {
     if (path == NULL || *path == 0 || path[0] != '/')
         return ERR_BAD_ARGUMENT;
     if (mtab.get_entries_list() == NULL)
@@ -31,33 +45,39 @@ static int vfs2_lookup(file_descriptor_t *start, const char *path, vfs_lookup_me
     file_descriptor_t *next = NULL;
     mount_entry_t *mte;
 
-    char path_part[256];
-    int part_start = 0;
+    char part_buffer[256];
+    int part_offset = 0;
     int path_len = strlen(path);
     int err;
 
-    if (path[part_start] == '/') {
+    // skip initial root slash, if any
+    if (path[part_offset] == '/') {
         curr = mtab.get_entries_list()->root_dir;
-        part_start++;
+        part_offset++;
     }
 
-    while (part_start < path_len) {
+    while (part_offset < path_len) {
 
         // see if we are looking for parent dir and we are done
-        if (method == VFS_LOOKUP_PARENT && strchr(path + part_start, '/') == 0) {
-            result->parent_dir = curr;
-            result->last_name = path + part_start;
+        if (lookup_parent && strchr(path + part_offset, '/') == 0) {
+            *fd_out = curr;
+            *name_out = path + part_offset;
             return OK;
         }
 
         // else, we need to continue the path
-        err = get_next_path_part(path, &part_start, path_part);
-        if (err) return err;
+        struct substring ss = get_path_first_substring(path + part_offset);
+        if (ss.len + 1 > sizeof(part_buffer))
+            return ERR_NAME_TOO_LONG;
+        memcpy(part_buffer, ss.ptr, ss.len);
+        part_buffer[ss.len] = 0;
+        part_offset += strlen(part_buffer) + 1;
 
-        if (path_part[0] == 0 || strcmp(path_part, ".") == 0)
+        // skip over empty parts or same dir
+        if (strlen(part_buffer) == 0 || strcmp(part_buffer, ".") == 0)
             continue;
         
-        if (strcmp(path_part, "..") == 0) {
+        if (strcmp(part_buffer, "..") == 0) {
             // we may cross a mount point
             mte = mtab.find_entry_by_root_dir(curr);
             if (mte != NULL && mte->host_dir != NULL) {
@@ -70,7 +90,7 @@ static int vfs2_lookup(file_descriptor_t *start, const char *path, vfs_lookup_me
         if (!file_descriptors.is_dir(curr))
             return ERR_NOT_A_DIRECTORY;
         
-        err = curr->sb->driver->lookup(curr, path_part, &next);
+        err = curr->sb->driver->lookup(curr, part_buffer, &next);
         if (err) return err;
 
         // we may cross a mount point
@@ -84,33 +104,29 @@ static int vfs2_lookup(file_descriptor_t *start, const char *path, vfs_lookup_me
         curr = next;
     }
 
-    result->fd = curr;
+    *fd_out = curr;
+    *name_out = 0;
     return OK;
 }
 
 static int vfs2_lookup_target(const char *path, file_descriptor_t **target_out) {
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
-    vfs_lookup_result result;
-    int err = vfs2_lookup(NULL, path, VFS_LOOKUP_NORMAL, &result);
+    const char *name_out;
+    int err = vfs2_flex_lookup(NULL, path, false, target_out, &name_out);
     if (err) return err;
 
-    *target_out = result.fd;
     return OK;
 }
 
-static int vfs2_lookup_parent(const char *path, file_descriptor_t **parent_out, const char **final_name) {
+static int vfs2_lookup_parent(const char *path, file_descriptor_t **parent_out, const char **final_name_out) {
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
-    vfs_lookup_result result;
-    int err = vfs2_lookup(NULL, path, VFS_LOOKUP_PARENT, &result);
+    int err = vfs2_flex_lookup(NULL, path, true, parent_out, final_name_out);
     if (err) return err;
 
-    *parent_out = result.parent_dir;
-    *final_name = result.last_name;
     return OK;
 }
-
 
 // ----------------------------------------------------------------------------------------
 

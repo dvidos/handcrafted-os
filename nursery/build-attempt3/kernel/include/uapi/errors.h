@@ -37,6 +37,7 @@
 #define ERR_WRITING_FILE         -21
 #define ERR_HANDLES_EXHAUSTED    -22
 #define ERR_EOF                  -23
+#define ERR_NAME_TOO_LONG        -24
 
 
 #endif

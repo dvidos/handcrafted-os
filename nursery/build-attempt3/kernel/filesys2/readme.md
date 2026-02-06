@@ -1,5 +1,9 @@
 # filesys
 
+This filesystem attempt (as opposed to the previous one)
+is aimed at being somewhat POSIX compliant, to allow
+us porting useful software to our system (e.g. editor, tcc, etc)
+
 There's at least three distinct layers for file system:
 
 * The FS driver, for discrete file system types, operating with the disk blocks (fat, ext2, sfs etc)
