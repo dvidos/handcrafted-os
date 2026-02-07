@@ -2,7 +2,7 @@
 #include "../drivers/screen.h"
 #include "../misc/cpu.h"
 #include "../misc/idt.h"
-#include "../misc/lock.h"
+#include "../utils/mutex.h"
 #include "../utils/logger.h"
 
 #include <uapi/key_codes.h>

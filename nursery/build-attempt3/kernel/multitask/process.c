@@ -1,6 +1,6 @@
 #include "../drivers/screen.h"
 #include "../klib/string.h"
-#include "../misc/lock.h"
+#include "../utils/mutex.h"
 #include "../drivers/timer.h"
 #include "../misc/cpu.h"
 #include "../drivers/clock.h"
@@ -379,9 +379,9 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pr
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
     
-    acquire(&pid_lock);
+    mutex_acquire(&pid_lock);
     p->pid = ++last_pid;
-    release(&pid_lock);
+    mutex_release(&pid_lock);
 
     p->parent = parent;
     p->priority = priority;
@@ -444,7 +444,7 @@ void cleanup_process(process_t *proc) {
 static int allocate_file_handle(process_t *proc, file_t *file) {
     int handle = ERR_HANDLES_EXHAUSTED;
 
-    acquire(&proc->process_lock);
+    mutex_acquire(&proc->process_lock);
 
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
         // if entry is all zeros, means it's unused
@@ -458,7 +458,7 @@ static int allocate_file_handle(process_t *proc, file_t *file) {
         // we should really do a deep copy function
         memcpy(&proc->file_handles[handle], file, sizeof(file_t));
     
-    release(&proc->process_lock);
+    mutex_release(&proc->process_lock);
     return handle;
 }
 
@@ -474,9 +474,9 @@ static int free_file_handle(process_t *proc, int handle) {
     if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
     
-    acquire(&proc->process_lock);
+    mutex_acquire(&proc->process_lock);
     memset(&proc->file_handles[handle], 0, sizeof(file_t));
-    release(&proc->process_lock);
+    mutex_release(&proc->process_lock);
 
     return OK;
 }

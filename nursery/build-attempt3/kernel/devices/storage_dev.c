@@ -1,4 +1,4 @@
-#include "../misc/lock.h"
+#include "../utils/mutex.h"
 #include "../utils/logger.h"
 #include "storage_dev.h"
 
@@ -12,7 +12,7 @@ lock_t devices_list_lock;
 
 
 void register_storage_device(struct storage_dev *dev) {
-    acquire(&devices_list_lock);
+    mutex_acquire(&devices_list_lock);
     dev->dev_no = next_dev_no++;
     dev->next = NULL;
     
@@ -24,7 +24,7 @@ void register_storage_device(struct storage_dev *dev) {
             p = p->next;
         p->next = dev;
     }
-    release(&devices_list_lock);
+    mutex_release(&devices_list_lock);
     log_debug("Device \"%s\" registered as storage dev #%d", dev->name, dev->dev_no);
 }
 

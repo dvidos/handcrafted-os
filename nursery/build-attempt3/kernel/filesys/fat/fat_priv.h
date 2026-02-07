@@ -6,7 +6,7 @@
 #include "../drivers.h"
 #include "../mount.h"
 #include "../../drivers/clock.h"
-#include "../../misc/lock.h"
+#include "../../utils/mutex.h"
 #include "../../utils/logger.h"
 
 #define min(a, b)     ((a) <= (b) ? (a) : (b))

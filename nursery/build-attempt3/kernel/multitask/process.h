@@ -2,7 +2,7 @@
 #define _PROCESS_H
 
 #include <ctypes.h>
-#include "../misc/lock.h"
+#include "../utils/mutex.h"
 #include "../devices/tty.h"
 #include "../filesys/vfs.h"
 

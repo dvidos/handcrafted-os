@@ -29,7 +29,7 @@ struct file_descriptor_ops {
     void (*destroy)(file_descriptor_t *fd);
     bool (*is_dir)(file_descriptor_t *fd);
     bool (*is_file)(file_descriptor_t *fd);
-    // hashcode? log_debug? get full path? acquire()/release()?
+    // hashcode? log_debug? get full path? mutex_acquire()/release()?
 };
 
 extern struct file_descriptor_ops file_descriptors;

@@ -1,6 +1,7 @@
 #pragma once
 #include <ctypes.h>
-#include <uapi/errors.h>
+#include "../include/uapi/errors.h"
+#include "../utils/mutex.h"
 
 
 // this is a backing thing that will:
@@ -40,6 +41,7 @@ struct backed_cache {
     backed_cache_node *nodes_arr; // enough nodes for mgmt
 
     backed_cache_ops *ops;
+    lock_t lock;
 };
 
 

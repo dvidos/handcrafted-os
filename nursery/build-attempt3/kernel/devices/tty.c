@@ -6,7 +6,7 @@
 #include "../utils/logger.h"
 #include "../misc/cpu.h"
 #include "../klib/string.h"
-#include "../misc/lock.h"
+#include "../utils/mutex.h"
 
 MODULE("TTY");
 
@@ -222,7 +222,6 @@ void tty_write_specific_tty(tty_t *tty, char *buffer) {
     virtual_buffer_put_buffer(tty, buffer, len, &need_screen_redraw);
 
     if (tty == tty_mgr_data.active_tty) {
-        // TODO: optimize this later, to depict single line changes faster
         draw_tty_buffer_to_screen(tty);
     }
 }
@@ -318,10 +317,10 @@ static void enqueue_key_event(tty_t *tty, key_event_t *event) {
         return;
     }
     // log_trace("tty: enqueueing key event on tty %d", tty->dev_no);
-    acquire(&tty->keys_buffer_lock);
+    mutex_acquire(&tty->keys_buffer_lock);
     memcpy(&tty->keys_buffer[tty->keys_buffer_len], event, sizeof(key_event_t));
     tty->keys_buffer_len++;
-    release(&tty->keys_buffer_lock);
+    mutex_release(&tty->keys_buffer_lock);
 }
 
 static void dequeue_key_event(tty_t *tty, key_event_t *event) {
@@ -330,12 +329,12 @@ static void dequeue_key_event(tty_t *tty, key_event_t *event) {
         return;
     }
     // log_trace("tty: dequeueing key event from tty %d", tty->dev_no);
-    acquire(&tty->keys_buffer_lock);
+    mutex_acquire(&tty->keys_buffer_lock);
     memcpy(event, &tty->keys_buffer[0], sizeof(key_event_t));
     tty->keys_buffer_len--;
     // shift everything one place up
     memmove(&tty->keys_buffer[0], &tty->keys_buffer[1], tty->keys_buffer_len * sizeof(key_event_t));
-    release(&tty->keys_buffer_lock);
+    mutex_release(&tty->keys_buffer_lock);
 }
 
 static void draw_tty_buffer_to_screen(tty_t *tty) {

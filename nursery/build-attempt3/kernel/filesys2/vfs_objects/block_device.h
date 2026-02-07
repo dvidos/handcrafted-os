@@ -1,6 +1,6 @@
 #pragma once
 #include <ctypes.h>
-#include "../../misc/lock.h"
+#include "../../utils/mutex.h"
 
 
 typedef struct block_device block_device_t;

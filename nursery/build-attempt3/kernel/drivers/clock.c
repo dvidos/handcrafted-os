@@ -1,7 +1,7 @@
 #include "../misc/cpu.h"
 //#include <drivers/screen.h>
 #include "clock.h"
-#include "../misc/lock.h"
+#include "../utils/mutex.h"
 #include "../misc/cpu.h"
 #include "../misc/idt.h"
 
@@ -53,7 +53,7 @@ static volatile lock_t clock_writing_lock;
 
 
 void init_real_time_clock(uint8_t interrupt_divisor) {
-    acquire(&clock_writing_lock);
+    mutex_acquire(&clock_writing_lock);
     pushcli();
 
     // the highest bit in address port is the NMI mask
@@ -75,7 +75,7 @@ void init_real_time_clock(uint8_t interrupt_divisor) {
     set_clock_register(0x8B, reg_b | 0x40);
     
     popcli();
-    release(&clock_writing_lock);
+    mutex_release(&clock_writing_lock);
 }
 
 void real_time_clock_interrupt_interrupt_handler(registers_t *regs) {

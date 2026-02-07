@@ -5,7 +5,7 @@
 #include "../../memory/kheap.h"
 #include "../../klib/string.h"
 #include "../../utils/logger.h"
-#include "../../misc/lock.h"
+#include "../../utils/mutex.h"
 #include <uapi/errors.h>
 #include "fat_priv.h"
 

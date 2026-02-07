@@ -95,7 +95,6 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
         // we are mounting the root file system
         mount->host_dir = NULL;
     } else {
-        // TODO: we are mounting somewhere we should discover it.
         log_warn("Must resolve where we mount");
     }
 

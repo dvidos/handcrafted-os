@@ -1,6 +1,7 @@
 #include "backed_cache.h"
 #include "../memory/kheap.h"
 #include "../utils/assert.h"
+#include "../utils/mutex.h"
 #include "string.h"
 
 
@@ -174,92 +175,117 @@ static error_t ensure_node_in_cache(backed_cache_t *cache, uint64_t key, backed_
 // --------------------------------------------------------------------------
 
 static error_t backed_cache_acquire(backed_cache_t *cache, uint64_t key, void **out_ptr) {
+    mutex_acquire(&cache->lock);
+
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) return err;
+    if (err) { mutex_release(&cache->lock); return ERR_NOT_FOUND; }
 
     node->ref_count++;
     cache->references_sum++;
     *out_ptr = node->data_ptr;
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_mark_dirty(backed_cache_t *cache, uint64_t key) {
+    mutex_acquire(&cache->lock);
+    
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
-    if (node == NULL) return ERR_NOT_FOUND;
+    if (node == NULL) { mutex_release(&cache->lock); return ERR_NOT_FOUND; }
 
     promote_node_to_newest(cache, node);
     if (!node->is_dirty) {
         node->is_dirty = true;
         cache->dirty_count++;
     }
+
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_release(backed_cache_t *cache, uint64_t key) {
+    mutex_acquire(&cache->lock);
+
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
-    if (node == NULL) return ERR_NOT_FOUND;
+    if (node == NULL) { mutex_release(&cache->lock); return ERR_NOT_FOUND; }
     
     promote_node_to_newest(cache, node);
-    if (node->ref_count == 0) return ERR_UNDERFLOW;
-
+    if (node->ref_count == 0) { mutex_release(&cache->lock); return ERR_UNDERFLOW; }
+    
     node->ref_count--;
     cache->references_sum--;
+
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_read(backed_cache_t *cache, uint64_t key, void *buffer) {
+    mutex_acquire(&cache->lock);
+
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) return err;
+    if (err) { mutex_release(&cache->lock); return err; }
 
     memcpy(buffer, node->data_ptr, cache->obj_size);
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_write(backed_cache_t *cache, uint64_t key, void *buffer) {
+    mutex_acquire(&cache->lock);
+
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) return err;
+    if (err) { mutex_release(&cache->lock); return err; }
 
     memcpy(node->data_ptr, buffer, cache->obj_size);
     if (!node->is_dirty) {
         node->is_dirty = true;
         cache->dirty_count++;
     }
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_fill(backed_cache_t *cache, uint64_t key, char value) {
+    mutex_acquire(&cache->lock);
+
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) return err;
+    if (err) { mutex_release(&cache->lock); return err; }
 
     memset(node->data_ptr, value, cache->obj_size);
     if (!node->is_dirty) {
         node->is_dirty = true;
         cache->dirty_count++;
     }
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_read_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
+    mutex_acquire(&cache->lock);
+
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) return err;
+    if (err) { mutex_release(&cache->lock); return err; }
 
     offset = at_most(offset, cache->obj_size);
     part_len = at_most(part_len, cache->obj_size - offset);
     memcpy(part_buffer, node->data_ptr + offset, part_len);
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_write_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
+    mutex_acquire(&cache->lock);
+
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) return err;
+    if (err) { mutex_release(&cache->lock); return err; }
 
     offset = at_most(offset, cache->obj_size);
     part_len = at_most(part_len, cache->obj_size - offset);
@@ -268,13 +294,16 @@ static error_t backed_cache_write_part(backed_cache_t *cache, uint64_t key, size
         node->is_dirty = true;
         cache->dirty_count++;
     }
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_fill_part(backed_cache_t *cache, uint64_t key, size_t offset, char value, size_t part_len) {
+    mutex_acquire(&cache->lock);
+
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) return err;
+    if (err) { mutex_release(&cache->lock); return err; }
 
     offset = at_most(offset, cache->obj_size);
     part_len = at_most(part_len, cache->obj_size - offset);
@@ -283,15 +312,21 @@ static error_t backed_cache_fill_part(backed_cache_t *cache, uint64_t key, size_
         node->is_dirty = true;
         cache->dirty_count++;
     }
+    mutex_release(&cache->lock);
     return OK;
 }
 
 static error_t backed_cache_invalidate(backed_cache_t *cache, uint64_t key) {
+    mutex_acquire(&cache->lock);
+
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
-    if (node == NULL) return OK;
-    if (node->ref_count > 0) return ERR_BUSY;
+    
+    if (node == NULL)        { mutex_release(&cache->lock); return OK; }
+    if (node->ref_count > 0) { mutex_release(&cache->lock); return ERR_BUSY; }
     make_node_unused_again(cache, node);
+
+    mutex_release(&cache->lock);
     return OK;
 }
 
@@ -299,9 +334,12 @@ static error_t backed_cache_flush_all(backed_cache_t *cache) {
     if (cache->backend.write == NULL)
         return ERR_NOT_SUPPORTED;
     
+    mutex_acquire(&cache->lock);
     for (backed_cache_node *n = cache->lru_oldest; n; n = n->lru_newer) {
         save_node(cache, n); // ignore errors
     }
+    mutex_release(&cache->lock);
+
     return OK;
 }
 
@@ -314,6 +352,7 @@ static error_t backed_cache_destroy(backed_cache_t *cache) {
 }
 
 // -----------------------------------------------------------
+
 
 static backed_cache_ops ops = {
     .acquire    = backed_cache_acquire,

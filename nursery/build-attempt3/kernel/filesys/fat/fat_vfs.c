@@ -329,9 +329,9 @@ static int fat_write(file_t *file, char *buffer, int length) {
     log_trace("fat_write(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
-    acquire(&file->superblock->write_lock);
+    mutex_acquire(&file->superblock->write_lock);
     int err = fat->ops->priv_file_write(fat, pfi, buffer, length);
-    release(&file->superblock->write_lock);
+    mutex_release(&file->superblock->write_lock);
     return err;
 }
 
@@ -525,7 +525,7 @@ static int remove_directory_entry(file_descriptor_t *parent_dir, char *name, boo
 exit:
     if (pdi != NULL)
         fat->ops->priv_dir_close(fat, pdi);
-    release(&parent_dir->superblock->write_lock);
+    mutex_release(&parent_dir->superblock->write_lock);
     return err;
 }
 
@@ -534,28 +534,28 @@ exit:
 
 static int fat_touch(file_descriptor_t *parent_dir, char *name) {
     log_trace("fat_touch(\"%s\")", name);
-    acquire(&parent_dir->superblock->write_lock);
+    mutex_acquire(&parent_dir->superblock->write_lock);
 
     // a zero sized file does not need cluster allocated.
     int err = create_directory_entry(parent_dir, name, 0, 0, false, false);
 
-    release(&parent_dir->superblock->write_lock);
+    mutex_release(&parent_dir->superblock->write_lock);
     return err;
 }
 
 static int fat_unlink(file_descriptor_t *parent_dir, char *name) {
     log_trace("fat_touch(\"%s\")", name);
-    acquire(&parent_dir->superblock->write_lock);
+    mutex_acquire(&parent_dir->superblock->write_lock);
 
     int err = remove_directory_entry(parent_dir, name, false);
 
-    release(&parent_dir->superblock->write_lock);
+    mutex_release(&parent_dir->superblock->write_lock);
     return err;
 }
 
 static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
     log_trace("fat_mkdir(\"%s\")", name);
-    acquire(&parent_dir->superblock->write_lock);
+    mutex_acquire(&parent_dir->superblock->write_lock);
 
     // if we created a directory, we need to create the "." and ".." entries
     // essentially, we are creating three directory entries, all of type directory!
@@ -579,17 +579,17 @@ exit:
     if (new_dir != NULL)
         destroy_file_descriptor(new_dir);
 
-    release(&parent_dir->superblock->write_lock);
+    mutex_release(&parent_dir->superblock->write_lock);
     return err;
 }
 
 static int fat_rmdir(file_descriptor_t *parent_dir, char *name) {
     log_trace("fat_rmdir(\"%s\")", name);
-    acquire(&parent_dir->superblock->write_lock);
+    mutex_acquire(&parent_dir->superblock->write_lock);
 
     int err = remove_directory_entry(parent_dir, name, true);
 
-    release(&parent_dir->superblock->write_lock);
+    mutex_release(&parent_dir->superblock->write_lock);
     return err;
 }
 

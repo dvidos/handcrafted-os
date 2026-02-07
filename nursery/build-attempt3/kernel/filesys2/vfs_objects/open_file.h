@@ -1,5 +1,5 @@
 #pragma once
-#include "../../misc/lock.h"
+#include "../../utils/mutex.h"
 #include "superblock.h"
 #include "file_descriptor.h"
 
