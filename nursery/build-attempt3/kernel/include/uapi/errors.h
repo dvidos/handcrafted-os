@@ -35,6 +35,13 @@ typedef enum error_t {
     ERR_HANDLES_EXHAUSTED    = -22,
     ERR_EOF                  = -23,
     ERR_NAME_TOO_LONG        = -24,
+    ERR_CORRUPTION_DETECTED  = -25,
+    ERR_CONTAINER_FULL       = -26,
+    ERR_OVERFLOWN            = -27,
+    ERR_UNDERFLOW            = -28,
+    ERR_BUSY                 = -29,
+
+
 
 } error_t;
 
