@@ -1,13 +1,23 @@
 #include "panic.h"
+#include "../klib/string.h"
 
 static panic_writer_func *_panic_writer = 0;
 
-void panic(const char *message) {
+void panic(const char *fmt, ...) {
+
     asm("cli");
 
     if (_panic_writer) {
+
+        va_list vl;
+        char buffer[256];
+        
+        va_start(vl, fmt);
+        vsprintfn(buffer, sizeof(buffer), fmt, vl);
+        va_end(vl);
+
         _panic_writer("\nKernel panic:\n");
-        _panic_writer(message);
+        _panic_writer(buffer);
     }
 
     for(;;)

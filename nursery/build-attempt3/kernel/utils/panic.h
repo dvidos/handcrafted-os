@@ -4,7 +4,7 @@
 // panic has no dependencies. 
 // the actual requirement is to stop the cpu before corruption.
 // the display of the message is secondary.
-void panic(const char *message);
+void panic(const char *fmt, ...);
 
 
 // if/when a writer is available, we can set it,

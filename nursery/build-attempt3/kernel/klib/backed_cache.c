@@ -1,5 +1,6 @@
 #include "backed_cache.h"
 #include "../memory/kheap.h"
+#include "../utils/assert.h"
 #include "string.h"
 
 
@@ -121,6 +122,10 @@ static error_t load_key_into_node(backed_cache_t *cache, uint64_t key, backed_ca
 }
 
 static void make_node_unused_again(backed_cache_t *cache, backed_cache_node *node) {
+
+    // caller MUST ensure that node is not referenced at all
+    ASSERT(node->ref_count == 0);
+
     if (node->is_used) {
         node->is_used = false;
         cache->used_count--;
@@ -129,10 +134,7 @@ static void make_node_unused_again(backed_cache_t *cache, backed_cache_node *nod
         node->is_dirty = false;
         cache->dirty_count--;
     }
-    if (node->ref_count > 0) {
-        cache->references_sum -= node->ref_count;
-        node->ref_count = 0;
-    }
+
     remove_node_from_hashtable(cache, murmur_hash3(node->key, cache->hashtable_capacity), node);
 }
 
@@ -171,7 +173,7 @@ static error_t ensure_node_in_cache(backed_cache_t *cache, uint64_t key, backed_
 
 // --------------------------------------------------------------------------
 
-static error_t _cache_acquire(backed_cache_t *cache, uint64_t key, void **out_ptr) {
+static error_t backed_cache_acquire(backed_cache_t *cache, uint64_t key, void **out_ptr) {
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
     if (err) return err;
@@ -182,7 +184,7 @@ static error_t _cache_acquire(backed_cache_t *cache, uint64_t key, void **out_pt
     return OK;
 }
 
-static error_t _cache_mark_dirty(backed_cache_t *cache, uint64_t key) {
+static error_t backed_cache_mark_dirty(backed_cache_t *cache, uint64_t key) {
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
     if (node == NULL) return ERR_NOT_FOUND;
@@ -195,7 +197,7 @@ static error_t _cache_mark_dirty(backed_cache_t *cache, uint64_t key) {
     return OK;
 }
 
-static error_t _cache_release(backed_cache_t *cache, uint64_t key) {
+static error_t backed_cache_release(backed_cache_t *cache, uint64_t key) {
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
     if (node == NULL) return ERR_NOT_FOUND;
@@ -208,7 +210,7 @@ static error_t _cache_release(backed_cache_t *cache, uint64_t key) {
     return OK;
 }
 
-static error_t _cache_read(backed_cache_t *cache, uint64_t key, void *buffer) {
+static error_t backed_cache_read(backed_cache_t *cache, uint64_t key, void *buffer) {
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
     if (err) return err;
@@ -217,7 +219,7 @@ static error_t _cache_read(backed_cache_t *cache, uint64_t key, void *buffer) {
     return OK;
 }
 
-static error_t _cache_write(backed_cache_t *cache, uint64_t key, void *buffer) {
+static error_t backed_cache_write(backed_cache_t *cache, uint64_t key, void *buffer) {
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
     if (err) return err;
@@ -230,7 +232,7 @@ static error_t _cache_write(backed_cache_t *cache, uint64_t key, void *buffer) {
     return OK;
 }
 
-static error_t _cache_fill(backed_cache_t *cache, uint64_t key, char value) {
+static error_t backed_cache_fill(backed_cache_t *cache, uint64_t key, char value) {
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
     if (err) return err;
@@ -243,7 +245,7 @@ static error_t _cache_fill(backed_cache_t *cache, uint64_t key, char value) {
     return OK;
 }
 
-static error_t _cache_read_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
+static error_t backed_cache_read_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
     if (err) return err;
@@ -254,7 +256,7 @@ static error_t _cache_read_part(backed_cache_t *cache, uint64_t key, size_t offs
     return OK;
 }
 
-static error_t _cache_write_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
+static error_t backed_cache_write_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
     if (err) return err;
@@ -269,7 +271,7 @@ static error_t _cache_write_part(backed_cache_t *cache, uint64_t key, size_t off
     return OK;
 }
 
-static error_t _cache_fill_part(backed_cache_t *cache, uint64_t key, size_t offset, char value, size_t part_len) {
+static error_t backed_cache_fill_part(backed_cache_t *cache, uint64_t key, size_t offset, char value, size_t part_len) {
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
     if (err) return err;
@@ -284,7 +286,7 @@ static error_t _cache_fill_part(backed_cache_t *cache, uint64_t key, size_t offs
     return OK;
 }
 
-static error_t _cache_invalidate(backed_cache_t *cache, uint64_t key) {
+static error_t backed_cache_invalidate(backed_cache_t *cache, uint64_t key) {
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
     if (node == NULL) return OK;
@@ -293,7 +295,7 @@ static error_t _cache_invalidate(backed_cache_t *cache, uint64_t key) {
     return OK;
 }
 
-static error_t _cache_flush_all(backed_cache_t *cache) {
+static error_t backed_cache_flush_all(backed_cache_t *cache) {
     if (cache->backend.write == NULL)
         return ERR_NOT_SUPPORTED;
     
@@ -303,30 +305,29 @@ static error_t _cache_flush_all(backed_cache_t *cache) {
     return OK;
 }
 
-static error_t _cache_destroy(backed_cache_t *cache) {
-    if (cache != NULL) {
-        if (cache->objs_arr)       kfree(cache->objs_arr);
-        if (cache->nodes_arr)      kfree(cache->nodes_arr);
-        if (cache->hashtable_ptrs) kfree(cache->hashtable_ptrs);
-    }
+static error_t backed_cache_destroy(backed_cache_t *cache) {
+    ASSERT(cache != NULL);
+    if (cache->objs_arr)       kfree(cache->objs_arr);
+    if (cache->nodes_arr)      kfree(cache->nodes_arr);
+    if (cache->hashtable_ptrs) kfree(cache->hashtable_ptrs);
     return OK;
 }
 
 // -----------------------------------------------------------
 
 static backed_cache_ops ops = {
-    .acquire    = _cache_acquire,
-    .mark_dirty = _cache_mark_dirty,
-    .release    = _cache_release,
-    .read       = _cache_read,
-    .write      = _cache_write,
-    .fill       = _cache_fill,
-    .read_part  = _cache_read_part,
-    .write_part = _cache_write_part,
-    .fill_part  = _cache_fill_part,
-    .invalidate = _cache_invalidate,
-    .flush_all  = _cache_flush_all,
-    .destroy    = _cache_destroy,
+    .acquire    = backed_cache_acquire,
+    .mark_dirty = backed_cache_mark_dirty,
+    .release    = backed_cache_release,
+    .read       = backed_cache_read,
+    .write      = backed_cache_write,
+    .fill       = backed_cache_fill,
+    .read_part  = backed_cache_read_part,
+    .write_part = backed_cache_write_part,
+    .fill_part  = backed_cache_fill_part,
+    .invalidate = backed_cache_invalidate,
+    .flush_all  = backed_cache_flush_all,
+    .destroy    = backed_cache_destroy,
 };
 
 void initialize_backed_cache(
