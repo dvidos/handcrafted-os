@@ -186,7 +186,7 @@ void init_idt(uint16_t code_segment_selector) {
     set_gate(46, (uint32_t)irq46, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
     set_gate(47, (uint32_t)irq47, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
 
-    set_gate(0x80, (uint32_t)isr0x80, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 0);
+    set_gate(0x80, (uint32_t)isr0x80, code_segment_selector, GATE_TYPE_32BIT_INTERRUPT, 3);
 
     idt_descriptor.size = sizeof(gates) - 1;
     idt_descriptor.offset = (uint32_t)gates;
