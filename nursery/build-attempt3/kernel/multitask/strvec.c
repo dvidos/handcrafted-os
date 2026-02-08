@@ -2,7 +2,7 @@
 #include "../klib/string.h"
 #include "../utils/logger.h"
 
-MODULE("STRVEC");
+MODULE("STRVEC", LOG_LEVEL_WARN);
 
 
 int count_strvec(char **strvec) {

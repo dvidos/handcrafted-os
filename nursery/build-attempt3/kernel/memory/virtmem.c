@@ -5,7 +5,7 @@
 #include "../misc/cpu.h"
 #include "../klib/string.h"
 
-MODULE("VMEM");
+MODULE("VMEM", LOG_LEVEL_WARN);
 
 /*
    Paging is mapping a virtual address to a physical one.

@@ -8,7 +8,7 @@
 #include "../utils/logger.h"
 #include <uapi/errors.h>
 
-MODULE("MOUNT");
+MODULE("MOUNT", LOG_LEVEL_WARN);
 
 static struct mount_info *root_mount_info = NULL;
 static struct mount_info *mounts_list = NULL;

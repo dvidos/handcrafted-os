@@ -5,7 +5,7 @@
 #include "framework.h"
 #include "../utils/logger.h"
 
-MODULE("UNITTEST");
+MODULE("UNITTEST", LOG_LEVEL_WARN);
 
 
 static void log_debug_any_value(char *prefix, const void *value) {

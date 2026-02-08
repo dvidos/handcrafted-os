@@ -9,7 +9,7 @@
 #include "../memory/virtmem.h"
 #include "../memory/kheap.h"
 
-MODULE("EXEC");
+MODULE("EXEC", LOG_LEVEL_WARN);
 
 
 // try to keep a balance of executables-based processes, and light weight threads.

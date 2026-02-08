@@ -3,7 +3,7 @@
 #include "storage_dev.h"
 
 
-MODULE("STDEV");
+MODULE("STDEV", LOG_LEVEL_WARN);
 
 
 struct storage_dev *storage_devices_list = NULL;

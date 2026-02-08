@@ -1,5 +1,6 @@
 #include "../klib/string.h"
 #include "../utils/logger.h"
+#include "idt.h"
 
 
 // for documentation, see https://wiki.osdev.org/IDT
@@ -7,7 +8,7 @@
 // things pushed in the isr_stub we have in assembly
 // this is passed when isr_handler is called from our assembly stub
 
-MODULE("IDT");
+MODULE("IDT", LOG_LEVEL_WARN);
 
 
 #define GATE_TYPE_TASK              0x5  // offset value should be zero in this case

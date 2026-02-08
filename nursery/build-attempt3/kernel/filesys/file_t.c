@@ -3,7 +3,7 @@
 #include "../memory/kheap.h"
 #include "../utils/logger.h"
 
-MODULE("VFS");
+MODULE("VFS", LOG_LEVEL_WARN);
 
 
 file_t *create_file_t(superblock_t *superblock, inode_t *inode) {

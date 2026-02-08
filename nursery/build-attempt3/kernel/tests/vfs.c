@@ -6,7 +6,7 @@
 #include "../utils/logger.h"
 #include "framework.h"
 
-MODULE("VFS_UNIT_TEST")
+MODULE("VFS_UNIT_TEST", LOG_LEVEL_WARN)
 
 
 

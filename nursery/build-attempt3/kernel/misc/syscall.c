@@ -14,7 +14,7 @@
 #include <uapi/key_event.h>
 #include <uapi/time.h>
 
-MODULE("SYSCALL");
+MODULE("SYSCALL", LOG_LEVEL_WARN);
 
 #define STACK_GUARD_MAGIC_NUMBER   0x1BADCAFE
 
@@ -87,7 +87,8 @@ static int sys_getkey(key_event_t *event) {
 }
 
 static void sys_log_entry(int level, uint8_t *buffer) {
-    logger_append_user_syslog(level, buffer);
+    // syslog is a userland deamon, we need to drop this functionality.
+    logger_append("USER", level, "%s", buffer);
 }
 
 static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t starting_num) {

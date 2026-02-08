@@ -7,7 +7,7 @@
 #include "../devices/storage_dev.h"
 #include "partition.h"
 
-MODULE("PART");
+MODULE("PART", LOG_LEVEL_WARN);
 
 
 static struct partition *partitions_list = NULL;

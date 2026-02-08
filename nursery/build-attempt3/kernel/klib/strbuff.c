@@ -3,7 +3,7 @@
 #include "strbuff.h"
 #include "../utils/logger.h"
 
-MODULE("SBUFF");
+MODULE("SBUFF", LOG_LEVEL_WARN);
 
 
 #define SB_FIXED    0x00

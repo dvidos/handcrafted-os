@@ -8,7 +8,7 @@
 #include "clock.h"
 #include "../devices/storage_dev.h"
 
-MODULE("SATA");
+MODULE("SATA", LOG_LEVEL_WARN);
 
 // based on https://wiki.osdev.org/AHCI
 // and https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf

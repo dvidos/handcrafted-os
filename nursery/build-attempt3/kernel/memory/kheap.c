@@ -5,7 +5,7 @@
 
 #define KMEM_MAGIC       0xAAA // something that fits in 12 bits
 
-MODULE("KHEAP");
+MODULE("KHEAP", LOG_LEVEL_WARN);
 
 
 // doubly linked list allows fast consolidation with prev / next blocks

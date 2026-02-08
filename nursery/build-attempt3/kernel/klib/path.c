@@ -2,7 +2,7 @@
 #include <uapi/errors.h>
 #include "../utils/logger.h"
 
-MODULE("PATH");
+MODULE("PATH", LOG_LEVEL_WARN);
 
 
 // "/home/user/file.txt" --> "/user/home", 

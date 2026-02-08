@@ -6,7 +6,7 @@
 #include "../utils/logger.h"
 #include <memory/kheap.h>
 
-MODULE("UNITTEST");
+MODULE("UNITTEST", LOG_LEVEL_WARN);
 
 void test_kernel_heap();
 void test_paths();

@@ -13,7 +13,7 @@
 // - mark things we know (kernel, kheap, the used pages bitmap etc) as used
 // - mark the pages of the bitmap as used
 
-MODULE("PMM2");
+MODULE("PMM2", LOG_LEVEL_WARN);
 
 #define PAGE_SIZE   4096
 

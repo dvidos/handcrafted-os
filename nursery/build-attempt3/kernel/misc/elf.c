@@ -7,7 +7,7 @@
 #include "../multitask/process.h"
 #include "../devices/tty.h"
 
-MODULE("ELF");
+MODULE("ELF", LOG_LEVEL_WARN);
 
 #define min(a, b)   ((a) <= (b) ? (a) : (b))
 #define max(a, b)   ((a) >= (b) ? (a) : (b))

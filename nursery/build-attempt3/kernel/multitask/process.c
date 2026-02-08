@@ -16,7 +16,7 @@
 #include "../filesys/mount.h"
 #include "../filesys/vfs.h"
 
-MODULE("PROC");
+MODULE("PROC", LOG_LEVEL_WARN);
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 

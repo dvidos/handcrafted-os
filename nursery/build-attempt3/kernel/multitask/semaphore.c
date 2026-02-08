@@ -5,7 +5,7 @@
 #include "../utils/logger.h"
 #include "../klib/string.h"
 
-MODULE("SEMA");
+MODULE("SEMA", LOG_LEVEL_WARN);
 
 
 semaphore_t *create_semaphore(int limit) {

@@ -13,13 +13,13 @@ int tty_get_devno(tty_t *tty);
 
 // called by processes
 void tty_read_key(key_event_t *event);
-void tty_write(char *buffer);
+void tty_write(const char *buffer);
 int tty_get_color();
 void tty_set_color(int color);
 void tty_clear();
 void tty_get_cursor(uint8_t *row, uint8_t *col);
 void tty_set_cursor(uint8_t row, uint8_t col);
-void tty_set_title(char *title);
+void tty_set_title(const char *title);
 void tty_get_dimensions(int *rows, int *cols);
 
 // print to current tty
@@ -28,7 +28,10 @@ void printf(char *format, ...);
 
 
 // for processes working on different ttys (not their own process one)
-void tty_write_specific_tty(tty_t *tty, char *buffer);
-void tty_set_title_specific_tty(tty_t *tty, char *title);
+void tty_write_specific_tty(tty_t *tty, const char *buffer);
+void tty_set_title_specific_tty(tty_t *tty, const char *title);
+
+
+void tty_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message);
 
 #endif

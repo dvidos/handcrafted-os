@@ -6,7 +6,7 @@
 #include "drivers.h"
 #include <uapi/errors.h>
 
-MODULE("VFS");
+MODULE("VFS", LOG_LEVEL_WARN);
 
 static struct filesys_driver *drivers_list = NULL;
 

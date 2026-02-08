@@ -7,7 +7,7 @@
 #include "../memory/virtmem.h"
 #include <bits.h>
 
-MODULE("SCHED");
+MODULE("SCHED", LOG_LEVEL_WARN);
 
 
 volatile int switching_postpone_depth = 0;

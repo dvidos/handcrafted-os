@@ -10,7 +10,7 @@
 #include "../utils/logger.h"
 #include <uapi/errors.h>
 
-MODULE("VFS");
+MODULE("VFS", LOG_LEVEL_WARN);
 
 /*
     see `namei()` for a very traditional conversion of a path name

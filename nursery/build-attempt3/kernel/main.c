@@ -44,7 +44,7 @@
     #error "This tutorial needs to be compiled with a ix86-elf compiler"
 #endif
 
-MODULE("MAIN");
+MODULE("MAIN", LOG_LEVEL_WARN);
 
 
 
@@ -77,16 +77,16 @@ void kernel_main(boot_info_t* boot)
 
     // initialize in-memory log
     init_logger();
-    logger_set_appender_log_level(LOG_APPENDER_MEMORY, LOG_LEVEL_DEBUG);
-    // logger_set_module_log_level("VFS", LOG_LEVEL_DEBUG);
-    // logger_set_module_log_level("FAT", LOG_LEVEL_TRACE);
-    // logger_set_module_log_level("KHEAP", LOG_LEVEL_DEBUG);
-    // logger_set_module_log_level("VMEM", LOG_LEVEL_TRACE);
+    logger_set_global_minimum_log_level(LOG_LEVEL_INFO);
 
     // initialize screen and allow logs to be written to it
     screen_init();
-    logger_set_appender_log_level(LOG_APPENDER_SCREEN, LOG_LEVEL_DEBUG);
     panic_set_writer(screen_panic_writer);
+    logger_add_appender(screen_log_appender, NULL, LOG_LEVEL_INFO);
+    log_error("Error!");
+    log_info("Info!");
+
+
     
     log_info("Kernel starting");
     log_info("Version %s, (%s), built %s", VERSION, GIT_HASH, DATE_BUILT);
@@ -118,8 +118,8 @@ void kernel_main(boot_info_t* boot)
     init_serial_port();
 
     log_info("Switching logging to serial port");
-    logger_set_appender_log_level(LOG_APPENDER_SERIAL, LOG_LEVEL_TRACE);
     panic_set_writer(serial_panic_writer);
+    logger_add_appender(serial_log_appender, NULL, LOG_LEVEL_DEBUG);
     
     log_info("Initializing Kernel Heap...");
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
@@ -140,7 +140,6 @@ void kernel_main(boot_info_t* boot)
     init_ramdisk(KERNEL_RAMDISK_ADDRESS, KERNEL_RAMDISK_SIZE_KB * 1024);
 
     log_info("Initializing file system...");
-    logger_set_module_log_level("MOUNT", LOG_LEVEL_TRACE);
     discover_storage_dev_partitions(get_storage_devices_list());
     fat_register_vfs_driver();
     vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
@@ -150,18 +149,17 @@ void kernel_main(boot_info_t* boot)
     log_info("Initializing multi-tasking...");
     init_multitasking();
 
-    log_info("Giving the console to TTY manager...");
-    logger_set_appender_log_level(LOG_APPENDER_SCREEN, LOG_LEVEL_NONE);
-
+    
     // tty 0-3 - Alt+1 through Alt+4: Shell
     // tty 4 - Alt+5: process monitor (memory, heap, processes)
     // tty 5 - Alt+6: filesystem monitor (devices, partitions, mounts)
     // tty 6 - Alt+7: kernel log
+    log_info("Giving the console to TTY manager...");
     init_tty_manager(7, 100);
 
     // now that we have ttys, let's dedicate one to syslog
-    logger_set_tty(tty_manager_get_device(6));
-    logger_set_appender_log_level(LOG_APPENDER_TTY, LOG_LEVEL_INFO);
+    tty_t *log_tty = tty_manager_get_device(6);
+    logger_add_appender(tty_log_appender, log_tty, LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
     launch_initial_processes();

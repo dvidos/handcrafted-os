@@ -4,7 +4,7 @@
 #include "../memory/kheap.h"
 #include "pci.h"
 
-MODULE("PCI");
+MODULE("PCI", LOG_LEVEL_WARN);
 
 // i think I need to do PCI discovery, to find any hard disks (even SATA) and USB hubs / sticks.
 // currently following https://wiki.osdev.org/PCI

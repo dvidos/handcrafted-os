@@ -8,7 +8,7 @@
 #include "../klib/string.h"
 #include "../utils/mutex.h"
 
-MODULE("TTY");
+MODULE("TTY", LOG_LEVEL_WARN);
 
 // this device is given or allocated by a task
 // and the task can interact with the screen
@@ -49,7 +49,7 @@ struct tty {
     struct tty *next;
     int dev_no;
 
-    char *title;
+    const char *title;
     char *screen_buffer;
     int buffer_alloc_size;
     int first_visible_buffer_row;
@@ -79,7 +79,7 @@ static void switch_to_tty(int dev_no);
 static void scroll_tty_screenful(tty_t *tty, bool up);
 static void enqueue_key_event(tty_t *tty, key_event_t *event);
 static void dequeue_key_event(tty_t *tty, key_event_t *event);
-static void virtual_buffer_put_buffer(tty_t *tty, char *buffer, int size, bool *need_screen_redraw);
+static void virtual_buffer_put_buffer(tty_t *tty, const char *buffer, int size, bool *need_screen_redraw);
 static void draw_tty_buffer_to_screen(tty_t *tty);
 static void handle_key_in_interrupt(key_event_t *event, bool *handled);
 static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw);
@@ -190,7 +190,7 @@ void tty_read_key(key_event_t *event) {
     }
 }
 
-void tty_write(char *buffer) {
+void tty_write(const char *buffer) {
     tty_t *tty = running_process()->tty;
     if (tty != NULL)
         tty_write_specific_tty(tty, buffer);
@@ -209,7 +209,7 @@ void printf(char *format, ...) {
     tty_write(buffer);
 }
 
-void tty_write_specific_tty(tty_t *tty, char *buffer) {
+void tty_write_specific_tty(tty_t *tty, const char *buffer) {
     if (tty == NULL)
         return;
     
@@ -295,7 +295,7 @@ void tty_get_dimensions(int *rows, int *cols) {
         *cols = screen_cols();
 }
 
-void tty_set_title(char *title) {
+void tty_set_title(const char *title) {
     tty_t *tty = running_process()->tty;
     if (tty == NULL)
         return;
@@ -305,7 +305,7 @@ void tty_set_title(char *title) {
         draw_tty_buffer_to_screen(tty);
 }
 
-void tty_set_title_specific_tty(tty_t *tty, char *title) {
+void tty_set_title_specific_tty(tty_t *tty, const char *title) {
     tty->title = title;
     if (tty == tty_mgr_data.active_tty)
         draw_tty_buffer_to_screen(tty);
@@ -416,7 +416,7 @@ static void switch_to_tty(int dev_no) {
 }
 
 // working with virtual term buffer, this converts special chars to screen behavior
-static void virtual_buffer_put_buffer(tty_t *tty, char *buffer, int size, bool *need_screen_redraw) {
+static void virtual_buffer_put_buffer(tty_t *tty, const char *buffer, int size, bool *need_screen_redraw) {
     // we work per buffer for optimization reasons
     // if less than 10 lines are remaining, scroll up 10 lines, adjust row/column accrodingly
 
@@ -492,4 +492,19 @@ static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw) {
         tty->first_visible_buffer_row = tty->row;
         *need_screen_redraw = true;
     }
+}
+
+// ---------------------------------------------------------------------------
+
+void tty_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message) {
+    // context is supposed to represent a tty device
+    tty_t *tty = (tty_t *)context;
+    tty_write_specific_tty(tty, timing);
+    tty_write_specific_tty(tty, " ");
+    tty_write_specific_tty(tty, module_name);
+    tty_write_specific_tty(tty, " ");
+    tty_write_specific_tty(tty, level);
+    tty_write_specific_tty(tty, " ");
+    tty_write_specific_tty(tty, message);
+    tty_write_specific_tty(tty, "\r\n");
 }

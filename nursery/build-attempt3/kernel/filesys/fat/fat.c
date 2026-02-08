@@ -10,7 +10,7 @@
 
 #include "fat_priv.h"
 
-MODULE("FAT");
+MODULE("FAT", LOG_LEVEL_WARN);
 
 
 #include "dir_entry.c"

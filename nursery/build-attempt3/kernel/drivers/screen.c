@@ -2,6 +2,7 @@
 #include <limits.h>
 #include <bits.h>
 #include "../klib/string.h"
+#include "../utils/logger.h"
 #include "../misc/cpu.h"
 #include "../misc/cpu.h"
 #include "screen.h"
@@ -121,7 +122,7 @@ inline void screen_draw_char_at(char c, uint8_t color, uint8_t col, uint8_t row)
     screen_memory[index++] = color;
 }
 
-void screen_draw_str_at(char *str, uint8_t color, uint8_t col, uint8_t row) {
+void screen_draw_str_at(const char *str, uint8_t color, uint8_t col, uint8_t row) {
     int index = (row * VGA_WIDTH + col) * 2;
     while (*str != '\0') {
     	screen_memory[index++] = *str;
@@ -192,7 +193,7 @@ static void screen_putchar(char c)
     screen_set_cursor(screen_row, screen_column);
 }
 
-void screen_write(char* data)
+void screen_write(const char* data)
 {
     while (*data != '\0')
         screen_putchar(*data++);
@@ -202,6 +203,23 @@ void screen_panic_writer(const char* data)
 {
     while (*data != '\0')
         screen_putchar(*data++);
+}
+
+void screen_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message) {
+    if (timing && timing[0]) {
+        screen_write(timing);
+        screen_putchar(' ');
+    }
+    if (module_name && module_name[0]) {
+        screen_write(module_name);
+        screen_putchar(' ');
+    }
+    if (level && level[0]) {
+        screen_write(level);
+        screen_putchar(' ');
+    }
+    screen_write(message);
+    screen_putchar('\n');
 }
 
 // printk() prints to screen directly using the driver

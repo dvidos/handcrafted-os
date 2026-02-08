@@ -4,11 +4,12 @@
 #include "../misc/idt.h"
 #include "../utils/mutex.h"
 #include "../utils/logger.h"
+#include "kbd_drv.h"
 
 #include <uapi/key_codes.h>
 #include <uapi/key_event.h>
 
-MODULE("KBD");
+MODULE("KBD", LOG_LEVEL_WARN);
 
 
 // interesting article: https://linuxjournal.com/article/1080

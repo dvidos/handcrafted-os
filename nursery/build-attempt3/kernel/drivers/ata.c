@@ -8,7 +8,7 @@
 #include "../utils/logger.h"
 #include "pci.h"
 
-MODULE("ATA");
+MODULE("ATA", LOG_LEVEL_WARN);
 
 
 // heavily influenced (read: copied) from here https://wiki.osdev.org/PCI_IDE_Controller

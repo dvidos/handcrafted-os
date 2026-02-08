@@ -10,7 +10,7 @@
 #include "../multitask/multitask.h"
 
 
-MODULE("ISR");
+MODULE("ISR", LOG_LEVEL_WARN);
 
 
 void isr_handler(registers_t regs) {
