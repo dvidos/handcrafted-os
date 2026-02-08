@@ -42,7 +42,7 @@ STAGE2_STACK_TOP=0x7C00     # at 31KB, right below stage 1
 STAGE2_SECTOR_COUNT=$(($STAGE2_SIZE_KB * 1024 / $SECTOR_SIZE))
 STAGE2_FIRST_SECTOR=$(($STAGE1_SECTOR_COUNT))
 
-KERNEL_SIZE_KB=128          # can go up to 608 KB
+KERNEL_SIZE_KB=192          # can go up to 608 KB, but keep an eye for stack!
 KERNEL_LOAD_ADDRESS=0x8000  # at 32KB, below upper memory (640KB), must be < 1MB, to be loaded in real mode.
 KERNEL_STACK_TOP=0x90000    # at 576KB, below upper memory
 KERNEL_SECTOR_COUNT=$(($KERNEL_SIZE_KB * 1024 / $SECTOR_SIZE))

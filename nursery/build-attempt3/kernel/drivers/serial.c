@@ -43,3 +43,9 @@ void serial_write(char *str) {
         serial_putchar(*str++);
     }
 }
+
+void serial_panic_writer(const char *str) {
+    while (*str != '\0') {
+        serial_putchar(*str++);
+    }
+}

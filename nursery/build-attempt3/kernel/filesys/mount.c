@@ -52,17 +52,17 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
 
     struct storage_dev *dev = get_storage_device(dev_no);
     if (dev == NULL) {
-        log_error("Storage dev %d not found - cannot mount root filesystem", dev_no);
+        log_error("Storage dev %d not found - cannot mount '%s'", dev_no, path);
         return ERR_NO_DEVICE;
     }
     struct partition *part = get_partition(dev, part_no);
     if (part == NULL) {
-        log_error("Partition %d not found on device %d - cannot mount root filesystem", dev_no, part_no);
+        log_error("Partition %d not found on device %d - cannot mount '%s'", dev_no, part_no, path);
         return ERR_NO_PARTITION;
     }
     struct filesys_driver *driver = find_vfs_driver_for_partition(part);
     if (driver == NULL) {
-        log_error("No driver found for dev %d part %d - cannot mount root filesystem", dev_no, part_no);
+        log_error("No driver found for dev %d part %d - cannot mount '%s'", dev_no, part_no, path);
         return ERR_NO_DRIVER_FOUND;
     }
 

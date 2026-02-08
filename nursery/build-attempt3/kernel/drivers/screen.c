@@ -198,6 +198,12 @@ void screen_write(char* data)
         screen_putchar(*data++);
 }
 
+void screen_panic_writer(const char* data)
+{
+    while (*data != '\0')
+        screen_putchar(*data++);
+}
+
 // printk() prints to screen directly using the driver
 void printk(char *format, ...) {
     char buffer[128];
@@ -209,3 +215,4 @@ void printk(char *format, ...) {
 
     screen_write(buffer);
 }
+

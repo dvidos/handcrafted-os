@@ -26,6 +26,7 @@ void screen_copy_buffer_to_screen(char *buffer, int length, uint8_t col, uint8_t
 
 // print to screen
 void printk(char *format, ...); 
+void screen_panic_writer(const char* data);
 
 
 

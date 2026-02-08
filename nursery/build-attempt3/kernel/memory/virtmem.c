@@ -418,6 +418,9 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
 // allocates and creates a new page directory
 void *create_page_directory(bool map_kernel_space) {
     void *page_dir = (void *)pmm.allocate_physical_page();
+    if (page_dir == (void *)INVALID_PAGE) {
+        panic("Failed to allocate physical page for page directory!");
+    }
     memset(page_dir, 0, PAGE_SIZE);
 
     if (map_kernel_space) {

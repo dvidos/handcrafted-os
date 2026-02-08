@@ -18,6 +18,7 @@ void panic(const char *fmt, ...) {
 
         _panic_writer("\nKernel panic:\n");
         _panic_writer(buffer);
+        _panic_writer("\n");
     }
 
     for(;;)

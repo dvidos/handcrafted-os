@@ -3,6 +3,6 @@
 
 int init_serial_port();
 void serial_write(char *str);
-
+void serial_panic_writer(const char *str);
 
 #endif

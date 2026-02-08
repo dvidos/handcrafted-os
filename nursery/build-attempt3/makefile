@@ -6,13 +6,13 @@ include config.mk
 
 default: os.img
 
-config.mk:
+config.mk: ./tools/configure.sh
 	./tools/configure.sh
 
-config.sh:
+config.sh: ./tools/configure.sh
 	./tools/configure.sh
 
-config.h:
+config.h: ./tools/configure.sh
 	./tools/configure.sh
 
 tools:
@@ -52,7 +52,7 @@ run: os.img
 	qemu-system-i386 -drive format=raw,file=os.img -serial stdio -m 4G
 
 run-with-cpu-diags: os.img
-	qemu-system-i386 -drive format=raw,file=os.img -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
+	qemu-system-i386 -drive format=raw,file=os.img -m 4G -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
 
 clean: config.mk
 	make -C tools clean

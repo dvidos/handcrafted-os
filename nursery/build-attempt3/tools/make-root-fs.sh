@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # stage all files to be packed into the disk image
 # mkdir / copy / create what is needed into build/rootfs

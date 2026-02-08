@@ -86,6 +86,7 @@ void kernel_main(boot_info_t* boot)
     // initialize screen and allow logs to be written to it
     screen_init();
     logger_set_appender_log_level(LOG_APPENDER_SCREEN, LOG_LEVEL_DEBUG);
+    panic_set_writer(screen_panic_writer);
     
     log_info("Kernel starting");
     log_info("Version %s, (%s), built %s", VERSION, GIT_HASH, DATE_BUILT);
@@ -116,20 +117,15 @@ void kernel_main(boot_info_t* boot)
     log_info("Initializing Serial Port 1 for logging...");
     init_serial_port();
 
-    // maybe tomorrow to a file
     log_info("Switching logging to serial port");
     logger_set_appender_log_level(LOG_APPENDER_SERIAL, LOG_LEVEL_TRACE);
+    panic_set_writer(serial_panic_writer);
     
     log_info("Initializing Kernel Heap...");
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
-
-
-
-
     log_info("Initializing virtual memory mapping...");
     init_virtual_memory_paging(0, (void *)pmm.get_top_identity_address());
-
 
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -149,8 +145,7 @@ void kernel_main(boot_info_t* boot)
     fat_register_vfs_driver();
     vfs_discover_and_mount_filesystems((char *)saved_multiboot_info.cmdline);
 
-    for(;;); // TODO: remove when we have the correct filesystem mounted
-
+    panic("Pausing here, until there is a FS to mount the file system");
 
     log_info("Initializing multi-tasking...");
     init_multitasking();
