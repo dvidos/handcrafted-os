@@ -19,7 +19,7 @@ static char *level_captions[] = {
 };
 
 static struct {
-    char buffer[8096];
+    char buffer[2048];
     int len;
 } memlog;
 static void memlog_write(const char *str);

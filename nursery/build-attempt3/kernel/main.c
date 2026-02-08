@@ -83,10 +83,6 @@ void kernel_main(boot_info_t* boot)
     screen_init();
     panic_set_writer(screen_panic_writer);
     logger_add_appender(screen_log_appender, NULL, LOG_LEVEL_INFO);
-    log_error("Error!");
-    log_info("Info!");
-
-
     
     log_info("Kernel starting");
     log_info("Version %s, (%s), built %s", VERSION, GIT_HASH, DATE_BUILT);
