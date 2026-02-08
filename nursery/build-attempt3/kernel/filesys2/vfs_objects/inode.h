@@ -3,11 +3,11 @@
 #include "superblock.h"
 
 
-typedef struct file_descriptor file_descriptor_t;
+typedef struct inode inode_t;
 
 
 // value object, copiable, cacheable, can test for equality
-struct file_descriptor {  
+struct inode {  
     superblock_t *sb;             // which mounted FS
     uint64_t inode;               // inode / file id / synthetic file identifier for FAT
     uint32_t mode;                // file type & permissions, see S_Ixxxx defines
@@ -17,19 +17,19 @@ struct file_descriptor {
     uint64_t mtime;
     uint64_t ctime;
     // path resolution support (optional but useful)
-    struct file_descriptor *parent;  // owned copy or NULL
+    struct inode *parent;  // owned copy or NULL
     char *name;                      // owned
 };
 
 
-struct file_descriptor_ops {
-    file_descriptor_t *(*create)(superblock_t *sb, uint64_t inode, file_descriptor_t *dir, const char *name);
-    file_descriptor_t *(*clone)(const file_descriptor_t *src);
-    bool (*equals)(const file_descriptor_t *a, const file_descriptor_t *b);
-    void (*destroy)(file_descriptor_t *fd);
-    bool (*is_dir)(file_descriptor_t *fd);
-    bool (*is_file)(file_descriptor_t *fd);
+struct inode_ops {
+    inode_t *(*create)(superblock_t *sb, uint64_t inode, inode_t *dir, const char *name);
+    inode_t *(*clone)(const inode_t *src);
+    bool (*equals)(const inode_t *a, const inode_t *b);
+    void (*destroy)(inode_t *n);
+    bool (*is_dir)(inode_t *n);
+    bool (*is_file)(inode_t *n);
     // hashcode? log_debug? get full path? mutex_acquire()/release()?
 };
 
-extern struct file_descriptor_ops file_descriptors;
+extern struct inode_ops inodes;

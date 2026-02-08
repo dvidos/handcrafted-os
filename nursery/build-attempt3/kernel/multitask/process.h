@@ -131,7 +131,7 @@ struct process {
 
     } user_proc;
 
-    file_descriptor_t *curr_dir;
+    inode_t *curr_dir;
     char *curr_dir_path;
     file_t file_handles[MAX_FILE_HANDLES];
 };

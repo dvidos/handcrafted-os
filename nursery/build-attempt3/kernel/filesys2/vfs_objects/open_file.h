@@ -1,7 +1,7 @@
 #pragma once
 #include "../../utils/mutex.h"
 #include "superblock.h"
-#include "file_descriptor.h"
+#include "inode.h"
 
 
 typedef struct open_file open_file_t;
@@ -10,7 +10,7 @@ typedef struct open_file open_file_t;
 // vfs-owned, one per open handle, created/destroyed in vfs_open()/vfs_close()
 struct open_file {           
     superblock_t *sb;
-    file_descriptor_t *fd;        // immutable identity
+    inode_t *n;        // immutable identity
     uint64_t offset;              // VFS-maintained file position
     uint64_t size;                // VFS-maintained size copy
     uint32_t flags;               // RDONLY, WRONLY, APPEND, etc
@@ -20,7 +20,7 @@ struct open_file {
 
 
 struct open_file_ops {
-    open_file_t *(*create)(superblock_t *sb, file_descriptor_t *fd);
+    open_file_t *(*create)(superblock_t *sb, inode_t *n);
     void (*destroy)(open_file_t *f);
     // log_debug?
 };

@@ -23,8 +23,8 @@ static void debug_fat_info(fat_info *fat) {
     log_debug("  data clusters starting lba  %d", fat->data_clusters_starting_lba);
     log_debug("  root dir starting lba       %d", fat->root_dir_starting_lba);
     log_debug("  root dir sectors size       %d", fat->root_dir_sectors_count);
-    log_debug("Root dir descriptor:");
-    debug_file_descriptor(fat->root_dir_descriptor, 0);
+    log_debug("Root dir inode:");
+    debug_inode(fat->root_dir_inode, 0);
 
     log_debug("IO Buffers");
     log_debug("  Sector -> 0x%p, sector_no=%u, buffer -> 0x%p, loaded=%d, dirty=%d",

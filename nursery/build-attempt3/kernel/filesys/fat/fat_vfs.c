@@ -207,13 +207,13 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
     fat->ops->find_path_dir_entry = find_path_dir_entry;
     fat->ops->find_entry_in_dir = find_entry_in_dir;
     
-    fat->root_dir_descriptor = create_file_descriptor(
+    fat->root_dir_inode = create_inode(
         superblock, 
         "/", 
         fat->fat_type == FAT32 ? fat->boot_sector->types.fat_32.root_dir_cluster : 0,
         NULL
     );
-    fat->root_dir_descriptor->flags = FD_DIR;
+    fat->root_dir_inode->flags = FD_DIR;
 
     fat->io_buffers = kmalloc(sizeof(struct io_buffers));
     fat->io_buffers->sector = kmalloc(sizeof(sector_t));
@@ -235,7 +235,7 @@ static int fat_open_superblock(struct partition *partition, struct superblock *s
 
 error:
     if (boot_sector != NULL) kfree(boot_sector);
-    if (fat->root_dir_descriptor != NULL) destroy_file_descriptor(fat->root_dir_descriptor);
+    if (fat->root_dir_inode != NULL) destroy_inode(fat->root_dir_inode);
     if (fat->ops != NULL) kfree(fat->ops);
     if (fat->io_buffers != NULL) {
         if (fat->io_buffers->sector != NULL) {
@@ -261,8 +261,8 @@ static int fat_close_superblock(struct superblock *superblock) {
 
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
 
-    if (fat->root_dir_descriptor != NULL)
-        destroy_file_descriptor(fat->root_dir_descriptor);
+    if (fat->root_dir_inode != NULL)
+        destroy_inode(fat->root_dir_inode);
     
     kfree(fat->ops);
     kfree(fat);
@@ -270,7 +270,7 @@ static int fat_close_superblock(struct superblock *superblock) {
     return OK;
 }
 
-static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result) {
+static int fat_lookup(inode_t *dir, char *name, inode_t **result) {
     log_trace("fat_lookup(dir=0x%x, name=\"%s\")", dir, name);
 
     // we must find the entry "name" in directory dir, return pointer to result.
@@ -289,7 +289,7 @@ static int fat_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **re
     err = fat->ops->find_entry_in_dir(fat, pdi, name, entry);
     if (err) goto close;
 
-    fat_dir_entry_to_file_descriptor(dir, entry, result);
+    fat_dir_entry_to_inode(dir, entry, result);
     if (err) goto close;
 
 close:
@@ -301,19 +301,19 @@ out:
     return err;
 }
 
-static int fat_open(file_descriptor_t *fd, int flags, file_t **file) {
-    log_trace("fat_open2(descriptor=0x%x)", fd);
-    fat_info *fat = (fat_info *)fd->superblock->priv_fs_driver_data;
+static int fat_open(inode_t *n, int flags, file_t **file) {
+    log_trace("fat_open2(inode=0x%x)", n);
+    fat_info *fat = (fat_info *)n->superblock->priv_fs_driver_data;
 
-    if ((fd->flags & FD_FILE) == 0)
+    if ((n->flags & FD_FILE) == 0)
         return ERR_NOT_A_FILE;
     
     fat_priv_file_info *pfi = NULL;
-    int err = fat->ops->priv_file_open(fat, fd->location, fd->size, &pfi);
+    int err = fat->ops->priv_file_open(fat, n->location, n->size, &pfi);
     if (err)
         return err;
 
-    (*file) = create_file_t(fd->superblock, fd);
+    (*file) = create_file_t(n->superblock, n);
     (*file)->fs_driver_private_data = pfi;
     return OK;
 }
@@ -370,27 +370,27 @@ static int fat_close(file_t *file) {
 }
 
 
-static int fat_root_descriptor(superblock_t *superblock, file_descriptor_t **fd) {
+static int fat_root_inode(superblock_t *superblock, inode_t **n) {
     fat_info *fat = (fat_info *)superblock->priv_fs_driver_data;
-    *fd = fat->root_dir_descriptor;
+    *n = fat->root_dir_inode;
     return OK;
 }
 
 
-static int fat_opendir(file_descriptor_t *fd, file_t **dir) {
+static int fat_opendir(inode_t *n, file_t **dir) {
     log_trace("fat_opendir()");
 
-    fat_info *fat = (fat_info *)fd->superblock->priv_fs_driver_data;
+    fat_info *fat = (fat_info *)n->superblock->priv_fs_driver_data;
     int err;
     fat_priv_dir_info *pdi;
 
-    if ((fat->fat_type == FAT12 || fat->fat_type == FAT16) && fd->location == 0)
+    if ((fat->fat_type == FAT12 || fat->fat_type == FAT16) && n->location == 0)
         err = fat->ops->priv_dir_open_root(fat, &pdi);
     else
-        err = fat->ops->priv_dir_open_cluster(fat, fd->location, &pdi);
+        err = fat->ops->priv_dir_open_cluster(fat, n->location, &pdi);
     if (err) goto out;
 
-    (*dir) = create_file_t(fd->superblock, fd);
+    (*dir) = create_file_t(n->superblock, n);
     (*dir)->fs_driver_private_data = pdi;
 
 out:
@@ -405,7 +405,7 @@ static int fat_rewinddir(file_t *file) {
     return fat->ops->priv_dir_seek_slot(fat, pd, 0);
 }
 
-static int fat_readdir(file_t *file, file_descriptor_t **fd) {
+static int fat_readdir(file_t *file, inode_t **n) {
     log_trace("fat_readdir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_dir_info *pdi = (fat_priv_dir_info *)file->fs_driver_private_data;
@@ -414,7 +414,7 @@ static int fat_readdir(file_t *file, file_descriptor_t **fd) {
     int err = fat->ops->priv_dir_read_one_entry(fat, pdi, fat_entry);
     if (err == OK) {
         log_debug("fat_readdir(): gotten entry for \"%s\"", fat_entry->short_name);
-        fat_dir_entry_to_file_descriptor(file->descriptor, fat_entry, fd);
+        fat_dir_entry_to_inode(file->inode, fat_entry, n);
     } else {
         log_debug("fat_readdir(): priv_dir_read_one_entry() returned %d", err);
     }
@@ -433,7 +433,7 @@ static int fat_closedir(file_t *file) {
 }
 
 
-static int create_directory_entry(file_descriptor_t *parent_dir, char *name, uint32_t cluster_no, uint32_t size, bool allocate_cluster, bool want_directory) {
+static int create_directory_entry(inode_t *parent_dir, char *name, uint32_t cluster_no, uint32_t size, bool allocate_cluster, bool want_directory) {
     log_trace("create_directory_entry(parent=%s, name=%s, clust=%u, size=%u, allocate=%d, want_dir=%d)", parent_dir->name, name, cluster_no, size, allocate_cluster, want_directory);
     fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
     int err;
@@ -482,7 +482,7 @@ exit:
     return err;
 }
 
-static int remove_directory_entry(file_descriptor_t *parent_dir, char *name, bool want_directory) {
+static int remove_directory_entry(inode_t *parent_dir, char *name, bool want_directory) {
     log_trace("remove_directory_entry(parent=%s, name=%s, want_dir=%d)", parent_dir->name, name, want_directory);
     fat_info *fat = (fat_info *)parent_dir->superblock->priv_fs_driver_data;
     int err;
@@ -532,7 +532,7 @@ exit:
 
 
 
-static int fat_touch(file_descriptor_t *parent_dir, char *name) {
+static int fat_touch(inode_t *parent_dir, char *name) {
     log_trace("fat_touch(\"%s\")", name);
     mutex_acquire(&parent_dir->superblock->write_lock);
 
@@ -543,7 +543,7 @@ static int fat_touch(file_descriptor_t *parent_dir, char *name) {
     return err;
 }
 
-static int fat_unlink(file_descriptor_t *parent_dir, char *name) {
+static int fat_unlink(inode_t *parent_dir, char *name) {
     log_trace("fat_touch(\"%s\")", name);
     mutex_acquire(&parent_dir->superblock->write_lock);
 
@@ -553,13 +553,13 @@ static int fat_unlink(file_descriptor_t *parent_dir, char *name) {
     return err;
 }
 
-static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
+static int fat_mkdir(inode_t *parent_dir, char *name) {
     log_trace("fat_mkdir(\"%s\")", name);
     mutex_acquire(&parent_dir->superblock->write_lock);
 
     // if we created a directory, we need to create the "." and ".." entries
     // essentially, we are creating three directory entries, all of type directory!
-    file_descriptor_t *new_dir = NULL;
+    inode_t *new_dir = NULL;
 
     int err = create_directory_entry(parent_dir, name, 0, 0, true, true);
     if (err) goto exit;
@@ -567,8 +567,8 @@ static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
     err = fat_lookup(parent_dir, name, &new_dir);
     if (err) goto exit;
 
-    log_debug("Newly created dir descriptor:");
-    debug_file_descriptor(new_dir, 0);
+    log_debug("Newly created dir inode:");
+    debug_inode(new_dir, 0);
     
     err = create_directory_entry(new_dir, ".", new_dir->location, new_dir->size, false, true);
     if (err) goto exit;
@@ -577,13 +577,13 @@ static int fat_mkdir(file_descriptor_t *parent_dir, char *name) {
 
 exit:
     if (new_dir != NULL)
-        destroy_file_descriptor(new_dir);
+        destroy_inode(new_dir);
 
     mutex_release(&parent_dir->superblock->write_lock);
     return err;
 }
 
-static int fat_rmdir(file_descriptor_t *parent_dir, char *name) {
+static int fat_rmdir(inode_t *parent_dir, char *name) {
     log_trace("fat_rmdir(\"%s\")", name);
     mutex_acquire(&parent_dir->superblock->write_lock);
 
@@ -595,7 +595,7 @@ static int fat_rmdir(file_descriptor_t *parent_dir, char *name) {
 
 
 struct file_ops fat_file_operations = {
-    .root_dir_descriptor = fat_root_descriptor,
+    .root_dir_inode = fat_root_inode,
     .lookup = fat_lookup,
 
     .open = fat_open,

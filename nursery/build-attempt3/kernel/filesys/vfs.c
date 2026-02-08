@@ -72,7 +72,7 @@ static void debug_dir_entry_t(dir_entry_t *dir_entry) {
 
 
 // similar to namei() in unix/linux
-int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_descriptor_t *curr_dir, bool containing_folder, file_descriptor_t **target) {
+int vfs_resolve(const char *path, const inode_t *root_dir, const inode_t *curr_dir, bool containing_folder, inode_t **target) {
     log_trace("vfs_resolve(\"%s\", root=0x%x, curr=0x%x, container=%d)",
         path, root_dir, curr_dir, (int)containing_folder);
     int err = OK;
@@ -102,24 +102,24 @@ int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_
                 err = ERR_BAD_ARGUMENT;
                 goto out;
             }
-            *target = clone_file_descriptor(curr_dir);
+            *target = clone_inode(curr_dir);
             goto out;
         }
         else if (*final_path == '/') {
-            *target = clone_file_descriptor(root_dir);
+            *target = clone_inode(root_dir);
             goto out;
         }
     }
 
     // establish base dir
-    file_descriptor_t *base_dir = NULL;
+    inode_t *base_dir = NULL;
     if (*final_path == '/') {
-        base_dir = clone_file_descriptor(root_dir);
+        base_dir = clone_inode(root_dir);
         path++;
     } else {
         if (curr_dir == NULL)
             return ERR_BAD_ARGUMENT;
-        base_dir = clone_file_descriptor(curr_dir);
+        base_dir = clone_inode(curr_dir);
     }
     
     // maybe we were given "/mnt/hdd2/dir/file.txt" and we are at the "hdd2"
@@ -151,24 +151,24 @@ int vfs_resolve(const char *path, const file_descriptor_t *root_dir, const file_
         if (err) goto out;
 
         // here we could translate for mounted filesystems.
-        // one can think of a mount as two pairs of file descriptors:
+        // one can think of a mount as two pairs of inodes:
         // one for the mount point directory of the host system,
         // one for the root directory of the hosted system.
-        // so, if we got a descriptor pointing to one dir (e.g. fs A, "/mnt/hda")
+        // so, if we got an inode pointing to one dir (e.g. fs A, "/mnt/hda")
         // we could substitute the other dir (fs B, "/")
 
         // let's check if we finished
         name = strtok(NULL, "/");
         if (name == NULL || strlen(name) == 0) {
             // we are done, target contains the... target, so free base_dir
-            destroy_file_descriptor(base_dir);
+            destroy_inode(base_dir);
             break;
         }
 
         // we will search again, so rebase on the new target.
-        // lookup() will create a new file_descriptor each call
+        // lookup() will create a new inode each call
         // so, free our current, use the new one.
-        destroy_file_descriptor(base_dir);
+        destroy_inode(base_dir);
         base_dir = *target;
     }
 
@@ -190,8 +190,8 @@ int vfs_open(char *path, file_t **file) {
         goto out;
     }
     
-    file_descriptor_t *target = NULL;
-    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    inode_t *target = NULL;
+    inode_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, false, &target);
     if (err) goto out;
     if (target == NULL) {
@@ -203,8 +203,8 @@ int vfs_open(char *path, file_t **file) {
         goto out;
     }
 
-    log_debug("vfs_open(), resolved descriptor follows");
-    debug_file_descriptor(target, 0);
+    log_debug("vfs_open(), resolved inode follows");
+    debug_inode(target, 0);
 
     if (target->superblock->ops->open == NULL)
         return ERR_NOT_SUPPORTED;
@@ -254,8 +254,8 @@ int vfs_opendir(char *path, file_t **file) {
         goto out;
     }
     
-    file_descriptor_t *target = NULL;
-    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    inode_t *target = NULL;
+    inode_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, false, &target);
     if (err) goto out;
     if (target == NULL) {
@@ -267,8 +267,8 @@ int vfs_opendir(char *path, file_t **file) {
         goto out;
     }
 
-    log_debug("vfs_opendir(), resolved descriptor follows");
-    debug_file_descriptor(target, 0);
+    log_debug("vfs_opendir(), resolved inode follows");
+    debug_inode(target, 0);
 
     if (target->superblock->ops->opendir == NULL)
         return ERR_NOT_SUPPORTED;
@@ -285,11 +285,11 @@ int vfs_rewinddir(file_t *file) {
     return file->superblock->ops->rewinddir(file);
 }
 
-int vfs_readdir(file_t *file, file_descriptor_t **fd) {
+int vfs_readdir(file_t *file, inode_t **n) {
     log_trace("vfs_readdir(file=0x%p)", file);
     if (file->superblock->ops->readdir == NULL)
         return ERR_NOT_SUPPORTED;
-    return file->superblock->ops->readdir(file, fd);
+    return file->superblock->ops->readdir(file, n);
 }
 
 int vfs_closedir(file_t *file) {
@@ -309,8 +309,8 @@ int vfs_touch(char *path) {
         goto out;
     }
     
-    file_descriptor_t *parent = NULL;
-    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    inode_t *parent = NULL;
+    inode_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
     if (err) goto out;
     if (parent == NULL) {
@@ -318,8 +318,8 @@ int vfs_touch(char *path) {
         goto out;
     }
 
-    log_debug("vfs_touch(), resolved descriptor follows");
-    debug_file_descriptor(parent, 0);
+    log_debug("vfs_touch(), resolved inode follows");
+    debug_inode(parent, 0);
 
     if (parent->superblock->ops->touch == NULL) {
         err = ERR_NOT_SUPPORTED;
@@ -346,8 +346,8 @@ int vfs_unlink(char *path) {
         goto out;
     }
     
-    file_descriptor_t *parent = NULL;
-    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    inode_t *parent = NULL;
+    inode_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
     if (err) goto out;
     if (parent == NULL) {
@@ -355,8 +355,8 @@ int vfs_unlink(char *path) {
         goto out;
     }
 
-    log_debug("vfs_unlink(), resolved descriptor follows");
-    debug_file_descriptor(parent, 0);
+    log_debug("vfs_unlink(), resolved inode follows");
+    debug_inode(parent, 0);
 
     if (parent->superblock->ops->unlink == NULL) {
         err = ERR_NOT_SUPPORTED;
@@ -383,8 +383,8 @@ int vfs_mkdir(char *path) {
         goto out;
     }
     
-    file_descriptor_t *parent = NULL;
-    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    inode_t *parent = NULL;
+    inode_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
     if (err) goto out;
     if (parent == NULL) {
@@ -392,8 +392,8 @@ int vfs_mkdir(char *path) {
         goto out;
     }
 
-    log_debug("vfs_mkdir(), resolved descriptor follows");
-    debug_file_descriptor(parent, 0);
+    log_debug("vfs_mkdir(), resolved inode follows");
+    debug_inode(parent, 0);
 
     if (parent->superblock->ops->mkdir == NULL) {
         err = ERR_NOT_SUPPORTED;
@@ -420,8 +420,8 @@ int vfs_rmdir(char *path) {
         goto out;
     }
     
-    file_descriptor_t *parent = NULL;
-    file_descriptor_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
+    inode_t *parent = NULL;
+    inode_t *curr = running_process() == NULL ? NULL : running_process()->curr_dir;
     err = vfs_resolve(path, vfs_get_root_mount()->mounted_fs_root, curr, true, &parent);
     if (err) goto out;
     if (parent == NULL) {
@@ -429,8 +429,8 @@ int vfs_rmdir(char *path) {
         goto out;
     }
 
-    log_debug("vfs_vfs_rmdir(), resolved descriptor follows");
-    debug_file_descriptor(parent, 0);
+    log_debug("vfs_vfs_rmdir(), resolved inode follows");
+    debug_inode(parent, 0);
 
     if (parent->superblock->ops->rmdir == NULL) {
         err = ERR_NOT_SUPPORTED;
@@ -445,16 +445,16 @@ int vfs_rmdir(char *path) {
     ) {
         log_debug("vfs_rmdir() checking if dir is empty...");
         file_t *f;
-        file_descriptor_t *fd;
+        inode_t *n;
         err = parent->superblock->ops->opendir(parent, &f);
         if (err) {
             log_debug("error %d opendir() directory to count contents", err);
             goto out;
         }
-        while (parent->superblock->ops->readdir(f, &fd) == OK) {
-            if (strcmp(fd->name, ".") != 0 && strcmp(fd->name, "..") != 0)
+        while (parent->superblock->ops->readdir(f, &n) == OK) {
+            if (strcmp(n->name, ".") != 0 && strcmp(n->name, "..") != 0)
                 dir_contents++;
-            destroy_file_descriptor(fd);
+            destroy_inode(n);
         }
         parent->superblock->ops->closedir(f);
     }

@@ -337,19 +337,19 @@ int proc_chdir(process_t *proc, const char *path) {
     if (vfs_get_root_mount() == NULL)
         return ERR_NO_FS_MOUNTED;
     
-    file_descriptor_t *root = vfs_get_root_mount()->mounted_fs_root;
-    file_descriptor_t *target = NULL;
+    inode_t *root = vfs_get_root_mount()->mounted_fs_root;
+    inode_t *target = NULL;
     int err = vfs_resolve(path, root, proc->curr_dir, false, &target);
     if (err)
         return err;
 
     if (proc->curr_dir != NULL)
-        destroy_file_descriptor(proc->curr_dir);
+        destroy_inode(proc->curr_dir);
     proc->curr_dir = target;
 
     if (proc->curr_dir_path != NULL)
         kfree(proc->curr_dir_path);
-    file_descriptor_get_full_path(proc->curr_dir, &proc->curr_dir_path);
+    inode_get_full_path(proc->curr_dir, &proc->curr_dir_path);
     
     return OK;
 }
@@ -433,7 +433,7 @@ void cleanup_process(process_t *proc) {
         free_strvec(proc->user_proc.envp);
     
     if (proc->curr_dir != NULL)
-        destroy_file_descriptor(proc->curr_dir);
+        destroy_inode(proc->curr_dir);
     if (proc->curr_dir_path != NULL)
         kfree(proc->curr_dir_path);
     
@@ -535,14 +535,14 @@ int proc_opendir(process_t *proc, char *name) {
 int proc_readdir(process_t *proc, int handle, dirent_t *entry) {
     if (handle < 0 || handle >= MAX_FILE_HANDLES)
         return ERR_BAD_ARGUMENT;
-    file_descriptor_t *fd;
-    int err = vfs_readdir(&proc->file_handles[handle], &fd);
+    inode_t *n;
+    int err = vfs_readdir(&proc->file_handles[handle], &n);
     if (!err) {
-        entry->location = fd->location;
-        entry->size = fd->size;
-        entry->type = fd->flags;
-        strncpy(entry->name, fd->name, sizeof(entry->name));
-        destroy_file_descriptor(fd);
+        entry->location = n->location;
+        entry->size = n->size;
+        entry->type = n->flags;
+        strncpy(entry->name, n->name, sizeof(entry->name));
+        destroy_inode(n);
     }
     log_trace("proc_readdir() -> %d", err);
     return err;

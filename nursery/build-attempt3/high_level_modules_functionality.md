@@ -21,7 +21,7 @@ How this hangs together:
 // Structs are public ABI, should be stable.
 // --------------------------------------------------------------
 
-struct file_t;      // An open file descriptor, has offset, vfs_node,
+struct file_t;      // An open file, has offset, vfs_node,
 struct stat;        // Portable file metadata, ABI struct, what "ls -l" needs
 struct dirent;      // Portable file metadata, ABI struct
 

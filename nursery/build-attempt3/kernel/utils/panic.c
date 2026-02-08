@@ -16,7 +16,7 @@ void panic(const char *fmt, ...) {
         vsprintfn(buffer, sizeof(buffer), fmt, vl);
         va_end(vl);
 
-        _panic_writer("\nKernel panic:\n");
+        _panic_writer("\nKernel panic: ");
         _panic_writer(buffer);
         _panic_writer("\n");
     }

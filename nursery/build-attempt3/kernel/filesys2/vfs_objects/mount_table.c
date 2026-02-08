@@ -11,7 +11,7 @@ static mount_entry_t *_mtab_get_entries_list() {
     return mtab_entries_list_head;
 }
 
-static mount_entry_t *_mtab_create_entry(file_descriptor_t *host_dir, file_descriptor_t *new_root_dir) {
+static mount_entry_t *_mtab_create_entry(inode_t *host_dir, inode_t *new_root_dir) {
     mount_entry_t *e = (mount_entry_t *)kmalloc(sizeof(mount_entry_t));
 
     e->host_dir = host_dir;
@@ -64,18 +64,18 @@ static int _mtab_remove_entry(mount_entry_t *e) {
     return OK;
 }
 
-static mount_entry_t *_mtab_find_entry_by_host_dir(file_descriptor_t *fd) {
+static mount_entry_t *_mtab_find_entry_by_host_dir(inode_t *n) {
     for (mount_entry_t *e = mtab_entries_list_head; e != NULL; e = e->next) {
-        if (file_descriptors.equals(fd, e->host_dir))
+        if (inodes.equals(n, e->host_dir))
             return e;
     }
 
     return NULL;
 }
 
-static mount_entry_t *_mtab_find_entry_by_root_dir(file_descriptor_t *fd) {
+static mount_entry_t *_mtab_find_entry_by_root_dir(inode_t *n) {
     for (mount_entry_t *e = mtab_entries_list_head; e != NULL; e = e->next) {
-        if (file_descriptors.equals(fd, e->root_dir))
+        if (inodes.equals(n, e->root_dir))
             return e;
     }
     

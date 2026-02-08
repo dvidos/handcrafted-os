@@ -6,11 +6,11 @@
 MODULE("VFS");
 
 
-file_t *create_file_t(superblock_t *superblock, file_descriptor_t *descriptor) {
+file_t *create_file_t(superblock_t *superblock, inode_t *inode) {
     file_t *file = kmalloc(sizeof(file_t));
 
     file->superblock = superblock; // referenced, not freed
-    file->descriptor = descriptor; // referenced, not freed
+    file->inode = inode; // referenced, not freed
 
     return file;
 }
@@ -18,13 +18,13 @@ file_t *create_file_t(superblock_t *superblock, file_descriptor_t *descriptor) {
 
 void debug_file_t(file_t *file) {
     log_debug("  file->superblock : 0x%x", file->superblock);
-    log_debug("  file->desciptor : 0x%x", file->descriptor);
+    log_debug("  file->inode      : 0x%x", file->inode);
     log_debug("  file->fs_driver_private_data: 0x%x", file->fs_driver_private_data);
 }
 
 void destroy_file_t(file_t *file) {
     // superblock is referenced, not owned, we don't free() it
-    // same with file descriptor.
+    // same with inode.
 
     kfree(file);
 }

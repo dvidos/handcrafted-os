@@ -89,7 +89,7 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
     mount->mount_point = kmalloc(strlen(path) + 1);
     strcpy(mount->mount_point, path);
 
-    // we should get the two file descriptors...
+    // we should get the two inodes...
 
     if (strcmp(path, "/") == 0) {
         // we are mounting the root file system
@@ -99,14 +99,14 @@ int vfs_mount(uint8_t dev_no, uint8_t part_no, char *path) {
     }
 
     // we also keep the hosted root directory
-    if (mount->superblock->ops->root_dir_descriptor == NULL) {
-        log_error("Driver %s does not support root_dir_descriptor() method", driver->name);
+    if (mount->superblock->ops->root_dir_inode == NULL) {
+        log_error("Driver %s does not support root_dir_inode() method", driver->name);
         err = ERR_NOT_SUPPORTED;
         goto error;
     }
-    err = mount->superblock->ops->root_dir_descriptor(mount->superblock, &mount->mounted_fs_root);
+    err = mount->superblock->ops->root_dir_inode(mount->superblock, &mount->mounted_fs_root);
     if (err) {
-        log_error("Error %d retrieving root dir descriptor", err);
+        log_error("Error %d retrieving root dir inode", err);
         goto error;
     } 
 

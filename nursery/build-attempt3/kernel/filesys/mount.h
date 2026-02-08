@@ -13,8 +13,8 @@ typedef struct mount_info {
     file_t *root_dir;
 
     // maybe we only need the following pair:
-    file_descriptor_t *host_dir;        // NULL for root mount
-    file_descriptor_t *mounted_fs_root; // root dir of mounted fs
+    inode_t *host_dir;        // NULL for root mount
+    inode_t *mounted_fs_root; // root dir of mounted fs
 
     struct mount_info *next;
 } mount_info_t;

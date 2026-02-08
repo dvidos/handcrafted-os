@@ -12,7 +12,7 @@ error_t vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *drive
 error_t vfs2_unmount(const char *path);
 error_t vfs2_sync(void);
 
-// file open/close (resolve path -> file_descriptor_t, allocate open_file_t, call fd->sb->driver->open(fd, flags, open_file);, store open_file_t in process FD table)
+// file open/close (resolve path -> inode_t, allocate open_file_t, call n->sb->driver->open(n, flags, open_file);, store open_file_t in process FD table)
 error_t vfs2_open(const char *path, int flags, open_file_t **file);
 error_t vfs2_close(open_file_t *file);
 
@@ -43,6 +43,7 @@ error_t vfs2_rmdir(const char *path);
 
 // vfs holds the mount table, does not cache things.
 // it puts the FD in the process file descriptor table (???)
+// we don't want to merge proc and fs, same as curr-dir, we need to see how.
 
 
 // initial probing of storage devices is outside of VFS

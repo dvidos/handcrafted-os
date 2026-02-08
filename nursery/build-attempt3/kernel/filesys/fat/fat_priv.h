@@ -114,7 +114,7 @@ typedef struct {
     uint32_t data_clusters_starting_lba;
     uint32_t root_dir_sectors_count; // for FAT12/16 only
 
-    file_descriptor_t *root_dir_descriptor;
+    inode_t *root_dir_inode;
     struct fat_operations *ops;
     struct io_buffers *io_buffers;
 } fat_info;
@@ -122,7 +122,7 @@ typedef struct {
 
 #define BYTES_PER_DIR_SLOT    32
 
-// represents one file described inside a directory cluster
+// represents one file inside a directory cluster
 typedef struct {
     int short_entry_slot_no; // 32-bit slot no, for the short-name & data entry
     int long_name_slots_count;   // how many slots we have allocated for long name
@@ -312,7 +312,7 @@ static void dir_entry_to_slot(fat_dir_entry *entry, uint8_t *buffer);
 static void dir_entry_to_long_name(uint8_t *buffer, fat_dir_entry *entry);
 static void dir_long_name_to_slot(fat_dir_entry *entry, int seq_no, uint8_t *buffer);
 static void fat_dir_entry_to_vfs_dir_entry(fat_dir_entry *fat_entry, dir_entry_t *vfs_entry);
-static void fat_dir_entry_to_file_descriptor(file_descriptor_t *parent_dir, fat_dir_entry *fat_entry, file_descriptor_t **fd);
+static void fat_dir_entry_to_inode(inode_t *parent_dir, fat_dir_entry *fat_entry, inode_t **n);
 static void dir_entry_set_created_time(fat_dir_entry *entry, real_time_clock_info_t *time);
 static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_info_t *time);
 
@@ -321,9 +321,9 @@ static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_in
 static int fat_supported(struct partition *partition);
 static struct file_ops *fat_get_file_operations();
 
-static int fat_opendir(file_descriptor_t *fd, file_t **dir);
+static int fat_opendir(inode_t *n, file_t **dir);
 static int fat_rewinddir(file_t *file);
-static int fat_readdir(file_t *file, file_descriptor_t **fd);
+static int fat_readdir(file_t *file, inode_t **n);
 static int fat_closedir(file_t *file);
 
 // file operations

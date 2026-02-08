@@ -13,12 +13,12 @@ There's at least three distinct layers for file system:
 Note that the drivers and FS depend on the VFS, not vice versa. This means
 that there are core structs in VFS that others must use.
 
-* VFS speaks in descriptors and open handles.
+* VFS speaks in inodes and open handles.
 * FS drivers speak in on-disk objects and blocks. Doesn't know paths. Doesn't store VFS structs
 
 Naming convetions:
 
-* `file_descriptor` is the description of a closed file (e.g. inode)
+* `inode` is the representation of a closed file (e.g. inode)
 * `open_file` is the representation of an open file (e.g. mode, position, etc)
 
 ## responsibilities
@@ -26,9 +26,9 @@ Naming convetions:
 The driver provides
 
 * mount(), unmount()
-* get_root_file_descriptor()  // get root dir descriptor
-* lookup_file_descriptor()    // using a dir descriptor and name, get a file descriptor
-* open(), close()             // given a descriptor, get an open_file
+* get_root_inode()  // get root dir inode
+* lookup_inode()    // using a dir inode and name, get an inode
+* open(), close()             // given an inode, get an open_file
 * read(), write(), flush()
 * opendir(), readdir(), closedir()   // ability to get dir entries
 * create(), unlink() (mkdir(), rmdir())
@@ -38,23 +38,23 @@ The driver provides
 typedef struct fs_driver_ops {
     int (*mount)(struct superblock *sb);
     int (*unmount)(struct superblock *sb);
-    int (*get_root_dir)(struct superblock *sb, file_descriptor_t **root_dir);
-    int (*lookup)(file_descriptor_t *dir, const char *name, file_descriptor_t **out);
-    int (*open)(file_descriptor_t *fd, int flags, file_t *file);
+    int (*get_root_dir)(struct superblock *sb, inode_t **root_dir);
+    int (*lookup)(inode_t *dir, const char *name, inode_t **out);
+    int (*open)(inode_t *n, int flags, file_t *file);
     int (*close)(file_t *file);
     int (*read)(file_t *file, void *buf, size_t len);
     int (*write)(file_t *file, const void *buf, size_t len);
     int (*flush)(file_t *file);
-    int (*opendir)(file_descriptor_t *dir, file_t *dir_handle);
-    int (*readdir)(file_t *dir_handle, file_descriptor_t **out);
+    int (*opendir)(inode_t *dir, file_t *dir_handle);
+    int (*readdir)(file_t *dir_handle, inode_t **out);
     int (*rewinddir)(file_t *dir_handle);
     int (*closedir)(file_t *dir_handle);
-    int (*create)(file_descriptor_t *parent, const char *name, int type, file_descriptor_t **out);
-    int (*unlink)(file_descriptor_t *parent, const char *name);
-    int (*mkdir)(file_descriptor_t *parent, const char *name); // dirs have special create semantics
-    int (*rmdir)(file_descriptor_t *parent, const char *name); // dirs have special delete semantics
-    int (*stat)(file_descriptor_t *fd, struct stat *out);
-    int (*truncate)(file_descriptor_t *fd, size_t size);
+    int (*create)(inode_t *parent, const char *name, int type, inode_t **out);
+    int (*unlink)(inode_t *parent, const char *name);
+    int (*mkdir)(inode_t *parent, const char *name); // dirs have special create semantics
+    int (*rmdir)(inode_t *parent, const char *name); // dirs have special delete semantics
+    int (*stat)(inode_t *n, struct stat *out);
+    int (*truncate)(inode_t *n, size_t size);
     int (*sync)(struct superblock *sb);
 } fs_driver_ops_t;
 
@@ -66,7 +66,7 @@ typedef struct superblock {       // lives for duration of mount()
     lock_t lock;                  // protects fs-level metadata
 } superblock_t;
 
-typedef struct file_descriptor {  // value object, copiable, cacheable, can test for equality
+typedef struct inode {  // value object, copiable, cacheable, can test for equality
     superblock_t *sb;             // which mounted FS
     uint64_t inode;               // inode / cluster / object id
     uint32_t type;                // file, dir, symlink
@@ -77,13 +77,13 @@ typedef struct file_descriptor {  // value object, copiable, cacheable, can test
     uint64_t mtime;
     uint64_t ctime;
     // path resolution support (optional but useful)
-    struct file_descriptor *parent;  // owned copy or NULL
+    struct inode *parent;  // owned copy or NULL
     char *name;                      // owned
-} file_descriptor_t;
+} inode_t;
 
 typedef struct file_t {           // vfs-owned, one per open handle, created/destroyed in vfs_open()/vfs_close()
     superblock_t *sb;
-    file_descriptor_t *desc;      // immutable identity
+    inode_t *inode;               // immutable identity
     uint64_t offset;              // VFS-owned file position
     uint32_t flags;               // RDONLY, WRONLY, APPEND, etc
     void *fs_private_data;        // driver-specific open context
@@ -149,7 +149,7 @@ struct stat {            // posix thing, exported to libc and apps
 
 A driver is “complete enough” when it can:
 
-* return a root descriptor
+* return a root inode
 * lookup a name in a directory
 * open a file
 * read and write at an offset

@@ -30,15 +30,15 @@ static error_t _skeleton_fs_mkfs(block_device_t *dev) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_get_root_dir(superblock_t *sb, file_descriptor_t **out) {
+static error_t _skeleton_fs_get_root_dir(superblock_t *sb, inode_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_lookup(file_descriptor_t *dir, const char *name, file_descriptor_t **out) {
+static error_t _skeleton_fs_lookup(inode_t *dir, const char *name, inode_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_open(file_descriptor_t *fd, int flags, open_file_t **file_handle) {
+static error_t _skeleton_fs_open(inode_t *n, int flags, open_file_t **file_handle) {
     // create private data, store in file->driver_priv_data
     return ERR_NOT_IMPLEMENTED;
 }
@@ -62,7 +62,7 @@ static error_t _skeleton_fs_flush(open_file_t *file) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_opendir(file_descriptor_t *dir, open_file_t **dir_handle) {
+static error_t _skeleton_fs_opendir(inode_t *dir, open_file_t **dir_handle) {
     // create private data, store in dir_handle->driver_priv_data
     return ERR_NOT_IMPLEMENTED;
 }
@@ -80,32 +80,32 @@ static error_t _skeleton_fs_closedir(open_file_t *dir_handle) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_mkdir(file_descriptor_t *parent, const char *name) { 
+static error_t _skeleton_fs_mkdir(inode_t *parent, const char *name) { 
     // create directory, but also "." and ".."
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_rmdir(file_descriptor_t *parent, const char *name) {
+static error_t _skeleton_fs_rmdir(inode_t *parent, const char *name) {
     // check if dir is empty or not.
     // remove "." and ".."
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_create(file_descriptor_t *parent, const char *name, int type, file_descriptor_t **out) {
+static error_t _skeleton_fs_create(inode_t *parent, const char *name, int type, inode_t **out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_unlink(file_descriptor_t *parent, const char *name) {
+static error_t _skeleton_fs_unlink(inode_t *parent, const char *name) {
     // remove directory entry.
     // if inode counter reaches zero, remove file and blocks as well.
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_stat(file_descriptor_t *fd, struct stat *out) {
+static error_t _skeleton_fs_stat(inode_t *n, struct stat *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_truncate(file_descriptor_t *fd, size_t size) {
+static error_t _skeleton_fs_truncate(inode_t *n, size_t size) {
     return ERR_NOT_IMPLEMENTED;
 }
 

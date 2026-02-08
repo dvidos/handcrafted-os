@@ -11,18 +11,18 @@ MODULE("VFS_UNIT_TEST")
 
 
 struct _mock_filesys_lookup {
-    file_descriptor_t *dir;
+    inode_t *dir;
     char *name;
-    file_descriptor_t *result;
+    inode_t *result;
     int ret_val;
 } _mock_filesys_lookup_data[4];
 
-int _mock_filesys_lookup(file_descriptor_t *dir, char *name, file_descriptor_t **result) {
+int _mock_filesys_lookup(inode_t *dir, char *name, inode_t **result) {
     for (unsigned int i = 0; i < sizeof(_mock_filesys_lookup_data) / sizeof(_mock_filesys_lookup_data[0]); i++) {
         if (dir->location == _mock_filesys_lookup_data[i].dir->location &&
             strcmp(name, _mock_filesys_lookup_data[i].name) == 0)
         {
-           *result = clone_file_descriptor(_mock_filesys_lookup_data[i].result);
+           *result = clone_inode(_mock_filesys_lookup_data[i].result);
            return _mock_filesys_lookup_data[i].ret_val;
         }
     }
@@ -37,9 +37,9 @@ void test_vfs() {
     memset(superblock, 0, sizeof(superblock_t));
     superblock->ops->lookup = _mock_filesys_lookup;
     
-    file_descriptor_t *root = create_file_descriptor(superblock, "/", 0, NULL);
-    file_descriptor_t *curr = create_file_descriptor(superblock, "home", 2, root);
-    file_descriptor_t *target;
+    inode_t *root = create_inode(superblock, "/", 0, NULL);
+    inode_t *curr = create_inode(superblock, "home", 2, root);
+    inode_t *target;
 
     root->flags = FD_DIR;
     curr->flags = FD_DIR;
@@ -51,7 +51,7 @@ void test_vfs() {
     assert(target->superblock = superblock);
     assert(target->location == root->location);
     assert(target != root); // we are supposed to return a clone, not the same reference
-    destroy_file_descriptor(target);
+    destroy_inode(target);
     target = NULL;
 
     // test root returned for the parent of something
@@ -61,7 +61,7 @@ void test_vfs() {
     assert(target->superblock = superblock);
     assert(target->location == root->location);
     assert(target != root); // we are supposed to return a clone, not the same reference
-    destroy_file_descriptor(target);
+    destroy_inode(target);
     target = NULL;
 
     // also, curr dir as well.
@@ -71,7 +71,7 @@ void test_vfs() {
     assert(target->superblock = superblock);
     assert(target->location == curr->location);
     assert(target != curr); // we are supposed to return a clone, not the same reference
-    destroy_file_descriptor(target);
+    destroy_inode(target);
     target = NULL;
 
     // test curr dir returned for the parent of a file
@@ -81,16 +81,16 @@ void test_vfs() {
     assert(target->superblock = superblock);
     assert(target->location == curr->location);
     assert(target != curr); // we are supposed to return a clone, not the same reference
-    destroy_file_descriptor(target);
+    destroy_inode(target);
     target = NULL;
 
 
 
     // make sure absolute paths can be returned, even if we have no current dir
     // given root, and bin, return bin
-    file_descriptor_t *bin = create_file_descriptor(superblock, "bin", 4, root);
+    inode_t *bin = create_inode(superblock, "bin", 4, root);
     bin->flags |= FD_DIR;
-    file_descriptor_t *sh = create_file_descriptor(superblock, "sh", 6, bin);
+    inode_t *sh = create_inode(superblock, "sh", 6, bin);
     memset(_mock_filesys_lookup_data, 0, sizeof(_mock_filesys_lookup_data));
 
     _mock_filesys_lookup_data[0].dir = root;
@@ -111,7 +111,7 @@ void test_vfs() {
     assert(err == OK);
     assert(target != NULL);
     assert(target->location == bin->location);
-    destroy_file_descriptor(target);
+    destroy_inode(target);
     target = NULL;
 
     // see resolution of non existant
@@ -126,7 +126,7 @@ void test_vfs() {
     assert(target->superblock = superblock);
     assert(target->location == sh->location); // same location...
     assert(target != sh); // but not same pointer
-    destroy_file_descriptor(target);
+    destroy_inode(target);
     target = NULL;
 }
 

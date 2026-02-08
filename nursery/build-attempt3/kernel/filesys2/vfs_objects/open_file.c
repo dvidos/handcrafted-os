@@ -3,11 +3,11 @@
 #include "../klib/string.h"
 
 
-static open_file_t *_open_file_create(superblock_t *sb, file_descriptor_t *fd) {
+static open_file_t *_open_file_create(superblock_t *sb, inode_t *n) {
     open_file_t *f = (open_file_t *)kmalloc(sizeof(open_file_t));
 
     f->sb = sb;             // superblock (operations)
-    f->fd = fd;             // immutable identity
+    f->n = n;             // immutable identity
     f->offset = 0;          // VFS-owned file position
     f->flags = 0;           // RDONLY, WRONLY, APPEND, etc
     f->driver_priv_data = 0; // driver-specific open context

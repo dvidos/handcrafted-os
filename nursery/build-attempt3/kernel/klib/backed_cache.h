@@ -9,7 +9,7 @@
 // - act as a dirty tracking thing, to save on eviction or flush
 // - act as a refcount tracker, to not evict while something is in use
 // used for:
-// - inodes cache, blocks cache, file_descriptor cache (not backed)
+// - inodes cache, blocks cache, inode cache (not backed)
 
 typedef struct backed_cache          backed_cache_t;
 typedef struct backed_cache_backend backed_cache_backend;

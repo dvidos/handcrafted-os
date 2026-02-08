@@ -4,7 +4,7 @@
 #include "../include/uapi/vfs2_dirent.h"
 #include "fs_drivers/fs_driver_ops.h"
 #include "vfs_objects/superblock.h"
-#include "vfs_objects/file_descriptor.h"
+#include "vfs_objects/inode.h"
 #include "vfs_objects/open_file.h"
 #include "vfs_objects/mount_table.h"
 #include "../klib/path.h"
@@ -35,14 +35,14 @@ static struct substring get_path_first_substring(const char *path) {
 }
 
 
-static int vfs2_flex_lookup(file_descriptor_t *start, const char *path, bool lookup_parent, file_descriptor_t **fd_out, const char **name_out) {
+static int vfs2_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t **fd_out, const char **name_out) {
     if (path == NULL || *path == 0 || path[0] != '/')
         return ERR_BAD_ARGUMENT;
     if (mtab.get_entries_list() == NULL)
         return ERR_NO_FS_MOUNTED;
 
-    file_descriptor_t *curr = file_descriptors.clone(start);
-    file_descriptor_t *next = NULL;
+    inode_t *curr = inodes.clone(start);
+    inode_t *next = NULL;
     mount_entry_t *mte;
 
     char part_buffer[256];
@@ -81,13 +81,13 @@ static int vfs2_flex_lookup(file_descriptor_t *start, const char *path, bool loo
             // we may cross a mount point
             mte = mtab.find_entry_by_root_dir(curr);
             if (mte != NULL && mte->host_dir != NULL) {
-                file_descriptors.destroy(curr);
-                curr = file_descriptors.clone(mte->host_dir);
+                inodes.destroy(curr);
+                curr = inodes.clone(mte->host_dir);
             }
             // fallback into leaving the fs driver find the ".." entry
         }
 
-        if (!file_descriptors.is_dir(curr))
+        if (!inodes.is_dir(curr))
             return ERR_NOT_A_DIRECTORY;
         
         err = curr->sb->driver->lookup(curr, part_buffer, &next);
@@ -96,11 +96,11 @@ static int vfs2_flex_lookup(file_descriptor_t *start, const char *path, bool loo
         // we may cross a mount point
         mte = mtab.find_entry_by_host_dir(next);
         if (mte != NULL) {
-            file_descriptors.destroy(next);
-            next = file_descriptors.clone(mte->root_dir);
+            inodes.destroy(next);
+            next = inodes.clone(mte->root_dir);
         }
 
-        file_descriptors.destroy(curr);
+        inodes.destroy(curr);
         curr = next;
     }
 
@@ -109,7 +109,7 @@ static int vfs2_flex_lookup(file_descriptor_t *start, const char *path, bool loo
     return OK;
 }
 
-static int vfs2_lookup_target(const char *path, file_descriptor_t **target_out) {
+static int vfs2_lookup_target(const char *path, inode_t **target_out) {
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
     const char *name_out;
@@ -119,7 +119,7 @@ static int vfs2_lookup_target(const char *path, file_descriptor_t **target_out) 
     return OK;
 }
 
-static int vfs2_lookup_parent(const char *path, file_descriptor_t **parent_out, const char **final_name_out) {
+static int vfs2_lookup_parent(const char *path, inode_t **parent_out, const char **final_name_out) {
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
     int err = vfs2_flex_lookup(NULL, path, true, parent_out, final_name_out);
@@ -132,7 +132,7 @@ static int vfs2_lookup_parent(const char *path, file_descriptor_t **parent_out, 
 
 int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     int err;
-    file_descriptor_t *host_dir;
+    inode_t *host_dir;
 
     if (strcmp(path, "/") == 0) {
         // mount without parent
@@ -144,7 +144,7 @@ int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
         err = vfs2_lookup_target(path, &host_dir);
         if (err != OK) return err;
 
-        if (!file_descriptors.is_dir(host_dir))
+        if (!inodes.is_dir(host_dir))
             return ERR_NOT_A_DIRECTORY;
 
         mount_entry_t *me = mtab.find_entry_by_host_dir(host_dir);
@@ -155,7 +155,7 @@ int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     err = driver->mount(sb);
     if (err) return err;
 
-    file_descriptor_t *new_root_dir;
+    inode_t *new_root_dir;
     err = driver->get_root_dir(sb, &new_root_dir);
     if (err) return err;
 
@@ -169,7 +169,7 @@ int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
 
 int vfs2_unmount(const char *path) {
     int err;
-    file_descriptor_t *dir;
+    inode_t *dir;
 
     err = vfs2_lookup_target(path, &dir);
     if (err) return err;
@@ -200,18 +200,18 @@ int vfs2_sync(void) {
 
 int vfs2_open(const char *path, int flags, open_file_t **file) {
     int err;
-    file_descriptor_t *fd;
+    inode_t *n;
 
-    err = vfs2_lookup_target(path, &fd);
+    err = vfs2_lookup_target(path, &n);
     if (err) return err;
-    if (!file_descriptors.is_file(fd))
+    if (!inodes.is_file(n))
         return ERR_NOT_A_FILE;
 
-    err = fd->sb->driver->open(fd, flags, file);
+    err = n->sb->driver->open(n, flags, file);
     if (err) return err;
 
     // cache size for offset calculations
-    (*file)->size = fd->size;
+    (*file)->size = n->size;
     (*file)->offset = 0;
 
     return OK;
@@ -272,18 +272,18 @@ error_t vfs2_flush(open_file_t *file) {
 
 error_t vfs2_opendir(const char *path, open_file_t **dir) {
     int err;
-    file_descriptor_t *fd;
+    inode_t *n;
 
-    err = vfs2_lookup_target(path, &fd);
+    err = vfs2_lookup_target(path, &n);
     if (err) return err;
-    if (!file_descriptors.is_dir(fd))
+    if (!inodes.is_dir(n))
         return ERR_NOT_A_DIRECTORY;
 
-    err = fd->sb->driver->opendir(fd, dir);
+    err = n->sb->driver->opendir(n, dir);
     if (err) return err;
 
     // cache size for offset calculations
-    (*dir)->size = fd->size;
+    (*dir)->size = n->size;
     (*dir)->offset = 0;
 
     return OK;
@@ -316,38 +316,38 @@ error_t vfs2_closedir(open_file_t *dir) {
 }
 
 error_t vfs2_stat(const char *path, struct stat *out) {
-    file_descriptor_t *fd;
-    int err = vfs2_lookup_target(path, &fd);
+    inode_t *n;
+    int err = vfs2_lookup_target(path, &n);
     if (err) return err;
 
-    err = fd->sb->driver->stat(fd, out);
+    err = n->sb->driver->stat(n, out);
     if (err) return err;
 
     return OK;
 }
 
 error_t vfs2_fstat(open_file_t *file, struct stat *out) {
-    return file->sb->driver->stat(file->fd, out);
+    return file->sb->driver->stat(file->n, out);
 }
 
 error_t vfs2_truncate(const char *path, size_t size) {
-    file_descriptor_t *fd;
-    int err = vfs2_lookup_target(path, &fd);
+    inode_t *n;
+    int err = vfs2_lookup_target(path, &n);
     if (err) return err;
 
-    err = fd->sb->driver->truncate(fd, size);
+    err = n->sb->driver->truncate(n, size);
     if (err) return err;
 
     return OK;
 }
 
 error_t vfs2_create(const char *path, int type) {
-    file_descriptor_t *dir;
+    inode_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
-    file_descriptor_t *new_file;
+    inode_t *new_file;
     err = dir->sb->driver->create(dir, name_ptr, type, &new_file);
     if (err) return err;
 
@@ -355,12 +355,12 @@ error_t vfs2_create(const char *path, int type) {
 }
 
 error_t vfs2_unlink(const char *path) {
-    file_descriptor_t *dir;
+    inode_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
-    file_descriptor_t *new_file;
+    inode_t *new_file;
     err = dir->sb->driver->unlink(dir, name_ptr);
     if (err) return err;
 
@@ -368,7 +368,7 @@ error_t vfs2_unlink(const char *path) {
 }
 
 error_t vfs2_mkdir(const char *path) {
-    file_descriptor_t *dir;
+    inode_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
@@ -380,7 +380,7 @@ error_t vfs2_mkdir(const char *path) {
 }
 
 error_t vfs2_rmdir(const char *path) {
-    file_descriptor_t *dir;
+    inode_t *dir;
     const char *name_ptr;
     int err = vfs2_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
