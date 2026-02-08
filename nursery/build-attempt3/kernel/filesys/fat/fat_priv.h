@@ -174,7 +174,7 @@ typedef struct {
 #define DIR_NAME_DELETED      0xE5
 #define DIR_NAME_END_OF_LIST  0x00
 
-// stored in the private data of a file_t pointer
+// stored in the private data of a open_file_t pointer
 typedef struct {
     uint32_t offset;                  // offset in bytes in file or directory contents
     uint32_t size;                    // current file size, in bytes, to detect EOF
@@ -187,7 +187,7 @@ typedef struct {
 } fat_priv_file_info;
 
 
-// stored in the private data of a file_t pointer
+// stored in the private data of a open_file_t pointer
 typedef struct {
     // we'll need some more things for fat16, e.g. load sectors etc.
     bool is_fat16_root;
@@ -321,18 +321,18 @@ static void dir_entry_set_modified_time(fat_dir_entry *entry, real_time_clock_in
 static int fat_supported(struct partition *partition);
 static struct file_ops *fat_get_file_operations();
 
-static int fat_opendir(inode_t *n, file_t **dir);
-static int fat_rewinddir(file_t *file);
-static int fat_readdir(file_t *file, inode_t **n);
-static int fat_closedir(file_t *file);
+static int fat_opendir(inode_t *n, open_file_t **dir);
+static int fat_rewinddir(open_file_t *file);
+static int fat_readdir(open_file_t *file, inode_t **n);
+static int fat_closedir(open_file_t *file);
 
 // file operations
 static uint32_t calculate_new_file_offset(uint32_t old_position, uint32_t size, int offset, enum seek_origin origin);
-static int fat_read(file_t *file, char *buffer, int length);
-static int fat_write(file_t *file, char *buffer, int length);
-static int fat_seek(file_t *file, int offset, enum seek_origin origin);
-static int fat_flush(file_t *file);
-static int fat_close(file_t *file);
+static int fat_read(open_file_t *file, char *buffer, int length);
+static int fat_write(open_file_t *file, char *buffer, int length);
+static int fat_seek(open_file_t *file, int offset, enum seek_origin origin);
+static int fat_flush(open_file_t *file);
+static int fat_close(open_file_t *file);
 
 
 #endif

@@ -55,16 +55,16 @@ void debug_inode(const inode_t *n, int depth);
 int inode_get_full_path_length(const inode_t *n);
 void inode_get_full_path(const inode_t *n, char **full_path); // caller to free path
 
-typedef struct file {
+typedef struct open_file {
     struct superblock *superblock;
     struct inode *inode;
     const void *fs_driver_private_data;
-} file_t;
+} open_file_t;
 
 
-file_t *create_file_t(superblock_t *superblock, inode_t *inode);
-void debug_file_t(file_t *file);
-void destroy_file_t(file_t *file);
+open_file_t *create_file_t(superblock_t *superblock, inode_t *inode);
+void debug_file_t(open_file_t *file);
+void destroy_file_t(open_file_t *file);
 
 
 
@@ -140,34 +140,34 @@ struct file_ops {
     int (*lookup)(inode_t *dir, char *name, inode_t **result);
 
     // open file for reading or writing, populate file
-    int (*open)(inode_t *n, int flags, file_t **file);
+    int (*open)(inode_t *n, int flags, open_file_t **file);
 
     // move the position in the file, return new position or negative error
-    int (*seek)(file_t *file, int offset, enum seek_origin origin);
+    int (*seek)(open_file_t *file, int offset, enum seek_origin origin);
 
     // read from file, returns bytes read or negative error
-    int (*read)(file_t *file, char *buffer, int length);
+    int (*read)(open_file_t *file, char *buffer, int length);
 
     // write to file, returns bytes read or negative error
-    int (*write)(file_t *file, char *buffer, int length);
+    int (*write)(open_file_t *file, char *buffer, int length);
 
     // flush the file caches
-    int (*flush)(file_t *file);
+    int (*flush)(open_file_t *file);
 
     // flush and close the file, free resources
-    int (*close)(file_t *file);
+    int (*close)(open_file_t *file);
 
     // open dir for enumerating entries
-    int (*opendir)(inode_t *dir, file_t **open_dir);
+    int (*opendir)(inode_t *dir, open_file_t **open_dir);
 
     // get the next entry from the directory list
-    int (*rewinddir)(file_t *open_dir);
+    int (*rewinddir)(open_file_t *open_dir);
 
     // get the next entry from the directory list
-    int (*readdir)(file_t *open_dir, inode_t **n);
+    int (*readdir)(open_file_t *open_dir, inode_t **n);
 
     // close the directory handle, free resources
-    int (*closedir)(file_t *open_dir);
+    int (*closedir)(open_file_t *open_dir);
 
     // create a file (or refresh access time)
     int (*touch)(inode_t *parent_dir, char *name);
@@ -199,17 +199,17 @@ struct file_ops {
 // resolves a relative or absolute path to an inode. caller to destroy.
 int vfs_resolve(const char *path, const inode_t *root_dir, const inode_t *curr_dir, bool containing_folder, inode_t **target);
 
-int vfs_open(char *path, file_t **file);
-int vfs_read(file_t *file, char *buffer, int bytes);
-int vfs_write(file_t *file, char *buffer, int bytes);
-int vfs_seek(file_t *file, int offset, enum seek_origin origin);
-int vfs_flush(file_t *file);
-int vfs_close(file_t *file);
+int vfs_open(char *path, open_file_t **file);
+int vfs_read(open_file_t *file, char *buffer, int bytes);
+int vfs_write(open_file_t *file, char *buffer, int bytes);
+int vfs_seek(open_file_t *file, int offset, enum seek_origin origin);
+int vfs_flush(open_file_t *file);
+int vfs_close(open_file_t *file);
 
-int vfs_opendir(char *path, file_t **file);
-int vfs_rewinddir(file_t *file);
-int vfs_readdir(file_t *file, inode_t **n); // caller must destroy n
-int vfs_closedir(file_t *file);
+int vfs_opendir(char *path, open_file_t **file);
+int vfs_rewinddir(open_file_t *file);
+int vfs_readdir(open_file_t *file, inode_t **n); // caller must destroy n
+int vfs_closedir(open_file_t *file);
 
 int vfs_touch(char *path);
 int vfs_unlink(char *path);

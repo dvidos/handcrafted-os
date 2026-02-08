@@ -38,7 +38,7 @@ MODULE("VFS", LOG_LEVEL_WARN);
     to the storage device (or partition in our case),
     which contains pointer to the filesystem driver private data.
 
-    same private data is set in the filp (file_t in our case)
+    same private data is set in the filp (open_file_t in our case)
 
     it seems that, when probing a partition, somehow 
     the driver will return the "super block" (usually of an ext2)
@@ -47,7 +47,7 @@ MODULE("VFS", LOG_LEVEL_WARN);
 
     so, an inode is information about a file, in the sense of a
     directory entry, where it is located, traditionally it was an index
-    in a table of file entries, while a file_t structure is information
+    in a table of file entries, while a open_file_t structure is information
     about an open file, e.g. mode (r/w), position, operations pointers etc.
 */
 
@@ -182,7 +182,7 @@ out:
     return err;
 }
 
-int vfs_open(char *path, file_t **file) {
+int vfs_open(char *path, open_file_t **file) {
     int err;
 
     if (vfs_get_root_mount() == NULL) {
@@ -215,37 +215,37 @@ out:
     return err;
 }
 
-int vfs_read(file_t *file, char *buffer, int bytes) {
+int vfs_read(open_file_t *file, char *buffer, int bytes) {
     if (file->superblock->ops->read == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->read(file, buffer, bytes);
 }
 
-int vfs_write(file_t *file, char *buffer, int bytes) {
+int vfs_write(open_file_t *file, char *buffer, int bytes) {
     if (file->superblock->ops->write == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->write(file, buffer, bytes);
 }
 
-int vfs_seek(file_t *file, int offset, enum seek_origin origin) {
+int vfs_seek(open_file_t *file, int offset, enum seek_origin origin) {
     if (file->superblock->ops->seek == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->seek(file, offset, origin);
 }
 
-int vfs_flush(file_t *file) {
+int vfs_flush(open_file_t *file) {
     if (file->superblock->ops->flush == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->flush(file);
 }
 
-int vfs_close(file_t *file) {
+int vfs_close(open_file_t *file) {
     if (file->superblock->ops->close == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->close(file);
 }
 
-int vfs_opendir(char *path, file_t **file) {
+int vfs_opendir(char *path, open_file_t **file) {
     log_trace("vfs_opendir(path=\"%s\")", path);
     int err;
 
@@ -278,21 +278,21 @@ out:
     return err;
 }
 
-int vfs_rewinddir(file_t *file) {
+int vfs_rewinddir(open_file_t *file) {
     log_trace("vfs_rewinddir(file=0x%p)", file);
     if (file->superblock->ops->rewinddir == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->rewinddir(file);
 }
 
-int vfs_readdir(file_t *file, inode_t **n) {
+int vfs_readdir(open_file_t *file, inode_t **n) {
     log_trace("vfs_readdir(file=0x%p)", file);
     if (file->superblock->ops->readdir == NULL)
         return ERR_NOT_SUPPORTED;
     return file->superblock->ops->readdir(file, n);
 }
 
-int vfs_closedir(file_t *file) {
+int vfs_closedir(open_file_t *file) {
     log_trace("vfs_closedir(file=0x%p)", file);
     if (file->superblock->ops->closedir == NULL)
         return ERR_NOT_SUPPORTED;
@@ -444,7 +444,7 @@ int vfs_rmdir(char *path) {
         && parent->superblock->ops->closedir != NULL
     ) {
         log_debug("vfs_rmdir() checking if dir is empty...");
-        file_t *f;
+        open_file_t *f;
         inode_t *n;
         err = parent->superblock->ops->opendir(parent, &f);
         if (err) {

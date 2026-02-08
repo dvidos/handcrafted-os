@@ -441,14 +441,14 @@ void cleanup_process(process_t *proc) {
     kfree(proc);
 }
 
-static int allocate_file_handle(process_t *proc, file_t *file) {
+static int allocate_file_handle(process_t *proc, open_file_t *file) {
     int handle = ERR_HANDLES_EXHAUSTED;
 
     mutex_acquire(&proc->process_lock);
 
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
         // if entry is all zeros, means it's unused
-        if (memchk(&proc->file_handles[i], 0, sizeof(file_t))) {
+        if (memchk(&proc->file_handles[i], 0, sizeof(open_file_t))) {
             handle = i;
             break;
         }
@@ -456,7 +456,7 @@ static int allocate_file_handle(process_t *proc, file_t *file) {
 
     if (handle >= 0 && handle < MAX_FILE_HANDLES)
         // we should really do a deep copy function
-        memcpy(&proc->file_handles[handle], file, sizeof(file_t));
+        memcpy(&proc->file_handles[handle], file, sizeof(open_file_t));
     
     mutex_release(&proc->process_lock);
     return handle;
@@ -467,7 +467,7 @@ static bool is_valid_handle(process_t *proc, int handle) {
         return false;
     
     // the handle should not contain all zeros, to be used
-    return !memchk(&(proc->file_handles[handle]), 0, sizeof(file_t));
+    return !memchk(&(proc->file_handles[handle]), 0, sizeof(open_file_t));
 }
 
 static int free_file_handle(process_t *proc, int handle) {
@@ -475,14 +475,14 @@ static int free_file_handle(process_t *proc, int handle) {
         return ERR_BAD_ARGUMENT;
     
     mutex_acquire(&proc->process_lock);
-    memset(&proc->file_handles[handle], 0, sizeof(file_t));
+    memset(&proc->file_handles[handle], 0, sizeof(open_file_t));
     mutex_release(&proc->process_lock);
 
     return OK;
 }
 
 int proc_open(process_t *proc, char *name) {
-    file_t *file;
+    open_file_t *file;
     // fast resolve relative to cwd (we'll need rewinddir() at least)
     int err = vfs_open(name, &file);
     if (err) return err;
@@ -520,7 +520,7 @@ int proc_close(process_t *proc, int handle) {
 }
 
 int proc_opendir(process_t *proc, char *name) {
-    file_t *file;
+    open_file_t *file;
     // fast resolve relative to cwd
     int err = vfs_opendir(name, &file);
     if (err) return err;
@@ -528,7 +528,7 @@ int proc_opendir(process_t *proc, char *name) {
     int handle = allocate_file_handle(proc, file);
     log_trace("proc_opendir() -> %d", handle);
     log_debug("Process handles table follows");
-    log_debug_hex((void *)proc->file_handles, sizeof(file_t) * MAX_FILE_HANDLES, 0);
+    log_debug_hex((void *)proc->file_handles, sizeof(open_file_t) * MAX_FILE_HANDLES, 0);
     return handle;
 }
 

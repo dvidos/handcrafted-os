@@ -10,7 +10,7 @@ typedef struct mount_info {
     struct filesys_driver *driver;
     struct superblock *superblock;
     char *mount_point;
-    file_t *root_dir;
+    open_file_t *root_dir;
 
     // maybe we only need the following pair:
     inode_t *host_dir;        // NULL for root mount

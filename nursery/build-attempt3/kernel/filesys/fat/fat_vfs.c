@@ -301,7 +301,7 @@ out:
     return err;
 }
 
-static int fat_open(inode_t *n, int flags, file_t **file) {
+static int fat_open(inode_t *n, int flags, open_file_t **file) {
     log_trace("fat_open2(inode=0x%x)", n);
     fat_info *fat = (fat_info *)n->superblock->priv_fs_driver_data;
 
@@ -318,14 +318,14 @@ static int fat_open(inode_t *n, int flags, file_t **file) {
     return OK;
 }
 
-static int fat_read(file_t *file, char *buffer, int length) {
+static int fat_read(open_file_t *file, char *buffer, int length) {
     log_trace("fat_read(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_read(fat, pfi, buffer, length);
 }
 
-static int fat_write(file_t *file, char *buffer, int length) {
+static int fat_write(open_file_t *file, char *buffer, int length) {
     log_trace("fat_write(length=%d)", length);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
@@ -335,14 +335,14 @@ static int fat_write(file_t *file, char *buffer, int length) {
     return err;
 }
 
-static int fat_seek(file_t *file, int offset, enum seek_origin origin) {
+static int fat_seek(open_file_t *file, int offset, enum seek_origin origin) {
     log_trace("fat_seek(offset=%d, origin=%d)", offset, origin);
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
     return fat->ops->priv_file_seek(fat, pfi, offset, origin);
 }
 
-static int fat_flush(file_t *file) {
+static int fat_flush(open_file_t *file) {
     log_trace("fat_flush(file=0x%x)", file);
 
     int err;
@@ -362,7 +362,7 @@ static int fat_flush(file_t *file) {
     return OK;
 }
 
-static int fat_close(file_t *file) {
+static int fat_close(open_file_t *file) {
     log_trace("fat_close()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_file_info *pfi = (fat_priv_file_info *)file->fs_driver_private_data;
@@ -377,7 +377,7 @@ static int fat_root_inode(superblock_t *superblock, inode_t **n) {
 }
 
 
-static int fat_opendir(inode_t *n, file_t **dir) {
+static int fat_opendir(inode_t *n, open_file_t **dir) {
     log_trace("fat_opendir()");
 
     fat_info *fat = (fat_info *)n->superblock->priv_fs_driver_data;
@@ -397,7 +397,7 @@ out:
     return err;
 }
 
-static int fat_rewinddir(file_t *file) {
+static int fat_rewinddir(open_file_t *file) {
     log_trace("fat_rewinddir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_private_data;
@@ -405,7 +405,7 @@ static int fat_rewinddir(file_t *file) {
     return fat->ops->priv_dir_seek_slot(fat, pd, 0);
 }
 
-static int fat_readdir(file_t *file, inode_t **n) {
+static int fat_readdir(open_file_t *file, inode_t **n) {
     log_trace("fat_readdir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_dir_info *pdi = (fat_priv_dir_info *)file->fs_driver_private_data;
@@ -423,7 +423,7 @@ static int fat_readdir(file_t *file, inode_t **n) {
     return err;
 }
 
-static int fat_closedir(file_t *file) {
+static int fat_closedir(open_file_t *file) {
     log_trace("fat_closedir()");
     fat_info *fat = (fat_info *)file->superblock->priv_fs_driver_data;
     fat_priv_dir_info *pd = (fat_priv_dir_info *)file->fs_driver_private_data;

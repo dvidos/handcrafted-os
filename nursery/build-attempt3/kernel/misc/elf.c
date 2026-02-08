@@ -145,7 +145,7 @@ typedef struct {
 // -------------------------------------------------------------------------------------------------
 
 // returns OK or ERR_NOT_SUPPORTED accordingly
-int verify_elf_executable(file_t *file) {
+int verify_elf_executable(open_file_t *file) {
     log_trace("verify_elf_executable(\"%s\")", file->inode->name);
     char identification[16];
 
@@ -188,7 +188,7 @@ int verify_elf_executable(file_t *file) {
 }
 
 // calcualtes information for setting up a new process
-int get_elf_load_information(file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point) {
+int get_elf_load_information(open_file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point) {
     log_trace("get_elf_load_information(\"%s\")", file->inode->name);
 
     elf32_header_t *elf_header = NULL;
@@ -249,7 +249,7 @@ exit:
 }
 
 // loads segments from the file into memory
-int load_elf_into_memory(file_t *file) {
+int load_elf_into_memory(open_file_t *file) {
     log_trace("load_elf_into_memory(\"%s\")", file->inode->name);
     
     elf32_header_t *elf_header = NULL;
@@ -315,10 +315,10 @@ exit:
 static void dump_elf_header(elf32_header_t *header);
 static void dump_elf_section_header(bool title_line, int num, elf32_section_header_t *section, char *names_data);
 static void dump_elf_program_header(bool title_line, elf32_program_header_t *program);
-static void dump_elf_raw_data(file_t *file, char *title, uint32_t offset, uint32_t length);
+static void dump_elf_raw_data(open_file_t *file, char *title, uint32_t offset, uint32_t length);
 
 // logs debug information about the elf, and how we understand it.
-int dump_elf_information(file_t *file) {
+int dump_elf_information(open_file_t *file) {
     int err;
     elf32_header_t *header = NULL;
     char *section_headers = NULL;
@@ -513,7 +513,7 @@ static void dump_elf_program_header(bool title_line, elf32_program_header_t *pro
     }
 }
 
-static void dump_elf_raw_data(file_t *file, char *title, uint32_t offset, uint32_t length) {
+static void dump_elf_raw_data(open_file_t *file, char *title, uint32_t offset, uint32_t length) {
     int err = vfs_seek(file, (int)offset, SEEK_START);
     if (err < 0)
         return;

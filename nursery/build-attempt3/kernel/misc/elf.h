@@ -11,16 +11,16 @@
 
 
 // returns OK or ERR_NOT_SUPPORTED accordingly
-int verify_elf_executable(file_t *file);
+int verify_elf_executable(open_file_t *file);
 
 // calcualtes information for setting up a new process
-int get_elf_load_information(file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point);
+int get_elf_load_information(open_file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point);
 
 // loads segments from the file into memory
-int load_elf_into_memory(file_t *file);
+int load_elf_into_memory(open_file_t *file);
 
 // logs debug information about the elf, and how we understand it.
-int dump_elf_information(file_t *file);
+int dump_elf_information(open_file_t *file);
 
 
 

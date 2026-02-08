@@ -133,7 +133,7 @@ struct process {
 
     inode_t *curr_dir;
     char *curr_dir_path;
-    file_t file_handles[MAX_FILE_HANDLES];
+    open_file_t file_handles[MAX_FILE_HANDLES];
 };
 
 

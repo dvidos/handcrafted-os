@@ -43,7 +43,7 @@ static void load_and_run_executable();
 // return pid for success, negative value for errors
 int execve(char *path, char *argv[], char *envp[]) {
     log_trace("execve(path=\"%s\")", path);
-    file_t *file = NULL;
+    open_file_t *file = NULL;
     int err;
     bool file_open = false;
 
@@ -135,7 +135,7 @@ static void load_and_run_executable() {
     log_debug("load_and_run_executable() running");
 
     // find info from the file
-    file_t *file = NULL;
+    open_file_t *file = NULL;
     err = vfs_open(proc->user_proc.executable_path, &file);
     if (err) {
         log_error("Failed opening executable \"%s\"", proc->user_proc.executable_path);

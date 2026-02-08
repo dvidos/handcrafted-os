@@ -11,7 +11,7 @@
 
 struct filedisk_info {
 
-    file_t *file;
+    open_file_t *file;
     size_t size; 
 
 } filedisk_info;
