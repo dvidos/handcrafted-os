@@ -40,6 +40,8 @@ typedef enum error_t {
     ERR_OVERFLOWN            = -27,
     ERR_UNDERFLOW            = -28,
     ERR_BUSY                 = -29,
+    ERR_INVALID_ARGS         = -30,
+    ERR_NO_MEMORY            = -31,
 
 
 

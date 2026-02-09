@@ -1,23 +1,20 @@
 #pragma once
 #include <ctypes.h>
-#include "../../utils/mutex.h"
+#include <uapi/errors.h>
 
 
 typedef struct block_device block_device_t;
 
 struct block_device {
     struct block_device_ops *ops;
-
-    uint64_t total_blocks;
-    uint32_t block_size;    // usually 512
-    uint32_t flags;         // READONLY, REMOVABLE, etc
-    uint32_t dev_id;        // major/minor etc.
-    void *driver_data;      // ATA, NVMe, ram disk, etc
-    lock_t  lock;           // to serialize access if needed
+    void *priv_data;
 };
 
 struct block_device_ops {
-    int (*read)(block_device_t *dev, uint64_t lba, uint32_t count, void *buffer);
-    int (*write)(block_device_t *dev, uint64_t lba, uint32_t count, const void *buffer);
-    int (*flush)(block_device_t *dev);
+    size_t (*total_blocks)(block_device_t *dev);
+    size_t (*block_size)(block_device_t *dev);
+    error_t (*read)(block_device_t *dev, uint64_t lba, uint32_t count, void *buffer);
+    error_t (*write)(block_device_t *dev, uint64_t lba, uint32_t count, const void *buffer);
+    error_t (*flush)(block_device_t *dev);
+    void (*destroy)(block_device_t *dev);
 };
