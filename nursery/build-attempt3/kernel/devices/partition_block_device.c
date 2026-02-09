@@ -1,14 +1,17 @@
 #include "partition_block_device.h"
-#include <memory/kheap.h>
 #include <uapi/errors.h>
+#include "../memory/kheap.h"
+#include "../klib/string.h"
 
 typedef struct {
+    char *name;
     block_device_t *underlying;
     uint64_t first_block;
     size_t num_blocks;
 } partition_priv_t;
 
 static void partition_destroy(block_device_t *dev);
+static const char *partition_name(block_device_t *dev);
 
 static size_t partition_total_blocks(block_device_t *dev) {
     partition_priv_t *priv = (partition_priv_t *)dev->priv_data;
@@ -42,6 +45,7 @@ static error_t partition_flush(block_device_t *dev) {
 }
 
 static struct block_device_ops partition_ops = {
+    .name = partition_name,
     .total_blocks = partition_total_blocks,
     .block_size = partition_block_size,
     .read = partition_read,
@@ -51,6 +55,7 @@ static struct block_device_ops partition_ops = {
 };
 
 error_t create_partition_block_device(
+    const char *name,
     block_device_t *underlying,
     uint64_t first_block,
     size_t num_blocks,
@@ -60,17 +65,24 @@ error_t create_partition_block_device(
     if (priv == NULL) {
         return ERR_NO_MEMORY;
     }
+    priv->name = strdup(name);
+    if (priv->name == NULL) {
+        kfree(priv);
+        return ERR_NO_MEMORY;
+    }
     priv->underlying = underlying;
     priv->first_block = first_block;
     priv->num_blocks = num_blocks;
 
     if (first_block + num_blocks > underlying->ops->total_blocks(underlying)) {
+        kfree(priv->name);
         kfree(priv);
         return ERR_INVALID_ARGS;
     }
 
     block_device_t *dev = kmalloc(sizeof(block_device_t));
     if (dev == NULL) {
+        kfree(priv->name);
         kfree(priv);
         return ERR_NO_MEMORY;
     }
@@ -86,6 +98,14 @@ static void partition_destroy(block_device_t *dev) {
         return;
     }
     partition_priv_t *priv = (partition_priv_t *)dev->priv_data;
+    kfree(priv->name);
     kfree(priv);
     kfree(dev);
+}
+
+
+
+static const char *partition_name(block_device_t *dev) {
+    partition_priv_t *priv = (partition_priv_t *)dev->priv_data;
+    return priv->name;
 }

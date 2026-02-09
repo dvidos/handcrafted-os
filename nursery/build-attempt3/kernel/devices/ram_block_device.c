@@ -1,15 +1,17 @@
 #include "ram_block_device.h"
-#include <memory/kheap.h>
-#include <klib/string.h>
 #include <uapi/errors.h>
+#include "../memory/kheap.h"
+#include "../klib/string.h"
 
 typedef struct {
+    char *name;
     size_t block_size;
     size_t block_count;
     char *buffer;
 } ram_disk_priv_t;
 
 static void ram_disk_destroy(block_device_t *dev);
+static const char *ram_disk_name(block_device_t *dev);
 
 static size_t ram_disk_total_blocks(block_device_t *dev) {
     ram_disk_priv_t *priv = (ram_disk_priv_t *)dev->priv_data;
@@ -45,6 +47,7 @@ static error_t ram_disk_flush(block_device_t *dev) {
 }
 
 static struct block_device_ops ram_disk_ops = {
+    .name = ram_disk_name,
     .total_blocks = ram_disk_total_blocks,
     .block_size = ram_disk_block_size,
     .read = ram_disk_read,
@@ -53,15 +56,21 @@ static struct block_device_ops ram_disk_ops = {
     .destroy = ram_disk_destroy,
 };
 
-error_t create_ram_block_device(size_t block_size, size_t block_count, block_device_t **result) {
+error_t create_ram_block_device(const char *name, size_t block_size, size_t block_count, block_device_t **result) {
     ram_disk_priv_t *priv = kmalloc(sizeof(ram_disk_priv_t));
     if (priv == NULL) {
+        return ERR_NO_MEMORY;
+    }
+    priv->name = strdup(name);
+    if (priv->name == NULL) {
+        kfree(priv);
         return ERR_NO_MEMORY;
     }
     priv->block_size = block_size;
     priv->block_count = block_count;
     priv->buffer = kmalloc(block_size * block_count);
     if (priv->buffer == NULL) {
+        kfree(priv->name);
         kfree(priv);
         return ERR_NO_MEMORY;
     }
@@ -69,6 +78,7 @@ error_t create_ram_block_device(size_t block_size, size_t block_count, block_dev
     block_device_t *dev = kmalloc(sizeof(block_device_t));
     if (dev == NULL) {
         kfree(priv->buffer);
+        kfree(priv->name);
         kfree(priv);
         return ERR_NO_MEMORY;
     }
@@ -84,7 +94,13 @@ static void ram_disk_destroy(block_device_t *dev) {
         return;
     }
     ram_disk_priv_t *priv = (ram_disk_priv_t *)dev->priv_data;
+    kfree(priv->name);
     kfree(priv->buffer);
     kfree(priv);
     kfree(dev);
+}
+
+static const char *ram_disk_name(block_device_t *dev) {
+    ram_disk_priv_t *priv = (ram_disk_priv_t *)dev->priv_data;
+    return priv->name;
 }
