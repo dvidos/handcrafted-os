@@ -238,3 +238,34 @@ void get_real_time_clock(real_time_clock_info_t *p) {
     if (is_12h_format && is_pm)
         p->hours += 12;
 }
+
+
+// ----------------------------------------------------------------
+
+static inline bool is_leap_year(int year) { return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0)); }
+static inline int leap_years_till_including_year(int year) { return (year / 4) - (year / 100) + (year / 400); }
+
+uint32_t get_seconds_since_1970() {
+    static int days_in_month[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
+
+    // ideally, this should be converted to UTC first, hence we need to know the timezone
+    // this comment written in the airplane, somewhere en route from Athens to Munchen.
+    real_time_clock_info_t rtc;
+    get_real_time_clock(&rtc);
+    
+    uint32_t days = 0;
+
+    days += (rtc.years - 1970) * 365;
+    days += leap_years_till_including_year(rtc.years - 1) - leap_years_till_including_year(1970 - 1);
+    for (int m = 0; m < rtc.months - 1; m++)
+        days += days_in_month[m];
+    if (rtc.months > 2 && is_leap_year(rtc.years))
+        days += 1;
+    days += rtc.days - 1;
+
+    return 
+        days * 86400LL +
+        rtc.hours * 3600LL + 
+        rtc.minutes * 60LL +
+        rtc.seconds;
+}

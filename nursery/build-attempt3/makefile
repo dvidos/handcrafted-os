@@ -1,3 +1,6 @@
+EMU := qemu-system-x86_64
+
+
 # run configure.sh to generate the config.mk file
 include config.mk
 
@@ -48,11 +51,26 @@ rootfs: libc apps
 os.img: stage1 stage2 kernel
 	tools/make-os-img.sh
 
-run: os.img
-	qemu-system-i386 -drive format=raw,file=os.img -serial stdio -m 4G
 
+run: run-sata
+
+
+# SATA drive
+run-sata: os.img
+	$(EMU) \
+		-drive format=raw,file=os.img,if=none,id=disk0 \
+		-device ahci,id=ahci0 \
+		-device ide-hd,drive=disk0,bus=ahci0.0 \
+		-serial stdio -m 4G
+
+# ATA / IDE drive
+run-ide: os.img  
+	$(EMU) -drive format=raw,file=os.img -serial stdio -m 4G
+
+
+# lots of diagnostics about the CPU
 run-with-cpu-diags: os.img
-	qemu-system-i386 -drive format=raw,file=os.img -m 4G -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
+	$(EMU) -drive format=raw,file=os.img -m 4G -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
 
 clean: config.mk
 	make -C tools clean

@@ -4,11 +4,11 @@
 #include <ctypes.h>
 
 typedef enum log_level {
-    LOG_LEVEL_NONE = 0,
-    LOG_LEVEL_CRIT = 1,
+    LOG_LEVEL_NONE  = 0,
+    LOG_LEVEL_CRIT  = 1,
     LOG_LEVEL_ERROR = 2,
-    LOG_LEVEL_WARN = 3,
-    LOG_LEVEL_INFO = 4,
+    LOG_LEVEL_WARN  = 3,
+    LOG_LEVEL_INFO  = 4,
     LOG_LEVEL_DEBUG = 5,
     LOG_LEVEL_TRACE = 6
 } log_level_t;
@@ -18,7 +18,7 @@ extern log_level_t _logger_global_minimum_log_level;
 void init_logger();
 void logger_set_global_minimum_log_level(log_level_t level);
 
-typedef void (log_appender_func)(void *context, const char *timing, const char *module_name, const char *level, const char *message);
+typedef void (log_appender_func)(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump);
 void logger_add_appender(log_appender_func *appender, void *context, log_level_t level);
 void logger_remove_appender(log_appender_func *appender, void *context);
 
@@ -27,11 +27,11 @@ void logger_append_hex(const char *module_name, log_level_t level, uint8_t *buff
 
 
 
-typedef struct { const char *name; log_level_t level; } module_log_cfg_t;
 
 #define LOG_WITH_MODULE_NAMES
 #ifdef LOG_WITH_MODULE_NAMES
 
+    typedef struct { const char *name; log_level_t level; } module_log_cfg_t;
     #define MODULE(module_name, log_level)     static module_log_cfg_t __log_cfg = { .name = module_name, .level = log_level };
 
     #define log_critical(...)   do { if (_logger_global_minimum_log_level >= LOG_LEVEL_CRIT  || __log_cfg.level >= LOG_LEVEL_CRIT)  logger_append(__log_cfg.name, LOG_LEVEL_CRIT,  __VA_ARGS__); } while (0)

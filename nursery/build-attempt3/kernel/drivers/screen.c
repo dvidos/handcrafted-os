@@ -205,21 +205,27 @@ void screen_panic_writer(const char* data)
         screen_putchar(*data++);
 }
 
-void screen_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message) {
-    if (timing && timing[0]) {
-        screen_write(timing);
-        screen_putchar(' ');
+void screen_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump) {
+    if (raw_dump) {
+        screen_write(message);
+    } else {
+        if (timing && timing[0]) {
+            screen_write(timing);
+            screen_putchar(' ');
+        }
+        if (module_name && module_name[0]) {
+            screen_write(module_name);
+            int padding = 10 - strlen(module_name);
+            while (padding-- > 0) screen_putchar(' ');
+            screen_putchar(' ');
+        }
+        if (level && level[0]) {
+            screen_write(level);
+            screen_putchar(' ');
+        }
+        screen_write(message);
+        screen_putchar('\n');
     }
-    if (module_name && module_name[0]) {
-        screen_write(module_name);
-        screen_putchar(' ');
-    }
-    if (level && level[0]) {
-        screen_write(level);
-        screen_putchar(' ');
-    }
-    screen_write(message);
-    screen_putchar('\n');
 }
 
 // printk() prints to screen directly using the driver

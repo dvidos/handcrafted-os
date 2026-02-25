@@ -7,7 +7,7 @@
 #include "../multitask/process.h"
 #include "../multitask/exec.h"
 #include "../devices/tty.h"
-#include "../filesys/vfs.h"
+// #include "../filesys/vfs.h"
 #include "../memory/virtmem.h"
 
 #include <uapi/syscall.h>
@@ -136,7 +136,7 @@ static int sys_read(int handle, char *buffer, int length) {
 static int sys_write(int handle, char *buffer, int length) {
     return proc_write(running_process(), handle, buffer, length);
 }
-static int sys_seek(int handle, int offset, enum seek_origin origin) {
+static int sys_seek(int handle, int offset, int origin) {
     return proc_seek(running_process(), handle, offset, origin);
 }
 static int sys_close(int handle) {
@@ -148,7 +148,8 @@ static int sys_opendir(char *path) {
 static int sys_rewinddir(int handle) {
     return proc_rewinddir(running_process(), handle);
 }
-static int sys_readdir(int handle, dirent_t *dirent) {
+// static int sys_readdir(int handle, dirent_t *dirent) {
+static int sys_readdir(int handle, void *dirent) {
     return proc_readdir(running_process(), handle, dirent);
 }
 static int sys_closedir(int handle) {
@@ -254,7 +255,7 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_write(stack.passed.arg1, (char *)stack.passed.arg2, stack.passed.arg3);
             break;
         case SYS_SEEK:   // arg1 = handle, arg2 = offset, arg3 = origin, returns new position
-            return_value = sys_seek(stack.passed.arg1, stack.passed.arg2, (enum seek_origin)stack.passed.arg3);
+            return_value = sys_seek(stack.passed.arg1, stack.passed.arg2, stack.passed.arg3);
             break;
         case SYS_CLOSE:   // arg1 = handle
             return_value = sys_close(stack.passed.arg1);
@@ -263,22 +264,22 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = sys_opendir((char *)stack.passed.arg1);
             break;
         case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
-            return_value = sys_readdir(stack.passed.arg1, (dirent_t *)stack.passed.arg2);
+            // return_value = sys_readdir(stack.passed.arg1, (dirent_t *)stack.passed.arg2);
             break;
         case SYS_CLOSE_DIR:   // arg1 = handle
             return_value = sys_closedir(stack.passed.arg1);
             break;
         case SYS_TOUCH:   // arg1 = path
-            return_value = vfs_touch((char *)stack.passed.arg1);
+            // return_value = vfs_touch((char *)stack.passed.arg1);
             break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
-            return_value = vfs_unlink((char *)stack.passed.arg1);
+            // return_value = vfs_unlink((char *)stack.passed.arg1);
             break;
         case SYS_MKDIR:   // arg1 = path
-            return_value = vfs_mkdir((char *)stack.passed.arg1);
+            // return_value = vfs_mkdir((char *)stack.passed.arg1);
             break;
         case SYS_RMDIR:  // arg1 = path
-            return_value = vfs_rmdir((char *)stack.passed.arg1);
+            // return_value = vfs_rmdir((char *)stack.passed.arg1);
             break;
         case SYS_GET_PID:   // returns pid
             return_value = proc_getpid();

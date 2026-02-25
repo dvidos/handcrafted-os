@@ -12,7 +12,7 @@
 // - inodes cache, blocks cache, inode cache (not backed)
 
 typedef struct backed_cache          backed_cache_t;
-typedef struct backed_cache_backend backed_cache_backend;
+typedef struct backed_cache_backend  backed_cache_backend;
 typedef struct backed_cache_ops      backed_cache_ops;
 typedef struct backed_cache_node     backed_cache_node;
 typedef struct backed_cache_data     backed_cache_data;
@@ -58,10 +58,15 @@ struct backed_cache_node {
 
 struct backed_cache_ops {
     // operations needed by in-memory users of cache
-    error_t (*acquire)(backed_cache_t *cache, uint64_t key, void **out_ptr);
-    error_t (*mark_dirty)(backed_cache_t *cache, uint64_t key);
-    error_t (*release)(backed_cache_t *cache, uint64_t key);
+    error_t (*get)(backed_cache_t *cache, uint64_t key, void **out_ptr);
 
+    error_t (*lock)(backed_cache_t *cache, uint64_t key);
+    error_t (*unlock)(backed_cache_t *cache, uint64_t key);
+    bool    (*is_locked)(backed_cache_t *cache, uint64_t key);
+
+    error_t (*mark_dirty)(backed_cache_t *cache, uint64_t key);
+    bool    (*is_dirty)(backed_cache_t *cache, uint64_t key);
+    
     // reads and writes full objects
     error_t (*read)(backed_cache_t *cache, uint64_t key, void *buffer);
     error_t (*write)(backed_cache_t *cache, uint64_t key, void *buffer);
@@ -73,13 +78,9 @@ struct backed_cache_ops {
     error_t (*fill_part)(backed_cache_t *cache, uint64_t key, size_t offset, char value, size_t part_len);
 
     error_t (*invalidate)(backed_cache_t *cache, uint64_t key);
+    error_t (*flush)(backed_cache_t *cache, uint64_t key);
     error_t (*flush_all)(backed_cache_t *cache);
     error_t (*destroy)(backed_cache_t *cache);
 };
 
-void initialize_backed_cache(
-    backed_cache_t *cache,
-    backed_cache_backend backend,
-    size_t object_size,
-    size_t object_capacity
-);
+backed_cache_t *create_backed_cache(size_t object_size, size_t object_capacity, backed_cache_backend backend);

@@ -1,32 +1,27 @@
 #pragma once
 #include <ctypes.h>
 
+typedef struct bitmap     bitmap_t;
+typedef struct bitmap_ops bitmap_ops;
 
-typedef struct bitmap {
-    uint64_t *words;   // bit storage
-    uint32_t bits;     // total number of bits
-    uint32_t words_count;
-    uint32_t hint;     // next place to start searching
-} bitmap_t;
+struct bitmap {
+    uint64_t *words;       // the actual bit storage
+    uint32_t bits;         // total number of bits
+    size_t   words_count;
+    size_t   bytes_count;  // allocating more space simplifying load/save operations
+    uint32_t bit_hint;     // next place to start searching
 
+    bitmap_ops *ops;
+};
 
-void bitmap_init(bitmap_t *bm, uint32_t bits);
-int bitmap_find_next_free(bitmap_t *bm);
-void bitmap_destroy(bitmap_t *bm);
+struct bitmap_ops {
+    bool (*is_used)(bitmap_t *bm, uint32_t bit);
+    bool (*is_free)(bitmap_t *bm, uint32_t bit);
+    void (*mark_used)(bitmap_t *bm, uint32_t bit);
+    void (*mark_free)(bitmap_t *bm, uint32_t bit);
+    bool (*find_next_free)(bitmap_t *bm, uint32_t *bit);
+    void (*destroy)(bitmap_t *bm);
+};
 
+bitmap_t *create_bitmap(uint32_t bits, size_t bytes_count);
 
-static inline bool bitmap_is_used(bitmap_t *bm, uint32_t bit) {
-    return (bm->words[bit / 64] >> (bit % 64)) & 1;
-}
-
-static inline bool bitmap_is_free(bitmap_t *bm, uint32_t bit) {
-    return ((bm->words[bit / 64] >> (bit % 64)) & 1) == 0;
-}
-
-static inline void bitmap_mark_used(bitmap_t *bm, uint32_t bit) {
-    bm->words[bit / 64] |= (1ULL << (bit % 64));
-}
-
-static inline void bitmap_mark_free(bitmap_t *bm, uint32_t bit) {
-    bm->words[bit / 64] &= ~(1ULL << (bit % 64));
-}

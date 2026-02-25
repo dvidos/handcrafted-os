@@ -1,4 +1,5 @@
 #include "../misc/cpu.h"
+#include "../klib/string.h"
 
 
 
@@ -50,19 +51,25 @@ void serial_panic_writer(const char *str) {
     }
 }
 
-void serial_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message) {
-    if (timing && timing[0]) {
-        serial_write(timing);
-        serial_putchar(' ');
+void serial_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump) {
+    if (raw_dump) {
+        serial_write(message);
+    } else {
+        if (timing && timing[0]) {
+            serial_write(timing);
+            serial_putchar(' ');
+        }
+        if (module_name && module_name[0]) {
+            serial_write(module_name);
+            int padding = 10 - strlen(module_name);
+            while (padding-- > 0) serial_putchar(' ');
+            serial_putchar(' ');
+        }
+        if (level && level[0]) {
+            serial_write(level);
+            serial_putchar(' ');
+        }
+        serial_write(message);
+        serial_putchar('\n');
     }
-    if (module_name && module_name[0]) {
-        serial_write(module_name);
-        serial_putchar(' ');
-    }
-    if (level && level[0]) {
-        serial_write(level);
-        serial_putchar(' ');
-    }
-    serial_write(message);
-    serial_putchar('\n');
 }

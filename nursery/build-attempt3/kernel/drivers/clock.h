@@ -23,5 +23,6 @@ void get_real_time_clock(real_time_clock_info_t *p);
 void init_real_time_clock(uint8_t interrupt_divisor);
 void real_time_clock_interrupt_interrupt_handler(registers_t *regs);
 
+uint32_t get_seconds_since_1970();
 
 #endif

@@ -42,7 +42,7 @@ void strcat(char *target, const char *source) {
     *dest = *source; // final null char
 }
 
-void strncpy(char *target, char *source, size_t target_size) {
+void strncpy(char *target, const char *source, size_t target_size) {
     while (*source != '\0' && target_size-- > 1) {
         *target++ = *source++;
     }
@@ -89,6 +89,15 @@ int memcmp(void *a, void *b, size_t size) {
     }
     return 0;
 }
+
+bool mem_is_zeros(const void *mem, size_t size) {
+    const char *p = (const char *)mem;
+    while (size-- > 0) 
+        if (*p++ != 0)
+            return false;
+    return true;
+}
+
 
 char *memmove(void *dest, void *source, size_t size) {
     char *d = dest;
@@ -524,6 +533,7 @@ void vsprintfn(char *buffer, int buffsize, const char *format, va_list args) {
             case 'p': // pointer
                 ul = (unsigned long)va_arg(args, void *);
                 ultoa(ul, content, 16);
+                sprintn_aligned(&buffer, &buffsize, "0x", 2, ' ', false);
                 sprintn_aligned(&buffer, &buffsize, content, width, padder, pad_right);
                 break;
             case '%':

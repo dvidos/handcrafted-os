@@ -28,7 +28,7 @@ void screen_copy_buffer_to_screen(char *buffer, int length, uint8_t col, uint8_t
 void printk(char *format, ...); 
 
 void screen_panic_writer(const char* data);
-void screen_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message);
+void screen_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump);
 
 
 #define VGA_COLOR_BLACK           0

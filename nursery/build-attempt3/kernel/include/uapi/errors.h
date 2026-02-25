@@ -43,6 +43,28 @@ typedef enum error_t {
     ERR_INVALID_ARGS         = -30,
     ERR_NO_MEMORY            = -31,
     ERR_IO_ERROR             = -32,
+    ERR_BAD_FILE             = -33,
+    
+    // ATA controller
+    ERR_IDE_DEVICE_FAULT             = -41,
+    ERR_IDE_STATUS_ERROR             = -42,
+    ERR_IDE_NO_DATA_REQ              = -43,
+    ERR_IDE_ADDR_MARK_NOT_FOUND      = -44,
+    ERR_IDE_NO_MEDIA                 = -45,
+    ERR_IDE_CMD_ABORTED              = -46,
+    ERR_IDE_ID_MARK_NOT_FOUND        = -47,
+    ERR_IDE_UNCORRECTABLE_DATA_ERROR = -48,
+    ERR_IDE_BAD_SECTORS              = -49,
+    ERR_IDE_DRIVE_NOT_FOUND          = -50,
+    ERR_IDE_INVALID_ADDRESS          = -51,
+    ERR_IDE_READ_ONLY                = -52,
+
+    // SATA controller
+    ERR_SATA_NO_CMD_SLOT     = -61,
+    ERR_SATA_PORT_HUNG_BSY   = -62,
+    ERR_SATA_TASK_FILE_ERROR = -63,
+
+
 } error_t;
 
 

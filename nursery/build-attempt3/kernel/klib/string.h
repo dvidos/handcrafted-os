@@ -8,7 +8,7 @@ int strlen(const char* str);
 int strcmp(const char *a, const char *b);
 int strcpy(char *target, const char *source);
 int strcat(char *target, const char *source);
-void strncpy(char *target, char *source, size_t target_size);
+void strncpy(char *target, const char *source, size_t target_size);
 
 char *strchr(const char *str, char c);
 char *strstr(char *heystack, char *needle);
@@ -25,6 +25,7 @@ char *strdup(const char *str);
 void memset(void *dest, char value, size_t size);
 void memcpy(void *dest, const void *source, size_t size);
 int  memcmp(void *a, void *b, size_t size);
+bool mem_is_zeros(const void *mem, size_t size);
 char *memmove(void *dest, void *source, size_t size);
 
 // check if a memory area consists only of one character

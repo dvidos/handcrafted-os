@@ -19,7 +19,7 @@ static char *level_captions[] = {
 };
 
 static struct {
-    char buffer[2048];
+    char buffer[4096];
     int len;
 } memlog;
 static void memlog_write(const char *str);
@@ -51,7 +51,7 @@ void logger_add_appender(log_appender_func *write, void *context, log_level_t le
 
     // since we added this, echo the memlog, if any
     if (memlog.len > 0) {
-        write(context, "", "", "", memlog.buffer);
+        write(context, "", "", "", memlog.buffer, true);
         memlog.len = 0;
     }
     
@@ -84,9 +84,6 @@ void logger_append(const char *module_name, log_level_t level, const char *forma
     if (format == NULL || strlen(format) == 0)
         return;
 
-    if (level > _logger_global_minimum_log_level)
-        return;
-    
     char timing[64];
     uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
     sprintfn(timing, sizeof(timing), "%u.%03u", msecs / 1000, msecs % 1000);
@@ -101,6 +98,8 @@ void logger_append(const char *module_name, log_level_t level, const char *forma
         memlog_write(timing);
         memlog_write(" ");
         memlog_write(module_name);
+        int padding = 10 - strlen(module_name);
+        while (padding-- > 0) memlog_write(" ");
         memlog_write(" ");
         memlog_write(level_captions[level]);
         memlog_write(" ");
@@ -111,8 +110,8 @@ void logger_append(const char *module_name, log_level_t level, const char *forma
     for (int i = 0; i < appender_count; i++) {
         appender_t *app = &appenders[i];
         if (app->write == 0)    continue;
-        if (level > app->level) continue;
-        app->write(app->context, timing, module_name, level_captions[level], message);
+        if (level > app->level) continue; // so, the appender MUST support this level... hmm...
+        app->write(app->context, timing, module_name, level_captions[level], message, false);
     }
 }
 

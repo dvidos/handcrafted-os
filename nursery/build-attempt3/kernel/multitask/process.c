@@ -13,8 +13,8 @@
 #include "../utils/logger.h"
 #include <uapi/errors.h>
 #include "strvec.h"
-#include "../filesys/mount.h"
-#include "../filesys/vfs.h"
+// #include "../filesys/mount_deprecated.h"
+// #include "../filesys/vfs.h"
 
 MODULE("PROC", LOG_LEVEL_WARN);
 
@@ -334,22 +334,22 @@ int proc_getcwd(process_t *proc, char *buffer, int size) {
 // in unices, this would be called chdir(), especially in libc
 int proc_chdir(process_t *proc, const char *path) {
 
-    if (vfs_get_root_mount() == NULL)
-        return ERR_NO_FS_MOUNTED;
+    // if (vfs_get_root_mount() == NULL)
+    //     return ERR_NO_FS_MOUNTED;
     
-    inode_t *root = vfs_get_root_mount()->mounted_fs_root;
-    inode_t *target = NULL;
-    int err = vfs_resolve(path, root, proc->curr_dir, false, &target);
-    if (err)
-        return err;
+    // inode_t *root = vfs_get_root_mount()->mounted_fs_root;
+    // inode_t *target = NULL;
+    // int err = vfs_resolve(path, root, proc->curr_dir, false, &target);
+    // if (err)
+    //     return err;
 
-    if (proc->curr_dir != NULL)
-        destroy_inode(proc->curr_dir);
-    proc->curr_dir = target;
+    // if (proc->curr_dir != NULL)
+    //     destroy_inode(proc->curr_dir);
+    // proc->curr_dir = target;
 
-    if (proc->curr_dir_path != NULL)
-        kfree(proc->curr_dir_path);
-    inode_get_full_path(proc->curr_dir, &proc->curr_dir_path);
+    // if (proc->curr_dir_path != NULL)
+    //     kfree(proc->curr_dir_path);
+    // inode_get_full_path(proc->curr_dir, &proc->curr_dir_path);
     
     return OK;
 }
@@ -415,30 +415,30 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pr
 
 // after a process has terminated, clean up resources
 void cleanup_process(process_t *proc) {
-    // be careful with the exec() process, it may have allocated more resources
-    if (proc->name != NULL)
-        kfree(proc->name);
+    // // be careful with the exec() process, it may have allocated more resources
+    // if (proc->name != NULL)
+    //     kfree(proc->name);
 
-    if (proc->allocated_kernel_stack != NULL)
-        kfree(proc->allocated_kernel_stack);
+    // if (proc->allocated_kernel_stack != NULL)
+    //     kfree(proc->allocated_kernel_stack);
 
-    if (proc->page_directory != NULL && proc->page_directory != get_kernel_page_directory())
-        destroy_page_directory(proc->page_directory);
+    // if (proc->page_directory != NULL && proc->page_directory != get_kernel_page_directory())
+    //     destroy_page_directory(proc->page_directory);
 
-    if (proc->user_proc.executable_path != NULL)
-        kfree(proc->user_proc.executable_path);
-    if (proc->user_proc.argv != NULL)
-        free_strvec(proc->user_proc.argv);
-    if (proc->user_proc.envp != NULL)
-        free_strvec(proc->user_proc.envp);
+    // if (proc->user_proc.executable_path != NULL)
+    //     kfree(proc->user_proc.executable_path);
+    // if (proc->user_proc.argv != NULL)
+    //     free_strvec(proc->user_proc.argv);
+    // if (proc->user_proc.envp != NULL)
+    //     free_strvec(proc->user_proc.envp);
     
-    if (proc->curr_dir != NULL)
-        destroy_inode(proc->curr_dir);
-    if (proc->curr_dir_path != NULL)
-        kfree(proc->curr_dir_path);
+    // if (proc->curr_dir != NULL)
+    //     destroy_inode(proc->curr_dir);
+    // if (proc->curr_dir_path != NULL)
+    //     kfree(proc->curr_dir_path);
     
-    // can't think of anything else to free
-    kfree(proc);
+    // // can't think of anything else to free
+    // kfree(proc);
 }
 
 static int allocate_file_handle(process_t *proc, open_file_t *file) {
@@ -482,81 +482,90 @@ static int free_file_handle(process_t *proc, int handle) {
 }
 
 int proc_open(process_t *proc, char *name) {
-    open_file_t *file;
-    // fast resolve relative to cwd (we'll need rewinddir() at least)
-    int err = vfs_open(name, &file);
-    if (err) return err;
+    return ERR_NOT_IMPLEMENTED;
+    // open_file_t *file;
+    // // fast resolve relative to cwd (we'll need rewinddir() at least)
+    // int err = vfs_open(name, &file);
+    // if (err) return err;
 
-    int handle = allocate_file_handle(proc, file);
-    return handle;
+    // int handle = allocate_file_handle(proc, file);
+    // return handle;
 }
 
 int proc_read(process_t *proc, int handle, char *buffer, int length) {
-    if (!is_valid_handle(proc, handle))
-        return ERR_BAD_ARGUMENT;
-    return vfs_read(&proc->file_handles[handle], buffer, length);
+    return ERR_NOT_IMPLEMENTED;
+    // if (!is_valid_handle(proc, handle))
+    //     return ERR_BAD_ARGUMENT;
+    // return vfs_read(&proc->file_handles[handle], buffer, length);
 }
 
 int proc_write(process_t *proc, int handle, char *buffer, int length) {
-    if (!is_valid_handle(proc, handle))
-        return ERR_BAD_ARGUMENT;
-    return vfs_write(&proc->file_handles[handle], buffer, length);
+    return ERR_NOT_IMPLEMENTED;
+    // if (!is_valid_handle(proc, handle))
+    //     return ERR_BAD_ARGUMENT;
+    // return vfs_write(&proc->file_handles[handle], buffer, length);
 }
 
-int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin) {
-    if (!is_valid_handle(proc, handle))
-        return ERR_BAD_ARGUMENT;
-    return vfs_seek(&proc->file_handles[handle], offset, origin);
+int proc_seek(process_t *proc, int handle, int offset, int origin) {
+    return ERR_NOT_IMPLEMENTED;
+    // if (!is_valid_handle(proc, handle))
+    //     return ERR_BAD_ARGUMENT;
+    // return vfs_seek(&proc->file_handles[handle], offset, origin);
 }
 
 int proc_close(process_t *proc, int handle) {
-    if (!is_valid_handle(proc, handle))
-        return ERR_BAD_ARGUMENT;
-    int err = vfs_close(&proc->file_handles[handle]);
-    if (err) return err;
+    return ERR_NOT_IMPLEMENTED;
+    // if (!is_valid_handle(proc, handle))
+    //     return ERR_BAD_ARGUMENT;
+    // int err = vfs_close(&proc->file_handles[handle]);
+    // if (err) return err;
 
-    free_file_handle(proc, handle);
-    return OK;
+    // free_file_handle(proc, handle);
+    // return OK;
 }
 
 int proc_opendir(process_t *proc, char *name) {
-    open_file_t *file;
-    // fast resolve relative to cwd
-    int err = vfs_opendir(name, &file);
-    if (err) return err;
+    return ERR_NOT_IMPLEMENTED;
+    // open_file_t *file;
+    // // fast resolve relative to cwd
+    // int err = vfs_opendir(name, &file);
+    // if (err) return err;
 
-    int handle = allocate_file_handle(proc, file);
-    log_trace("proc_opendir() -> %d", handle);
-    log_debug("Process handles table follows");
-    log_debug_hex((void *)proc->file_handles, sizeof(open_file_t) * MAX_FILE_HANDLES, 0);
-    return handle;
+    // int handle = allocate_file_handle(proc, file);
+    // log_trace("proc_opendir() -> %d", handle);
+    // log_debug("Process handles table follows");
+    // log_debug_hex((void *)proc->file_handles, sizeof(open_file_t) * MAX_FILE_HANDLES, 0);
+    // return handle;
 }
 
-int proc_readdir(process_t *proc, int handle, dirent_t *entry) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
-        return ERR_BAD_ARGUMENT;
-    inode_t *n;
-    int err = vfs_readdir(&proc->file_handles[handle], &n);
-    if (!err) {
-        entry->location = n->location;
-        entry->size = n->size;
-        entry->type = n->flags;
-        strncpy(entry->name, n->name, sizeof(entry->name));
-        destroy_inode(n);
-    }
-    log_trace("proc_readdir() -> %d", err);
-    return err;
+// int proc_readdir(process_t *proc, int handle, dirent_t *entry) {
+int proc_readdir(process_t *proc, int handle, void *entry) {
+    return ERR_NOT_IMPLEMENTED;
+    // if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    //     return ERR_BAD_ARGUMENT;
+    // inode_t *n;
+    // int err = vfs_readdir(&proc->file_handles[handle], &n);
+    // if (!err) {
+    //     entry->location = n->location;
+    //     entry->size = n->size;
+    //     entry->type = n->flags;
+    //     strncpy(entry->name, n->name, sizeof(entry->name));
+    //     destroy_inode(n);
+    // }
+    // log_trace("proc_readdir() -> %d", err);
+    // return err;
 }
 
 int proc_closedir(process_t *proc, int handle) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
-        return ERR_BAD_ARGUMENT;
+    return ERR_NOT_IMPLEMENTED;
+    // if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    //     return ERR_BAD_ARGUMENT;
 
-    int err = vfs_closedir(&proc->file_handles[handle]);
-    if (err) return err;
+    // int err = vfs_closedir(&proc->file_handles[handle]);
+    // if (err) return err;
 
-    free_file_handle(proc, handle);
-    return OK;
+    // free_file_handle(proc, handle);
+    // return OK;
 }
 
 

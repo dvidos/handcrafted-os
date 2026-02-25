@@ -34,15 +34,19 @@ KERNEL_C_FILES = \
 	$(wildcard memory/*.c) \
 	$(wildcard drivers/*.c) \
 	$(wildcard multitask/*.c) \
-	$(wildcard konsole/*.c) \
+	\
 	$(wildcard devices/*.c) \
+	$(wildcard devices/pci/*.c) \
+	$(wildcard devices/block/*.c) \
+	$(wildcard devices/char/*.c) \
+	\
 	$(wildcard filesys/*.c) \
-	$(wildcard filesys/fat/fat.c) \
-	$(wildcard filesys/fat/simple_file_system.c) \
-	$(wildcard filesys2/*.c) \
-	$(wildcard filesys2/vfs_objects/*.c) \
-	$(wildcard filesys2/drivers/skeleton_fs/*.c) \
-	$(wildcard filesys2/drivers/dummy_fs/*.c) \
+	$(wildcard filesys/partitions/*.c) \
+	$(wildcard filesys/vfs_objects/*.c) \
+	$(wildcard filesys/fs_drivers/skeleton_fs/*.c) \
+	$(wildcard filesys/fs_drivers/dummy_fs/*.c) \
+	$(wildcard filesys/fs_drivers/sfs/*.c) \
+	\
 	$(wildcard processes/*.c)
 
 KERNEL_NASM_FILES1 = \

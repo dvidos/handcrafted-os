@@ -4,7 +4,7 @@
 #include <ctypes.h>
 #include "../utils/mutex.h"
 #include "../devices/tty.h"
-#include "../filesys/vfs.h"
+#include "../filesys/vfs_api.h"
 
 // used to detect stack overflows
 #define STACK_BOTTOM_MAGIC_VALUE    0x12345678
@@ -170,11 +170,12 @@ int proc_chdir(process_t *proc, const char *path);
 int proc_open(process_t *proc, char *name);
 int proc_read(process_t *proc, int handle, char *buffer, int length);
 int proc_write(process_t *proc, int handle, char *buffer, int length);
-int proc_seek(process_t *proc, int handle, int offset, enum seek_origin origin);
+int proc_seek(process_t *proc, int handle, int offset, int origin);
 int proc_close(process_t *proc, int handle);
 int proc_opendir(process_t *proc, char *name);
 int proc_rewinddir(process_t *proc, int handle);
-int proc_readdir(process_t *proc, int handle, dirent_t *entry);
+// int proc_readdir(process_t *proc, int handle, struct dirent *entry);
+int proc_readdir(process_t *proc, int handle, void *entry);
 int proc_closedir(process_t *proc, int handle);
 
 // this is how someone can unblock a different process
