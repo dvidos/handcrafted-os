@@ -1,7 +1,7 @@
 #ifndef _VIRTMEM_H
 #define _VIRTMEM_H
 
-#include <ctypes.h>
+#include "../include/ctypes.h"
 
 // resolve a virtual address, by reading the page dir and tables
 void *resolve_virtual_to_physical_address(void *virtual_addr, void *page_dir_addr);

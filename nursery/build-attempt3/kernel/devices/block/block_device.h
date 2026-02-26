@@ -1,6 +1,6 @@
 #pragma once
-#include <ctypes.h>
-#include <uapi/errors.h>
+#include "../../include/ctypes.h"
+#include "../../include/uapi/errors.h"
 #include "../klib/list.h"
 
 

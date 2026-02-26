@@ -6,8 +6,8 @@
 #include "../utils/logger.h"
 #include "kbd_drv.h"
 
-#include <uapi/key_codes.h>
-#include <uapi/key_event.h>
+#include "../include/uapi/key_codes.h"
+#include "../include/uapi/key_event.h"
 
 MODULE("KBD", LOG_LEVEL_WARN);
 

@@ -1,8 +1,8 @@
 #ifndef _FRAMEWORK_H
 #define _FRAMEWORK_H
 
-#include <ctypes.h>
-#include <uapi/errors.h>
+#include "../include/ctypes.h"
+#include "../include/uapi/errors.h"
 
 
 

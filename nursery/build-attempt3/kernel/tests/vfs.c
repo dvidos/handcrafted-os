@@ -1,8 +1,8 @@
-#include <ctypes.h>
-#include <filesys/vfs.h>
-#include <memory/kheap.h>
-#include <klib/string.h>
-#include <uapi/errors.h>
+#include "../include/ctypes.h"
+#include "../filesys/vfs_api.h"
+#include "../memory/kheap.h"
+#include "../klib/string.h"
+#include "../include/uapi/errors.h"
 #include "../utils/logger.h"
 #include "framework.h"
 

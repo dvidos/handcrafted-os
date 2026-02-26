@@ -1,8 +1,8 @@
 #include "../multitask/process.h"
 #include "../memory/kheap.h"
 #include "../drivers/screen.h"
-#include <uapi/key_codes.h>
-#include <uapi/key_event.h>
+#include "../include/uapi/key_codes.h"
+#include "../include/uapi/key_event.h"
 #include "../utils/logger.h"
 #include "../misc/cpu.h"
 #include "../klib/string.h"

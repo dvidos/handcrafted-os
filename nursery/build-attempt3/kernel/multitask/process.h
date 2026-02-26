@@ -1,7 +1,7 @@
 #ifndef _PROCESS_H
 #define _PROCESS_H
 
-#include <ctypes.h>
+#include "../include/ctypes.h"
 #include "../utils/mutex.h"
 #include "../devices/tty.h"
 #include "../filesys/vfs_api.h"

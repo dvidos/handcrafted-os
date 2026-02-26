@@ -1,8 +1,8 @@
-#include <ctypes.h>
-#include <uapi/errors.h>
-#include <memory/kheap.h>
-#include <klib/path.h>
-#include <klib/string.h>
+#include "../include/ctypes.h"
+#include "../include/uapi/errors.h"
+#include "../memory/kheap.h"
+#include "../klib/path.h"
+#include "../klib/string.h"
 #include "framework.h"
 
 

@@ -1,10 +1,10 @@
-#include <ctypes.h>
-#include <uapi/errors.h>
-#include <string.h>
-#include <drivers/screen.h>
+#include "../include/ctypes.h"
+#include "../include/uapi/errors.h"
+#include "../klib/string.h"
+#include "../drivers/screen.h"
 #include "framework.h"
 #include "../utils/logger.h"
-#include <memory/kheap.h>
+#include "../memory/kheap.h"
 
 MODULE("UNITTEST", LOG_LEVEL_WARN);
 

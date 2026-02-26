@@ -1,7 +1,7 @@
 #ifndef _CPU_H
 #define _CPU_H
 
-#include <ctypes.h>
+#include "../include/ctypes.h"
 
 
 uint32_t cpu_get_cs_register();

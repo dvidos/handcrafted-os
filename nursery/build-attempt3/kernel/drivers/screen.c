@@ -1,6 +1,5 @@
-#include <va_list.h>
-#include <limits.h>
-#include <bits.h>
+#include "../include/va_list.h"
+#include "../include/bits.h"
 #include "../klib/string.h"
 #include "../utils/logger.h"
 #include "../misc/cpu.h"

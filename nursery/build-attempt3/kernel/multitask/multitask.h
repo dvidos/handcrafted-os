@@ -1,7 +1,7 @@
 #ifndef _MULTITASK_H
 #define _MULTITASK_H
 
-#include <ctypes.h>
+#include "../include/ctypes.h"
 
 
 // call this before setting up tasks (use create_process & start_process)

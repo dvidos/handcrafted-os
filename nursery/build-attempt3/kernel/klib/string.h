@@ -1,8 +1,8 @@
 #ifndef _STRING_H
 #define _STRING_H
 
-#include <ctypes.h>
-#include <va_list.h>
+#include "../include/ctypes.h"
+#include "../include/va_list.h"
 
 int strlen(const char* str);
 int strcmp(const char *a, const char *b);

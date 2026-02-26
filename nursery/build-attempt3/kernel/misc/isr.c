@@ -1,4 +1,4 @@
-#include <ctypes.h>
+#include "../include/ctypes.h"
 #include "idt.h"
 #include "../drivers/timer.h"
 #include "../drivers/kbd_drv.h"
@@ -6,7 +6,7 @@
 #include "../memory/virtmem.h"
 #include "pic.h"
 #include "../utils/logger.h"
-#include <bits.h>
+#include "../include/bits.h"
 #include "../multitask/multitask.h"
 
 

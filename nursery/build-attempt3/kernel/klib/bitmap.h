@@ -1,5 +1,5 @@
 #pragma once
-#include <ctypes.h>
+#include "../include/ctypes.h"
 
 typedef struct bitmap     bitmap_t;
 typedef struct bitmap_ops bitmap_ops;

@@ -1,7 +1,7 @@
 #ifndef _SYSCALL_H
 #define _SYSCALL_H
 
-#include <ctypes.h>
+#include "../include/ctypes.h"
 
 struct syscall_stack
 {

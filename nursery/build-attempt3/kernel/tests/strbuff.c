@@ -1,6 +1,6 @@
-#include <ctypes.h>
-#include <klib/string.h>
-#include <klib/strbuff.h>
+#include "../include/ctypes.h"
+#include "../klib/string.h"
+#include "../klib/strbuff.h"
 #include "framework.h"
 
 

@@ -1,4 +1,4 @@
-#include <string.h>
+#include "../klib/string.h"
 #include <stdlib.h>
 #include <stdio.h>
 

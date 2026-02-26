@@ -11,7 +11,7 @@
 #include "../memory/kheap.h"
 #include "../memory/virtmem.h"
 #include "../utils/logger.h"
-#include <uapi/errors.h>
+#include "../include/uapi/errors.h"
 #include "strvec.h"
 // #include "../filesys/mount_deprecated.h"
 // #include "../filesys/vfs.h"

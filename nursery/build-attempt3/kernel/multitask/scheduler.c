@@ -5,7 +5,7 @@
 #include "../drivers/timer.h"
 #include "../utils/logger.h"
 #include "../memory/virtmem.h"
-#include <bits.h>
+#include "../include/bits.h"
 
 MODULE("SCHED", LOG_LEVEL_WARN);
 

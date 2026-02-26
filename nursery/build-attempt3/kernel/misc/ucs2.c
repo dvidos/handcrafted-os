@@ -1,5 +1,5 @@
-#include <ctypes.h>
-#include <bits.h>
+#include "../include/ctypes.h"
+#include "../include/bits.h"
 
 // how about endianness?
 typedef uint16_t ucs2char;

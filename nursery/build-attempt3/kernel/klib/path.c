@@ -1,5 +1,5 @@
 #include "string.h"
-#include <uapi/errors.h>
+#include "../include/uapi/errors.h"
 #include "../utils/logger.h"
 
 MODULE("PATH", LOG_LEVEL_WARN);

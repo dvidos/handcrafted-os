@@ -1,4 +1,4 @@
-#include <uapi/errors.h>
+#include "../include/uapi/errors.h"
 #include "../klib/string.h"
 
 #define CASE(x)   case x: return #x

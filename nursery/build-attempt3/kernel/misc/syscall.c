@@ -1,6 +1,6 @@
-#include <bits.h>
+#include "../include/bits.h"
 #include "../misc/cpu.h"
-#include <uapi/errors.h>
+#include "../include/uapi/errors.h"
 #include "../utils/logger.h"
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
@@ -10,9 +10,9 @@
 // #include "../filesys/vfs.h"
 #include "../memory/virtmem.h"
 
-#include <uapi/syscall.h>
-#include <uapi/key_event.h>
-#include <uapi/time.h>
+#include "../include/uapi/syscall.h"
+#include "../include/uapi/key_event.h"
+#include "../include/uapi/time.h"
 
 MODULE("SYSCALL", LOG_LEVEL_WARN);
 
