@@ -1,9 +1,10 @@
 #pragma once
-#include <ctypes.h>
-
+#include "ints.h"
 
 // POSIX structure, returned by VFS, exposed to libc and apps
-struct stat {
+typedef struct vfs_stat vfs_stat_t;
+
+struct vfs_stat {
     uint64_t st_dev;     // filesystem id (sb.fs_id)
     uint64_t st_ino;     // inode number
     uint32_t st_mode;    // file type + permissions
@@ -13,7 +14,7 @@ struct stat {
     uint64_t st_size;    // file size in bytes
     uint64_t st_blocks;  // number of blocks
     uint32_t st_blksize; // block size
-    uint64_t st_atime;
-    uint64_t st_mtime;
-    uint64_t st_ctime;
+    uint64_t st_atime1;  // there are "st_atime" and other macros in sys/stat.h
+    uint64_t st_mtime1;   // 
+    uint64_t st_ctime1;
 };

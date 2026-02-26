@@ -107,7 +107,7 @@ static error_t _dummy_fs_opendir(inode_t *dir, open_file_t **dir_handle) {
     return OK;
 }
 
-static ssize_t _dummy_fs_readdir(open_file_t *dir_handle, struct dirent *out) {
+static ssize_t _dummy_fs_readdir(open_file_t *dir_handle, vfs_dirent_t *out) {
     if (dir_handle->offset == 0) {
         out->d_ino = TEXT_FILE_INODE;
         out->d_type = S_IFREG;
@@ -149,7 +149,7 @@ static error_t _dummy_fs_unlink(inode_t *parent, const char *name) {
     return ERR_NOT_PERMITTED;
 }
 
-static error_t _dummy_fs_stat(inode_t *n, struct stat *out) {
+static error_t _dummy_fs_stat(inode_t *n, vfs_stat_t *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 

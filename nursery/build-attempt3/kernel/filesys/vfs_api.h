@@ -20,13 +20,13 @@ error_t vfs2_flush(open_file_t *file);
 
 // directory operations (same FD table as files, type check (must be directory), driver handles iteration state in open_file_t))
 error_t vfs2_opendir(const char *path, open_file_t **dir);
-ssize_t vfs2_readdir(open_file_t *dir, struct dirent *out);
+ssize_t vfs2_readdir(open_file_t *dir, vfs_dirent_t *out);
 error_t vfs2_rewinddir(open_file_t *dir);
 error_t vfs2_closedir(open_file_t *dir);
 
 // metadata ops (resolve path or FD, call driver stat/truncate)
-error_t vfs2_stat(const char *path, struct stat *out);
-error_t vfs2_fstat(open_file_t *file, struct stat *out);
+error_t vfs2_stat(const char *path, vfs_stat_t *out);
+error_t vfs2_fstat(open_file_t *file, vfs_stat_t *out);
 error_t vfs2_truncate(const char *path, size_t size);
 
 // creation/removal (resolve parent directory, extract final component name, call driver create/unlink/mkdir/rmdir)

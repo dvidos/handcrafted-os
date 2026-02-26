@@ -300,7 +300,7 @@ static error_t sfs_driver_opendir(inode_t *dir, open_file_t **dir_handle) {
     return OK;
 }
 
-static ssize_t sfs_driver_readdir(open_file_t *dir_handle, struct dirent *out) {
+static ssize_t sfs_driver_readdir(open_file_t *dir_handle, vfs_dirent_t *out) {
     sfs_mount_data *md = (sfs_mount_data *)dir_handle->sb->driver_priv_data;
     error_t err;
     stored_inode *dir_sin; // The inode of the directory being read.
@@ -346,7 +346,7 @@ static ssize_t sfs_driver_readdir(open_file_t *dir_handle, struct dirent *out) {
 
         // --- Found a valid directory entry ---
 
-        // Populate the 'struct dirent' for the VFS layer.
+        // Populate the 'vfs_dirent_t' for the VFS layer.
         strncpy(out->d_name, sde.name, sizeof(out->d_name) - 1);
         out->d_name[sizeof(out->d_name) - 1] = '\0'; // Ensure null-termination
         out->d_ino = sde.inode_num;
@@ -367,9 +367,9 @@ static ssize_t sfs_driver_readdir(open_file_t *dir_handle, struct dirent *out) {
         // "stream position" for the next call to readdir.
         dir_handle->offset = current_physical_scan_offset;
 
-        // Return the size of a populated 'struct dirent' to the VFS.
+        // Return the size of a populated 'vfs_dirent_t' to the VFS.
         // This signifies that one logical directory entry has been successfully read.
-        return sizeof(struct dirent);
+        return sizeof(vfs_dirent_t);
     }
 
     // End of directory: no more valid entries found after scanning to the end.
@@ -561,21 +561,21 @@ static error_t sfs_driver_unlink(inode_t *parent, const char *name) {
     return OK;
 }
 
-static error_t sfs_driver_stat(inode_t *n, struct stat *out) {
+static error_t sfs_driver_stat(inode_t *n, vfs_stat_t *out) {
     sfs_mount_data *md = (sfs_mount_data *)n->sb->driver_priv_data;
     stored_inode *sin;
     error_t err = md->inode_cache->ops->get(md->inode_cache, n->inode_num, (void **)&sin);
     if (err) return err;
 
-    out->st_atime = 0;
+    out->st_atime1 = 0;
     out->st_blksize = md->superblock->block_size_in_bytes;
     out->st_blocks = sin->allocated_blocks;
-    out->st_ctime = sin->modified_at;
+    out->st_ctime1 = sin->modified_at;
     out->st_dev = n->sb->fs_id;
     out->st_gid = sin->group_id;
     out->st_ino = n->inode_num;
     out->st_mode = sin->type_perms;
-    out->st_mtime = sin->modified_at;
+    out->st_mtime1 = sin->modified_at;
     out->st_nlink = 1; // we don't support multilink
     out->st_size = n->size;
     out->st_uid = sin->user_id;

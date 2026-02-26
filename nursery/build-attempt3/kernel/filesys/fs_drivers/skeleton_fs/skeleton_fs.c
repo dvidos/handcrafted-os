@@ -67,7 +67,7 @@ static error_t _skeleton_fs_opendir(inode_t *dir, open_file_t **dir_handle) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static ssize_t _skeleton_fs_readdir(open_file_t *dir_handle, struct dirent *out) {
+static ssize_t _skeleton_fs_readdir(open_file_t *dir_handle, vfs_dirent_t *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
@@ -101,7 +101,7 @@ static error_t _skeleton_fs_unlink(inode_t *parent, const char *name) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_stat(inode_t *n, struct stat *out) {
+static error_t _skeleton_fs_stat(inode_t *n, vfs_stat_t *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 

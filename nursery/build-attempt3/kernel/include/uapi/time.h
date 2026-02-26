@@ -1,7 +1,7 @@
 #ifndef _TIME_H
 #define _TIME_H
 
-#include <ctypes.h>
+#include "../../include/ctypes.h"
 
 
 // struture visible both to libc and kernel for syscall

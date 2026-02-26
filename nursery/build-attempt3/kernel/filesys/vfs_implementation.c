@@ -289,7 +289,7 @@ error_t vfs2_opendir(const char *path, open_file_t **dir) {
     return OK;
 }
 
-ssize_t vfs2_readdir(open_file_t *dir, struct dirent *out) {
+ssize_t vfs2_readdir(open_file_t *dir, vfs_dirent_t *out) {
     int bytes;
 
     bytes = dir->sb->driver->readdir(dir, out);
@@ -317,7 +317,7 @@ error_t vfs2_closedir(open_file_t *dir) {
     return OK;
 }
 
-error_t vfs2_stat(const char *path, struct stat *out) {
+error_t vfs2_stat(const char *path, vfs_stat_t *out) {
     inode_t *n;
     int err = vfs2_lookup_target(path, &n);
     if (err) return err;
@@ -328,7 +328,7 @@ error_t vfs2_stat(const char *path, struct stat *out) {
     return OK;
 }
 
-error_t vfs2_fstat(open_file_t *file, struct stat *out) {
+error_t vfs2_fstat(open_file_t *file, vfs_stat_t *out) {
     return file->sb->driver->stat(file->inode, out);
 }
 

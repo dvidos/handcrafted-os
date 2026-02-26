@@ -34,7 +34,7 @@ struct fs_driver_ops {
     error_t (*flush)(open_file_t *file);
 
     error_t (*opendir)(inode_t *dir, open_file_t **dir_handle);
-    ssize_t (*readdir)(open_file_t *dir_handle, struct dirent *out); // return bytes read
+    ssize_t (*readdir)(open_file_t *dir_handle, vfs_dirent_t *out); // return bytes read
     error_t (*rewinddir)(open_file_t *dir_handle);
     error_t (*closedir)(open_file_t *dir_handle);
 
@@ -43,7 +43,7 @@ struct fs_driver_ops {
     error_t (*mkdir)(inode_t *parent, const char *name, inode_t **out); // dirs have special create semantics
     error_t (*rmdir)(inode_t *parent, const char *name); // dirs have special delete semantics
 
-    error_t (*stat)(inode_t *n, struct stat *out);
+    error_t (*stat)(inode_t *n, vfs_stat_t *out);
     error_t (*truncate)(inode_t *n, size_t size);
 };
 
