@@ -4,7 +4,7 @@ EMU := qemu-system-x86_64
 # run configure.sh to generate the config.mk file
 include config.mk
 
-.PHONY: tools stage1 stage2 kernel libc apps rootfs
+.PHONY: tools stage1 stage2 kernel libc userapps rootfs
 
 
 default: os.img
@@ -41,10 +41,10 @@ libc:
 	mkdir -p build/rootfs/usr/lib
 	cp libc/libc.a -t build/rootfs/usr/lib
 
-apps:
-	make -C apps
+userapps:
+	make -C userapps
 
-rootfs: libc apps
+rootfs: libc userapps
 	tools/make-root-fs.sh
 
 # os.img: tools stage1 stage2 kernel rootfs
@@ -73,11 +73,11 @@ run-with-cpu-diags: os.img
 	$(EMU) -drive format=raw,file=os.img -m 4G -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
 
 clean: config.mk
-	make -C tools clean
-	make -C libc  clean
-	make -C apps  clean
-	make -C stage1 clean
-	make -C stage2 clean
-	make -C kernel clean
+	make -C tools    clean
+	make -C libc     clean
+	make -C userapps clean
+	make -C stage1   clean
+	make -C stage2   clean
+	make -C kernel   clean
 	rm -rf build/*
 	rm -f config.mk config.h config.sh os.img
