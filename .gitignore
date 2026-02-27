@@ -35,3 +35,6 @@ src/boot_sector/boot_sector.bin
 src/boot_loader/boot_loader.bin
 src/user/bin/*
 
+
+nursery/build-attempt3/build/*
+
