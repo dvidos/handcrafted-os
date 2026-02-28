@@ -1,5 +1,4 @@
-#ifndef KEY_EVENT_H
-#define KEY_EVENT_H
+#pragma once
 
 // passed in in syscall
 typedef struct key_event {
@@ -8,5 +7,3 @@ typedef struct key_event {
 } key_event_t;
 
 
-
-#endif

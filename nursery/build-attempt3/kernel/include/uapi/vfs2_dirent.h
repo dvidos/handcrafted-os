@@ -1,5 +1,5 @@
 #pragma once
-#include "../../include/ctypes.h"
+#include "base.h"
 
 
 // POSIX structure, returned by VFS, exposed to libc and apps

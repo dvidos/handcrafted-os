@@ -1,5 +1,5 @@
 #pragma once
-#include "ints.h"
+#include "base.h"
 
 // POSIX structure, returned by VFS, exposed to libc and apps
 typedef struct vfs_stat vfs_stat_t;

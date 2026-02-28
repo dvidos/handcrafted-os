@@ -56,7 +56,4 @@
     #define S_IXOTH  00001  // others can execute
 
 
-#else // user land compilation
-
-
-#endif // __KERNEL__
+#endif

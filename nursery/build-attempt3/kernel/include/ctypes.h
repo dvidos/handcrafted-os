@@ -3,21 +3,8 @@
 
 #ifdef __KERNEL__  // if compilation is for kernel
 
-    #include "uapi/ints.h"
+    #include "uapi/base.h"
     
-    typedef unsigned char uchar;
-    typedef unsigned int uint;
-
-    typedef unsigned char u8;
-    typedef unsigned short int u16;
-    typedef unsigned long int u32;
-    typedef unsigned long long int u64;
-
-    typedef signed char s8;
-    typedef signed short int s16;
-    typedef signed long int s32;
-    typedef signed long long int s64;
-
     #define INT8_MIN    -128
     #define INT8_MAX    127
     #define INT16_MIN   -32768	
