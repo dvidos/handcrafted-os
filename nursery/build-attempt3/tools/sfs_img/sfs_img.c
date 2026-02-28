@@ -161,7 +161,7 @@ int import_file_from_host(context *ctx, const char *host_file, stored_inode *fil
 void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_inode *parent_dir_inode, inode_no_t parent_dir_no) {
     char *entry_path;
 
-    printf("Importing from dir %s...\n", host_dir);
+    printf("Importing from dir %s\n", host_dir);
 
     entry_path = malloc(1024);
     entry_path[0] = 0;
@@ -177,7 +177,7 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
         inode_no_t new_inode_no;
         stored_inode new_inode;
 
-        if (S_ISDIR(entry->d_type)) {
+        if (entry->d_type == DT_DIR) {
 
             size_t num_entries = count_entries_in_host_dir(entry_path);
             new_inode = create_new_inode(&ctx->superblock, false, num_entries * sizeof(stored_dir_entry), &new_inode_no);
@@ -186,7 +186,7 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
             
             append_entry_to_directory(ctx, parent_dir_inode, parent_dir_no, entry->d_name, new_inode_no);
 
-        } else if (S_ISREG(entry->d_type)) {
+        } else if (entry->d_type == DT_REG) {
 
             size_t file_size = get_host_file_size(entry_path);
             new_inode = create_new_inode(&ctx->superblock, true, file_size, &new_inode_no);
@@ -238,7 +238,8 @@ void do_write_sector(int argc, char *argv[]) {
     context ctx;
     initialize_by_opening(image_file, &ctx);
     
-    if (sectors_to_bytes(sector_no + sector_count) >= ctx.fs_offset)
+    size_t last_byte = sectors_to_bytes(sector_no + sector_count) - 1;
+    if (last_byte > ctx.fs_offset)
         fatal("Writing %ld sectors at sector %ld would overwrite FS partition. Can fit at most %ld sectors", sector_count, sector_no, bytes_to_sectors(ctx.fs_offset) - sector_no);
 
     import_host_file_into_img_sector(ctx.img, sector_no, sector_count, host_file);

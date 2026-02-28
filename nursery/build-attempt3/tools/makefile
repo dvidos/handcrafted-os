@@ -1,9 +1,9 @@
 
 
-.PHONY: sfs
+.PHONY: sfs_img
 
-sfs:
-	make -C sfs
+sfs_img:
+	make -C sfs_img
 
 clean:
-	make -C sfs clean
+	make -C sfs_img clean
