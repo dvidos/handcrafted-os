@@ -9,10 +9,6 @@ typedef struct context {
     stored_superblock superblock;
 } context;
 
-
-
-
-
 #define SECTOR_SIZE   512
 #define BLOCK_SIZE   1024   // can be 512, 1K, 2K, 4K...
 

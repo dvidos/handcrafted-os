@@ -76,13 +76,13 @@ static void initialize_by_opening(const char *img_file, context *ctx) {
     uint32_t part_start_lba, part_sectors;
     read_partition_entry(ctx->img, &part_start_lba, &part_sectors);
     ctx->img_size = sectors_to_bytes(part_start_lba + part_sectors);
-    ctx->fs_offset = sectors_to_bytes(part_sectors);
+    ctx->fs_offset = sectors_to_bytes(part_start_lba);
 
     // load FS data
     read_fs_block(ctx, 0, block_buffer);
     memcpy(&ctx->superblock, block_buffer, sizeof(stored_superblock));
 
-    if (memcmp(ctx->superblock.magic, "SFS1", 4) != 0) fatal("Superblock bad magic");
+    if (memcmp(ctx->superblock.magic, "SFS1", 4) != 0) fatal("Superblock bad magic: 0x%02x 0x%02x 0x%02x 0x%02x\n", ctx->superblock.magic[0], ctx->superblock.magic[1], ctx->superblock.magic[2], ctx->superblock.magic[3]);
     if (ctx->superblock.block_size_in_bytes != BLOCK_SIZE) fatal("Superblock bad block size");
     if (ctx->superblock.sector_size != SECTOR_SIZE) fatal("Superblock bad sector size");
     if (ctx->superblock.inode_size != sizeof(stored_inode)) fatal("Superblock bad inode size");
