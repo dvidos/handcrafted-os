@@ -40,3 +40,4 @@ $SFS write-sector $IMG $KERNEL_FIRST_SECTOR $KERNEL_SECTOR_COUNT $SRC/kernel.bin
 $SFS import-dir $IMG $ROOTFS /
 
 # cross fingers
+echo "Image file is ready: $IMG," $(( $(stat -c %s $IMG) / 1024 )) "KB"

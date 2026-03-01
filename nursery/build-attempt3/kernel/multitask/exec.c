@@ -3,7 +3,7 @@
 #include "../klib/string.h"
 // #include "../filesys/vfs.h"
 #include "process.h"
-#include "strvec.h"
+#include "../klib/strvec.h"
 #include "../devices/tty.h"
 #include "../misc/elf_loader.h"
 #include "../memory/virtmem.h"

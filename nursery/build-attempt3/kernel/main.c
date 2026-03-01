@@ -32,8 +32,8 @@
 #include "filesys/fs_drivers/dummy_fs/dummy_fs.h"
 #include "filesys/fs_drivers/sfs/sfs.h"
 
-#include "multitask/multitask.h"
 #include "multitask/semaphore.h"
+#include "multitask/multitask.h"
 #include "multitask/process.h"
 #include "multitask/exec.h"
 

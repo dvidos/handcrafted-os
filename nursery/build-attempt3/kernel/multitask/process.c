@@ -12,7 +12,7 @@
 #include "../memory/virtmem.h"
 #include "../utils/logger.h"
 #include "../include/uapi/errors.h"
-#include "strvec.h"
+#include "../klib/strvec.h"
 // #include "../filesys/mount_deprecated.h"
 // #include "../filesys/vfs.h"
 

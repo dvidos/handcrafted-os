@@ -1,5 +1,5 @@
-#ifndef _CTYPES_H
-#define _CTYPES_H
+#pragma once
+
 
 #ifdef __KERNEL__  // if compilation is for kernel
 
@@ -34,8 +34,6 @@
     typedef unsigned long  int gid_t;       // group id
     typedef          long  int pid_t;       // prod id. Signed allows for special in wait() etc
     typedef          long  int tid_t;       // thread id. (tid=pid for main thread)
-    typedef unsigned long  int phys_addr_t; // physical address. 32 bits -> 4 GB
-    typedef unsigned long  int virt_addr_t; // virtual address. 32 bits -> 4 GB
 
 
     // find member offset. GCC has "__builtin_offsetof(type, member)", others do not.
@@ -48,8 +46,13 @@
     #include <stdbool.h>
     #include <stdint.h>
     #include <stddef.h>
-
-
+    #include <stdio.h>
+    #include <sys/types.h>
 #endif
 
-#endif
+
+
+typedef unsigned long  int phys_addr_t; // physical address. 32 bits -> 4 GB
+typedef unsigned long  int virt_addr_t; // virtual address. 32 bits -> 4 GB
+
+

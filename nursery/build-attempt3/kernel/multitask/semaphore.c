@@ -1,6 +1,6 @@
 #include "process.h"
-#include "semaphore.h"
 #include "scheduler.h"
+#include "semaphore.h"
 #include "../memory/kheap.h"
 #include "../utils/logger.h"
 #include "../klib/string.h"
@@ -35,6 +35,7 @@ void acquire_semaphore(semaphore_t *semaphore) {
 void release_semaphore(semaphore_t *semaphore) {
     lock_scheduler();
 
+    // TODO: stop this depending on processes, use a callback pattern
 
     bool unblocked_a_process = false;
     process_t *target_proc = NULL;
