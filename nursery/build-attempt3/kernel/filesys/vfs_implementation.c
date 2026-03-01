@@ -1,7 +1,7 @@
 #include "vfs_api.h"
 #include "../include/uapi/errors.h"
-#include "../include/uapi/vfs2_seek_flags.h"
-#include "../include/uapi/vfs2_dirent.h"
+#include "../include/uapi/vfs_seek_flags.h"
+#include "../include/uapi/vfs_dirent.h"
 #include "fs_drivers/fs_driver.h"
 #include "vfs_objects/superblock.h"
 #include "vfs_objects/inode.h"
@@ -35,7 +35,7 @@ static struct substring get_path_first_substring(const char *path) {
 }
 
 
-static int vfs2_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t **fd_out, const char **name_out) {
+static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t **fd_out, const char **name_out) {
     if (path == NULL || *path == 0 || path[0] != '/')
         return ERR_BAD_ARGUMENT;
     if (mtab.get_entries_list() == NULL)
@@ -109,20 +109,20 @@ static int vfs2_flex_lookup(inode_t *start, const char *path, bool lookup_parent
     return OK;
 }
 
-static int vfs2_lookup_target(const char *path, inode_t **target_out) {
+static int vfs_lookup_target(const char *path, inode_t **target_out) {
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
     const char *name_out;
-    int err = vfs2_flex_lookup(NULL, path, false, target_out, &name_out);
+    int err = vfs_flex_lookup(NULL, path, false, target_out, &name_out);
     if (err) return err;
 
     return OK;
 }
 
-static int vfs2_lookup_parent(const char *path, inode_t **parent_out, const char **final_name_out) {
+static int vfs_lookup_parent(const char *path, inode_t **parent_out, const char **final_name_out) {
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
-    int err = vfs2_flex_lookup(NULL, path, true, parent_out, final_name_out);
+    int err = vfs_flex_lookup(NULL, path, true, parent_out, final_name_out);
     if (err) return err;
 
     return OK;
@@ -130,7 +130,7 @@ static int vfs2_lookup_parent(const char *path, inode_t **parent_out, const char
 
 // ----------------------------------------------------------------------------------------
 
-int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
+int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     int err;
     inode_t *host_dir;
 
@@ -141,7 +141,7 @@ int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
         host_dir = NULL;
 
     } else {
-        err = vfs2_lookup_target(path, &host_dir);
+        err = vfs_lookup_target(path, &host_dir);
         if (err != OK) return err;
 
         if (!inodes.is_dir(host_dir))
@@ -167,11 +167,11 @@ int vfs2_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     return OK;
 }
 
-int vfs2_unmount(const char *path) {
+int vfs_unmount(const char *path) {
     int err;
     inode_t *dir;
 
-    err = vfs2_lookup_target(path, &dir);
+    err = vfs_lookup_target(path, &dir);
     if (err) return err;
 
     mount_entry_t *entry = mtab.find_entry_by_host_dir(dir);
@@ -190,7 +190,7 @@ int vfs2_unmount(const char *path) {
     return OK;
 }
 
-int vfs2_sync(void) {
+int vfs_sync(void) {
     for (mount_entry_t *entry = mtab.get_entries_list(); entry; entry = entry->next) {
         // ignore errors and try to sync all, anyway
         entry->sb->driver->sync(entry->sb);
@@ -198,11 +198,11 @@ int vfs2_sync(void) {
     return OK;
 }
 
-int vfs2_open(const char *path, int flags, open_file_t **file) {
+int vfs_open(const char *path, int flags, open_file_t **file) {
     int err;
     inode_t *n;
 
-    err = vfs2_lookup_target(path, &n);
+    err = vfs_lookup_target(path, &n);
     if (err) return err;
     if (!inodes.is_file(n))
         return ERR_NOT_A_FILE;
@@ -217,7 +217,7 @@ int vfs2_open(const char *path, int flags, open_file_t **file) {
     return OK;
 }
 
-int vfs2_close(open_file_t *file) {
+int vfs_close(open_file_t *file) {
     int err = file->sb->driver->close(file);
     if (err) return err;
 
@@ -225,7 +225,7 @@ int vfs2_close(open_file_t *file) {
     return OK;
 }
 
-ssize_t vfs2_read(open_file_t *file, void *buf, size_t len) {
+ssize_t vfs_read(open_file_t *file, void *buf, size_t len) {
     ssize_t bytes = file->sb->driver->read(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
@@ -235,7 +235,7 @@ ssize_t vfs2_read(open_file_t *file, void *buf, size_t len) {
     return bytes;
 }
 
-ssize_t vfs2_write(open_file_t *file, const void *buf, size_t len) {
+ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
     ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
@@ -249,7 +249,7 @@ ssize_t vfs2_write(open_file_t *file, const void *buf, size_t len) {
     return bytes;
 }
 
-off_t vfs2_seek(open_file_t *file, off_t offset, int whence) {
+off_t vfs_seek(open_file_t *file, off_t offset, int whence) {
     off_t new_offset;
     switch (whence) {
         case SEEK_SET: new_offset = offset; break;
@@ -263,18 +263,18 @@ off_t vfs2_seek(open_file_t *file, off_t offset, int whence) {
     return new_offset;
 }
 
-error_t vfs2_flush(open_file_t *file) {
+error_t vfs_flush(open_file_t *file) {
     int err = file->sb->driver->flush(file);
     if (err) return err;
 
     return OK;
 }
 
-error_t vfs2_opendir(const char *path, open_file_t **dir) {
+error_t vfs_opendir(const char *path, open_file_t **dir) {
     int err;
     inode_t *n;
 
-    err = vfs2_lookup_target(path, &n);
+    err = vfs_lookup_target(path, &n);
     if (err) return err;
     if (!inodes.is_dir(n))
         return ERR_NOT_A_DIRECTORY;
@@ -289,7 +289,7 @@ error_t vfs2_opendir(const char *path, open_file_t **dir) {
     return OK;
 }
 
-ssize_t vfs2_readdir(open_file_t *dir, vfs_dirent_t *out) {
+ssize_t vfs_readdir(open_file_t *dir, vfs_dirent_t *out) {
     int bytes;
 
     bytes = dir->sb->driver->readdir(dir, out);
@@ -301,7 +301,7 @@ ssize_t vfs2_readdir(open_file_t *dir, vfs_dirent_t *out) {
     return bytes; // returning 0 at end, is more POSIX like
 }
 
-error_t vfs2_rewinddir(open_file_t *dir) {
+error_t vfs_rewinddir(open_file_t *dir) {
     int err = dir->sb->driver->rewinddir(dir);
     if (err) return err;
 
@@ -309,7 +309,7 @@ error_t vfs2_rewinddir(open_file_t *dir) {
     return OK;
 }
 
-error_t vfs2_closedir(open_file_t *dir) {
+error_t vfs_closedir(open_file_t *dir) {
     int err = dir->sb->driver->closedir(dir);
     if (err) return err;
 
@@ -317,9 +317,9 @@ error_t vfs2_closedir(open_file_t *dir) {
     return OK;
 }
 
-error_t vfs2_stat(const char *path, vfs_stat_t *out) {
+error_t vfs_stat(const char *path, vfs_stat_t *out) {
     inode_t *n;
-    int err = vfs2_lookup_target(path, &n);
+    int err = vfs_lookup_target(path, &n);
     if (err) return err;
 
     err = n->sb->driver->stat(n, out);
@@ -328,13 +328,13 @@ error_t vfs2_stat(const char *path, vfs_stat_t *out) {
     return OK;
 }
 
-error_t vfs2_fstat(open_file_t *file, vfs_stat_t *out) {
+error_t vfs_fstat(open_file_t *file, vfs_stat_t *out) {
     return file->sb->driver->stat(file->inode, out);
 }
 
-error_t vfs2_truncate(const char *path, size_t size) {
+error_t vfs_truncate(const char *path, size_t size) {
     inode_t *n;
-    int err = vfs2_lookup_target(path, &n);
+    int err = vfs_lookup_target(path, &n);
     if (err) return err;
 
     err = n->sb->driver->truncate(n, size);
@@ -343,10 +343,10 @@ error_t vfs2_truncate(const char *path, size_t size) {
     return OK;
 }
 
-error_t vfs2_create(const char *path, int type) {
+error_t vfs_create(const char *path, int type) {
     inode_t *dir;
     const char *name_ptr;
-    int err = vfs2_lookup_parent(path, &dir, &name_ptr);
+    int err = vfs_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
     inode_t *new_file;
@@ -356,10 +356,10 @@ error_t vfs2_create(const char *path, int type) {
     return OK;
 }
 
-error_t vfs2_unlink(const char *path) {
+error_t vfs_unlink(const char *path) {
     inode_t *dir;
     const char *name_ptr;
-    int err = vfs2_lookup_parent(path, &dir, &name_ptr);
+    int err = vfs_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
     inode_t *new_file;
@@ -369,10 +369,10 @@ error_t vfs2_unlink(const char *path) {
     return OK;
 }
 
-error_t vfs2_mkdir(const char *path) {
+error_t vfs_mkdir(const char *path) {
     inode_t *parent_dir;
     const char *name_ptr;
-    int err = vfs2_lookup_parent(path, &parent_dir, &name_ptr);
+    int err = vfs_lookup_parent(path, &parent_dir, &name_ptr);
     if (err) return err;
 
     inode_t *new_dir;
@@ -382,10 +382,10 @@ error_t vfs2_mkdir(const char *path) {
     return OK;
 }
 
-error_t vfs2_rmdir(const char *path) {
+error_t vfs_rmdir(const char *path) {
     inode_t *dir;
     const char *name_ptr;
-    int err = vfs2_lookup_parent(path, &dir, &name_ptr);
+    int err = vfs_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
     err = dir->sb->driver->rmdir(dir, name_ptr);

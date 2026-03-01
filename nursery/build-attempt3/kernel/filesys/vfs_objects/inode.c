@@ -1,5 +1,5 @@
 #include "inode.h"
-#include "../../include/uapi/vfs2_file_flags.h"
+#include "../../include/uapi/vfs_file_flags.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 

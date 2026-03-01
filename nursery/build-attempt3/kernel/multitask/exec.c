@@ -5,7 +5,7 @@
 #include "process.h"
 #include "../klib/strvec.h"
 #include "../devices/tty.h"
-#include "../misc/elf_loader.h"
+#include "elf_loader.h"
 #include "../memory/virtmem.h"
 #include "../memory/kheap.h"
 

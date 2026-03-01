@@ -4,9 +4,11 @@
 // in order to participate in the VFS system
 
 #include "../../include/uapi/errors.h"
-#include "../../include/uapi/vfs2_file_flags.h"
-#include "../../include/uapi/vfs2_stat.h"
-#include "../../include/uapi/vfs2_dirent.h"
+#include "../../include/uapi/vfs_mount_flags.h"
+#include "../../include/uapi/vfs_seek_flags.h"
+#include "../../include/uapi/vfs_file_flags.h"
+#include "../../include/uapi/vfs_stat.h"
+#include "../../include/uapi/vfs_dirent.h"
 #include "../../devices/block/block_device.h"
 #include "../vfs_objects/superblock.h"
 #include "../vfs_objects/inode.h"

@@ -21,30 +21,30 @@ How this hangs together:
 // Structs are public ABI, should be stable.
 // --------------------------------------------------------------
 
-struct file_t;      // An open file, has offset, vfs_node,
+struct open_file_t;      // An open file, has offset, vfs_node,
 struct stat;        // Portable file metadata, ABI struct, what "ls -l" needs
 struct dirent;      // Portable file metadata, ABI struct
 
 
 // File lifecycle
 int fs_open(const char *path, int flags, int mode);
-int fs_close(file_t f);
-int fs_dup(file_t f);
-int fs_dup2(file_t oldf, file_t newf);
+int fs_close(open_file_t f);
+int fs_dup(open_file_t f);
+int fs_dup2(open_file_t oldf, open_file_t newf);
 
 // I/O
-ssize_t fs_read(file_t f, void *buf, size_t n);
-ssize_t fs_write(file_t f, const void *buf, size_t n);
-ssize_t fs_pread(file_t f, void *buf, size_t n, off_t off);
-ssize_t fs_pwrite(file_t f, const void *buf, size_t n, off_t off);
+ssize_t fs_read(open_file_t f, void *buf, size_t n);
+ssize_t fs_write(open_file_t f, const void *buf, size_t n);
+ssize_t fs_pread(open_file_t f, void *buf, size_t n, off_t off);
+ssize_t fs_pwrite(open_file_t f, const void *buf, size_t n, off_t off);
 
 // Positioning
-off_t fs_seek(file_t f, off_t off, int whence);
-off_t fs_tell(file_t f);
+off_t fs_seek(open_file_t f, off_t off, int whence);
+off_t fs_tell(open_file_t f);
 
 // Metadata
 int fs_stat(const char *path, struct stat *out);
-int fs_fstat(file_t f, struct stat *out);
+int fs_fstat(open_file_t f, struct stat *out);
 int fs_chmod(const char *path, mode_t mode);
 int fs_chown(const char *path, uid_t uid, gid_t gid);
 

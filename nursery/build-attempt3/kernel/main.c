@@ -375,7 +375,7 @@ static void initialize_storage_and_file_systems() {
             continue;
         
         log_info("Mounting device %s as root using driver '%s'", dev->id, driver->name);
-        err = vfs2_mount("/", dev, driver->ops);
+        err = vfs_mount("/", dev, driver->ops);
         if (err) {
             log_error("Mount device %s by driver %s failed: %d", dev->id, driver->name, err);
             continue;

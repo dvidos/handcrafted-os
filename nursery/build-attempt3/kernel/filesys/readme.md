@@ -40,15 +40,15 @@ typedef struct fs_driver_ops {
     int (*unmount)(struct superblock *sb);
     int (*get_root_dir)(struct superblock *sb, inode_t **root_dir);
     int (*lookup)(inode_t *dir, const char *name, inode_t **out);
-    int (*open)(inode_t *n, int flags, file_t *file);
-    int (*close)(file_t *file);
-    int (*read)(file_t *file, void *buf, size_t len);
-    int (*write)(file_t *file, const void *buf, size_t len);
-    int (*flush)(file_t *file);
-    int (*opendir)(inode_t *dir, file_t *dir_handle);
-    int (*readdir)(file_t *dir_handle, inode_t **out);
-    int (*rewinddir)(file_t *dir_handle);
-    int (*closedir)(file_t *dir_handle);
+    int (*open)(inode_t *n, int flags, open_file_t *file);
+    int (*close)(open_file_t *file);
+    int (*read)(open_file_t *file, void *buf, size_t len);
+    int (*write)(open_file_t *file, const void *buf, size_t len);
+    int (*flush)(open_file_t *file);
+    int (*opendir)(inode_t *dir, open_file_t *dir_handle);
+    int (*readdir)(open_file_t *dir_handle, inode_t **out);
+    int (*rewinddir)(open_file_t *dir_handle);
+    int (*closedir)(open_file_t *dir_handle);
     int (*create)(inode_t *parent, const char *name, int type, inode_t **out);
     int (*unlink)(inode_t *parent, const char *name);
     int (*mkdir)(inode_t *parent, const char *name); // dirs have special create semantics
@@ -81,14 +81,14 @@ typedef struct inode {  // value object, copiable, cacheable, can test for equal
     char *name;                      // owned
 } inode_t;
 
-typedef struct file_t {           // vfs-owned, one per open handle, created/destroyed in vfs_open()/vfs_close()
+typedef struct open_file_t {           // vfs-owned, one per open handle, created/destroyed in vfs_open()/vfs_close()
     superblock_t *sb;
     inode_t *inode;               // immutable identity
     uint64_t offset;              // VFS-owned file position
     uint32_t flags;               // RDONLY, WRONLY, APPEND, etc
     void *fs_private_data;        // driver-specific open context
     lock_t lock;                  // protects offset & state
-} file_t;
+} open_file_t;
 
 struct stat {            // posix thing, exported to libc and apps
     uint64_t st_dev;     // filesystem id (sb.fs_id)
