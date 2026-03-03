@@ -53,7 +53,7 @@ void release_semaphore(semaphore_t *semaphore) {
                 unblocked_a_process = true;
                 break;
             }
-            target_proc = target_proc->next;
+            target_proc = target_proc->list_next;
         }
     }
     if (unblocked_a_process) {

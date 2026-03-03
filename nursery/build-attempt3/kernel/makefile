@@ -51,7 +51,7 @@ KERNEL_C_FILES = \
 	$(wildcard filesys/fs_drivers/dummy_fs/*.c) \
 	$(wildcard filesys/fs_drivers/sfs/*.c) \
 	\
-	$(wildcard processes/*.c)
+	$(wildcard tasks/*.c)
 
 KERNEL_NASM_FILES1 = \
 	$(wildcard misc/*.asm) \

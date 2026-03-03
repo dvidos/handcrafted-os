@@ -4,7 +4,7 @@
 
 
 // THE entry point
-static mount_entry_t *mtab_entries_list_head = NULL;
+mount_entry_t *mtab_entries_list_head = NULL;
 
 
 static mount_entry_t *_mtab_get_entries_list() {

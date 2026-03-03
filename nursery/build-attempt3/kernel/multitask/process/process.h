@@ -63,11 +63,13 @@ enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT }
 
 // the fundamental process information for multi tasking
 struct process {
-    struct process *next; // each process can only belong to one list
+    struct process *list_next; // each process can only belong to one list
     lock_t process_lock;
 
     pid_t pid;
     process_t *parent;
+    process_t *children_list; // list of children
+    process_t *next_sibling;  // ptr to next sibling in the parent's list
     char *name;
     uint8_t flags;
     uint8_t  priority;

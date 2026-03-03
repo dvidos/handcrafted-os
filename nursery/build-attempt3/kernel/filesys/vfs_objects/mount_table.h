@@ -32,4 +32,5 @@ struct mount_table_ops {
     mount_entry_t *(*find_entry_by_root_dir)(inode_t *n);
 };
 
+extern mount_entry_t *mtab_entries_list_head;
 extern struct mount_table_ops mtab;

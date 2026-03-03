@@ -36,11 +36,11 @@ void proclist_append(proc_list_t *list, process_t *proc) {
     if (list->head == NULL) {
         list->head = proc;
         list->tail = proc;
-        proc->next = NULL;
+        proc->list_next = NULL;
     } else {
-        list->tail->next = proc;
+        list->tail->list_next = proc;
         list->tail = proc;
-        proc->next = NULL;
+        proc->list_next = NULL;
     }
 }
 
@@ -49,9 +49,9 @@ void proclist_prepend(proc_list_t *list, process_t *proc) {
     if (list->head == NULL) {
         list->head = proc;
         list->tail = proc;
-        proc->next = NULL;
+        proc->list_next = NULL;
     } else {
-        proc->next = list->head;
+        proc->list_next = list->head;
         list->head = proc;
     }
 }
@@ -61,10 +61,10 @@ process_t *proclist_dequeue(proc_list_t *list) {
     if (list->head == NULL)
         return NULL;
     process_t *proc = list->head;
-    list->head = proc->next;
+    list->head = proc->list_next;
     if (list->head == NULL)
         list->tail = NULL;
-    proc->next = NULL;
+    proc->list_next = NULL;
     return proc;
 }
 
@@ -75,15 +75,15 @@ void proclist_remove(proc_list_t *list, process_t *proc) {
         return;
     }
     process_t *trailing = list->head;
-    while (trailing != NULL && trailing->next != proc)
-        trailing = trailing->next;
+    while (trailing != NULL && trailing->list_next != proc)
+        trailing = trailing->list_next;
     
     if (trailing == NULL)
         return; // we could not find entry
     
-    trailing->next = proc->next;
+    trailing->list_next = proc->list_next;
     if (list->tail == proc)
         list->tail = trailing;
-    proc->next = NULL;
+    proc->list_next = NULL;
 }
 

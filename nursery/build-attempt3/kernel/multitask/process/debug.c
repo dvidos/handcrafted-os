@@ -28,7 +28,7 @@ static void dump_process_list(proc_list_t *list) {
     process_t *proc = list->head;
     while (proc != NULL) {
         dump_process(proc);
-        proc = proc->next;
+        proc = proc->list_next;
     }
 }
 

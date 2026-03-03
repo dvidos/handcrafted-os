@@ -88,7 +88,7 @@ void unblock_process_that(enum block_reasons block_reason, void *block_channel) 
             proclist_prepend(&ready_lists[proc->priority], proc);
             break;
         }
-        proc = proc->next;
+        proc = proc->list_next;
     }
 
     // if the running process has a lower priority than the new task,
@@ -125,7 +125,7 @@ bool proc_has_children(process_t *parent) {
                 has_children = true;
                 goto exit;
             }
-            p = p->next;
+            p = p->list_next;
         }
     }
 
@@ -138,7 +138,7 @@ bool proc_has_children(process_t *parent) {
             has_children = true;
             goto exit;
         }
-        p = p->next;
+        p = p->list_next;
     }
 
 exit:
