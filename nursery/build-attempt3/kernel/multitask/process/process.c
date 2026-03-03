@@ -18,8 +18,6 @@
 
 MODULE("PROC", LOG_LEVEL_WARN);
 
-#define min(a, b)   ((a) < (b) ? (a) : (b))
-
 
  /*
  processes created by kernel, shell, user running programs, etc.
@@ -153,7 +151,6 @@ exit:
 void proc_yield(process_t *proc) {
     if (proc != running_proc)
         return;
-
     log_trace("process %s is yielding", proc->name);
     lock_scheduler();
     schedule(); // allow someone else to run

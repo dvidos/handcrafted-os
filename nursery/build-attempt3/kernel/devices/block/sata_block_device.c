@@ -624,13 +624,6 @@ static error_t discover_and_register_serial_ata_storage_device(pci_device_t *pci
         if (port->sig != SATA_SIG_ATA) {
             continue;
         }
-        // TODO: we need to do spmething with as there is a page it needs
-        // 0.024 ISR        WARN  Page fault detected
-        // 0.024 VMEM       WARN  Page fault, reading a missing page by user process, at 0xFEBB100C, page dir at 0x728000
-        // 0.026 DEV_REG    INFO  Block Devices:
-        // 0.027 DEV_REG    INFO    - sata0     SATA hard disk, port #0
-        // 0.028 DEV_REG    INFO    - sata0p0   SATA hard disk, port #0 primary partition #0
-        // see https://chatgpt.com/s/t_698c7bdfe6148191811c00e5c1c3ca56
 
         // device is sata, powered, present
         // set memory areas pointers for data transfer

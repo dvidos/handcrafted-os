@@ -8,7 +8,6 @@ set -e
 . ./config.sh  # get build variables
 
 IMG=os.img
-#SFS=./tools/sfs/sfs1
 SFS=./tools/sfs_img/sfs_img
 SRC=build/kernel
 ROOTFS=./build/rootfs

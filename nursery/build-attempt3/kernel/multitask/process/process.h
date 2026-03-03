@@ -146,9 +146,8 @@ void unblock_process_that(enum block_reasons block_reason, void *block_channel);
 void proc_yield(process_t *proc);  // voluntarily give up the CPU to another task
 pid_t proc_getpid(process_t *proc); // get pid of current process
 pid_t proc_getppid(process_t *proc); // get parent pid of running process
-
-
 bool proc_has_children(process_t *parent);
+
 
 
 
