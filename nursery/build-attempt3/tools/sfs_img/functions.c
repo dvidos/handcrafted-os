@@ -211,7 +211,7 @@ void persist_dir_entry(context *ctx, stored_inode *parent_dir, size_t rec_no, st
 
     size_t block_index = offset_in_file / BLOCK_SIZE;
     if (block_index >= parent_dir->allocated_blocks)
-        fatal("Cannot write entry %ld (%s->%ld) to dir, requires block #%ld, but inode only has %d blocks", rec_no, entry->name, entry->inode_num, block_index, parent_dir->allocated_blocks);
+        fatal("Cannot write entry %ld ('%s'-->%ld) to dir, requires block #%ld, but inode only has %d blocks", rec_no, entry->name, entry->inode_num, block_index, parent_dir->allocated_blocks);
     
     size_t abs_block_no = parent_dir->ranges[0].first_block_no + block_index;
     size_t offset_in_block = offset_in_file % BLOCK_SIZE;
@@ -219,6 +219,7 @@ void persist_dir_entry(context *ctx, stored_inode *parent_dir, size_t rec_no, st
 }
 
 void append_entry_to_directory(context *ctx, stored_inode *parent_dir, inode_no_t parent_dir_no, const char *entry_name, inode_no_t entry_no) {
+    // printf("Adding entry '%s' to dir of inode %d, having a file size of %d\n", entry_name, parent_dir_no, parent_dir->file_size);
     
     stored_dir_entry entry;
     strncpy(entry.name, entry_name, sizeof(entry.name));

@@ -109,7 +109,7 @@ static stored_inode create_new_inode(stored_superblock *superblock, bool is_file
     n.type_perms = is_file ? STORED_INODE_TYPE_FILE : STORED_INODE_TYPE_DIR;
     n.user_id = 0;
     n.group_id = 0;
-    n.file_size = file_size;
+    n.file_size = 0;
     n.allocated_blocks = blocks_needed;
     n.padding = 0;
     n.created_at = time(NULL);

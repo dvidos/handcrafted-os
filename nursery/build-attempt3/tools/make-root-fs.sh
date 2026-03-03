@@ -29,3 +29,7 @@ cat > $R/etc/initrc <<EOF
 # /bin/shell
 # ... etc
 EOF
+
+cp ./libc/libc.a $R/usr/lib
+cp -r ./libc/include/* $R/usr/include
+
