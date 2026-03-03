@@ -1,6 +1,7 @@
-#include "../multitask/scheduler.h"
-#include "process.h"
+#include "scheduler.h"
 #include "proclist.h"
+#include "../multitask.h"
+#include "../process/process.h"
 #include "../misc/cpu.h"
 #include "../drivers/timer.h"
 #include "../utils/logger.h"
@@ -10,14 +11,9 @@
 MODULE("SCHED", LOG_LEVEL_WARN);
 
 
-volatile int switching_postpone_depth = 0;
-volatile bool task_switching_pending = false;
-volatile process_t *running_proc = NULL;
-proc_list_t ready_lists[PROCESS_PRIORITY_LEVELS];
-proc_list_t blocked_list;
-proc_list_t terminated_list;
-uint64_t next_switching_time = 0;
-uint64_t next_wake_up_time = 0;
+static volatile int switching_postpone_depth = 0;
+static volatile bool task_switching_pending = false;
+
 
 
 /**
@@ -40,10 +36,12 @@ uint64_t next_wake_up_time = 0;
 extern void low_level_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr, uint32_t page_directory_address);
 
 
+
 void lock_scheduler() {
     pushcli();
     switching_postpone_depth++;
 }
+
 
 void unlock_scheduler() {
     switching_postpone_depth--;
@@ -58,6 +56,7 @@ void unlock_scheduler() {
     popcli();
 }
 
+
 // caller is responsible for locking interrupts before calling us
 void schedule() { 
     // allow locking of switching, to allow multiple tasks to be unlbocked
@@ -69,7 +68,7 @@ void schedule() {
     // extract high priority tasks first
     process_t *next = NULL;
     for (int priority = 0; priority < PROCESS_PRIORITY_LEVELS; priority++) {
-        next = dequeue(&ready_lists[priority]);
+        next = proclist_dequeue(&ready_lists[priority]);
         if (next != NULL)
             break;
     }
@@ -81,16 +80,15 @@ void schedule() {
     process_t *previous = (process_t *)running_proc;
     if (previous->state == RUNNING) {
         previous->state = READY;
-        append(&ready_lists[previous->priority], previous);
+        proclist_append(&ready_lists[previous->priority], previous);
     }
 
     // before switching, some house keeping
     previous->cpu_ticks_total += (timer_get_uptime_msecs() - previous->cpu_ticks_last);
 
-    // mark the new running proc, "next" variable will have a different value afterwards
     running_proc = next;
     running_proc->state = RUNNING;
-    next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
+    reset_switching_time();
 
     log_trace("scheduler(): switching \"%s\" --> \"%s\", page dir 0x%p", previous->name, next->name, next->page_directory);
     

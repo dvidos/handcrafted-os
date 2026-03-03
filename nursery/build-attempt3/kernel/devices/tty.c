@@ -1,4 +1,4 @@
-#include "../multitask/process.h"
+#include "../multitask/process/process.h"   // TODO: remove dependency here, this is stupid design
 #include "../memory/kheap.h"
 #include "../drivers/screen.h"
 #include "../include/uapi/key_codes.h"
@@ -181,7 +181,7 @@ void tty_read_key(key_event_t *event) {
         dequeue_key_event(tty, event);
     } else {
         // current process getting blocked.
-        proc_block(WAIT_USER_INPUT, tty);
+        proc_block(running_process(), WAIT_USER_INPUT, tty);
 
         // if unblocked, it means we got a key!
         if (tty->keys_buffer_len == 0)

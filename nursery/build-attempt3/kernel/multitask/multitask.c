@@ -1,6 +1,7 @@
 #include "multitask.h"
-#include "process.h"
-#include "../multitask/scheduler.h"
+#include "process/process.h"
+#include "procman/proclist.h"
+#include "procman/scheduler.h"
 #include "../drivers/timer.h"
 #include "../drivers/clock.h"
 #include "../utils/logger.h"
@@ -14,15 +15,17 @@ MODULE("MTASK", LOG_LEVEL_WARN);
 #define min(a, b)   ((a) < (b) ? (a) : (b))
 
 static volatile bool process_switching_enabled = false;
+uint64_t next_switching_time = 0;
+uint64_t next_wake_up_time = 0;
+
+
 
 
 void init_multitasking() {
     // we should not neglect the original task that has been running since boot
     // this is what we will switch "from" into whatever other task we want to spawn.
     // this way we always have a "from" to switch from...
-    memset((char *)&ready_lists, 0, sizeof(ready_lists));
-    memset((char *)&blocked_list, 0, sizeof(blocked_list));
-    memset((char *)&terminated_list, 0, sizeof(terminated_list));
+    initialize_process_lists();
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
     process_t *idle = create_process(
@@ -36,7 +39,7 @@ void init_multitasking() {
     running_proc->state = RUNNING; // set to running in order to swap it
 
     // idle task is by definition the lowest priority
-    append(&ready_lists[idle->priority], idle);
+    proclist_append(&ready_lists[idle->priority], idle);
 }
 
 // reports whether multitasking has started
@@ -62,9 +65,9 @@ void start_multitasking() {
         // maybe not ideal for an idle task, 
         // but maybe we can use it for some housekeeping
         while (terminated_list.head != NULL) {
-            process_t *proc = dequeue(&terminated_list);
+            process_t *proc = proclist_dequeue(&terminated_list);
             log_trace("idle task cleaning up terminated process %s", proc->name);
-            cleanup_process(proc);
+            proc_destroy(proc);
         }
         
         asm("hlt");
@@ -89,26 +92,43 @@ static void wake_sleeping_tasks() {
 
     // update the next wake_up_time
     next_wake_up_time = 0;
-    process_t *proc = dequeue(&temp_list);
+    process_t *proc = proclist_dequeue(&temp_list);
     while (proc != NULL) {
         if (proc->block_reason == SLEEPING && proc->wake_up_time > 0 && now >= proc->wake_up_time) {
             // log_trace("process %s ready to run, sleep time expired", proc->name);
             proc->state = READY;
             proc->block_reason = 0;
             proc->block_channel = NULL;
-            prepend(&ready_lists[proc->priority], proc);
+            proclist_prepend(&ready_lists[proc->priority], proc);
         } else {
-            append(&blocked_list, proc);
+            proclist_append(&blocked_list, proc);
             next_wake_up_time = (next_wake_up_time == 0)
                 ? proc->wake_up_time
                 : min(next_wake_up_time, proc->wake_up_time);
         }
-        proc = dequeue(&temp_list);
+        proc = proclist_dequeue(&temp_list);
     }
     
     unlock_scheduler();
 }
 
+
+void advice_on_next_wake_up_time(uint64_t proc_wake_up_time) {
+    if (next_wake_up_time == 0) {
+        next_wake_up_time = proc_wake_up_time;
+        return;
+    }
+
+    if (proc_wake_up_time < next_wake_up_time) {
+        next_wake_up_time = proc_wake_up_time;
+        return;
+    }
+    // else we keep the old wake up that will arrive first
+}
+
+void reset_switching_time() {
+    next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
+}
 
 // should be called from timer IRQ handler
 void multitasking_timer_ticked() {

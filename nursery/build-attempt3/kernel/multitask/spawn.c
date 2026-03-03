@@ -2,7 +2,7 @@
 #include "../utils/logger.h"
 #include "../klib/string.h"
 // #include "../filesys/vfs.h"
-#include "process.h"
+#include "process/process.h"
 #include "../klib/strvec.h"
 #include "../devices/tty.h"
 #include "elf_loader.h"
@@ -41,9 +41,9 @@ static void load_and_run_executable();
 
 
 // return pid for success, negative value for errors
-int execve(char *path, char *argv[], char *envp[]) {
+int spawnve(char *path, char *argv[], char *envp[]) {
     return ERR_NOT_IMPLEMENTED;
-//     log_trace("execve(path=\"%s\")", path);
+//     log_trace("spawnve(path=\"%s\")", path);
 //     open_file_t *file = NULL;
 //     int err;
 //     bool file_open = false;
@@ -102,30 +102,30 @@ int execve(char *path, char *argv[], char *envp[]) {
 //     new_proc->user_proc.envp = clone_strvec(envp);
 
 //     // not much left, cheers!
-//     log_info("execve(): starting process %s[%d]", new_proc->name, new_proc->pid);
-//     start_process(new_proc);
+//     log_info("spawnve(): starting process %s[%d]", new_proc->name, new_proc->pid);
+//     proc_start(new_proc);
 
 //     // usually here we have the parent as current process (e.g. vi was launched, we go sh as current)
-//     log_debug("execve(): after start_process() returned, current proc is %s[%d]", running_process()->name, running_process()->pid);
+//     log_debug("spawnve(): after proc_start() returned, current proc is %s[%d]", running_process()->name, running_process()->pid);
 
 //     err = OK;
 // exit:
 //     if (file_open)
 //         vfs_close(file);
 //     if (err)
-//         log_debug("execve() --> %d", err);
+//         log_debug("spawnve() --> %d", err);
 //     return err == OK ? new_proc->pid : err;
 }
 
 
 // loads and executes an executable in a separate process
-int exec(char *path) {
+int spawn(char *path) {
     // both argv and envp are considered to be terminated by a null ptr.
     char *null_ptr = NULL;
     char *argv[2] = { path, NULL };
 
     // we should reuse current process' environment
-    return execve(path, argv, &null_ptr);
+    return spawnve(path, argv, &null_ptr);
 }
 
 static void load_and_run_executable() {
@@ -172,7 +172,7 @@ static void load_and_run_executable() {
     // // create something to load the segments (kernel mapped included)
     // void *page_directory = create_page_directory(true);
     // allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
-    // log_debug("Allocated new page directory 0x%x for execve()", page_directory);
+    // log_debug("Allocated new page directory 0x%x for spawnve()", page_directory);
     // dump_page_directory(page_directory);
     // // dump_page_directory(get_kernel_page_directory());
 

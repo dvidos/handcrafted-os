@@ -34,7 +34,10 @@ KERNEL_C_FILES = \
 	$(wildcard klib/*.c) \
 	$(wildcard memory/*.c) \
 	$(wildcard drivers/*.c) \
+	\
 	$(wildcard multitask/*.c) \
+	$(wildcard multitask/process/*.c) \
+	$(wildcard multitask/procman/*.c) \
 	\
 	$(wildcard devices/*.c) \
 	$(wildcard devices/pci/*.c) \
@@ -52,7 +55,7 @@ KERNEL_C_FILES = \
 
 KERNEL_NASM_FILES1 = \
 	$(wildcard misc/*.asm) \
-	$(wildcard multitask/*.asm)
+	$(wildcard multitask/procman/*.asm)
 
 # we need start.asm to be first
 KERNEL_NASM_FILES_WITHOUT_START = $(filter-out misc/start.asm, $(KERNEL_NASM_FILES1))

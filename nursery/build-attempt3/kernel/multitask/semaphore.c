@@ -1,5 +1,6 @@
-#include "process.h"
-#include "scheduler.h"
+#include "process/process.h"
+#include "procman/scheduler.h"
+#include "procman/proclist.h"
 #include "semaphore.h"
 #include "../memory/kheap.h"
 #include "../utils/logger.h"
@@ -26,7 +27,7 @@ void acquire_semaphore(semaphore_t *semaphore) {
         log_trace("process %s getting blocked on semaphore", running_process()->name);
         // we cannot acquire, we'll just block until it's free
         semaphore->waiting_processes++;
-        proc_block(SEMAPHORE, semaphore);
+        proc_block(running_process(), SEMAPHORE, semaphore);
     }
 
     unlock_scheduler();
@@ -48,7 +49,7 @@ void release_semaphore(semaphore_t *semaphore) {
                 && target_proc->block_reason == SEMAPHORE 
                 && target_proc->block_channel == semaphore
             ) {
-                unblock_process(target_proc);
+                proc_unblock(target_proc);
                 unblocked_a_process = true;
                 break;
             }

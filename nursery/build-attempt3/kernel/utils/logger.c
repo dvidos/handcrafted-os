@@ -6,7 +6,6 @@
 #include "../drivers/screen.h"
 #include "../drivers/timer.h"
 #include "../utils/logger.h"
-#include "../multitask/process.h"
 
 static char *level_captions[] = {
     "NONE ",

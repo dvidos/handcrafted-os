@@ -4,8 +4,8 @@
 #include "../utils/logger.h"
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
-#include "../multitask/process.h"
-#include "../multitask/exec.h"
+#include "../multitask/process/process.h"
+#include "../multitask/spawn.h"
 #include "../devices/tty.h"
 // #include "../filesys/vfs.h"
 #include "../memory/virtmem.h"
@@ -110,15 +110,15 @@ static void *sys_sbrk(int diff_size) {
 }
 static int sys_exit(int exit_code) {
     // current process exiting, preserve exit code, wake up waiting parents
-    proc_exit(exit_code);
+    proc_exit(running_process(), exit_code);
     return 0;
 }
 static int sys_sleep(uint32_t milliseconds) {
-    proc_sleep(milliseconds);
+    proc_sleep(running_process(), milliseconds);
     return 0;
 }
 static int sys_yield() {
-    proc_yield();
+    proc_yield(running_process());
     return 0;
 }
 static int sys_get_cwd(char *buffer, int length) {
@@ -156,10 +156,10 @@ static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
 }
 static int sys_exec(char *path, char **argv, char **envp) {
-    return execve(path, argv, envp);
+    return spawnve(path, argv, envp);
 }
 static int sys_wait_child(int *exit_code) {
-    return proc_wait_child(exit_code);
+    return proc_wait_child(running_process(), exit_code);
 }
 static int sys_get_clocktime(clocktime_t *ct) {
 
@@ -282,13 +282,13 @@ int isr_syscall(struct syscall_stack stack) {
             // return_value = vfs_rmdir((char *)stack.passed.arg1);
             break;
         case SYS_GET_PID:   // returns pid
-            return_value = proc_getpid();
+            return_value = proc_getpid(running_process());
             break;
         case SYS_GET_PPID:   // returns ppid
-            return_value = proc_getppid();
+            return_value = proc_getppid(running_process());
             break;
         case SYS_FORK:   // returns 0 in child, child PID in parent, neg error in parent
-            return_value = proc_fork();
+            return_value = proc_fork(running_process());
             break;
         case SYS_EXEC:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
             return_value = sys_exec((char *)stack.passed.arg1, (char **)stack.passed.arg2, (char **)stack.passed.arg3);

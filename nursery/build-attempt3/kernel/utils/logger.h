@@ -32,15 +32,15 @@ void logger_append_hex(const char *module_name, log_level_t level, uint8_t *buff
 #ifdef LOG_WITH_MODULE_NAMES
 
     typedef struct { const char *name; log_level_t level; } module_log_cfg_t;
-    #define MODULE(module_name, log_level)     static module_log_cfg_t __log_cfg = { .name = module_name, .level = log_level };
+    #define MODULE(module_name, log_level)     static module_log_cfg_t __module_log_configuration__ = { .name = module_name, .level = log_level };
 
-    #define log_critical(...)   do { if (_logger_global_minimum_log_level >= LOG_LEVEL_CRIT  || __log_cfg.level >= LOG_LEVEL_CRIT)  logger_append(__log_cfg.name, LOG_LEVEL_CRIT,  __VA_ARGS__); } while (0)
-    #define log_error(...)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_ERROR || __log_cfg.level >= LOG_LEVEL_ERROR) logger_append(__log_cfg.name, LOG_LEVEL_ERROR, __VA_ARGS__); } while (0)
-    #define log_warn(...)       do { if (_logger_global_minimum_log_level >= LOG_LEVEL_WARN  || __log_cfg.level >= LOG_LEVEL_WARN)  logger_append(__log_cfg.name, LOG_LEVEL_WARN,  __VA_ARGS__); } while (0)
-    #define log_info(...)       do { if (_logger_global_minimum_log_level >= LOG_LEVEL_INFO  || __log_cfg.level >= LOG_LEVEL_INFO)  logger_append(__log_cfg.name, LOG_LEVEL_INFO,  __VA_ARGS__); } while (0)
-    #define log_debug(...)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_DEBUG || __log_cfg.level >= LOG_LEVEL_DEBUG) logger_append(__log_cfg.name, LOG_LEVEL_DEBUG, __VA_ARGS__); } while (0)
-    #define log_trace(...)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_TRACE || __log_cfg.level >= LOG_LEVEL_TRACE) logger_append(__log_cfg.name, LOG_LEVEL_TRACE, __VA_ARGS__); } while (0)
-    #define log_debug_hex(buff,len,start)  do { if (_logger_global_minimum_log_level >= LOG_LEVEL_DEBUG || __log_cfg.level >= LOG_LEVEL_DEBUG) logger_append_hex(__log_cfg.name, LOG_LEVEL_DEBUG, buff, len, start); } while (0)
+    #define log_critical(...)   do { if (_logger_global_minimum_log_level >= LOG_LEVEL_CRIT  || __module_log_configuration__.level >= LOG_LEVEL_CRIT)  logger_append(__module_log_configuration__.name, LOG_LEVEL_CRIT,  __VA_ARGS__); } while (0)
+    #define log_error(...)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_ERROR || __module_log_configuration__.level >= LOG_LEVEL_ERROR) logger_append(__module_log_configuration__.name, LOG_LEVEL_ERROR, __VA_ARGS__); } while (0)
+    #define log_warn(...)       do { if (_logger_global_minimum_log_level >= LOG_LEVEL_WARN  || __module_log_configuration__.level >= LOG_LEVEL_WARN)  logger_append(__module_log_configuration__.name, LOG_LEVEL_WARN,  __VA_ARGS__); } while (0)
+    #define log_info(...)       do { if (_logger_global_minimum_log_level >= LOG_LEVEL_INFO  || __module_log_configuration__.level >= LOG_LEVEL_INFO)  logger_append(__module_log_configuration__.name, LOG_LEVEL_INFO,  __VA_ARGS__); } while (0)
+    #define log_debug(...)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_DEBUG || __module_log_configuration__.level >= LOG_LEVEL_DEBUG) logger_append(__module_log_configuration__.name, LOG_LEVEL_DEBUG, __VA_ARGS__); } while (0)
+    #define log_trace(...)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_TRACE || __module_log_configuration__.level >= LOG_LEVEL_TRACE) logger_append(__module_log_configuration__.name, LOG_LEVEL_TRACE, __VA_ARGS__); } while (0)
+    #define log_debug_hex(buff,len,start)  do { if (_logger_global_minimum_log_level >= LOG_LEVEL_DEBUG || __module_log_configuration__.level >= LOG_LEVEL_DEBUG) logger_append_hex(__module_log_configuration__.name, LOG_LEVEL_DEBUG, buff, len, start); } while (0)
 
 #else
 

@@ -34,8 +34,8 @@
 
 #include "multitask/semaphore.h"
 #include "multitask/multitask.h"
-#include "multitask/process.h"
-#include "multitask/exec.h"
+#include "multitask/process/process.h"
+#include "multitask/spawn.h"
 
 #include "processes/monitor.h"
 #include "../stage2/boot_info.h" // bootinfo pointer is passed from 2nd stage
@@ -180,33 +180,33 @@ static void launch_initial_processes() {
 
     for (tty = 0; tty < 4; tty++) {
         proc = create_process("Shell Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty));
-        start_process(proc);
+        proc_start(proc);
     }
 
     // proc = create_process("Process Monitor", process_monitor_main, pri, 0, tty_manager_get_device(tty++));
-    // start_process(proc);
+    // proc_start(proc);
 
     // proc = create_process("VFS Monitor", vfs_monitor_main, pri, 0, tty_manager_get_device(tty++));
-    // start_process(proc);
+    // proc_start(proc);
 }
 
 static void shell_launcher() {
-    log_info("Shell launcher started, PID %d", proc_getpid());
+    log_info("Shell launcher started, PID %d", proc_getpid(running_process()));
     tty_set_title("Shell");
 
     while (true) {
         tty_write("Launching user-space shell program\n");
-        int err = exec("/bin/sh");
+        int err = spawn("/bin/sh");
         if (err < 0) {
-            printf("exec(\"/bin/sh\") returned %d\n", err);
+            printf("spawn(\"/bin/sh\") returned %d\n", err);
         } else {
             // wait for the child?
             pid_t child_proc = (pid_t)err;
             int exit_code = 0;
-            err = proc_wait_child(&exit_code);
+            err = proc_wait_child(running_process(), &exit_code);
             printf("Shell exit code was %d\n", exit_code);
         }
-        proc_sleep(3000);
+        proc_sleep(running_process(), 3000);
     }
 }
 

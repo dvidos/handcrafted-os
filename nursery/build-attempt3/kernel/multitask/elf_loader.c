@@ -4,7 +4,7 @@
 #include "../memory/virtmem.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
-#include "../multitask/process.h"
+#include "../multitask/process/process.h"
 #include "../devices/tty.h"
 #include "../include/uapi/vfs_seek_flags.h"
 

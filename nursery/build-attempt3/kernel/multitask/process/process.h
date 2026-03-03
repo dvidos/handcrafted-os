@@ -137,36 +137,44 @@ struct process {
 };
 
 
-// create & initialize a process, don't start it yet, optinal association with a tty
-process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty);
-
-// after a process has terminated, clean up resources, free memory
-void cleanup_process(process_t *proc);
-
-// this appends the process on the ready queues
-void start_process(process_t *process);
-
 // get the running process (converts volatile to steady pointer)
 process_t *running_process();
 
-// actions that a running task can use
-int proc_fork(); // clone, return child's PID on parent, zero on child
-int proc_wait_child(int *exit_code); // returns error or exited PID
-void proc_yield();  // voluntarily give up the CPU to another task
-void proc_sleep(int milliseconds);  // sleep self for some milliseconds
-void proc_block(int reason, void *channel); // blocks task, someone else must unblock it
-void proc_exit(int exit_code);  // terminate self, give exit code
-pid_t proc_getpid(); // get pid of current process
-pid_t proc_getppid(); // get parent pid of running process
+void unblock_process_that(enum block_reasons block_reason, void *block_channel);
 
-// maintaining current working directory
+// actions that a running task can use
+void proc_yield(process_t *proc);  // voluntarily give up the CPU to another task
+pid_t proc_getpid(process_t *proc); // get pid of current process
+pid_t proc_getppid(process_t *proc); // get parent pid of running process
+
+
+bool proc_has_children(process_t *parent);
+
+
+
+// life_cycle.c
+process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty);
+void proc_start(process_t *proc);
+void proc_exit(process_t *proc, int exit_code); 
+void proc_destroy(process_t *proc);
+
+// cwd.c
 int proc_getcwd(process_t *proc, char *buffer, int size);
 int proc_chdir(process_t *proc, const char *path);
 
+// fork.c
+int proc_fork(process_t *proc); // clone, return child's PID on parent, zero on child
 
+// exec.c
+int proc_execve(process_t *proc, const char *path, char *const argv[], char *const envp[]);
 
+// blocking.c
+void proc_sleep(process_t *proc, int milliseconds);  // sleep self for some milliseconds
+void proc_block(process_t *proc, int reason, void *channel); // blocks task, someone else must unblock it
+void proc_unblock(process_t *proc);
+int  proc_wait_child(process_t *proc, int *exit_code); // returns error or exited PID
 
-// for file handles maintained on the process, CWD taken into accout
+// file_ops.c
 int proc_open(process_t *proc, char *name);
 int proc_read(process_t *proc, int handle, char *buffer, int length);
 int proc_write(process_t *proc, int handle, char *buffer, int length);
@@ -174,15 +182,10 @@ int proc_seek(process_t *proc, int handle, int offset, int origin);
 int proc_close(process_t *proc, int handle);
 int proc_opendir(process_t *proc, char *name);
 int proc_rewinddir(process_t *proc, int handle);
-// int proc_readdir(process_t *proc, int handle, struct dirent *entry);
-int proc_readdir(process_t *proc, int handle, void *entry);
+int proc_readdir(process_t *proc, int handle, vfs_dirent_t *entry);
 int proc_closedir(process_t *proc, int handle);
 
-// this is how someone can unblock a different process
-void unblock_process(process_t *proc);
-void unblock_process_that(enum block_reasons block_reason, void *block_channel);
-
-// utility tools
+// debug.c
 void dump_process_table();
 const char *proc_get_status_name(enum process_state state);
 const char *proc_get_block_reason_name(enum block_reasons reason);
