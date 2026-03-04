@@ -13,6 +13,20 @@
 MODULE("ISR", LOG_LEVEL_WARN);
 
 
+static void log_registers(registers_t regs) {
+    log_error("Registers follow:\n" // we need the newline to align the registers left of log preambles
+        "  EAX = 0x%08x    ESI = 0x%08x    EIP = 0x%08x\n"
+        "  EBX = 0x%08x    EDI = 0x%08x    CS  = 0x%08x\n"
+        "  ECX = 0x%08x    ESP = 0x%08x    DS  = 0x%08x\n"
+        "  EDX = 0x%08x    EBP = 0x%08x    SS  = 0x%08x\n",
+        regs.eax,  regs.esi,  regs.eip,
+        regs.ebx,  regs.edi,  regs.cs,
+        regs.ecx,  regs.esp,  regs.ds,
+        regs.edx,  regs.ebp,  regs.ss
+    );
+}
+
+
 void isr_handler(registers_t regs) {
     // don't forget we have mapped IRQs 0+ to 0x20+
     // to avoid the first 0x1F interrupts that are CPU faults in protected mode
@@ -45,45 +59,24 @@ void isr_handler(registers_t regs) {
                 table < 4 ? tables[table] : "?",
                 entry
             );
-            log_error(" Registers contents follow\n"
-                "  EAX = 0x%08x    CS  = 0x%x\n"
-                "  EBX = 0x%08x    DS  = 0x%x\n"
-                "  ECX = 0x%08x    SS  = 0x%x\n"
-                "  EDX = 0x%08x    EIP = 0x%x\n"
-                "  ESI = 0x%08x    ESP = 0x%x\n"
-                "  EDI = 0x%08x    EBP = 0x%x\n",
-                regs.eax,  regs.cs,
-                regs.ebx,  regs.ds,
-                regs.ecx,  regs.ss,
-                regs.edx,  regs.eip,
-                regs.esi,  regs.esp,
-                regs.edi,  regs.ebp
-            );
-
+            log_registers(regs);
             // based on EIP (e.g. it was at 0x115A34, therefore kernel text segment)
             // to find out which function had the offending instruction, i did
             // $ `nm -n src/kernel/kernel.bin`
             // to dissassemble the code and find the exact offset, i did
             // $ `objdump -D src/kernel/core/idt_low.o`
             // by calculating offsets
-
+            break;
+        case 0x6:
+            log_error("Received interrupt %d: Invalid Opcode Exception: The CPU tried to execute an instruction that is not valid", regs.int_no);
+            log_registers(regs);
+            // we could deduce from where this happens, kernel or process
+            // then one could dissassemble the executable and look around the faulting address
+            // i686-elf-objdump -d init | less
             break;
         default:
-            log_warn("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code);
-            log_warn(" Registers contents follow\n"
-                "  EAX = 0x%08x    CS  = 0x%x\n"
-                "  EBX = 0x%08x    DS  = 0x%x\n"
-                "  ECX = 0x%08x    SS  = 0x%x\n"
-                "  EDX = 0x%08x    EIP = 0x%x\n"
-                "  ESI = 0x%08x    ESP = 0x%x\n"
-                "  EDI = 0x%08x    EBP = 0x%x\n",
-                regs.eax,  regs.cs,
-                regs.ebx,  regs.ds,
-                regs.ecx,  regs.ss,
-                regs.edx,  regs.eip,
-                regs.esi,  regs.esp,
-                regs.edi,  regs.ebp
-            );
+            log_error("Received interrupt %d (0x%x), error %d", regs.int_no, regs.int_no, regs.err_code);
+            log_registers(regs);
     }
 
     // we need to send end-of-interrupt acknowledgement 

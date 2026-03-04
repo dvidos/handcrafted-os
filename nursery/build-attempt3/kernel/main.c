@@ -196,9 +196,9 @@ static void shell_launcher() {
 
     while (true) {
         tty_write("Launching user-space shell program\n");
-        int err = spawn("/bin/sh");
+        int err = spawn("/bin/init");
         if (err < 0) {
-            printf("spawn(\"/bin/sh\") returned %d\n", err);
+            printf("spawn(\"/bin/init\") returned %d\n", err);
         } else {
             // wait for the child?
             pid_t child_proc = (pid_t)err;

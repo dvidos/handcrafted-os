@@ -41,7 +41,7 @@ libc:
 	mkdir -p build/rootfs/usr/lib
 	cp libc/libc.a -t build/rootfs/usr/lib
 
-userapps:
+userapps: libc
 	make -C userapps
 
 rootfs: userapps

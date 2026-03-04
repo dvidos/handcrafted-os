@@ -1,5 +1,6 @@
 include ../config.mk
-FS := ../build/rootfs
+
+ROOTFS := ../build/rootfs
 SUBDIRS := edit init shell
 
 
@@ -7,13 +8,14 @@ SUBDIRS := edit init shell
 .PHONY: $(SUBDIRS)
 
 
-all: $(SUBDIRS)
-	mkdir -p $(FS)/bin
-	for d in $(SUBDIRS); do \
-		make -C $$d;  \
-		cp $$d/$$d $(FS)/bin; \
+all: $(SUBDIRS) $(LIBC)
+	mkdir -p $(ROOTFS)/bin
+	for n in $(SUBDIRS); do \
+		cp $$n/$$n $(ROOTFS)/bin; \
 	done
 
+$(SUBDIRS):
+	make -C $@
 
 clean:
 	for d in $(SUBDIRS); do make -C $$d clean; done

@@ -2,6 +2,11 @@
 #include "../../include/uapi/vfs_file_flags.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
+#include "../../utils/logger.h"
+
+
+MODULE("INODE", LOG_LEVEL_INFO);
+
 
 static inode_t *_inode_create(superblock_t *sb, uint64_t inode, inode_t *parent, const char *name);
 static inode_t *_inode_clone(const inode_t *src);
@@ -14,7 +19,7 @@ static inode_t *_inode_create(superblock_t *sb, uint64_t inode, inode_t *parent,
 
     n->sb        = sb;     // which mounted FS
     n->inode_num = inode;  // inode / cluster / object id
-    n->mode      = 0;      // permissions
+    n->mode      = this must be properly initialize, for lookup to work correctly!!!! 0;      // permissions
     n->size      = 0;      // file size in bytes
     n->blocks    = 0;      // allocated blocks
     n->atime     = 0;
@@ -85,6 +90,24 @@ static bool _inode_is_file(inode_t *n) {
     return (n->mode & S_IFMT) == S_IFREG;
 }
 
+static void _inode_log_info(const char *var_name, inode_t *n) {
+    if (n == NULL) {
+        log_info("%s: (null)", var_name);
+    } else {
+        log_info("%s: sb=%p, inode_no=%llu, mode=%lx, size=%lld, blocks=%lld, atime=%lld, mtime=%lld, ctime=%lld", 
+            var_name, 
+            n->sb,
+            n->inode_num,
+            n->mode,
+            n->size,
+            n->blocks,
+            n->atime,
+            n->mtime,
+            n->ctime
+        );
+    }
+}
+
 struct inode_ops inodes = {
     .create  = _inode_create,
     .clone   = _inode_clone,
@@ -92,4 +115,5 @@ struct inode_ops inodes = {
     .destroy = _inode_destroy,
     .is_dir  = _inode_is_dir,
     .is_file = _inode_is_file,
+    .log     = _inode_log_info,
 };

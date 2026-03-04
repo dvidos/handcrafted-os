@@ -40,6 +40,7 @@ static void initialize_by_creating(const char *img_file, size_t img_size, size_t
     ctx->superblock.sector_size = SECTOR_SIZE;
     ctx->superblock.sectors_per_block = BLOCK_SIZE / SECTOR_SIZE;
     strcpy(ctx->superblock.volume_label, "HCOS");
+    
 
     // prepare bitmap
     block_bitmap_create(ctx->superblock.blocks_in_device);
@@ -50,12 +51,14 @@ static void initialize_by_creating(const char *img_file, size_t img_size, size_t
     // we now need to allocate for the inodes and the root dir.
     uint32_t block_count = bytes_to_blocks(EXPECTED_INODES * sizeof(stored_inode));
     uint32_t block_no = block_bitmap_allocate(block_count);
+    ctx->superblock.root_dir_inode.type_perms = STORED_INODE_TYPE_FILE;
     ctx->superblock.inodes_db_inode.allocated_blocks = block_count;
     ctx->superblock.inodes_db_inode.ranges[0].first_block_no = block_no;
     ctx->superblock.inodes_db_inode.ranges[0].blocks_count = block_count;
 
     block_count = bytes_to_blocks(EXPECTED_INODES * sizeof(stored_dir_entry));
     block_no = block_bitmap_allocate(block_count);
+    ctx->superblock.root_dir_inode.type_perms = STORED_INODE_TYPE_DIR;
     ctx->superblock.root_dir_inode.allocated_blocks = block_count;
     ctx->superblock.root_dir_inode.ranges[0].first_block_no = block_no;
     ctx->superblock.root_dir_inode.ranges[0].blocks_count = block_count;

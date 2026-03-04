@@ -120,7 +120,7 @@ void test_vfs() {
     assert(target == NULL);
     
     // see resolution of nested path
-    err = vfs_resolve("/bin/sh", root, NULL, false, &target);
+    err = vfs_resolve("/bin/init", root, NULL, false, &target);
     assert(err == OK);
     assert(target != NULL);
     assert(target->superblock = superblock);

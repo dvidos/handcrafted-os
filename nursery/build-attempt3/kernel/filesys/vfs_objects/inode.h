@@ -17,7 +17,7 @@ struct inode {
     uint64_t mtime;
     uint64_t ctime;
     // path resolution support (optional but useful)
-    struct inode *parent;  // owned copy or NULL
+    struct inode *parent;  // owned copy or NULL // TODO: get rid of this, make inode_t a value value...
     char *name;                      // owned
 };
 
@@ -31,6 +31,7 @@ struct inode_ops {
     bool (*is_file)(inode_t *n);
     // hashcode? log_debug? get full path? mutex_acquire()/release()?
     // maybe iget/iput, to track references and destroy when down to zero.`
+    void (*log)(const char *var_name, inode_t *n);
 };
 
 extern struct inode_ops inodes;

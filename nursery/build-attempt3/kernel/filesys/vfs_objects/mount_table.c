@@ -40,7 +40,6 @@ static int _mtab_add_entry(mount_entry_t *e) {
             prev = prev->next;
         prev->next = e;
         e->next = 0;
-
     }
 
     return OK;
