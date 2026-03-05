@@ -30,11 +30,11 @@ static error_t _skeleton_fs_mkfs(block_device_t *dev) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_get_root_dir(superblock_t *sb, inode_t **out) {
+static error_t _skeleton_fs_get_root_dir(superblock_t *sb, inode_t *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_lookup(inode_t *dir, const char *name, inode_t **out) {
+static error_t _skeleton_fs_lookup(inode_t *dir, const char *name, inode_t *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 
@@ -80,7 +80,7 @@ static error_t _skeleton_fs_closedir(open_file_t *dir_handle) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_mkdir(inode_t *parent, const char *name, inode_t **out) { 
+static error_t _skeleton_fs_mkdir(inode_t *parent, const char *name, inode_t *out) { 
     // create directory, but also "." and ".."
     return ERR_NOT_IMPLEMENTED;
 }
@@ -91,7 +91,7 @@ static error_t _skeleton_fs_rmdir(inode_t *parent, const char *name) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_create(inode_t *parent, const char *name, int type, inode_t **out) {
+static error_t _skeleton_fs_create(inode_t *parent, const char *name, int type, inode_t *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 

@@ -8,11 +8,11 @@ typedef struct mount_entry mount_entry_t;
 
 struct mount_entry {
     // host filesystem
-    inode_t *host_dir;
+    inode_t host_dir;
 
     // mounted filesystem
     superblock_t *sb;
-    inode_t *root_dir;
+    inode_t root_dir;
 
     // options
     uint32_t flags;  // see VFS_MOUNT_*

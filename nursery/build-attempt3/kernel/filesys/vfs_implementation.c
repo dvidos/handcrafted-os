@@ -11,44 +11,45 @@
 #include "../klib/string.h"
 #include "../utils/logger.h"
 #include "../utils/assert.h"
+#include "../klib/strerror.h"
 
 MODULE("VFS", LOG_LEVEL_TRACE);
 
 
-struct substring {
+typedef struct substring {
     const void *ptr;
     unsigned len;
-};
+} substring_t;
 
-static struct substring get_path_first_substring(const char *path) {
+static substring_t get_path_first_substring(const char *path) {
     if (path == NULL || *path == 0)
-        return (struct substring){.ptr = path, .len = 0};
+        return (substring_t){.ptr = path, .len = 0};
     
     // skip initial slash
     if (*path == '/')
         path++;
     if (*path == 0)
-        return (struct substring){.ptr = path, .len = 0};
+        return (substring_t){.ptr = path, .len = 0};
     
     // find end slash, if any
     char *slash = strchr(path, '/');
     if (slash == 0)
-        return (struct substring){.ptr = path, .len = strlen(path)};
+        return (substring_t){.ptr = path, .len = strlen(path)};
     
     // return just the part, without the final slash
-    return (struct substring){.ptr = path, .len = (slash - path)};
+    return (substring_t){.ptr = path, .len = (slash - path)};
 }
 
 
-static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t **fd_out, const char **name_out) {
-    log_trace("vfs_flex_lookup(start=%d, path='%s', parent=%s)", (start == NULL ? 0 : (int)start->inode_num), path, lookup_parent ? "true" : "false");
+static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t *inod_out, const char **name_out) {
+    log_trace("vfs_flex_lookup(start=%ld, path='%s', parent=%s)", (start == NULL ? 0 : start->inode_num), path, lookup_parent ? "true" : "false");
     if (path == NULL || *path == 0 || path[0] != '/')
         return ERR_BAD_ARGUMENT;
     if (mtab.get_entries_list() == NULL)
         return ERR_NO_FS_MOUNTED;
 
-    inode_t *curr = inodes.clone(start);
-    inode_t *next = NULL;
+    inode_t curr = start == NULL ? inodes.empty() : *start;
+    inode_t next = inodes.empty();
     mount_entry_t *mte;
 
     char part_buffer[256];
@@ -63,26 +64,22 @@ static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent,
     }
 
     while (part_offset < path_len) {
-        log_trace("vfs_flex_lookup(), remaining='%s', curr=%d, next=%d", path + part_offset,
-            curr == NULL ? 0 : curr->inode_num,
-            next == NULL ? 0 : next->inode_num
-        );
+        log_trace("vfs_flex_lookup(), remaining='%s', curr=%d, next=%d", path + part_offset, curr.inode_num, next.inode_num);
 
         // see if we are looking for parent dir and we are done
         if (lookup_parent && strchr(path + part_offset, '/') == 0) {
-            *fd_out = curr;
+            *inod_out = curr;
             *name_out = path + part_offset;
             return OK;
         }
 
         // else, we need to continue the path
-        struct substring ss = get_path_first_substring(path + part_offset);
+        substring_t ss = get_path_first_substring(path + part_offset);
         if (ss.len + 1 > sizeof(part_buffer))
             return ERR_NAME_TOO_LONG;
         memcpy(part_buffer, ss.ptr, ss.len);
         part_buffer[ss.len] = 0;
         part_offset += strlen(part_buffer) + 1;
-
         log_trace("vfs_flex_lookup(), part='%s'", part_buffer);
 
         // skip over empty parts or same dir
@@ -91,38 +88,35 @@ static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent,
         
         if (strcmp(part_buffer, "..") == 0) {
             // we may cross a mount point
-            mte = mtab.find_entry_by_root_dir(curr);
-            if (mte != NULL && mte->host_dir != NULL) {
-                inodes.destroy(curr);
-                curr = inodes.clone(mte->host_dir);
-            }
+            mte = mtab.find_entry_by_root_dir(&curr);
+            if (mte != NULL)
+                curr = mte->host_dir;
             // fallback into leaving the fs driver find the ".." entry
         }
 
-        inodes.log("curr", curr);
-        if (!inodes.is_dir(curr))
+        inodes.log("curr", &curr);
+        if (!inodes.is_dir(&curr))
             return ERR_NOT_A_DIRECTORY;
         
-        err = curr->sb->driver->lookup(curr, part_buffer, &next);
+        log_trace("looking for '%s' inside %ld", part_buffer, curr.inode_num);
+        err = curr.sb->driver->lookup(&curr, part_buffer, &next);
+        log_trace("looking returned %d (%s)", err, strerror(err));
         if (err) return err;
 
         // we may cross a mount point
-        mte = mtab.find_entry_by_host_dir(next);
-        if (mte != NULL) {
-            inodes.destroy(next);
-            next = inodes.clone(mte->root_dir);
-        }
+        mte = mtab.find_entry_by_host_dir(&next);
+        if (mte != NULL)
+            next = mte->root_dir;
 
-        inodes.destroy(curr);
         curr = next;
     }
 
-    *fd_out = curr;
+    *inod_out = curr;
     *name_out = 0;
     return OK;
 }
 
-static int vfs_lookup_target(const char *path, inode_t **target_out) {
+static int vfs_lookup_target(const char *path, inode_t *target_out) {
     log_trace("vfs_lookup_target(path='%s')", path);
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
@@ -133,7 +127,7 @@ static int vfs_lookup_target(const char *path, inode_t **target_out) {
     return OK;
 }
 
-static int vfs_lookup_parent(const char *path, inode_t **parent_out, const char **final_name_out) {
+static int vfs_lookup_parent(const char *path, inode_t *parent_out, const char **final_name_out) {
     log_trace("vfs_lookup_parent(path='%s')", path);
     if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
 
@@ -148,22 +142,21 @@ static int vfs_lookup_parent(const char *path, inode_t **parent_out, const char 
 int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     log_trace("vfs_mount(path='%s', dev='%s')", path, dev->id);
     int err;
-    inode_t *host_dir = NULL;
+    inode_t host_dir = inodes.empty();
 
     if (strcmp(path, "/") == 0) {
         // mount without parent
         if (mtab.get_entries_list() != NULL)
             return ERR_DIR_HAS_MOUNT;
-        host_dir = NULL;
 
     } else {
         err = vfs_lookup_target(path, &host_dir);
         if (err != OK) return err;
 
-        if (!inodes.is_dir(host_dir))
+        if (!inodes.is_dir(&host_dir))
             return ERR_NOT_A_DIRECTORY;
 
-        mount_entry_t *me = mtab.find_entry_by_host_dir(host_dir);
+        mount_entry_t *me = mtab.find_entry_by_host_dir(&host_dir);
         if (me != NULL) return ERR_DIR_HAS_MOUNT;
     }
 
@@ -171,11 +164,11 @@ int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     err = driver->mount(sb);
     if (err) return err;
 
-    inode_t *new_root_dir;
+    inode_t new_root_dir;
     err = driver->get_root_dir(sb, &new_root_dir);
     if (err) return err;
 
-    mount_entry_t *entry = mtab.create_entry(host_dir, new_root_dir);
+    mount_entry_t *entry = mtab.create_entry(&host_dir, &new_root_dir);
     err = mtab.add_entry(entry);
     if (err) return err;
 
@@ -186,12 +179,12 @@ int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
 int vfs_unmount(const char *path) {
     log_trace("vfs_unmount(path='%s')", path);
     int err;
-    inode_t *dir = NULL;
+    inode_t dir = inodes.empty();
 
     err = vfs_lookup_target(path, &dir);
     if (err) return err;
 
-    mount_entry_t *entry = mtab.find_entry_by_host_dir(dir);
+    mount_entry_t *entry = mtab.find_entry_by_host_dir(&dir);
     if (entry == NULL) return ERR_NOT_FOUND;
 
     err = entry->sb->driver->sync(entry->sb);
@@ -219,18 +212,18 @@ int vfs_sync(void) {
 int vfs_open(const char *path, int flags, open_file_t **file) {
     log_trace("vfs_open(path='%s', flags=%d)", path, flags);
     int err;
-    inode_t *n = NULL;
+    inode_t n = inodes.empty();
 
     err = vfs_lookup_target(path, &n);
     if (err) return err;
-    if (!inodes.is_file(n))
+    if (!inodes.is_file(&n))
         return ERR_NOT_A_FILE;
 
-    err = n->sb->driver->open(n, flags, file);
+    err = n.sb->driver->open(&n, flags, file);
     if (err) return err;
 
     // cache size for offset calculations
-    (*file)->size = n->size;
+    (*file)->size = n.size;
     (*file)->offset = 0;
 
     return OK;
@@ -297,18 +290,18 @@ error_t vfs_flush(open_file_t *file) {
 error_t vfs_opendir(const char *path, open_file_t **dir) {
     log_trace("vfs_opendir(path='%s')", path);
     int err;
-    inode_t *n = NULL;
+    inode_t n = inodes.empty();
 
     err = vfs_lookup_target(path, &n);
     if (err) return err;
-    if (!inodes.is_dir(n))
+    if (!inodes.is_dir(&n))
         return ERR_NOT_A_DIRECTORY;
 
-    err = n->sb->driver->opendir(n, dir);
+    err = n.sb->driver->opendir(&n, dir);
     if (err) return err;
 
     // cache size for offset calculations
-    (*dir)->size = n->size;
+    (*dir)->size = n.size;
     (*dir)->offset = 0;
 
     return OK;
@@ -347,11 +340,11 @@ error_t vfs_closedir(open_file_t *dir) {
 
 error_t vfs_stat(const char *path, vfs_stat_t *out) {
     log_trace("vfs_stat(path='%s')", path);
-    inode_t *n = NULL;
+    inode_t n = inodes.empty();
     int err = vfs_lookup_target(path, &n);
     if (err) return err;
 
-    err = n->sb->driver->stat(n, out);
+    err = n.sb->driver->stat(&n, out);
     if (err) return err;
 
     return OK;
@@ -364,11 +357,11 @@ error_t vfs_fstat(open_file_t *file, vfs_stat_t *out) {
 
 error_t vfs_truncate(const char *path, size_t size) {
     log_trace("vfs_truncate(file='%s')", path);
-    inode_t *n = NULL;
+    inode_t n = inodes.empty();
     int err = vfs_lookup_target(path, &n);
     if (err) return err;
 
-    err = n->sb->driver->truncate(n, size);
+    err = n.sb->driver->truncate(&n, size);
     if (err) return err;
 
     return OK;
@@ -376,13 +369,13 @@ error_t vfs_truncate(const char *path, size_t size) {
 
 error_t vfs_create(const char *path, int type) {
     log_trace("vfs_create(path='%s', type=%d)", path, type);
-    inode_t *dir;
-    const char *name_ptr;
+    inode_t dir = inodes.empty();
+    const char *name_ptr = NULL;
     int err = vfs_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
-    inode_t *new_file;
-    err = dir->sb->driver->create(dir, name_ptr, type, &new_file);
+    inode_t new_file = inodes.empty();
+    err = dir.sb->driver->create(&dir, name_ptr, type, &new_file);
     if (err) return err;
 
     return OK;
@@ -390,13 +383,13 @@ error_t vfs_create(const char *path, int type) {
 
 error_t vfs_unlink(const char *path) {
     log_trace("vfs_unlink(path='%s')", path);
-    inode_t *dir;
-    const char *name_ptr;
+    inode_t dir = inodes.empty();
+    const char *name_ptr = NULL;
     int err = vfs_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
-    inode_t *new_file;
-    err = dir->sb->driver->unlink(dir, name_ptr);
+    inode_t new_file = inodes.empty();
+    err = dir.sb->driver->unlink(&dir, name_ptr);
     if (err) return err;
 
     return OK;
@@ -404,13 +397,13 @@ error_t vfs_unlink(const char *path) {
 
 error_t vfs_mkdir(const char *path) {
     log_trace("vfs_mkdir(path='%s')", path);
-    inode_t *parent_dir;
-    const char *name_ptr;
+    inode_t parent_dir = inodes.empty();
+    const char *name_ptr = NULL;
     int err = vfs_lookup_parent(path, &parent_dir, &name_ptr);
     if (err) return err;
 
-    inode_t *new_dir;
-    err = parent_dir->sb->driver->mkdir(parent_dir, name_ptr, &new_dir);
+    inode_t new_dir = inodes.empty();
+    err = parent_dir.sb->driver->mkdir(&parent_dir, name_ptr, &new_dir);
     if (err) return err;
 
     return OK;
@@ -418,12 +411,12 @@ error_t vfs_mkdir(const char *path) {
 
 error_t vfs_rmdir(const char *path) {
     log_trace("vfs_rmdir(path='%s')", path);
-    inode_t *dir;
-    const char *name_ptr;
+    inode_t dir = inodes.empty();
+    const char *name_ptr = NULL;
     int err = vfs_lookup_parent(path, &dir, &name_ptr);
     if (err) return err;
 
-    err = dir->sb->driver->rmdir(dir, name_ptr);
+    err = dir.sb->driver->rmdir(&dir, name_ptr);
     if (err) return err;
 
     return OK;

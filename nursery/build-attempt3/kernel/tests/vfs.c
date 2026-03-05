@@ -17,7 +17,7 @@ struct _mock_filesys_lookup {
     int ret_val;
 } _mock_filesys_lookup_data[4];
 
-int _mock_filesys_lookup(inode_t *dir, char *name, inode_t **result) {
+int _mock_filesys_lookup(inode_t *dir, char *name, inode_t *result) {
     for (unsigned int i = 0; i < sizeof(_mock_filesys_lookup_data) / sizeof(_mock_filesys_lookup_data[0]); i++) {
         if (dir->location == _mock_filesys_lookup_data[i].dir->location &&
             strcmp(name, _mock_filesys_lookup_data[i].name) == 0)

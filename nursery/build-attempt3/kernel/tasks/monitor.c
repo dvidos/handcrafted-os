@@ -170,8 +170,8 @@ void vfs_monitor_main() {
         while (mount_entry != NULL) {
             tty_set_cursor(row++, 0);
             printf("%8d   %8d    %8d",
-                mount_entry->host_dir->inode_num,
-                mount_entry->root_dir->inode_num,
+                mount_entry->host_dir.inode_num,
+                mount_entry->root_dir.inode_num,
                 mount_entry->flags
             );
             mount_entry = mount_entry->next;

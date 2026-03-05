@@ -148,7 +148,7 @@ typedef struct {
 
 // returns OK or ERR_NOT_SUPPORTED accordingly
 int verify_elf_executable(open_file_t *file) {
-    log_trace("verify_elf_executable(\"%s\")", file->inode->name);
+    log_trace("verify_elf_executable(inode=%ld)", file->inode->inode_num);
     char identification[16];
 
     int err = vfs_seek(file, 0, SEEK_SET);
@@ -191,7 +191,7 @@ int verify_elf_executable(open_file_t *file) {
 
 // calcualtes information for setting up a new process
 int get_elf_load_information(open_file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point) {
-    log_trace("get_elf_load_information(\"%s\")", file->inode->name);
+    log_trace("get_elf_load_information(inode=%ld)", file->inode->inode_num);
 
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -252,7 +252,7 @@ exit:
 
 // loads segments from the file into memory
 int load_elf_into_memory(open_file_t *file) {
-    log_trace("load_elf_into_memory(\"%s\")", file->inode->name);
+    log_trace("load_elf_into_memory(inode=%ld)", file->inode->inode_num);
     
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -333,7 +333,7 @@ int dump_elf_information(open_file_t *file) {
     err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
     if (err < 0) goto exit;
 
-    log_info("ELF header for file \"%s\"", file->inode->name);
+    log_info("ELF header");
     dump_elf_header(header);
 
     // so now we can load all section headers and all program headers

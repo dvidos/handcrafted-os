@@ -22,6 +22,7 @@ static inline bool stored_inode_is_used(stored_inode *n)   { return (n->type_per
 static inline bool stored_inode_is_unused(stored_inode *n) { return (n->type_perms & STORED_INODE_TYPE_MASK) == 0; }
 
 
+
 static inline bool stored_dir_entry_is_used(stored_dir_entry *e) { return (e->name[0] != 0); }
 static inline bool stored_dir_entry_is_unused(stored_dir_entry *e) { return (e->name[0] == 0); }
 static inline void stored_dir_entry_mark_unused(stored_dir_entry *e) { e->name[0] = 0; e->inode_num = 0; }
@@ -79,6 +80,10 @@ error_t sfs_node_resolve_data_block(sfs_mount_data *mt, stored_inode *sin, uint3
 error_t sfs_node_expand_data_blocks(sfs_mount_data *md, stored_inode *sin, inode_no_t inode_num);
 error_t sfs_node_release_all_data_blocks(sfs_mount_data *md, block_no_t inode_num);
 
+
+
+// sfs_debug.c
+void sfs_stored_inode_log_debug(stored_inode *ind);
 
 
 

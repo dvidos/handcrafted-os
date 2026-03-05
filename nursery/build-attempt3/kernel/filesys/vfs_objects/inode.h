@@ -1,5 +1,6 @@
 #pragma once
 #include "../../include/ctypes.h"
+#include "../../include/uapi/vfs_file_flags.h"
 #include "superblock.h"
 
 
@@ -16,17 +17,14 @@ struct inode {
     uint64_t atime;
     uint64_t mtime;
     uint64_t ctime;
-    // path resolution support (optional but useful)
-    struct inode *parent;  // owned copy or NULL // TODO: get rid of this, make inode_t a value value...
-    char *name;                      // owned
 };
 
 
 struct inode_ops {
-    inode_t *(*create)(superblock_t *sb, uint64_t inode, inode_t *parent, const char *name);
-    inode_t *(*clone)(const inode_t *src);
+    inode_t (*empty)();
+    inode_t (*create)(superblock_t *sb, uint64_t inode, bool is_dir, bool is_file);
     bool (*equals)(const inode_t *a, const inode_t *b);
-    void (*destroy)(inode_t *n);
+    bool (*is_empty)(inode_t *n);
     bool (*is_dir)(inode_t *n);
     bool (*is_file)(inode_t *n);
     // hashcode? log_debug? get full path? mutex_acquire()/release()?

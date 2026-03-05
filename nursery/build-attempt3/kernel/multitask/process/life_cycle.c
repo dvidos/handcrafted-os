@@ -144,8 +144,6 @@ void proc_destroy(process_t *proc) {
     if (proc->user_proc.envp != NULL)
         free_strvec(proc->user_proc.envp);
     
-    if (proc->curr_dir != NULL)
-        inodes.destroy(proc->curr_dir);
     if (proc->curr_dir_path != NULL)
         kfree(proc->curr_dir_path);
     

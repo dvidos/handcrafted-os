@@ -42,12 +42,12 @@ static error_t _dummy_fs_mkfs(block_device_t *dev) {
     return OK;
 }
 
-static error_t _dummy_fs_get_root_dir(superblock_t *sb, inode_t **out) {
+static error_t _dummy_fs_get_root_dir(superblock_t *sb, inode_t *out) {
     *out = inodes.create(sb, ROOT_DIR_INODE, NULL, "/");
     return OK;
 }
 
-static error_t _dummy_fs_lookup(inode_t *dir, const char *name, inode_t **out) {
+static error_t _dummy_fs_lookup(inode_t *dir, const char *name, inode_t *out) {
     if (dir->inode_num != ROOT_DIR_INODE)
         return ERR_NOT_FOUND;
 
@@ -128,7 +128,7 @@ static error_t _dummy_fs_closedir(open_file_t *dir_handle) {
     return OK;
 }
 
-static error_t _dummy_fs_mkdir(inode_t *parent, const char *name, inode_t **out) { 
+static error_t _dummy_fs_mkdir(inode_t *parent, const char *name, inode_t *out) { 
     // create directory, but also "." and ".."
     return ERR_NOT_PERMITTED;
 }
@@ -139,7 +139,7 @@ static error_t _dummy_fs_rmdir(inode_t *parent, const char *name) {
     return ERR_NOT_PERMITTED;
 }
 
-static error_t _dummy_fs_create(inode_t *parent, const char *name, int type, inode_t **out) {
+static error_t _dummy_fs_create(inode_t *parent, const char *name, int type, inode_t *out) {
     return ERR_NOT_PERMITTED;
 }
 

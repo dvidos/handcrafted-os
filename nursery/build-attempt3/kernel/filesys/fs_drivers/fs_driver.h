@@ -26,8 +26,8 @@ struct fs_driver_ops {
     error_t (*sync)(superblock_t *sb);
     error_t (*mkfs)(block_device_t *dev);
     
-    error_t (*get_root_dir)(superblock_t *sb, inode_t **out);
-    error_t (*lookup)(inode_t *dir, const char *name, inode_t **out);
+    error_t (*get_root_dir)(superblock_t *sb, inode_t *out);
+    error_t (*lookup)(inode_t *dir, const char *name, inode_t *out);
 
     error_t (*open)(inode_t *n, int flags, open_file_t **file_handle);
     error_t (*close)(open_file_t *file);
@@ -40,9 +40,9 @@ struct fs_driver_ops {
     error_t (*rewinddir)(open_file_t *dir_handle);
     error_t (*closedir)(open_file_t *dir_handle);
 
-    error_t (*create)(inode_t *parent, const char *name, int type, inode_t **out);
+    error_t (*create)(inode_t *parent, const char *name, int type, inode_t *out);
     error_t (*unlink)(inode_t *parent, const char *name);
-    error_t (*mkdir)(inode_t *parent, const char *name, inode_t **out); // dirs have special create semantics
+    error_t (*mkdir)(inode_t *parent, const char *name, inode_t *out); // dirs have special create semantics
     error_t (*rmdir)(inode_t *parent, const char *name); // dirs have special delete semantics
 
     error_t (*stat)(inode_t *n, vfs_stat_t *out);

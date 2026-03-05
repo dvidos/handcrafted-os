@@ -9,7 +9,7 @@
 #include "sfs_internal.h"
 
 
-MODULE("SFS", LOG_LEVEL_DEBUG);
+MODULE("SFS", LOG_LEVEL_TRACE);
 
 #define KB (1024)
 #define MB (1024 * KB)
@@ -181,23 +181,27 @@ cleanup:
     return err;
 }
 
-static error_t sfs_driver_get_root_dir(superblock_t *sb, inode_t **out) {
+static error_t sfs_driver_get_root_dir(superblock_t *sb, inode_t *out) {
     *out = inodes.create(sb, ROOT_DIR_INODE_ID, NULL, "/");
     return OK;
 }
 
-static error_t sfs_driver_lookup(inode_t *dir, const char *name, inode_t **out) {
+static error_t sfs_driver_lookup(inode_t *dir, const char *name, inode_t *out) {
     sfs_mount_data *md = (sfs_mount_data *)dir->sb->driver_priv_data;
     stored_inode *sin;
     error_t err;
+log_trace("sfs_driver_lookup()");
 
     err = md->inode_cache->ops->get(md->inode_cache, dir->inode_num, (void **)&sin);
     if (err) return err;
     if (!stored_inode_is_dir(sin)) return ERR_NOT_A_DIRECTORY;
 
+log_trace("sfs_driver_lookup(), 2");
+sfs_stored_inode_log_debug(sin);
     uint32_t rec_no;
     uint32_t inode_no;
     err = sfs_node_dir_find_entry(md, sin, name, &rec_no, &inode_no);
+log_trace("sfs_driver_lookup(), 2, err = %d", err);
     if (err) return err;
 
     *out = inodes.create(dir->sb, inode_no, dir, name);
@@ -399,7 +403,7 @@ static error_t sfs_driver_closedir(open_file_t *dir_handle) {
     return OK;
 }
 
-static error_t sfs_driver_mkdir(inode_t *parent, const char *name, inode_t **out) { 
+static error_t sfs_driver_mkdir(inode_t *parent, const char *name, inode_t *out) { 
     sfs_mount_data *md = (sfs_mount_data *)parent->sb->driver_priv_data;
     uint32_t inode_no;
     uint32_t rec_no;
@@ -488,7 +492,7 @@ static error_t sfs_driver_rmdir(inode_t *parent, const char *name) {
     return OK;
 }
 
-static error_t sfs_driver_create(inode_t *parent, const char *name, int type, inode_t **out) {
+static error_t sfs_driver_create(inode_t *parent, const char *name, int type, inode_t *out) {
     sfs_mount_data *md = (sfs_mount_data *)parent->sb->driver_priv_data;
     uint32_t inode_no;
     uint32_t rec_no;

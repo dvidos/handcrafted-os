@@ -14,8 +14,8 @@ static mount_entry_t *_mtab_get_entries_list() {
 static mount_entry_t *_mtab_create_entry(inode_t *host_dir, inode_t *new_root_dir) {
     mount_entry_t *e = (mount_entry_t *)kmalloc(sizeof(mount_entry_t));
 
-    e->host_dir = host_dir;
-    e->root_dir = new_root_dir;
+    e->host_dir = *host_dir;
+    e->root_dir = *new_root_dir;
     e->sb = new_root_dir->sb;
     e->flags = 0;
     e->ref_count = 0;
@@ -40,6 +40,7 @@ static int _mtab_add_entry(mount_entry_t *e) {
             prev = prev->next;
         prev->next = e;
         e->next = 0;
+
     }
 
     return OK;
@@ -65,7 +66,7 @@ static int _mtab_remove_entry(mount_entry_t *e) {
 
 static mount_entry_t *_mtab_find_entry_by_host_dir(inode_t *n) {
     for (mount_entry_t *e = mtab_entries_list_head; e != NULL; e = e->next) {
-        if (inodes.equals(n, e->host_dir))
+        if (inodes.equals(n, &e->host_dir))
             return e;
     }
 
@@ -74,7 +75,7 @@ static mount_entry_t *_mtab_find_entry_by_host_dir(inode_t *n) {
 
 static mount_entry_t *_mtab_find_entry_by_root_dir(inode_t *n) {
     for (mount_entry_t *e = mtab_entries_list_head; e != NULL; e = e->next) {
-        if (inodes.equals(n, e->root_dir))
+        if (inodes.equals(n, &e->root_dir))
             return e;
     }
     
