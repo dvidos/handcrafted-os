@@ -99,6 +99,18 @@ static void initialize_by_opening(const char *img_file, context *ctx) {
     free(block_buffer);
 }
 
+static void finalize(context *ctx) {
+    // save partition entry, superblock, bitmap etc.
+    write_partition_entry(ctx->img, bytes_to_sectors(ctx->fs_offset), bytes_to_sectors(ctx->img_size - ctx->fs_offset));
+    write_bootable_mbr(ctx->img);
+
+    write_fs_block_part(ctx, 0, 0, &ctx->superblock, sizeof(stored_superblock));
+    for (uint32_t i = 0; i < ctx->superblock.blocks_bitmap_blocks_count; i++)
+        write_fs_block(ctx, ctx->superblock.blocks_bitmap_first_block + i, block_bitmap_get_bytes_ptr(i));
+
+    fclose(ctx->img);
+}
+
 // ---------------------------------------------------------
 
 static stored_inode create_new_inode(stored_superblock *superblock, bool is_file, size_t file_size, inode_no_t *inode_no) {
@@ -204,6 +216,43 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
     free(entry_path);
 }
 
+// ---------------------------------------------------------
+
+void list_dir_contents_recursively(context *ctx, stored_inode dir_inode, inode_no_t dir_no, int depth) {
+    size_t total_entries = dir_inode.file_size / sizeof(stored_dir_entry);
+
+    for (size_t rec = 0; rec < total_entries; rec++) {
+        size_t offset_in_file = rec * sizeof(stored_dir_entry);
+        size_t block_index = offset_in_file / BLOCK_SIZE;
+        size_t offset_in_block = offset_in_file % BLOCK_SIZE;
+        uint32_t abs_block = dir_inode.ranges[0].first_block_no + block_index;
+
+        stored_dir_entry entry;
+        read_fs_block_part(ctx, abs_block, offset_in_block, &entry, sizeof(stored_dir_entry));
+
+        if (strlen(entry.name) == 0) {
+            printf("%*sWarning, dir entry with empty name spotted\n", depth * 3, "");
+            continue;
+        }
+
+        stored_inode inode;
+        load_inode(ctx, entry.inode_num, &inode);
+
+        printf("%*s%-12s inode=%-5u size=%-7u blocks=%-3u type/perms=0x%x\n",
+            depth * 3, "",
+            entry.name,
+            entry.inode_num,
+            inode.file_size,
+            inode.allocated_blocks,
+            inode.type_perms);
+
+        if ((inode.type_perms & STORED_INODE_TYPE_DIR) == STORED_INODE_TYPE_DIR 
+            && strcmp(entry.name, ".") != 0 && strcmp(entry.name, "..") != 0
+            && depth < 32) {
+            list_dir_contents_recursively(ctx, inode, entry.inode_num, depth + 1);
+        }
+    }
+}
 
 // ---------------------------------------------------------
 
@@ -226,8 +275,7 @@ void do_create_img(int argc, char *argv[]) {
 
     context ctx;
     initialize_by_creating(image_file, size_bytes, fs_offset, &ctx);
-    fclose(ctx.img);
-
+    finalize(&ctx);
     printf("Image file '%s' created\n", image_file);
 }
 
@@ -246,13 +294,8 @@ void do_write_sector(int argc, char *argv[]) {
         fatal("Writing %ld sectors at sector %ld would overwrite FS partition. Can fit at most %ld sectors", sector_count, sector_no, bytes_to_sectors(ctx.fs_offset) - sector_no);
 
     import_host_file_into_img_sector(ctx.img, sector_no, sector_count, host_file);
-    if (sector_no == 0) {
-        // these would have been overwritten
-        write_partition_entry(ctx.img, bytes_to_sectors(ctx.fs_offset), bytes_to_sectors(ctx.img_size - ctx.fs_offset));
-        write_bootable_mbr(ctx.img);
-    }
 
-    fclose(ctx.img);
+    finalize(&ctx);
     printf("Wrote file '%s' at sector %ld\n", host_file, sector_no);
 }
 
@@ -267,17 +310,45 @@ void do_import_dir_contents(int argc, char *argv[]) {
 
     import_dir_contents_recursively(&ctx, host_dir, &ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID);
 
-    // should write superblock & bitmaps and others.
-    
+    finalize(&ctx);
     printf("Imported dir '%s' into %s\n", host_dir, sfs_dir);
+}
+
+void do_list(int argc, char *argv[]) {
+    if (argc < 1) do_help_and_exit();
+    const char *image_file = argv[0];
+
+    context ctx;
+    initialize_by_opening(image_file, &ctx);
+
+    printf("Contents of SFS file system in '%s'\n", image_file);
+    list_dir_contents_recursively(&ctx, ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID, 1);
 }
 
 int main(int argc, char *argv[]) {
     if (argc < 2) do_help_and_exit();
 
+    /* TODO: it seems there is a bug in the allocator, when allocating the first real block,
+             it returns block zero or something, after that it's ok.
+             Contents of SFS file system in 'os.img'
+                bin          inode=0     size=192     blocks=1   type/perms=0x4000
+                    Warning, dir entry with empty name spotted
+                    edit         inode=2     size=0       blocks=0   type/perms=0x6e69
+                    init         inode=3     size=33432   blocks=33  type/perms=0x8000
+                usr          inode=4     size=192     blocks=1   type/perms=0x4000
+                    src          inode=5     size=0       blocks=1   type/perms=0x4000
+                    include      inode=6     size=832     blocks=1   type/perms=0x4000
+                        stdlib.h     inode=7     size=2039    blocks=2   type/perms=0x8000
+                        string.h     inode=8     size=1886    blocks=2   type/perms=0x8000
+                        va_list.h    inode=9     size=300     blocks=1   type/perms=0x8000
+                        metrics.h    inode=10    size=472     blocks=1   type/perms=0x8000
+                        slist.h      inode=11    size=1164    blocks=2   type/perms=0x8000
+                        stdio.h      inode=12    size=2607    blocks=3   type/perms=0x8000
+    */
     char *cmd = argv[1];
     if      (strcmp(cmd, "create-img")   == 0) do_create_img         (argc - 2, argv + 2);
     else if (strcmp(cmd, "write-sector") == 0) do_write_sector       (argc - 2, argv + 2);
     else if (strcmp(cmd, "import-dir")   == 0) do_import_dir_contents(argc - 2, argv + 2);
+    else if (strcmp(cmd, "list")         == 0) do_list               (argc - 2, argv + 2);
     else do_help_and_exit();
 }

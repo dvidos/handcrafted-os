@@ -40,6 +40,7 @@ size_t get_host_file_size(const char *host_file_path);
 
 void read_fs_block(context *ctx, uint32_t block_no, void *buffer);
 void write_fs_block(context *ctx, uint32_t block_no, void *buffer);
+void read_fs_block_part(context *ctx, uint32_t block_no, uint32_t offset_in_block, void *buffer, size_t size);
 void write_fs_block_part(context *ctx, uint32_t block_no, uint32_t offset_in_block, void *buffer, size_t size);
 
 void block_bitmap_create(uint32_t blocks_to_track);
@@ -51,3 +52,5 @@ void import_host_file_into_img_sector(FILE *img, size_t sector_no, size_t sector
 void persist_dir_entry(context *ctx, stored_inode *parent_dir, size_t rec_no, stored_dir_entry *entry);
 void append_entry_to_directory(context *ctx, stored_inode *parent_dir, inode_no_t parent_dir_no, const char *entry_name, inode_no_t entry_no);
 void persist_inode(context *ctx, inode_no_t inode_no, stored_inode *inode);
+
+void load_inode(context *ctx, inode_no_t inode_no, stored_inode *inode);

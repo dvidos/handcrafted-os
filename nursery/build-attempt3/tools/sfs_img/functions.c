@@ -124,15 +124,22 @@ void write_img_sector(FILE *img, uint32_t sector_no, void *buffer) {
 void read_fs_block(context *ctx, uint32_t block_no, void *buffer) {
     long offset = ctx->fs_offset + block_no * BLOCK_SIZE;
     fseek(ctx->img, offset, SEEK_SET);
-    size_t read = fread(buffer, 1, SECTOR_SIZE, ctx->img);
-    if (read != SECTOR_SIZE) fatal("Failed reading FS block %lu from image", block_no);
+    size_t read = fread(buffer, 1, BLOCK_SIZE, ctx->img);
+    if (read != BLOCK_SIZE) fatal("Failed reading FS block %lu from image", block_no);
 }
 
 void write_fs_block(context *ctx, uint32_t block_no, void *buffer) {
     long offset = ctx->fs_offset + block_no * BLOCK_SIZE;
     fseek(ctx->img, offset, SEEK_SET);
-    size_t written = fwrite(buffer, 1, SECTOR_SIZE, ctx->img);
-    if (written != SECTOR_SIZE) fatal("Failed writing FS block %lu to image", block_no);
+    size_t written = fwrite(buffer, 1, BLOCK_SIZE, ctx->img);
+    if (written != BLOCK_SIZE) fatal("Failed writing FS block %lu to image", block_no);
+}
+
+void read_fs_block_part(context *ctx, uint32_t block_no, uint32_t offset_in_block, void *buffer, size_t size) {
+    long offset = ctx->fs_offset + block_no * BLOCK_SIZE + offset_in_block;
+    fseek(ctx->img, offset, SEEK_SET);
+    size_t read = fread(buffer, 1, size, ctx->img);
+    if (read != size) fatal("Failed reading %d bytes in FS block %lu to image", size, block_no);
 }
 
 void write_fs_block_part(context *ctx, uint32_t block_no, uint32_t offset_in_block, void *buffer, size_t size) {
@@ -247,3 +254,17 @@ void persist_inode(context *ctx, inode_no_t inode_no, stored_inode *inode) {
     write_fs_block_part(ctx, abs_block_no, offset_in_block, inode, sizeof(stored_inode));
 }
 
+void load_inode(context *ctx, inode_no_t inode_no, stored_inode *inode) {
+    size_t offset = inode_no * sizeof(stored_inode);
+
+    size_t block_index = offset / BLOCK_SIZE;
+    size_t offset_in_block = offset % BLOCK_SIZE;
+
+    uint32_t abs_block =
+        ctx->superblock.inodes_db_inode.ranges[0].first_block_no + block_index;
+
+    char block[BLOCK_SIZE];
+    read_fs_block(ctx, abs_block, block);
+
+    memcpy(inode, block + offset_in_block, sizeof(stored_inode));
+}
