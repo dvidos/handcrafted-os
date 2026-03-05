@@ -169,13 +169,36 @@ void block_bitmap_create(uint32_t blocks_to_track) {
 static inline bool bitmap_is_used(uint32_t block_no) { return block_bitmap_buffer[block_no / 8] & (1 << (block_no % 8)); }
 
 uint32_t block_bitmap_allocate(int block_count) {
-    while (bitmap_is_used(block_bitmap_next_free_block) && block_bitmap_next_free_block < block_bitmap_blocks_to_track)
-        block_bitmap_next_free_block++;
-    if (block_bitmap_next_free_block >= block_bitmap_blocks_to_track) fatal("Cannot allocate %ld blocks, all are exhausted");
+    uint32_t first_block;
 
-    // we just hope the subsequent blocks are not used!
-    uint32_t first_block = block_bitmap_next_free_block;
-    block_bitmap_next_free_block += block_count;
+    while (true) {
+        while (bitmap_is_used(block_bitmap_next_free_block) && block_bitmap_next_free_block < block_bitmap_blocks_to_track)
+            block_bitmap_next_free_block++;
+        if (block_bitmap_next_free_block >= block_bitmap_blocks_to_track) fatal("Cannot allocate %ld blocks, all are exhausted");
+
+        // make sure all required blocks are free
+        bool all_free = true;
+        for (int i = 1; i < block_count; i++) {
+            if (bitmap_is_used(block_bitmap_next_free_block + i)) {
+                all_free = false;
+                break;
+            }
+        }
+        if (!all_free) {
+            block_bitmap_next_free_block++;
+            continue;
+        }
+
+        // we just _hope_ the subsequent blocks are not used!
+        first_block = block_bitmap_next_free_block;
+        block_bitmap_next_free_block += block_count;
+        printf("(allocated %d blocks starting on block no %u)\n", block_count, first_block);
+        break;
+    }
+
+    for (uint32_t b = first_block; b < first_block + block_count; b++)
+        block_bitmap_mark_used(b);
+
     return first_block;
 }
 
