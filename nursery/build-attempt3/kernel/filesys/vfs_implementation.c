@@ -13,7 +13,7 @@
 #include "../utils/assert.h"
 #include "../klib/strerror.h"
 
-MODULE("VFS", LOG_LEVEL_TRACE);
+MODULE("VFS", LOG_LEVEL_WARN);
 
 
 typedef struct substring {
@@ -42,11 +42,11 @@ static substring_t get_path_first_substring(const char *path) {
 
 
 static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t *inod_out, const char **name_out) {
-    log_trace("vfs_flex_lookup(start=%ld, path='%s', parent=%s)", (start == NULL ? 0 : start->inode_num), path, lookup_parent ? "true" : "false");
+    log_trace("vfs_flex_lookup(start=%llu, path='%s', parent=%s)", (start == NULL ? 0ULL : start->inode_num), path, lookup_parent ? "true" : "false");
     if (path == NULL || *path == 0 || path[0] != '/')
-        return ERR_BAD_ARGUMENT;
+        return traceable(ERR_BAD_ARGUMENT);
     if (mtab.get_entries_list() == NULL)
-        return ERR_NO_FS_MOUNTED;
+        return traceable(ERR_NO_FS_MOUNTED);
 
     inode_t curr = start == NULL ? inodes.empty() : *start;
     inode_t next = inodes.empty();
@@ -64,7 +64,7 @@ static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent,
     }
 
     while (part_offset < path_len) {
-        log_trace("vfs_flex_lookup(), remaining='%s', curr=%d, next=%d", path + part_offset, curr.inode_num, next.inode_num);
+        log_debug("vfs_flex_lookup(), remaining='%s', curr=%d, next=%d", path + part_offset, curr.inode_num, next.inode_num);
 
         // see if we are looking for parent dir and we are done
         if (lookup_parent && strchr(path + part_offset, '/') == 0) {
@@ -76,11 +76,11 @@ static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent,
         // else, we need to continue the path
         substring_t ss = get_path_first_substring(path + part_offset);
         if (ss.len + 1 > sizeof(part_buffer))
-            return ERR_NAME_TOO_LONG;
+            return traceable(ERR_NAME_TOO_LONG);
         memcpy(part_buffer, ss.ptr, ss.len);
         part_buffer[ss.len] = 0;
         part_offset += strlen(part_buffer) + 1;
-        log_trace("vfs_flex_lookup(), part='%s'", part_buffer);
+        log_debug("vfs_flex_lookup(), part='%s'", part_buffer);
 
         // skip over empty parts or same dir
         if (strlen(part_buffer) == 0 || strcmp(part_buffer, ".") == 0)
@@ -94,13 +94,10 @@ static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent,
             // fallback into leaving the fs driver find the ".." entry
         }
 
-        inodes.log("curr", &curr);
         if (!inodes.is_dir(&curr))
-            return ERR_NOT_A_DIRECTORY;
+            return traceable(ERR_NOT_A_DIRECTORY);
         
-        log_trace("looking for '%s' inside %ld", part_buffer, curr.inode_num);
         err = curr.sb->driver->lookup(&curr, part_buffer, &next);
-        log_trace("looking returned %d (%s)", err, strerror(err));
         if (err) return err;
 
         // we may cross a mount point
@@ -118,7 +115,7 @@ static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent,
 
 static int vfs_lookup_target(const char *path, inode_t *target_out) {
     log_trace("vfs_lookup_target(path='%s')", path);
-    if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
+    if (path[0] != '/') return traceable(ERR_BAD_ARGUMENT); // till we get process cwd
 
     const char *name_out;
     int err = vfs_flex_lookup(NULL, path, false, target_out, &name_out);
@@ -129,7 +126,7 @@ static int vfs_lookup_target(const char *path, inode_t *target_out) {
 
 static int vfs_lookup_parent(const char *path, inode_t *parent_out, const char **final_name_out) {
     log_trace("vfs_lookup_parent(path='%s')", path);
-    if (path[0] != '/') return ERR_BAD_ARGUMENT; // till we get process cwd
+    if (path[0] != '/') return traceable(ERR_BAD_ARGUMENT); // till we get process cwd
 
     int err = vfs_flex_lookup(NULL, path, true, parent_out, final_name_out);
     if (err) return err;
@@ -147,17 +144,17 @@ int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     if (strcmp(path, "/") == 0) {
         // mount without parent
         if (mtab.get_entries_list() != NULL)
-            return ERR_DIR_HAS_MOUNT;
+            return traceable(ERR_DIR_HAS_MOUNT);
 
     } else {
         err = vfs_lookup_target(path, &host_dir);
         if (err != OK) return err;
 
         if (!inodes.is_dir(&host_dir))
-            return ERR_NOT_A_DIRECTORY;
+            return traceable(ERR_NOT_A_DIRECTORY);
 
         mount_entry_t *me = mtab.find_entry_by_host_dir(&host_dir);
-        if (me != NULL) return ERR_DIR_HAS_MOUNT;
+        if (me != NULL) return traceable(ERR_DIR_HAS_MOUNT);
     }
 
     superblock_t *sb = superblocks.create(driver, dev);
@@ -185,7 +182,7 @@ int vfs_unmount(const char *path) {
     if (err) return err;
 
     mount_entry_t *entry = mtab.find_entry_by_host_dir(&dir);
-    if (entry == NULL) return ERR_NOT_FOUND;
+    if (entry == NULL) return traceable(ERR_NOT_FOUND);
 
     err = entry->sb->driver->sync(entry->sb);
     if (err) return err;
@@ -217,7 +214,8 @@ int vfs_open(const char *path, int flags, open_file_t **file) {
     err = vfs_lookup_target(path, &n);
     if (err) return err;
     if (!inodes.is_file(&n))
-        return ERR_NOT_A_FILE;
+        return traceable(ERR_NOT_A_FILE); // TODO: maybe implement this, to optionally trace errors returned? then also make configuration choices
+                                        //       compile diagnostics, checks, asserts on/off etc.
 
     err = n.sb->driver->open(&n, flags, file);
     if (err) return err;
@@ -271,7 +269,7 @@ off_t vfs_seek(open_file_t *file, off_t offset, int whence) {
         case SEEK_SET: new_offset = offset; break;
         case SEEK_CUR: new_offset = file->offset + offset; break;
         case SEEK_END: new_offset = file->size + offset; break;
-        default: return ERR_BAD_ARGUMENT;
+        default: return traceable(ERR_BAD_ARGUMENT);
     }
     if (new_offset < 0) new_offset = 0;
     if (new_offset > (off_t)file->size) new_offset = (off_t)file->size;
@@ -295,7 +293,7 @@ error_t vfs_opendir(const char *path, open_file_t **dir) {
     err = vfs_lookup_target(path, &n);
     if (err) return err;
     if (!inodes.is_dir(&n))
-        return ERR_NOT_A_DIRECTORY;
+        return traceable(ERR_NOT_A_DIRECTORY);
 
     err = n.sb->driver->opendir(&n, dir);
     if (err) return err;

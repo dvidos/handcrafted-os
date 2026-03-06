@@ -22,7 +22,8 @@ CFLAGS = -std=gnu99 -ffreestanding -O3 \
 		-Wno-unused-variable \
 		-Wno-unused-but-set-variable \
 		-Wno-array-bounds \
-		-Wno-pointer-sign
+		-Wno-pointer-sign \
+		-g
 
 KERNEL_ELF = kernel.elf
 KERNEL_BIN = kernel.bin

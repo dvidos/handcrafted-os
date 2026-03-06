@@ -4,7 +4,7 @@
 #include "../../../klib/string.h"
 #include "../../../utils/logger.h"
 
-MODULE("SFS_PRIV", LOG_LEVEL_DEBUG);
+MODULE("SFS_PRIV", LOG_LEVEL_WARN);
 
 
 // cache backend functions
@@ -169,6 +169,7 @@ static error_t inode_cache_load_inode(uint64_t key, void *obj_data, void *contex
         // read record from inodes database
         ssize_t bytes = sfs_node_read_file_rec(md, &md->superblock->inodes_db_inode, sizeof(stored_inode), key, obj_data);
         if (bytes < 0) return (error_t)bytes;
+        if (bytes < (ssize_t)sizeof(stored_inode)) return ERR_READING_FILE;
         return OK;
     }
 
@@ -189,6 +190,7 @@ static error_t inode_cache_write_inode(uint64_t key, void *obj_data, void *conte
         // write record in inodes database
         ssize_t bytes = sfs_node_write_file_rec(md, &md->superblock->inodes_db_inode, INODE_DB_INODE_ID, sizeof(stored_inode), key, obj_data);
         if (bytes < 0) return (error_t)bytes;
+        if (bytes < (ssize_t)sizeof(stored_inode)) return ERR_WRITING_FILE;
         return OK;
     }
 

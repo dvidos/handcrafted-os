@@ -20,9 +20,11 @@ SMP_SUPPORT=1       # support for SMP
 DEBUG_VERSION=0     # support for gdb, and other macros
 HOSTED_FLAG=0       # build run for hosted linux, as opposed to standalone
 ASSERTS=1           # whether asserts are run or ignored
+TRACE_RETURNS=1     # whether returned errors generate trace logs
 LOG_LEVEL=INFO      # initial log level TRACE, DEBUG, INFO, WARN, ERROR
 TRACE_SYSCALLS=0    # to trace all syscalls
 TRACE_IPC=0         # to trace IPC between processes
+
 
 # other filesystem options, supported formats, init ram disk, sizes, etc.
 # various drivers support options, (hardware, fs, network, cpu features, debugging etc)
@@ -72,6 +74,7 @@ CROSS_AS                 := $CROSS_AS
 VERSION                  := $VERSION
 GIT_HASH                 := $GIT_HASH
 DATE_BUILT               := $DATE_BUILT
+TRACE_RETURNS            := $TRACE_RETURNS
 STAGE1_LOAD_ADDRESS      := $STAGE1_LOAD_ADDRESS
 STAGE1_STACK_TOP         := $STAGE1_STACK_TOP
 STAGE1_SIZE              := $STAGE1_SIZE
@@ -106,6 +109,7 @@ cat > config.h <<EOF
 #define VERSION                   "$VERSION"
 #define GIT_HASH                  "$GIT_HASH"
 #define DATE_BUILT                "$DATE_BUILT"
+#define TRACE_RETURNS             $TRACE_RETURNS
 #define STAGE1_LOAD_ADDRESS       $STAGE1_LOAD_ADDRESS
 #define STAGE1_STACK_TOP          $STAGE1_STACK_TOP
 #define STAGE1_SIZE               $STAGE1_SIZE
@@ -140,6 +144,7 @@ cat > config.sh <<EOF
 VERSION="$VERSION"
 GIT_HASH="$GIT_HASH"
 DATE_BUILT="$DATE_BUILT"
+TRACE_RETURNS=$TRACE_RETURNS
 STAGE1_LOAD_ADDRESS=$STAGE1_LOAD_ADDRESS
 STAGE1_STACK_TOP=$STAGE1_STACK_TOP
 STAGE1_SIZE=$STAGE1_SIZE

@@ -218,6 +218,19 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
 
 // ---------------------------------------------------------
 
+static inline void print_inode(stored_inode *inode, const char *name, uint32_t inode_num, int depth) {
+    printf("%*s%-12s inode=%-5u size=%-7u blocks=%-3u type/perms=0x%x rng0=%u,%u\n",
+        depth * 3, "",
+        name,
+        inode_num,
+        inode->file_size,
+        inode->allocated_blocks,
+        inode->type_perms,
+        inode->ranges[0].first_block_no,
+        inode->ranges[0].blocks_count
+    );
+}
+
 void list_dir_contents_recursively(context *ctx, stored_inode dir_inode, inode_no_t dir_no, int depth) {
     size_t total_entries = dir_inode.file_size / sizeof(stored_dir_entry);
 
@@ -238,13 +251,7 @@ void list_dir_contents_recursively(context *ctx, stored_inode dir_inode, inode_n
         stored_inode inode;
         load_inode(ctx, entry.inode_num, &inode);
 
-        printf("%*s%-12s inode=%-5u size=%-7u blocks=%-3u type/perms=0x%x\n",
-            depth * 3, "",
-            entry.name,
-            entry.inode_num,
-            inode.file_size,
-            inode.allocated_blocks,
-            inode.type_perms);
+        print_inode(&inode, entry.name, entry.inode_num, depth);
 
         if ((inode.type_perms & STORED_INODE_TYPE_DIR) == STORED_INODE_TYPE_DIR 
             && strcmp(entry.name, ".") != 0 && strcmp(entry.name, "..") != 0
@@ -322,7 +329,9 @@ void do_list(int argc, char *argv[]) {
     initialize_by_opening(image_file, &ctx);
 
     printf("Contents of SFS file system in '%s'\n", image_file);
-    list_dir_contents_recursively(&ctx, ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID, 1);
+    print_inode(&ctx.superblock.inodes_db_inode, "Inodes DB", INODE_DB_INODE_ID, 1);
+    print_inode(&ctx.superblock.root_dir_inode, "Root Dir", ROOT_DIR_INODE_ID, 1);
+    list_dir_contents_recursively(&ctx, ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID, 2);
 }
 
 int main(int argc, char *argv[]) {

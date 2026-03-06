@@ -48,22 +48,18 @@ int spawnve(char *path, char *argv[], char *envp[]) {
     int err;
     bool file_open = false;
 
-log_trace("spawnve-a");
     err = vfs_open(path, 0, &file);
     if (err) goto exit;
     file_open = true;
 
-log_trace("spawnve-b");
     // this is where we could support the "#!/bin/sh" construct
     err = verify_elf_executable(file);
     if (err) goto exit;
     
-log_trace("spawnve-c");
     err = vfs_close(file);
     if (err) goto exit;
     file_open = false;
 
-log_trace("spawnve-d");
     process_t *parent = running_process();
     process_t *new_proc = create_process(
         path,

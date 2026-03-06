@@ -1,6 +1,8 @@
 #include "sfs_internal.h"
 #include "../../../klib/string.h"
+#include "../../../utils/logger.h"
 
+MODULE("VFS", LOG_LEVEL_WARN);
 
 
 error_t sfs_node_dir_find_entry(sfs_mount_data *mt, stored_inode *sin, const char *name, uint32_t *rec_no, uint32_t *inode_no) {
@@ -10,12 +12,15 @@ error_t sfs_node_dir_find_entry(sfs_mount_data *mt, stored_inode *sin, const cha
         ssize_t bytes = sfs_node_read_file_rec(mt, sin, sizeof(stored_dir_entry), n, &entry);
         if (bytes == 0 || bytes == ERR_EOF) break;
 
-        if (strcmp(entry.name, name) == 0) {
-            if (rec_no != NULL) *rec_no = n;
-            if (inode_no != NULL) *inode_no = entry.inode_num;
-            return OK;
+        log_debug("sfs_node_dir_find_entry(): entry = ['%s' --> %ld]", entry.name, entry.inode_num);
+        if (strlen(entry.name) == 0 || strcmp(entry.name, name) != 0) {
+            n++;
+            continue;
         }
-        n++;
+
+        if (rec_no != NULL) *rec_no = n;
+        if (inode_no != NULL) *inode_no = entry.inode_num;
+        return OK;
     }
     return ERR_NOT_FOUND;
 }

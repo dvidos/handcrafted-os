@@ -1,9 +1,13 @@
 #include "sfs_internal.h"
 #include "../../../klib/string.h"
 #include "../../../drivers/clock.h"
+#include "../../../utils/logger.h"
+
+MODULE("SFS_NRW", LOG_LEVEL_WARN);
 
 
 ssize_t sfs_node_read_file_bytes(sfs_mount_data *mt, stored_inode *sin, uint64_t file_pos, void *data, size_t length) {
+    log_trace("sfs_node_read_file_bytes(nod=%p, pos=%llu, len=%lu)", sin, file_pos, length);
     if (file_pos >= sin->file_size)
         return 0; // EOF
 
@@ -41,6 +45,7 @@ ssize_t sfs_node_read_file_bytes(sfs_mount_data *mt, stored_inode *sin, uint64_t
 }
 
 ssize_t sfs_node_write_file_bytes(sfs_mount_data *mt, stored_inode *sin, inode_no_t inode_num, uint64_t file_pos, const void *data, size_t length) {
+    log_trace("sfs_node_write_file_bytes(nod=%p, pos=%llu, len=%lu)", sin, file_pos, length);
     if (mt->is_readonly)
         return ERR_NOT_PERMITTED;
 
@@ -102,9 +107,11 @@ ssize_t sfs_node_write_file_bytes(sfs_mount_data *mt, stored_inode *sin, inode_n
 }
 
 ssize_t sfs_node_read_file_rec(sfs_mount_data *mt, stored_inode *sin, size_t rec_size, uint32_t rec_no, void *rec) {
+    log_trace("sfs_node_read_file_rec(nod=%p, rec=%lu, size=%lu)", sin, rec_no, rec_size);
     return sfs_node_read_file_bytes(mt, sin, rec_size * rec_no, rec, rec_size);
 }
 
 ssize_t sfs_node_write_file_rec(sfs_mount_data *mt, stored_inode *sin, inode_no_t inode_num, size_t rec_size, uint32_t rec_no, const void *rec) {
+    log_trace("sfs_node_write_file_rec(nod=%p, rec=%lu, size=%lu)", sin, rec_no, rec_size);
     return sfs_node_write_file_bytes(mt, sin, inode_num, rec_size * rec_no, rec, rec_size);
 }

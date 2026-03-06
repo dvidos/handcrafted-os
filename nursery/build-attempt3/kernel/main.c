@@ -174,14 +174,12 @@ static void launch_initial_processes() {
     
     // this would be surpassed by /etc/initrc at some point
     
-    int tty;
+    int tty = 0;
     process_t *proc;
     int pri = PRIORITY_USER_PROGRAM;
 
-    for (tty = 0; tty < 4; tty++) {
-        proc = create_process("Shell Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty));
-        proc_start(proc);
-    }
+    proc = create_process("Init Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty++));
+    proc_start(proc);
 
     proc = create_process("Process Monitor", process_monitor_main, pri, 0, tty_manager_get_device(tty++));
     proc_start(proc);

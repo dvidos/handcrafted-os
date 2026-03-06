@@ -1,7 +1,10 @@
 #ifndef _LOGGER_H
 #define _LOGGER_H
 
+#include "../../config.h"
 #include "../include/ctypes.h"
+#include "../klib/strerror.h"
+
 
 typedef enum log_level {
     LOG_LEVEL_NONE  = 0,
@@ -42,6 +45,7 @@ void logger_append_hex(const char *module_name, log_level_t level, uint8_t *buff
     #define log_trace(...)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_TRACE || __module_log_configuration__.level >= LOG_LEVEL_TRACE) logger_append(__module_log_configuration__.name, LOG_LEVEL_TRACE, __VA_ARGS__); } while (0)
     #define log_debug_hex(buff,len,start)  do { if (_logger_global_minimum_log_level >= LOG_LEVEL_DEBUG || __module_log_configuration__.level >= LOG_LEVEL_DEBUG) logger_append_hex(__module_log_configuration__.name, LOG_LEVEL_DEBUG, buff, len, start); } while (0)
 
+
 #else
 
     #define MODULE(module_name, log_level)
@@ -56,6 +60,17 @@ void logger_append_hex(const char *module_name, log_level_t level, uint8_t *buff
 
 #endif
 
+#if TRACE_RETURNS == 1
+    #define traceable(err)     \
+        ((err) == OK ? OK : (\
+            logger_append(__module_log_configuration__.name, LOG_LEVEL_TRACE, \
+                "%s() at %s:%d returning %s (%d)", \
+                __FUNCTION__, __FILE__, __LINE__, strerror(err), err), \
+            (err) \
+        ))
+#else 
+    #define traceable(err)     (err)
+#endif
 
 
 

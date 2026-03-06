@@ -83,7 +83,7 @@ error_t sfs_node_release_all_data_blocks(sfs_mount_data *md, block_no_t inode_nu
 
 
 // sfs_debug.c
-void sfs_stored_inode_log_debug(stored_inode *ind);
+void sfs_stored_inode_log_debug(const char *prefix, stored_inode *sin);
 
 
 

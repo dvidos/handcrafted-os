@@ -9,7 +9,7 @@
 #include "sfs_internal.h"
 
 
-MODULE("SFS", LOG_LEVEL_TRACE);
+MODULE("SFS", LOG_LEVEL_WARN);
 
 #define KB (1024)
 #define MB (1024 * KB)
@@ -56,7 +56,7 @@ static error_t sfs_driver_probe(block_device_t *dev) {
 static error_t sfs_driver_mount(superblock_t *sb) {
     log_trace("sfs_driver_mount()");
     if (!sb_recognized(sb->dev))
-        return ERR_NOT_SUPPORTED;
+        return traceable(ERR_NOT_SUPPORTED);
 
     sfs_mount_data *md;
     error_t err = sfs_create_fs_data(sb->dev, &md);
@@ -134,7 +134,7 @@ static error_t sfs_driver_mkfs(block_device_t *dev) {
     // --- inode db ---
     sb->inodes_db_inode = new_stored_inode_file();
     block_no_t inodes_db_block;
-    if (!bitmap->ops->find_next_free(bitmap, &inodes_db_block)) return ERR_NO_SPACE_LEFT;
+    if (!bitmap->ops->find_next_free(bitmap, &inodes_db_block)) return traceable(ERR_NO_SPACE_LEFT);
     bitmap->ops->mark_used(bitmap, inodes_db_block);
     sb->inodes_db_inode.ranges[0].first_block_no = inodes_db_block;
     sb->inodes_db_inode.ranges[0].blocks_count = 1;
@@ -144,7 +144,7 @@ static error_t sfs_driver_mkfs(block_device_t *dev) {
     // --- root dir ---
     sb->root_dir_inode = new_stored_inode_dir();
     block_no_t root_dir_block;
-    if (!bitmap->ops->find_next_free(bitmap, &root_dir_block)) return ERR_NO_SPACE_LEFT;
+    if (!bitmap->ops->find_next_free(bitmap, &root_dir_block)) return traceable(ERR_NO_SPACE_LEFT);
     bitmap->ops->mark_used(bitmap, root_dir_block);
     sb->root_dir_inode.ranges[0].first_block_no = root_dir_block;
     sb->root_dir_inode.ranges[0].blocks_count = 1;
@@ -182,29 +182,30 @@ cleanup:
 }
 
 static error_t sfs_driver_get_root_dir(superblock_t *sb, inode_t *out) {
-    *out = inodes.create(sb, ROOT_DIR_INODE_ID, NULL, "/");
+    *out = inodes.create(sb, ROOT_DIR_INODE_ID, true, false);
     return OK;
 }
 
 static error_t sfs_driver_lookup(inode_t *dir, const char *name, inode_t *out) {
+    log_trace("sfs_driver_lookup(dir=%llu, name='%s')", dir->inode_num, name);
     sfs_mount_data *md = (sfs_mount_data *)dir->sb->driver_priv_data;
-    stored_inode *sin;
+    stored_inode *parent_inode;
+    stored_inode *target_inode;
     error_t err;
-log_trace("sfs_driver_lookup()");
 
-    err = md->inode_cache->ops->get(md->inode_cache, dir->inode_num, (void **)&sin);
+    err = md->inode_cache->ops->get(md->inode_cache, dir->inode_num, (void **)&parent_inode);
     if (err) return err;
-    if (!stored_inode_is_dir(sin)) return ERR_NOT_A_DIRECTORY;
+    if (!stored_inode_is_dir(parent_inode)) return traceable(ERR_NOT_A_DIRECTORY);
 
-log_trace("sfs_driver_lookup(), 2");
-sfs_stored_inode_log_debug(sin);
     uint32_t rec_no;
-    uint32_t inode_no;
-    err = sfs_node_dir_find_entry(md, sin, name, &rec_no, &inode_no);
-log_trace("sfs_driver_lookup(), 2, err = %d", err);
+    uint32_t target_inode_no;
+    err = sfs_node_dir_find_entry(md, parent_inode, name, &rec_no, &target_inode_no);
+    if (err) return err;
+    
+    err = md->inode_cache->ops->get(md->inode_cache, target_inode_no, (void **)&target_inode);
     if (err) return err;
 
-    *out = inodes.create(dir->sb, inode_no, dir, name);
+    *out = inodes.create(dir->sb, target_inode_no, STORED_INODE_IS_DIR(target_inode), STORED_INODE_IS_FILE(target_inode));
     return OK;
 }
 
@@ -216,7 +217,7 @@ static error_t sfs_driver_open(inode_t *n, int flags, open_file_t **file_handle)
     if (err) return err;
 
     // validate first
-    if (!stored_inode_is_file(sin)) return ERR_NOT_A_FILE;
+    if (!stored_inode_is_file(sin)) return traceable(ERR_NOT_A_FILE);
 
     *file_handle = open_files.create(n->sb, n);
 
@@ -232,7 +233,7 @@ static error_t sfs_driver_close(open_file_t *file) {
     error_t err;
 
     if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
-        return ERR_BAD_FILE;
+        return traceable(ERR_BAD_FILE);
     
     stored_inode *sin;
     err = md->inode_cache->ops->get(md->inode_cache, file->inode->inode_num, (void **)&sin);
@@ -253,7 +254,7 @@ static ssize_t sfs_driver_read(open_file_t *file, void *buf, size_t len, off_t o
     stored_inode *sin;
     
     if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
-        return ERR_BAD_FILE;
+        return traceable(ERR_BAD_FILE);
     error_t err = md->inode_cache->ops->get(md->inode_cache, file->inode->inode_num, (void **)&sin);
     if (err) return err;
 
@@ -266,7 +267,7 @@ static ssize_t sfs_driver_write(open_file_t *file, const void *buf, size_t len, 
     stored_inode *sin;
     
     if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
-        return ERR_BAD_FILE;
+        return traceable(ERR_BAD_FILE);
     error_t err = md->inode_cache->ops->get(md->inode_cache, file->inode->inode_num, (void **)&sin);
     if (err) return err;
 
@@ -278,7 +279,7 @@ static error_t sfs_driver_flush(open_file_t *file) {
     sfs_mount_data *md = (sfs_mount_data *)file->sb->driver_priv_data;
 
     if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
-        return ERR_BAD_FILE;
+        return traceable(ERR_BAD_FILE);
     error_t err = md->inode_cache->ops->flush(md->inode_cache, file->inode->inode_num);
     if (err) return err;
     
@@ -293,7 +294,7 @@ static error_t sfs_driver_opendir(inode_t *dir, open_file_t **dir_handle) {
     if (err) return err;
 
     // validate first
-    if (!stored_inode_is_dir(sin)) return ERR_NOT_A_DIRECTORY;
+    if (!stored_inode_is_dir(sin)) return traceable(ERR_NOT_A_DIRECTORY);
 
     *dir_handle = open_files.create(dir->sb, dir);
 
@@ -310,7 +311,7 @@ static ssize_t sfs_driver_readdir(open_file_t *dir_handle, vfs_dirent_t *out) {
     stored_inode *dir_sin; // The inode of the directory being read.
 
     if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode->inode_num))
-        return ERR_BAD_FILE;
+        return traceable(ERR_BAD_FILE);
     err = md->inode_cache->ops->get(md->inode_cache, dir_handle->inode->inode_num, (void **)&dir_sin);
     if (err) return err;
 
@@ -385,7 +386,7 @@ static ssize_t sfs_driver_readdir(open_file_t *dir_handle, vfs_dirent_t *out) {
 static error_t sfs_driver_rewinddir(open_file_t *dir_handle) {
     sfs_mount_data *md = (sfs_mount_data *)dir_handle->sb->driver_priv_data;
     if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode->inode_num))
-        return ERR_BAD_FILE;
+        return traceable(ERR_BAD_FILE);
     dir_handle->offset = 0;
     return OK;
 }
@@ -395,7 +396,7 @@ static error_t sfs_driver_closedir(open_file_t *dir_handle) {
     error_t err;
 
     if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode->inode_num))
-        return ERR_BAD_FILE;
+        return traceable(ERR_BAD_FILE);
     
     err = md->inode_cache->ops->unlock(md->inode_cache, dir_handle->inode->inode_num);
     if (err) return err;
@@ -410,17 +411,17 @@ static error_t sfs_driver_mkdir(inode_t *parent, const char *name, inode_t *out)
     error_t err;
 
     if (is_name_reserved(name))
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     
     // find our inode entry
     stored_inode *parent_sin;
     err = md->inode_cache->ops->get(md->inode_cache, parent->inode_num, (void **)&parent_sin);
     if (err) return err;
-    if (!stored_inode_is_dir(parent_sin)) return ERR_NOT_A_DIRECTORY;
+    if (!stored_inode_is_dir(parent_sin)) return traceable(ERR_NOT_A_DIRECTORY);
 
     // see if already exists
     err = sfs_node_dir_find_entry(md, parent_sin, name, &rec_no, &inode_no);
-    if (err == OK) return ERR_ALREADY_EXISTS;
+    if (err == OK) return traceable(ERR_ALREADY_EXISTS);
 
     // create inode on disk (cache cannot do this)
     stored_inode sin = new_stored_inode_dir();
@@ -453,13 +454,13 @@ static error_t sfs_driver_rmdir(inode_t *parent, const char *name) {
     error_t err;
 
     if (is_name_reserved(name))
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     
     // find our container inode
     stored_inode *parent_sin;
     err = md->inode_cache->ops->get(md->inode_cache, parent->inode_num, (void **)&parent_sin);
     if (err) return err;
-    if (!stored_inode_is_dir(parent_sin)) return ERR_NOT_A_DIRECTORY;
+    if (!stored_inode_is_dir(parent_sin)) return traceable(ERR_NOT_A_DIRECTORY);
 
     // find the target entry
     err = sfs_node_dir_find_entry(md, parent_sin, name, &rec_no, &inode_no);
@@ -469,13 +470,13 @@ static error_t sfs_driver_rmdir(inode_t *parent, const char *name) {
     stored_inode *dying_sin;
     err = md->inode_cache->ops->get(md->inode_cache, inode_no, (void **)&dying_sin);
     if (err) return err;
-    if (!stored_inode_is_dir(dying_sin)) return ERR_NOT_A_DIRECTORY;
+    if (!stored_inode_is_dir(dying_sin)) return traceable(ERR_NOT_A_DIRECTORY);
     
     // see if it is not empty, ignoring special entries
     bool is_empty = false;
     err = sfs_node_dir_is_empty(md, dying_sin, true, &is_empty);
     if (err) return err;
-    if (!is_empty) return ERR_DIR_NOT_EMPTY;
+    if (!is_empty) return traceable(ERR_DIR_NOT_EMPTY);
 
     // first, remove entry from parent directory
     err = sfs_node_dir_set_entry(md, parent->inode_num, parent_sin, rec_no, "", INVALID_INODE_NO);
@@ -499,17 +500,17 @@ static error_t sfs_driver_create(inode_t *parent, const char *name, int type, in
     error_t err;
 
     if (is_name_reserved(name))
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     
     // find our inode entry
     stored_inode *parent_sin;
     err = md->inode_cache->ops->get(md->inode_cache, parent->inode_num, (void **)&parent_sin);
     if (err) return err;
-    if (!stored_inode_is_dir(parent_sin)) return ERR_NOT_A_DIRECTORY;
+    if (!stored_inode_is_dir(parent_sin)) return traceable(ERR_NOT_A_DIRECTORY);
 
     // see if already exists
     err = sfs_node_dir_find_entry(md, parent_sin, name, &rec_no, &inode_no);
-    if (err == OK) return ERR_ALREADY_EXISTS;
+    if (err == OK) return traceable(ERR_ALREADY_EXISTS);
 
     // create inode on disk (cache cannot do this)
     stored_inode sin = new_stored_inode_file();
@@ -532,13 +533,13 @@ static error_t sfs_driver_unlink(inode_t *parent, const char *name) {
     error_t err;
 
     if (is_name_reserved(name))
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     
     // find our container inode
     stored_inode *parent_sin;
     err = md->inode_cache->ops->get(md->inode_cache, parent->inode_num, (void **)&parent_sin);
     if (err) return err;
-    if (!stored_inode_is_dir(parent_sin)) return ERR_NOT_A_DIRECTORY;
+    if (!stored_inode_is_dir(parent_sin)) return traceable(ERR_NOT_A_DIRECTORY);
 
     // find the target entry
     err = sfs_node_dir_find_entry(md, parent_sin, name, &rec_no, &inode_no);
@@ -548,7 +549,7 @@ static error_t sfs_driver_unlink(inode_t *parent, const char *name) {
     stored_inode *dying_sin;
     err = md->inode_cache->ops->get(md->inode_cache, inode_no, (void **)&dying_sin);
     if (err) return err;
-    if (!stored_inode_is_file(dying_sin)) return ERR_NOT_A_FILE;
+    if (!stored_inode_is_file(dying_sin)) return traceable(ERR_NOT_A_FILE);
     
     // first, remove entry from parent directory
     err = sfs_node_dir_set_entry(md, parent->inode_num, parent_sin, rec_no, "", INVALID_INODE_NO);
@@ -618,7 +619,7 @@ static error_t sfs_driver_truncate(inode_t *n, size_t size) {
     }
 
     // shrinking to a non-zero size is not supported
-    return ERR_NOT_SUPPORTED;
+    return traceable(ERR_NOT_SUPPORTED);
 }
 
 

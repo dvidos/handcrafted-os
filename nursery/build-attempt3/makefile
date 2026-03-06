@@ -1,4 +1,5 @@
-EMU := qemu-system-x86_64
+#EMU := qemu-system-x86_64
+EMU := qemu-system-i386
 
 
 # run configure.sh to generate the config.mk file
@@ -51,6 +52,13 @@ os.img: stage1 stage2 kernel tools rootfs
 	tools/make-os-img.sh
 
 run: run-sata
+
+run-debugger: os.img
+	$(EMU) -s -S \
+		-drive format=raw,file=os.img,if=none,id=disk0 \
+		-device ahci,id=ahci0 \
+		-device ide-hd,drive=disk0,bus=ahci0.0 \
+		-serial stdio -m 4G
 
 # SATA drive
 run-sata: os.img

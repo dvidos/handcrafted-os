@@ -5,7 +5,7 @@ MODULE("SFS", LOG_LEVEL_TRACE);
 
 
 
-void sfs_stored_inode_log_debug(stored_inode *n) {
+void sfs_stored_inode_log_debug(const char *prefix, stored_inode *n) {
     char buffer[64] = {0};
 
     char type = '?';
@@ -15,11 +15,10 @@ void sfs_stored_inode_log_debug(stored_inode *n) {
     if ((n->type_perms & STORED_INODE_TYPE_BLOCK) == STORED_INODE_TYPE_BLOCK) type = 'b';
     if ((n->type_perms & STORED_INODE_TYPE_SYM)   == STORED_INODE_TYPE_SYM)   type = 's';
 
-    log_debug("stored_inode(size=%lu, blocks=%lu, \n"
-        "  type/perms=0x%08x (type=%c, perms=%c%c%c|%c%c%c|%c%c%c), \n"
-        "  created=%lu, modified=%lu, user=%d, group=%d\n"
-        "  ranges=[%lu:%lu, %lu:%lu, %lu:%lu, %lu:%lu], indirect=%lu, dbl indirect=%lu)",
+    log_debug("%sstored_inode(size=%lu, blocks=%lu, type/perms=0x%x (type=%c, perms=%c%c%c|%c%c%c|%c%c%c), \n"
+        "  created=%lu, modified=%lu, user=%d, group=%d, ranges=[%lu:%lu, %lu:%lu, %lu:%lu, %lu:%lu], indirect=%lu, dbl indirect=%lu)",
 
+        prefix,
         n->file_size, n->allocated_blocks,
 
         n->type_perms, 

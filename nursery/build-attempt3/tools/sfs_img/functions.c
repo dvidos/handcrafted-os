@@ -192,7 +192,7 @@ uint32_t block_bitmap_allocate(int block_count) {
         // we just _hope_ the subsequent blocks are not used!
         first_block = block_bitmap_next_free_block;
         block_bitmap_next_free_block += block_count;
-        printf("(allocated %d blocks starting on block no %u)\n", block_count, first_block);
+        // printf("(allocated %d blocks starting on block no %u)\n", block_count, first_block);
         break;
     }
 
@@ -275,6 +275,10 @@ void persist_inode(context *ctx, inode_no_t inode_no, stored_inode *inode) {
     size_t abs_block_no = ctx->superblock.inodes_db_inode.ranges[0].first_block_no + block_index;
     size_t offset_in_block = offset_in_file % BLOCK_SIZE;
     write_fs_block_part(ctx, abs_block_no, offset_in_block, inode, sizeof(stored_inode));
+
+    size_t min_size = (inode_no + 1) * sizeof(stored_inode);
+    if (ctx->superblock.inodes_db_inode.file_size < min_size)
+        ctx->superblock.inodes_db_inode.file_size = min_size;
 }
 
 void load_inode(context *ctx, inode_no_t inode_no, stored_inode *inode) {

@@ -23,7 +23,7 @@ static inode_t _inode_create(superblock_t *sb, uint64_t inode_no, bool is_dir, b
 
     n.sb        = sb;
     n.inode_num = inode_no;  // inode / cluster / object id
-    n.mode      = (is_dir ? 0 : S_IFDIR) + (is_file ? 0 : S_IFREG);
+    n.mode      = (is_dir ? S_IFDIR : 0) + (is_file ? S_IFREG : 0);
     n.size      = 0;
     n.blocks    = 0;
     n.atime     = 0;

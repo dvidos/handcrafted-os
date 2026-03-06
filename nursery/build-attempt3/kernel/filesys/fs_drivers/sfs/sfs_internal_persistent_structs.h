@@ -62,6 +62,9 @@ struct block_range {
 #define STORED_INODE_PERM_OTHERS_W   0x0002
 #define STORED_INODE_PERM_OTHERS_X   0x0001
 
+#define STORED_INODE_IS_DIR(inode)      ((((inode)->type_perms) & STORED_INODE_TYPE_DIR)  == STORED_INODE_TYPE_DIR)
+#define STORED_INODE_IS_FILE(inode)     ((((inode)->type_perms) & STORED_INODE_TYPE_FILE) == STORED_INODE_TYPE_FILE)
+
 
 /**
  * the structure that describes a file. fixed struct size.
