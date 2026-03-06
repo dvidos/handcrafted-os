@@ -173,10 +173,10 @@ int import_file_from_host(context *ctx, const char *host_file, stored_inode *fil
     persist_inode(ctx, file_no, file_inode);
 }
 
-void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_inode *parent_dir_inode, inode_no_t parent_dir_no) {
+void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_inode *parent_dir_inode, inode_no_t parent_dir_no, int *dir_count, int *file_count) {
     char *entry_path;
 
-    printf("Importing from dir %s\n", host_dir);
+    // printf("Importing from dir %s\n", host_dir);
 
     entry_path = malloc(1024);
     entry_path[0] = 0;
@@ -196,10 +196,11 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
 
             size_t num_entries = count_entries_in_host_dir(entry_path);
             new_inode = create_new_inode(&ctx->superblock, false, num_entries * sizeof(stored_dir_entry), &new_inode_no);
-            import_dir_contents_recursively(ctx, entry_path, &new_inode, new_inode_no);
+            import_dir_contents_recursively(ctx, entry_path, &new_inode, new_inode_no, dir_count, file_count);
             persist_inode(ctx, new_inode_no, &new_inode);
             
             append_entry_to_directory(ctx, parent_dir_inode, parent_dir_no, entry->d_name, new_inode_no);
+            (*dir_count)++;
 
         } else if (entry->d_type == DT_REG) {
 
@@ -209,6 +210,7 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
             persist_inode(ctx, new_inode_no, &new_inode);
             
             append_entry_to_directory(ctx, parent_dir_inode, parent_dir_no, entry->d_name, new_inode_no);
+            (*file_count)++;
         }
     }
 
@@ -315,10 +317,12 @@ void do_import_dir_contents(int argc, char *argv[]) {
     context ctx;
     initialize_by_opening(image_file, &ctx);
 
-    import_dir_contents_recursively(&ctx, host_dir, &ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID);
+    int dir_count = 0;
+    int file_count = 0;
+    import_dir_contents_recursively(&ctx, host_dir, &ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID, &dir_count, &file_count);
 
     finalize(&ctx);
-    printf("Imported dir '%s' into %s\n", host_dir, sfs_dir);
+    printf("Imported contents of %s into image '%s': %d dirs, %d files\n", host_dir, sfs_dir, dir_count, file_count);
 }
 
 void do_list(int argc, char *argv[]) {

@@ -1,7 +1,7 @@
 #include "../memory/kheap.h"
 #include "string.h"
 #include "strbuff.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 
 MODULE("SBUFF", LOG_LEVEL_WARN);
 

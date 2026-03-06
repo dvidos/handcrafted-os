@@ -2,7 +2,7 @@
 #include "../../utils/mutex.h"
 #include "superblock.h"
 #include "inode.h"
-#include "../../utils/logger.h"
+#include "../../logger/logger.h"
 
 
 typedef struct open_file open_file_t;

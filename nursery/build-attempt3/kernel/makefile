@@ -31,14 +31,16 @@ KERNEL_BIN = kernel.bin
 KERNEL_C_FILES = \
 	$(wildcard *.c) \
 	$(wildcard utils/*.c) \
-	$(wildcard misc/*.c) \
+	$(wildcard arch/*.c) \
 	$(wildcard klib/*.c) \
+	$(wildcard logger/*.c) \
+	\
 	$(wildcard memory/*.c) \
 	$(wildcard drivers/*.c) \
 	\
-	$(wildcard multitask/*.c) \
-	$(wildcard multitask/process/*.c) \
-	$(wildcard multitask/procman/*.c) \
+	$(wildcard proc/*.c) \
+	$(wildcard proc/process/*.c) \
+	$(wildcard proc/procman/*.c) \
 	\
 	$(wildcard devices/*.c) \
 	$(wildcard devices/pci/*.c) \
@@ -52,15 +54,16 @@ KERNEL_C_FILES = \
 	$(wildcard filesys/fs_drivers/dummy_fs/*.c) \
 	$(wildcard filesys/fs_drivers/sfs/*.c) \
 	\
+	$(wildcard syscall/*.c) \
 	$(wildcard tasks/*.c)
 
 KERNEL_NASM_FILES1 = \
-	$(wildcard misc/*.asm) \
-	$(wildcard multitask/procman/*.asm)
+	$(wildcard arch/*.asm) \
+	$(wildcard proc/procman/*.asm)
 
 # we need start.asm to be first
-KERNEL_NASM_FILES_WITHOUT_START = $(filter-out misc/start.asm, $(KERNEL_NASM_FILES1))
-KERNEL_NASM_FILES = misc/start.asm $(KERNEL_NASM_FILES_WITHOUT_START)
+KERNEL_NASM_FILES_WITHOUT_START = $(filter-out arch/start.asm, $(KERNEL_NASM_FILES1))
+KERNEL_NASM_FILES = arch/start.asm $(KERNEL_NASM_FILES_WITHOUT_START)
 
 KERNEL_C_OBJS = $(KERNEL_C_FILES:.c=.o)
 KERNEL_ASM_OBJS = $(KERNEL_NASM_FILES:.asm=.o)

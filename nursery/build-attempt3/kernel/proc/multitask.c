@@ -4,7 +4,7 @@
 #include "procman/scheduler.h"
 #include "../drivers/timer.h"
 #include "../drivers/clock.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "../memory/kheap.h"
 #include "../memory/virtmem.h"
 #include "../klib/string.h"

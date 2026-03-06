@@ -1,5 +1,5 @@
-#include "../misc/cpu.h"
-#include "../misc/idt.h"
+#include "../arch/cpu.h"
+#include "../arch/idt.h"
 #include "screen.h"
 
 

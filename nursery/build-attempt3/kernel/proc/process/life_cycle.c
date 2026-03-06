@@ -2,7 +2,7 @@
 #include "../procman/proclist.h"
 #include "../procman/scheduler.h"
 #include "../multitask.h"
-#include "../../utils/logger.h"
+#include "../../logger/logger.h"
 #include "../../memory/kheap.h"
 #include "../../memory/virtmem.h"
 #include "../../klib/string.h"

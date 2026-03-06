@@ -5,7 +5,7 @@
 #include "../../../klib/string.h"
 #include "../../../klib/cache.h"
 #include "../../../klib/list.h"
-#include "../../../utils/logger.h"
+#include "../../../logger/logger.h"
 #include "sfs_internal.h"
 
 

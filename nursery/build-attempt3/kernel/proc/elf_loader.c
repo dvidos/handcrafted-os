@@ -1,10 +1,10 @@
 #include <uapi/errors.h>
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "../filesys/vfs_api.h"
 #include "../memory/virtmem.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
-#include "../multitask/process/process.h"
+#include "../proc/process/process.h"
 #include "../devices/tty.h"
 #include "../include/uapi/vfs_seek_flags.h"
 

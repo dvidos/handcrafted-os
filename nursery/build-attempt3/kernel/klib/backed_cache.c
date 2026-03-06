@@ -2,7 +2,7 @@
 #include "../memory/kheap.h"
 #include "../utils/assert.h"
 #include "../utils/mutex.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "string.h"
 
 MODULE("BCACHE", LOG_LEVEL_WARN);

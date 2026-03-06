@@ -1,5 +1,5 @@
 #include "sfs_internal.h"
-#include "../../../utils/logger.h"
+#include "../../../logger/logger.h"
 
 MODULE("SFS", LOG_LEVEL_TRACE);
 

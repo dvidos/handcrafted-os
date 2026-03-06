@@ -1,6 +1,6 @@
 #include "sfs_internal.h"
 #include "../../../devices/block/block_device.h"
-#include "../../../utils/logger.h"
+#include "../../../logger/logger.h"
 #include "../../../memory/kheap.h"
 
 MODULE("SFS_BRW", LOG_LEVEL_DEBUG);

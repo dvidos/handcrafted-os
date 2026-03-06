@@ -3,7 +3,7 @@
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 #include "../include/uapi/errors.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "framework.h"
 
 MODULE("VFS_UNIT_TEST", LOG_LEVEL_WARN)

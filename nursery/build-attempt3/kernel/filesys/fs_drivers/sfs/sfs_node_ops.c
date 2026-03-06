@@ -1,6 +1,6 @@
 #include "sfs_internal.h"
 #include "../../../klib/string.h"
-#include "../../../utils/logger.h"
+#include "../../../logger/logger.h"
 
 MODULE("VFS", LOG_LEVEL_WARN);
 

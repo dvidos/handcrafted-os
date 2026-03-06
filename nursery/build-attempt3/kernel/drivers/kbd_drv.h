@@ -2,7 +2,7 @@
 #define _KERNEL_KEYBOARD_H
 
 #include "../include/ctypes.h"
-#include "../misc/idt.h"
+#include "../arch/idt.h"
 #include "../include/uapi/key_event.h"
 
 

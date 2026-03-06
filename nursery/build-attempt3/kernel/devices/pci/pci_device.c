@@ -1,6 +1,6 @@
 #include "../../include/bits.h"
-#include "../misc/cpu.h"
-#include "../utils/logger.h"
+#include "../arch/cpu.h"
+#include "../logger/logger.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 #include "pci_device.h"

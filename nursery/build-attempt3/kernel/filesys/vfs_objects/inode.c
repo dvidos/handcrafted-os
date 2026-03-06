@@ -2,7 +2,7 @@
 #include "../../include/uapi/vfs_file_flags.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
-#include "../../utils/logger.h"
+#include "../../logger/logger.h"
 
 
 MODULE("INODE", LOG_LEVEL_INFO);

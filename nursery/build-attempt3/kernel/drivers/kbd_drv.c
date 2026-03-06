@@ -1,9 +1,9 @@
 #include "../klib/string.h"
 #include "../drivers/screen.h"
-#include "../misc/cpu.h"
-#include "../misc/idt.h"
+#include "../arch/cpu.h"
+#include "../arch/idt.h"
 #include "../utils/mutex.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "kbd_drv.h"
 
 #include "../include/uapi/key_codes.h"

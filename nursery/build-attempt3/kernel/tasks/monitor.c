@@ -1,9 +1,9 @@
 #include <ctypes.h>
 #include "../klib/string.h"
 #include "../filesys/vfs_objects/mount_table.h"
-#include "../multitask/process/process.h"
-#include "../multitask/procman/scheduler.h"
-#include "../multitask/procman/proclist.h"
+#include "../proc/process/process.h"
+#include "../proc/procman/scheduler.h"
+#include "../proc/procman/proclist.h"
 #include "../devices/devices.h"
 #include "../memory/kheap.h"
 #include "../drivers/clock.h"

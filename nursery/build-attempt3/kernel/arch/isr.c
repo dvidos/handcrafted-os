@@ -5,9 +5,9 @@
 #include "../drivers/clock.h"
 #include "../memory/virtmem.h"
 #include "pic.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "../include/bits.h"
-#include "../multitask/multitask.h"
+#include "../proc/multitask.h"
 
 
 MODULE("ISR", LOG_LEVEL_WARN);

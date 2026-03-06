@@ -1,6 +1,6 @@
 #include "process.h"
 #include "../../klib/string.h"
-#include "../../utils/logger.h"
+#include "../../logger/logger.h"
 
 
 MODULE("PROC_FILE", LOG_LEVEL_WARN);

@@ -1,9 +1,9 @@
 #include "../include/va_list.h"
 #include "../include/bits.h"
 #include "../klib/string.h"
-#include "../utils/logger.h"
-#include "../misc/cpu.h"
-#include "../misc/cpu.h"
+#include "../logger/logger.h"
+#include "../arch/cpu.h"
+#include "../arch/cpu.h"
 #include "screen.h"
 
 

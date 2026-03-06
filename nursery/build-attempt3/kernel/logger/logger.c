@@ -5,7 +5,7 @@
 #include "../drivers/serial.h"
 #include "../drivers/screen.h"
 #include "../drivers/timer.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 
 static char *level_captions[] = {
     "NONE ",

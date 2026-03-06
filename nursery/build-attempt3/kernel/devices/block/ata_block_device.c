@@ -3,12 +3,12 @@
 #include "../devices.h"
 #include "../pci/pci_device.h"
 #include "../memory/kheap.h"
-#include "../memory/physmem2.h"
-#include "../utils/logger.h"
+#include "../memory/physmem.h"
+#include "../logger/logger.h"
 #include "../drivers/timer.h"
 #include "../klib/string.h"
 #include "../include/bits.h"
-#include "../misc/cpu.h"
+#include "../arch/cpu.h"
 
 MODULE("ATA_BLK", LOG_LEVEL_WARN);
 

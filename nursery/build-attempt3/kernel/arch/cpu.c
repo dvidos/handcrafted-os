@@ -1,6 +1,6 @@
 #include "../include/ctypes.h"
 #include "../utils/panic.h"
-#include "../misc/cpu.h"
+#include "../arch/cpu.h"
 
 #define INTERRUPT_ENABLE_FLAG 0x00000200 // Interrupt Enable
 

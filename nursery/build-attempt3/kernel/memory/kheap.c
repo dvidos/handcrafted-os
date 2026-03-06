@@ -1,6 +1,6 @@
 #include "../utils/panic.h"
 #include "../klib/string.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "kheap.h"
 
 #define KMEM_MAGIC       0xAAA // something that fits in 12 bits

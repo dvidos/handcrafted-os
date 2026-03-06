@@ -1,10 +1,10 @@
-#include "../multitask/process/process.h"   // TODO: remove dependency here, this is stupid design
+#include "../proc/process/process.h"   // TODO: remove dependency here, this is stupid design
 #include "../memory/kheap.h"
 #include "../drivers/screen.h"
 #include "../include/uapi/key_codes.h"
 #include "../include/uapi/key_event.h"
-#include "../utils/logger.h"
-#include "../misc/cpu.h"
+#include "../logger/logger.h"
+#include "../arch/cpu.h"
 #include "../klib/string.h"
 #include "../utils/mutex.h"
 

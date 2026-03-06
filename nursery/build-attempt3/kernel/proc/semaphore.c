@@ -3,7 +3,7 @@
 #include "procman/proclist.h"
 #include "semaphore.h"
 #include "../memory/kheap.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "../klib/string.h"
 
 MODULE("SEMA", LOG_LEVEL_WARN);

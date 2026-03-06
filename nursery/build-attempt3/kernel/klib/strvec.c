@@ -1,6 +1,6 @@
 #include "../memory/kheap.h"
 #include "../klib/string.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 
 MODULE("STRVEC", LOG_LEVEL_WARN);
 

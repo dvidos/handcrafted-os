@@ -1,7 +1,7 @@
 #include "../utils/panic.h"
-#include "../misc/cpu.h"
-#include "../utils/logger.h"
-#include "physmem2.h"
+#include "../arch/cpu.h"
+#include "../logger/logger.h"
+#include "physmem.h"
 
 // 4GB of memory / 4K page size --> 1M pages
 // 1M pages / 32 bits in an uint32_t  => 32K uint32_t numbers.

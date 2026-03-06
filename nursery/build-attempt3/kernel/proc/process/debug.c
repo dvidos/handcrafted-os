@@ -1,6 +1,6 @@
 #include "process.h"
 #include "../procman/proclist.h"
-#include "../../utils/logger.h"
+#include "../../logger/logger.h"
 
 MODULE("PROC_DBG", LOG_LEVEL_TRACE);
 

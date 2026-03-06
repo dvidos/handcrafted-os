@@ -9,7 +9,7 @@
 #include "vfs_objects/mount_table.h"
 #include "../klib/path.h"
 #include "../klib/string.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "../utils/assert.h"
 #include "../klib/strerror.h"
 

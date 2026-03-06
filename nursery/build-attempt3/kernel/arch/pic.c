@@ -1,4 +1,4 @@
-#include "../misc/cpu.h"
+#include "../arch/cpu.h"
 #include "../include/bits.h"
 
 // programmable interrupt controller

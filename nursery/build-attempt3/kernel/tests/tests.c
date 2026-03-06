@@ -3,7 +3,7 @@
 #include "../klib/string.h"
 #include "../drivers/screen.h"
 #include "framework.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "../memory/kheap.h"
 
 MODULE("UNITTEST", LOG_LEVEL_WARN);

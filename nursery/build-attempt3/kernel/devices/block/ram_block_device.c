@@ -2,7 +2,7 @@
 #include "../../include/uapi/errors.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
-#include "../../utils/logger.h"
+#include "../../logger/logger.h"
 
 
 MODULE("RAM_BDEV", LOG_LEVEL_WARN);

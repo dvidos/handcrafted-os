@@ -1,8 +1,8 @@
 #include "../include/bits.h"
-#include "physmem2.h"
+#include "physmem.h"
 #include "../utils/panic.h"
-#include "../utils/logger.h"
-#include "../misc/cpu.h"
+#include "../logger/logger.h"
+#include "../arch/cpu.h"
 #include "../klib/string.h"
 
 MODULE("VMEM", LOG_LEVEL_WARN);

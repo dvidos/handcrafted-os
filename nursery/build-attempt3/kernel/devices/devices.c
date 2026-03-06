@@ -1,7 +1,7 @@
 #include "devices.h"
 #include "../klib/string.h"
 #include "../klib/list.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 
 MODULE("DEV_REG", LOG_LEVEL_WARN);
 

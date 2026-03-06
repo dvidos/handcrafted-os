@@ -2,9 +2,9 @@
 #include "proclist.h"
 #include "../multitask.h"
 #include "../process/process.h"
-#include "../misc/cpu.h"
+#include "../arch/cpu.h"
 #include "../drivers/timer.h"
-#include "../utils/logger.h"
+#include "../logger/logger.h"
 #include "../memory/virtmem.h"
 #include "../include/bits.h"
 

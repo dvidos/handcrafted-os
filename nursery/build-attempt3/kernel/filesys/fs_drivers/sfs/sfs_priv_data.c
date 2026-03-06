@@ -2,7 +2,7 @@
 #include "../../../devices/block/block_device.h"
 #include "../../../memory/kheap.h"
 #include "../../../klib/string.h"
-#include "../../../utils/logger.h"
+#include "../../../logger/logger.h"
 
 MODULE("SFS_PRIV", LOG_LEVEL_WARN);
 

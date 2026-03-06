@@ -1,7 +1,7 @@
 #include "sfs_internal.h"
 #include "../../../klib/string.h"
 #include "../../../drivers/clock.h"
-#include "../../../utils/logger.h"
+#include "../../../logger/logger.h"
 
 MODULE("SFS_NRW", LOG_LEVEL_WARN);
 
