@@ -395,7 +395,7 @@ static error_t sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, 
 
     int slot = find_free_cmd_slot(port);
     if (slot == -1)
-        return ERR_SATA_NO_CMD_SLOT;
+        return traceable(ERR_SATA_NO_CMD_SLOT);
  
     HBA_CMD_HEADER *cmd_hdr = &((HBA_CMD_HEADER *)port->clb)[slot];
     cmd_hdr->cfl = sizeof(FIS_REG_HOST_TO_DEVICE)/sizeof(uint32_t);	// Command FIS size
@@ -466,7 +466,7 @@ static error_t sata_rw_operation(bool read, HBA_PORT *port, uint32_t sector_lo, 
         if (port->is & HBA_PxIS_TFES) {
             // Task file error
             log_error("SATA: Read disk error, port %p\n", port);
-            return ERR_SATA_TASK_FILE_ERROR;
+            return traceable(ERR_SATA_TASK_FILE_ERROR);
         }
     }
     
@@ -580,7 +580,7 @@ static error_t block_dev_write(block_device_t *dev, uint64_t lba, uint32_t count
 
 static error_t block_dev_flush(block_device_t *dev) {
     // ? what here?
-    return ERR_NOT_IMPLEMENTED;
+    return traceable(ERR_NOT_IMPLEMENTED);
 }
 
 static struct block_device_ops sata_ops = {

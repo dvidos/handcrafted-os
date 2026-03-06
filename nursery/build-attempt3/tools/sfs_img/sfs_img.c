@@ -337,23 +337,6 @@ void do_list(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     if (argc < 2) do_help_and_exit();
 
-    /* TODO: it seems there is a bug in the allocator, when allocating the first real block,
-             it returns block zero or something, after that it's ok.
-             Contents of SFS file system in 'os.img'
-                bin          inode=0     size=192     blocks=1   type/perms=0x4000
-                    Warning, dir entry with empty name spotted
-                    edit         inode=2     size=0       blocks=0   type/perms=0x6e69
-                    init         inode=3     size=33432   blocks=33  type/perms=0x8000
-                usr          inode=4     size=192     blocks=1   type/perms=0x4000
-                    src          inode=5     size=0       blocks=1   type/perms=0x4000
-                    include      inode=6     size=832     blocks=1   type/perms=0x4000
-                        stdlib.h     inode=7     size=2039    blocks=2   type/perms=0x8000
-                        string.h     inode=8     size=1886    blocks=2   type/perms=0x8000
-                        va_list.h    inode=9     size=300     blocks=1   type/perms=0x8000
-                        metrics.h    inode=10    size=472     blocks=1   type/perms=0x8000
-                        slist.h      inode=11    size=1164    blocks=2   type/perms=0x8000
-                        stdio.h      inode=12    size=2607    blocks=3   type/perms=0x8000
-    */
     char *cmd = argv[1];
     if      (strcmp(cmd, "create-img")   == 0) do_create_img         (argc - 2, argv + 2);
     else if (strcmp(cmd, "write-sector") == 0) do_write_sector       (argc - 2, argv + 2);

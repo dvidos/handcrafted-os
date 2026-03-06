@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Kernel (QEMU)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/kernel/kernel.elf",
+      "miDebuggerServerAddress": "localhost:1234",
+      "miDebuggerPath": "gdb",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "externalConsole": false,
+      "setupCommands": [
+        { 
+            "text": "set architecture i386"
+        }
+      ]
+    }
+  ]
+}

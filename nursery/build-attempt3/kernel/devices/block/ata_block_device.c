@@ -212,16 +212,16 @@ static error_t poll(struct ide_channel *channel, bool advanced_check) {
 
         // check for error
         if (state & ATA_SR_ERR)
-            return ERR_IDE_STATUS_ERROR;
+            return traceable(ERR_IDE_STATUS_ERROR);
 
         // check for device fault
         if (state & ATA_SR_DF)
-            return ERR_IDE_DEVICE_FAULT;
+            return traceable(ERR_IDE_DEVICE_FAULT);
 
         // timer_pause_blocking(1);
         // BSY = 0; DF = 0; ERR = 0, so check for DRQ (should be set)
         if ((state & ATA_SR_DRQ) == 0)
-            return ERR_IDE_NO_DATA_REQ;
+            return traceable(ERR_IDE_NO_DATA_REQ);
     }
 
     return OK;
@@ -384,16 +384,16 @@ static error_t read_sectors(driver_data_t *data, uint8_t drive_no, uint32_t lba,
     // Check if the drive presents
     if (drive_no > 3 || !data->drives[drive_no].detected) {
         log_debug("read_sectors() - a (detected=%d)", data->drives[drive_no].detected);
-        return ERR_IDE_DRIVE_NOT_FOUND;
+        return traceable(ERR_IDE_DRIVE_NOT_FOUND);
     }
 
     // Check if inputs are valid
     if (((lba + numsects) > data->drives[drive_no].size) && (data->drives[drive_no].type == IDE_ATA))
-        return ERR_IDE_INVALID_ADDRESS;
+        return traceable(ERR_IDE_INVALID_ADDRESS);
 
     if (data->drives[drive_no].type != IDE_ATA) {
         log_debug("read_sectors() - c");
-        return ERR_IDE_DRIVE_NOT_FOUND;
+        return traceable(ERR_IDE_DRIVE_NOT_FOUND);
     }
 
     // Read in PIO Mode through Polling & IRQs:
@@ -406,15 +406,15 @@ static error_t write_sectors(driver_data_t *data, uint8_t drive_no, uint32_t lba
 
     // Check if the drive presents
     if (drive_no > 3 || !data->drives[drive_no].detected)
-        return ERR_IDE_DRIVE_NOT_FOUND;
+        return traceable(ERR_IDE_DRIVE_NOT_FOUND);
 
     // Check if inputs are valid
     if (((lba + numsects) > data->drives[drive_no].size) && (data->drives[drive_no].type == IDE_ATA))
-        return ERR_IDE_INVALID_ADDRESS;
+        return traceable(ERR_IDE_INVALID_ADDRESS);
 
     // Read in PIO Mode through Polling & IRQs:
     if (data->drives[drive_no].type != IDE_ATA)
-        return ERR_IDE_DRIVE_NOT_FOUND;
+        return traceable(ERR_IDE_DRIVE_NOT_FOUND);
 
     return ata_rw_operation(data, ATA_WRITE, drive_no, lba, numsects, es, edi);
 }
@@ -422,14 +422,14 @@ static error_t write_sectors(driver_data_t *data, uint8_t drive_no, uint32_t lba
 static error_t ide_get_specific_error(struct ide_channel *channel, uint8_t err) {
 
     uint8_t st = read_register(channel, ATA_REG_ERROR);
-    if (st & ATA_ER_AMNF)  return ERR_IDE_ADDR_MARK_NOT_FOUND;
-    if (st & ATA_ER_TK0NF) return ERR_IDE_NO_MEDIA;
-    if (st & ATA_ER_ABRT)  return ERR_IDE_CMD_ABORTED;
-    if (st & ATA_ER_MCR)   return ERR_IDE_NO_MEDIA;
-    if (st & ATA_ER_IDNF)  return ERR_IDE_ID_MARK_NOT_FOUND;
-    if (st & ATA_ER_MC)    return ERR_IDE_NO_MEDIA;
-    if (st & ATA_ER_UNC)   return ERR_IDE_UNCORRECTABLE_DATA_ERROR;
-    if (st & ATA_ER_BBK)   return ERR_IDE_BAD_SECTORS;
+    if (st & ATA_ER_AMNF)  return traceable(ERR_IDE_ADDR_MARK_NOT_FOUND);
+    if (st & ATA_ER_TK0NF) return traceable(ERR_IDE_NO_MEDIA);
+    if (st & ATA_ER_ABRT)  return traceable(ERR_IDE_CMD_ABORTED);
+    if (st & ATA_ER_MCR)   return traceable(ERR_IDE_NO_MEDIA);
+    if (st & ATA_ER_IDNF)  return traceable(ERR_IDE_ID_MARK_NOT_FOUND);
+    if (st & ATA_ER_MC)    return traceable(ERR_IDE_NO_MEDIA);
+    if (st & ATA_ER_UNC)   return traceable(ERR_IDE_UNCORRECTABLE_DATA_ERROR);
+    if (st & ATA_ER_BBK)   return traceable(ERR_IDE_BAD_SECTORS);
 
     return 0;
 }

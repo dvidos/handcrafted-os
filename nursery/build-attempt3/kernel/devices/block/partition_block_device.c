@@ -2,6 +2,11 @@
 #include "../../include/uapi/errors.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
+#include "../../utils/logger.h"
+
+
+MODULE("PART_DEV", LOG_LEVEL_WARN);
+
 
 typedef struct {
     block_device_t *underlying;
@@ -13,7 +18,7 @@ typedef struct {
 static error_t partition_read(block_device_t *dev, uint64_t lba, uint32_t count, void *buffer) {
     partition_priv_t *priv = (partition_priv_t *)dev->priv_data;
     if (lba + count > priv->num_blocks) {
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     }
     return priv->underlying->ops->read(priv->underlying, priv->first_block + lba, count, buffer);
 }
@@ -21,7 +26,7 @@ static error_t partition_read(block_device_t *dev, uint64_t lba, uint32_t count,
 static error_t partition_write(block_device_t *dev, uint64_t lba, uint32_t count, const void *buffer) {
     partition_priv_t *priv = (partition_priv_t *)dev->priv_data;
     if (lba + count > priv->num_blocks) {
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     }
     return priv->underlying->ops->write(priv->underlying, priv->first_block + lba, count, buffer);
 }
@@ -56,11 +61,11 @@ error_t create_partition_block_device(
     block_device_t **result
 ) {
     if (first_block + num_blocks > underlying->total_blocks)
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
 
     partition_priv_t *priv = kmalloc(sizeof(partition_priv_t));
     if (priv == NULL)
-        return ERR_NO_MEMORY;
+        return traceable(ERR_NO_MEMORY);
     
     priv->underlying = underlying;
     priv->first_block = first_block;

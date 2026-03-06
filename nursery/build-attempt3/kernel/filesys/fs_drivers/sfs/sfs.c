@@ -182,7 +182,8 @@ cleanup:
 }
 
 static error_t sfs_driver_get_root_dir(superblock_t *sb, inode_t *out) {
-    *out = inodes.create(sb, ROOT_DIR_INODE_ID, true, false);
+    sfs_mount_data *md = (sfs_mount_data *)sb->driver_priv_data;
+    *out = inodes.create(sb, ROOT_DIR_INODE_ID, true, false, md->superblock->root_dir_inode.file_size);
     return OK;
 }
 
@@ -205,7 +206,7 @@ static error_t sfs_driver_lookup(inode_t *dir, const char *name, inode_t *out) {
     err = md->inode_cache->ops->get(md->inode_cache, target_inode_no, (void **)&target_inode);
     if (err) return err;
 
-    *out = inodes.create(dir->sb, target_inode_no, STORED_INODE_IS_DIR(target_inode), STORED_INODE_IS_FILE(target_inode));
+    *out = inodes.create(dir->sb, target_inode_no, STORED_INODE_IS_DIR(target_inode), STORED_INODE_IS_FILE(target_inode), target_inode->file_size);
     return OK;
 }
 
@@ -232,18 +233,18 @@ static error_t sfs_driver_close(open_file_t *file) {
     sfs_mount_data *md = (sfs_mount_data *)file->sb->driver_priv_data;
     error_t err;
 
-    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
+    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode.inode_num))
         return traceable(ERR_BAD_FILE);
     
     stored_inode *sin;
-    err = md->inode_cache->ops->get(md->inode_cache, file->inode->inode_num, (void **)&sin);
+    err = md->inode_cache->ops->get(md->inode_cache, file->inode.inode_num, (void **)&sin);
     if (err) return err;
 
     // sin->modified_at = ...
     
-    err = md->inode_cache->ops->flush(md->inode_cache, file->inode->inode_num);
+    err = md->inode_cache->ops->flush(md->inode_cache, file->inode.inode_num);
     if (err) return err;
-    err = md->inode_cache->ops->unlock(md->inode_cache, file->inode->inode_num);
+    err = md->inode_cache->ops->unlock(md->inode_cache, file->inode.inode_num);
     if (err) return err;
     
     return OK;
@@ -253,9 +254,9 @@ static ssize_t sfs_driver_read(open_file_t *file, void *buf, size_t len, off_t o
     sfs_mount_data *md = (sfs_mount_data *)file->sb->driver_priv_data;
     stored_inode *sin;
     
-    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
+    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode.inode_num))
         return traceable(ERR_BAD_FILE);
-    error_t err = md->inode_cache->ops->get(md->inode_cache, file->inode->inode_num, (void **)&sin);
+    error_t err = md->inode_cache->ops->get(md->inode_cache, file->inode.inode_num, (void **)&sin);
     if (err) return err;
 
     ssize_t answer = sfs_node_read_file_bytes(md, sin, offset, buf, len);
@@ -266,21 +267,21 @@ static ssize_t sfs_driver_write(open_file_t *file, const void *buf, size_t len, 
     sfs_mount_data *md = (sfs_mount_data *)file->sb->driver_priv_data;
     stored_inode *sin;
     
-    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
+    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode.inode_num))
         return traceable(ERR_BAD_FILE);
-    error_t err = md->inode_cache->ops->get(md->inode_cache, file->inode->inode_num, (void **)&sin);
+    error_t err = md->inode_cache->ops->get(md->inode_cache, file->inode.inode_num, (void **)&sin);
     if (err) return err;
 
-    ssize_t answer = sfs_node_write_file_bytes(md, sin, file->inode->inode_num, offset, buf, len);
+    ssize_t answer = sfs_node_write_file_bytes(md, sin, file->inode.inode_num, offset, buf, len);
     return answer;
 }
 
 static error_t sfs_driver_flush(open_file_t *file) {
     sfs_mount_data *md = (sfs_mount_data *)file->sb->driver_priv_data;
 
-    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode->inode_num))
+    if (!md->inode_cache->ops->is_locked(md->inode_cache, file->inode.inode_num))
         return traceable(ERR_BAD_FILE);
-    error_t err = md->inode_cache->ops->flush(md->inode_cache, file->inode->inode_num);
+    error_t err = md->inode_cache->ops->flush(md->inode_cache, file->inode.inode_num);
     if (err) return err;
     
     return OK;
@@ -310,9 +311,9 @@ static ssize_t sfs_driver_readdir(open_file_t *dir_handle, vfs_dirent_t *out) {
     error_t err;
     stored_inode *dir_sin; // The inode of the directory being read.
 
-    if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode->inode_num))
+    if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode.inode_num))
         return traceable(ERR_BAD_FILE);
-    err = md->inode_cache->ops->get(md->inode_cache, dir_handle->inode->inode_num, (void **)&dir_sin);
+    err = md->inode_cache->ops->get(md->inode_cache, dir_handle->inode.inode_num, (void **)&dir_sin);
     if (err) return err;
 
     // 'dir_handle->offset' now serves as the physical byte offset within the
@@ -385,7 +386,7 @@ static ssize_t sfs_driver_readdir(open_file_t *dir_handle, vfs_dirent_t *out) {
 
 static error_t sfs_driver_rewinddir(open_file_t *dir_handle) {
     sfs_mount_data *md = (sfs_mount_data *)dir_handle->sb->driver_priv_data;
-    if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode->inode_num))
+    if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode.inode_num))
         return traceable(ERR_BAD_FILE);
     dir_handle->offset = 0;
     return OK;
@@ -395,10 +396,10 @@ static error_t sfs_driver_closedir(open_file_t *dir_handle) {
     sfs_mount_data *md = (sfs_mount_data *)dir_handle->sb->driver_priv_data;
     error_t err;
 
-    if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode->inode_num))
+    if (!md->inode_cache->ops->is_locked(md->inode_cache, dir_handle->inode.inode_num))
         return traceable(ERR_BAD_FILE);
     
-    err = md->inode_cache->ops->unlock(md->inode_cache, dir_handle->inode->inode_num);
+    err = md->inode_cache->ops->unlock(md->inode_cache, dir_handle->inode.inode_num);
     if (err) return err;
     
     return OK;
@@ -443,7 +444,7 @@ static error_t sfs_driver_mkdir(inode_t *parent, const char *name, inode_t *out)
     err = sfs_node_dir_add_entry(md, inode_no, new_sin, "..", parent->inode_num);
     if (err) return err;
 
-    *out = inodes.create(parent->sb, inode_no, parent, name);
+    *out = inodes.create(parent->sb, inode_no, parent, name, parent->size);
     return OK;
 }
 
@@ -522,7 +523,7 @@ static error_t sfs_driver_create(inode_t *parent, const char *name, int type, in
     err = sfs_node_dir_add_entry(md, parent->inode_num, parent_sin, name, inode_no);
     if (err) return err;
 
-    *out = inodes.create(parent->sb, inode_no, parent, name);
+    *out = inodes.create(parent->sb, inode_no, parent, name, sin.file_size);
     return OK;
 }
 

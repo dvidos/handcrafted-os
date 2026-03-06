@@ -2,6 +2,11 @@
 #include "../../include/uapi/errors.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
+#include "../../utils/logger.h"
+
+
+MODULE("RAM_BDEV", LOG_LEVEL_WARN);
+
 
 typedef struct {
     size_t block_size;
@@ -12,7 +17,7 @@ typedef struct {
 static error_t ram_disk_read(block_device_t *dev, uint64_t lba, uint32_t count, void *buffer) {
     ram_disk_priv_t *priv = (ram_disk_priv_t *)dev->priv_data;
     if (lba + count > priv->block_count) {
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     }
     memcpy(buffer, priv->buffer + lba * priv->block_size, count * priv->block_size);
     return OK;
@@ -21,7 +26,7 @@ static error_t ram_disk_read(block_device_t *dev, uint64_t lba, uint32_t count, 
 static error_t ram_disk_write(block_device_t *dev, uint64_t lba, uint32_t count, const void *buffer) {
     ram_disk_priv_t *priv = (ram_disk_priv_t *)dev->priv_data;
     if (lba + count > priv->block_count) {
-        return ERR_INVALID_ARGS;
+        return traceable(ERR_INVALID_ARGS);
     }
     memcpy(priv->buffer + lba * priv->block_size, buffer, count * priv->block_size);
     return OK;
@@ -59,7 +64,7 @@ error_t create_ram_block_device(
 
     ram_disk_priv_t *priv = kmalloc(sizeof(ram_disk_priv_t));
     if (priv == NULL)
-        return ERR_NO_MEMORY;
+        return traceable(ERR_NO_MEMORY);
 
     priv->block_size = block_size;
     priv->block_count = block_count;

@@ -214,8 +214,7 @@ int vfs_open(const char *path, int flags, open_file_t **file) {
     err = vfs_lookup_target(path, &n);
     if (err) return err;
     if (!inodes.is_file(&n))
-        return traceable(ERR_NOT_A_FILE); // TODO: maybe implement this, to optionally trace errors returned? then also make configuration choices
-                                        //       compile diagnostics, checks, asserts on/off etc.
+        return traceable(ERR_NOT_A_FILE);
 
     err = n.sb->driver->open(&n, flags, file);
     if (err) return err;
@@ -237,7 +236,7 @@ int vfs_close(open_file_t *file) {
 }
 
 ssize_t vfs_read(open_file_t *file, void *buf, size_t len) {
-    log_trace("vfs_read(file=%ld, len=%d)", file->inode->inode_num, len);
+    log_trace("vfs_read(file=%ld, len=%d)", file->inode.inode_num, len);
     ssize_t bytes = file->sb->driver->read(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
@@ -248,7 +247,7 @@ ssize_t vfs_read(open_file_t *file, void *buf, size_t len) {
 }
 
 ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
-    log_trace("vfs_write(file=%ld, len=%d)", file->inode->inode_num, len);
+    log_trace("vfs_write(file=%ld, len=%d)", file->inode.inode_num, len);
     ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
@@ -263,7 +262,7 @@ ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
 }
 
 off_t vfs_seek(open_file_t *file, off_t offset, int whence) {
-    log_trace("vfs_seek(file=%ld, off=%d, whence=%d)", file->inode->inode_num, offset, whence);
+    log_trace("vfs_seek(file=%ld, off=%d, whence=%d)", file->inode.inode_num, offset, whence);
     off_t new_offset;
     switch (whence) {
         case SEEK_SET: new_offset = offset; break;
@@ -306,7 +305,7 @@ error_t vfs_opendir(const char *path, open_file_t **dir) {
 }
 
 ssize_t vfs_readdir(open_file_t *dir, vfs_dirent_t *out) {
-    log_trace("vfs_readdir(dir=%ld)", dir->inode->inode_num);
+    log_trace("vfs_readdir(dir=%ld)", dir->inode.inode_num);
     int bytes;
 
     bytes = dir->sb->driver->readdir(dir, out);
@@ -319,7 +318,7 @@ ssize_t vfs_readdir(open_file_t *dir, vfs_dirent_t *out) {
 }
 
 error_t vfs_rewinddir(open_file_t *dir) {
-    log_trace("vfs_rewinddir(dir=%ld)", dir->inode->inode_num);
+    log_trace("vfs_rewinddir(dir=%ld)", dir->inode.inode_num);
     int err = dir->sb->driver->rewinddir(dir);
     if (err) return err;
 
@@ -328,7 +327,7 @@ error_t vfs_rewinddir(open_file_t *dir) {
 }
 
 error_t vfs_closedir(open_file_t *dir) {
-    log_trace("vfs_closedir(dir=%ld)", dir->inode->inode_num);
+    log_trace("vfs_closedir(dir=%ld)", dir->inode.inode_num);
     int err = dir->sb->driver->closedir(dir);
     if (err) return err;
 
@@ -349,8 +348,8 @@ error_t vfs_stat(const char *path, vfs_stat_t *out) {
 }
 
 error_t vfs_fstat(open_file_t *file, vfs_stat_t *out) {
-    log_trace("vfs_fstat(file=%ld)", file->inode->inode_num);
-    return file->sb->driver->stat(file->inode, out);
+    log_trace("vfs_fstat(file=%ld)", file->inode.inode_num);
+    return file->sb->driver->stat(&file->inode, out);
 }
 
 error_t vfs_truncate(const char *path, size_t size) {

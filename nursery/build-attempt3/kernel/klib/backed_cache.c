@@ -160,14 +160,14 @@ static error_t ensure_node_in_cache(backed_cache_t *cache, uint64_t key, backed_
     // we'll need to load. find empty slot or evict
     if (cache->used_count < cache->obj_capacity) {
         node = find_an_unused_node(cache);
-        if (node == NULL) return ERR_CORRUPTION_DETECTED; // used_count is out of sync
+        if (node == NULL) return traceable(ERR_CORRUPTION_DETECTED); // used_count is out of sync
         log_trace("found unused node (node=%p)", node);
         node->is_used = 1;
         cache->used_count++;
 
     } else {
         node = find_an_old_unreferenced_node(cache);
-        if (node == NULL) return ERR_CONTAINER_FULL; // all are in use, we need more space
+        if (node == NULL) return traceable(ERR_CONTAINER_FULL); // all are in use, we need more space
         log_trace("evicting unreferenced node (node=%p)", node);
         err = save_node(cache, node);
         if (err) return err;
@@ -189,7 +189,7 @@ static error_t backed_cache_get(backed_cache_t *cache, uint64_t key, void **out_
 
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) { mutex_release(&cache->lock); return ERR_NOT_FOUND; }
+    if (err) { mutex_release(&cache->lock); return traceable(ERR_NOT_FOUND); }
 
     *out_ptr = node->data_ptr;
     mutex_release(&cache->lock);
@@ -201,7 +201,7 @@ static error_t backed_cache_lock(backed_cache_t *cache, uint64_t key) {
 
     backed_cache_node *node;
     error_t err = ensure_node_in_cache(cache, key, &node);
-    if (err) { mutex_release(&cache->lock); return ERR_NOT_FOUND; }
+    if (err) { mutex_release(&cache->lock); return traceable(ERR_NOT_FOUND); }
 
     node->ref_count++;
     cache->references_sum++;
@@ -213,7 +213,7 @@ static error_t backed_cache_unlock(backed_cache_t *cache, uint64_t key) {
 
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
-    if (node == NULL) return ERR_NOT_FOUND;
+    if (node == NULL) return traceable(ERR_NOT_FOUND);
     
     mutex_acquire(&cache->lock);
 
@@ -238,7 +238,7 @@ static error_t backed_cache_mark_dirty(backed_cache_t *cache, uint64_t key) {
     
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
-    if (node == NULL) return ERR_NOT_FOUND;
+    if (node == NULL) return traceable(ERR_NOT_FOUND);
 
     mutex_acquire(&cache->lock);
 
@@ -361,7 +361,7 @@ static error_t backed_cache_invalidate(backed_cache_t *cache, uint64_t key) {
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
     
     if (node == NULL)        { mutex_release(&cache->lock); return OK; }
-    if (node->ref_count > 0) { mutex_release(&cache->lock); return ERR_BUSY; }
+    if (node->ref_count > 0) { mutex_release(&cache->lock); return traceable(ERR_BUSY); }
     make_node_unused_again(cache, node);
 
     mutex_release(&cache->lock);
@@ -370,7 +370,7 @@ static error_t backed_cache_invalidate(backed_cache_t *cache, uint64_t key) {
 
 static error_t backed_cache_flush(backed_cache_t *cache, uint64_t key) {
     if (cache->backend.write == NULL)
-        return ERR_NOT_SUPPORTED;
+        return traceable(ERR_NOT_SUPPORTED);
     
     mutex_acquire(&cache->lock);
 
@@ -385,7 +385,7 @@ static error_t backed_cache_flush(backed_cache_t *cache, uint64_t key) {
 
 static error_t backed_cache_flush_all(backed_cache_t *cache) {
     if (cache->backend.write == NULL)
-        return ERR_NOT_SUPPORTED;
+        return traceable(ERR_NOT_SUPPORTED);
     
     mutex_acquire(&cache->lock);
     for (backed_cache_node *n = cache->lru_oldest; n; n = n->lru_newer) {

@@ -43,7 +43,7 @@ static error_t _dummy_fs_mkfs(block_device_t *dev) {
 }
 
 static error_t _dummy_fs_get_root_dir(superblock_t *sb, inode_t *out) {
-    *out = inodes.create(sb, ROOT_DIR_INODE, NULL, "/");
+    *out = inodes.create(sb, ROOT_DIR_INODE, NULL, "/", 0);
     return OK;
 }
 
@@ -54,7 +54,7 @@ static error_t _dummy_fs_lookup(inode_t *dir, const char *name, inode_t *out) {
     if (strcmp(name, TEXT_FILE_NAME) != 0)
         return ERR_NOT_FOUND;
     
-    *out = inodes.create(dir->sb, TEXT_FILE_INODE, dir, TEXT_FILE_NAME);
+    *out = inodes.create(dir->sb, TEXT_FILE_INODE, dir, TEXT_FILE_NAME, strlen(TEXT_FILE_CONTENTS));
     return OK;
 }
 
@@ -75,7 +75,7 @@ static error_t _dummy_fs_close(open_file_t *file) {
 
 static ssize_t _dummy_fs_read(open_file_t *file, void *buf, size_t len, off_t offset) {
     // grab private data and offset from file
-    if (file->inode->inode_num != TEXT_FILE_INODE)
+    if (file->inode.inode_num != TEXT_FILE_INODE)
         return ERR_BAD_ARGUMENT;
 
     int text_offset = file->offset;

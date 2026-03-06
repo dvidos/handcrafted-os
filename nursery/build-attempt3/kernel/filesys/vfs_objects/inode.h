@@ -9,11 +9,11 @@ typedef struct inode inode_t;
 
 // value object, copiable, cacheable, can test for equality
 struct inode {  
-    superblock_t *sb;             // which mounted FS
-    uint64_t inode_num;           // inode / file id / synthetic file identifier for FAT
-    uint32_t mode;                // file type & permissions, see S_Ixxxx defines
-    uint64_t size;                // file size in bytes
-    uint64_t blocks;              // allocated blocks
+    superblock_t *sb;    // which mounted FS
+    uint64_t inode_num;  // inode / file id / synthetic file identifier for FAT
+    uint32_t mode;       // file type & permissions, see S_Ixxxx defines
+    uint64_t size;       // file size in bytes
+    uint64_t blocks;     // allocated blocks
     uint64_t atime;
     uint64_t mtime;
     uint64_t ctime;
@@ -22,7 +22,7 @@ struct inode {
 
 struct inode_ops {
     inode_t (*empty)();
-    inode_t (*create)(superblock_t *sb, uint64_t inode, bool is_dir, bool is_file);
+    inode_t (*create)(superblock_t *sb, uint64_t inode, bool is_dir, bool is_file, uint32_t file_size);
     bool (*equals)(const inode_t *a, const inode_t *b);
     bool (*is_empty)(inode_t *n);
     bool (*is_dir)(inode_t *n);
