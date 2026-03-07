@@ -9,6 +9,9 @@
 // this way, we depend on a linked-in panic() method, but nothing else.
 
 
+typedef uintptr_t phys_addr_t;  // physical address. 32 bits -> 4 GB
+
+
 // to be used as a dependency to other systems
 typedef struct pmm_allocator_t {
     phys_addr_t (*allocate_physical_page)();
@@ -37,7 +40,8 @@ struct pmm_ops {
 };
 
 
-#define PAGE_SIZE    4096
-#define INVALID_PAGE    0
+#define PAGE_SIZE                 4096
+#define INVALID_PAGE              0
+#define BYTES_TO_PAGES(bytes)     (((bytes) + PAGE_SIZE - 1) / PAGE_SIZE)
 
 extern struct pmm_ops pmm;

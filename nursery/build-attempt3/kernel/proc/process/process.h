@@ -5,6 +5,8 @@
 #include "../utils/mutex.h"
 #include "../devices/tty.h"
 #include "../filesys/vfs_api.h"
+#include "../../memory/virtmem.h"
+
 
 // used to detect stack overflows
 #define STACK_BOTTOM_MAGIC_VALUE    0x12345678
@@ -112,7 +114,7 @@ struct process {
 
     // each user process will have a specific page_directory
     // use get_kernel_page_directory() for kernel
-    void *page_directory;
+    page_dir_t page_directory;
 
     // data for loading and running user processes
     struct {
@@ -122,13 +124,13 @@ struct process {
         char **envp;
 
         // for user processes, libc will call sbrk()
-        void *heap;           // heap will grow upwards
+        virt_addr_t heap;           // heap will grow upwards
         uint32_t heap_size;   // to allow sbrk() to work
 
         // this stack allocated from physical memory
         // along with the other segments (e.g. .code, .data, .bss)
         // stack bottom used to set and detect stack underflow
-        void *stack_bottom;
+        virt_addr_t stack_bottom;
         uint32_t stack_size;
 
     } user_proc;

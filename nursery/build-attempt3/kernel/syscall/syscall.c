@@ -95,14 +95,14 @@ static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t s
     log_debug_hex(address, length, starting_num);
 }
 
-static void *sys_sbrk(int diff_size) {
+static virt_addr_t sys_sbrk(int diff_size) {
     process_t *p = running_process();
-    if (p == NULL)
-        return NULL;
-    void *initial_break = p->user_proc.heap + p->user_proc.heap_size;
+    if (!p) return 0;
+    
+    virt_addr_t initial_break = p->user_proc.heap + p->user_proc.heap_size;
     if (diff_size > 0) {
         diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page / 4K
-        void *heap_end = p->user_proc.heap + p->user_proc.heap_size;
+        virt_addr_t heap_end = p->user_proc.heap + p->user_proc.heap_size;
         allocate_virtual_memory_range(heap_end, heap_end + diff_size, p->page_directory);
         p->user_proc.heap_size += diff_size;
     }

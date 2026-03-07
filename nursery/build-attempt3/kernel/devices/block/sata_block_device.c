@@ -528,12 +528,12 @@ static void rebase_port(HBA_PORT *port) {
      * A total of: 9472 bytes, rounded up to 3 pages of 4K => 12288
      */
     int port_memory_size = 12288;
-    char *port_memory_addr = (char *)pmm.allocate_consecutive_pages(port_memory_size);
-    if (port_memory_addr == NULL)
+    phys_addr_t port_memory_addr = pmm.allocate_consecutive_pages(port_memory_size);
+    if (!port_memory_addr)
         panic("Cannot allocate 12K for SATA drive");
     // map the memory so we can access it
     identity_map_range(port_memory_addr, port_memory_addr + port_memory_size - 1, get_page_directory_register());
-    memset(port_memory_addr, 0, port_memory_size);
+    memset((void *)port_memory_addr, 0, port_memory_size);
 
     // for some reason, these are not exactly the sizes, they are somewhat smaller...
     if (sizeof(HBA_CMD_HEADER) > 32)
@@ -603,7 +603,7 @@ static error_t discover_and_register_serial_ata_storage_device(pci_device_t *pci
     // we must be able to "see" this memory
     uint32_t abar_phys = pci_dev->config.headers.h00.bar5 & ~0xF; // clear flags
     size_t abar_size = 4096; // enough for HBA_MEM (often 4K–8K)
-    identity_map_range((void *)abar_phys, (void *)(abar_phys + abar_size - 1), get_kernel_page_directory());
+    identity_map_range(abar_phys, abar_phys + abar_size - 1, get_kernel_page_directory());
 
     HBA_MEM *memory = (HBA_MEM *)base_mem_register;
     for (int port_no = 0; port_no < 32; port_no++) {

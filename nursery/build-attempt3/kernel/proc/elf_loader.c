@@ -213,7 +213,7 @@ int verify_elf_executable(open_file_t *file) {
 }
 
 // calcualtes information for setting up a new process
-int get_elf_load_information(open_file_t *file, void **virt_addr_start, void **virt_addr_end, void **entry_point) {
+int get_elf_load_information(open_file_t *file, virt_addr_t *virt_addr_start, virt_addr_t *virt_addr_end, virt_addr_t *entry_point) {
     log_trace("get_elf_load_information(inode=%ld)", file->inode.inode_num);
 
     elf32_header_t *elf_header = NULL;
@@ -236,7 +236,7 @@ int get_elf_load_information(open_file_t *file, void **virt_addr_start, void **v
         err = ERR_NOT_SUPPORTED;
         goto exit;
     }
-    *entry_point = (void *)elf_header->entry;
+    *entry_point = elf_header->entry;
 
     // load program headers to calculate virtual address needs
     int prg_hdr_bytes = elf_header->phnum * elf_header->phentsize;
@@ -261,8 +261,8 @@ int get_elf_load_information(open_file_t *file, void **virt_addr_start, void **v
         highest_virtual_address = max(highest_virtual_address, program_end_address);
     }
 
-    *virt_addr_start = (void *)lowest_virtual_address;
-    *virt_addr_end = (void *)highest_virtual_address;
+    *virt_addr_start = lowest_virtual_address;
+    *virt_addr_end = highest_virtual_address;
     err = OK;
 
 exit:

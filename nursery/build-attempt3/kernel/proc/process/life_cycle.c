@@ -131,10 +131,10 @@ void proc_destroy(process_t *proc) {
     if (proc->name != NULL)
         kfree(proc->name);
 
-    if (proc->allocated_kernel_stack != NULL)
+    if (proc->allocated_kernel_stack != 0)
         kfree(proc->allocated_kernel_stack);
 
-    if (proc->page_directory != NULL && proc->page_directory != get_kernel_page_directory())
+    if (proc->page_directory != 0 && proc->page_directory != get_kernel_page_directory())
         destroy_page_directory(proc->page_directory);
 
     if (proc->user_proc.executable_path != NULL)

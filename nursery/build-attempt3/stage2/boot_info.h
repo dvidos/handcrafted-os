@@ -2,7 +2,6 @@
 // this file shared between stage2 (access to BIOS) and kernel (protected mode). 
 // the address of a boot_info_t instance is passed to kernel
 
-#include <stdint.h>
 
 typedef struct framebuffer_info {
     uint64_t fb_addr;  // physical address

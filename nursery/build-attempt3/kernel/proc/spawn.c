@@ -1,7 +1,6 @@
 #include "../include/uapi/errors.h"
 #include "../logger/logger.h"
 #include "../klib/string.h"
-// #include "../filesys/vfs.h"
 #include "process/process.h"
 #include "../klib/strvec.h"
 #include "../devices/tty.h"
@@ -144,9 +143,9 @@ static void load_and_run_executable() {
     }
 
     // gather information from the elf file
-    void *virt_addr_start = NULL;
-    void *virt_addr_end = NULL;
-    void *elf_entry_point = NULL;
+    virt_addr_t virt_addr_start = 0;
+    virt_addr_t virt_addr_end = 0;
+    virt_addr_t elf_entry_point = 0;
 
     err = get_elf_load_information(file, &virt_addr_start, &virt_addr_end, &elf_entry_point);
     log_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, elf_entry_point);
@@ -163,14 +162,14 @@ static void load_and_run_executable() {
 
     // stack will be located below the executable loaded address (and be 16 bytes aligned)
     int stack_size = 256 * 1024;
-    void *stack_bottom = (void *)(((uint32_t)virt_addr_start - stack_size - 4096) & 0xFFFFF000);
+    virt_addr_t stack_bottom = ((virt_addr_start - stack_size - 4096) & 0xFFFFF000);
 
     // heap will be located above the executable loaded address, growing up
     int heap_size = 0;
-    void *heap = (void *)(((uint32_t)virt_addr_end + 0xFFF) & 0xFFFFF000);
+    virt_addr_t heap = ((virt_addr_end + 0xFFF) & 0xFFFFF000);
 
     // create something to load the segments (kernel mapped included)
-    void *page_directory = create_page_directory(true);
+    page_dir_t page_directory = create_page_directory(true);
     allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
     log_debug("Allocated new page directory 0x%x for spawnve()", page_directory);
     dump_page_directory(page_directory);
@@ -206,7 +205,7 @@ static void load_and_run_executable() {
     // in theory, this will never return, as crt0 will call proc_exit()
     
     int argc = count_strvec(proc->user_proc.argv);
-    void *stack_top = stack_bottom + stack_size;
+    uintptr_t stack_top = stack_bottom + stack_size;
     log_debug("Changing stack pointer to 0x%x and jumping to address 0x%x", stack_top, elf_entry_point);
     __asm__ __volatile__ (
         "mov %0, %%esp\n\t"

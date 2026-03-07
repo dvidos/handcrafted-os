@@ -119,7 +119,7 @@ void schedule() {
         if (*(uint32_t *)running_proc->allocated_kernel_stack != STACK_BOTTOM_MAGIC_VALUE)
             log_critical("Process %s[%d] kernel stack bottom magic number mismatch (expected 0x%x, got 0x%x)", running_proc->name, running_proc->pid, STACK_BOTTOM_MAGIC_VALUE, *(uint32_t *)running_proc->allocated_kernel_stack);
     }
-    if (running_proc->user_proc.stack_bottom != NULL) {
+    if (running_proc->user_proc.stack_bottom != 0) {
         if (*(uint32_t *)running_proc->user_proc.stack_bottom != STACK_BOTTOM_MAGIC_VALUE)
             log_critical("Process %s[%d] user stack bottom magic number mismatch (expected 0x%x, got 0x%x)", running_proc->name, running_proc->pid, STACK_BOTTOM_MAGIC_VALUE, *(uint32_t *)running_proc->user_proc.stack_bottom);
     }

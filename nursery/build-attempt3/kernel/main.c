@@ -16,6 +16,7 @@
 #include "utils/kcmd_line_args.h"
 #include "klib/string.h"
 #include "memory/physmem.h"
+#include "memory/memory_region.h"
 
 #include "devices/devices.h"
 #include "devices/pci/pci_device.h"
@@ -74,7 +75,7 @@ typedef struct mem_chunk_t {
     size_t length;
 } mem_chunk_t;
 
-#define KERNEL_CHUNKS 7
+#define KERNEL_CHUNKS 8
 static mem_chunk_t kernel_chunks[KERNEL_CHUNKS];
 
 
@@ -133,7 +134,7 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
     log_info("Initializing virtual memory mapping...");
-    init_virtual_memory_paging(0, (void *)pmm.get_top_identity_address());
+    init_virtual_memory_paging(0, pmm.get_top_identity_address());
 
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -209,16 +210,16 @@ static void shell_launcher() {
 
 // these are defined in the linker.ld script
 // use their *addresses*, not their values!
-void _linker_start_address() {}
-void _segment_text_start() {}
-void _segment_text_end() {}
-void _segment_rodata_start() {}
-void _segment_rodata_end() {}
-void _segment_init_data_start() {}
-void _segment_init_data_end() {}
-void _segment_zero_data_start() {}
-void _segment_zero_data_end() {}
-void _linker_end_address() {}
+extern char _linker_start_address[];
+extern char _segment_text_start[];
+extern char _segment_text_end[];
+extern char _segment_rodata_start[];
+extern char _segment_rodata_end[];
+extern char _segment_init_data_start[];
+extern char _segment_init_data_end[];
+extern char _segment_zero_data_start[];
+extern char _segment_zero_data_end[];
+extern char _linker_end_address[];
 
 static inline void register_kernel_memory_chunk(int *num, const char *name, phys_addr_t addr, size_t size) {
     strcpy(kernel_chunks[*num].name, name);
@@ -237,14 +238,18 @@ static void initialize_physical_memory(boot_info_t *info) {
             machine_max_memory_64 = entry_top64;
     }
 
+    // we must convert these to memory_regions, now that we have a strong object...
     int i = 0;
     register_kernel_memory_chunk(&i, "text",          (phys_addr_t)&_segment_text_start,      (size_t)(_segment_text_end      - _segment_text_start));
     register_kernel_memory_chunk(&i, "ro_data",       (phys_addr_t)&_segment_rodata_start,    (size_t)(_segment_rodata_end    - _segment_rodata_start));
     register_kernel_memory_chunk(&i, "init_data",     (phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end - _segment_init_data_start));
     register_kernel_memory_chunk(&i, "zero_data/bss", (phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start));
-    register_kernel_memory_chunk(&i, "stack",         (phys_addr_t)_segment_zero_data_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end));
-    register_kernel_memory_chunk(&i, "heap",          (phys_addr_t)KERNEL_HEAP_ADDRESS, (size_t)KERNEL_HEAP_SIZE_KB * 1024);
-    register_kernel_memory_chunk(&i, "ramdisk",       (phys_addr_t)KERNEL_RAMDISK_ADDRESS, (size_t)KERNEL_RAMDISK_SIZE_KB * 1024);
+    register_kernel_memory_chunk(&i, "stack",         (phys_addr_t)_segment_zero_data_end,    (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end));
+    register_kernel_memory_chunk(&i, "copy_page",     (phys_addr_t)KERNEL_UTIL_PAGE_ADDRESS,  (size_t)KERNEL_UTIL_PAGE_SIZE_KB * 1024);
+    register_kernel_memory_chunk(&i, "heap",          (phys_addr_t)KERNEL_HEAP_ADDRESS,       (size_t)KERNEL_HEAP_SIZE_KB * 1024);
+    register_kernel_memory_chunk(&i, "ramdisk",       (phys_addr_t)KERNEL_RAMDISK_ADDRESS,    (size_t)KERNEL_RAMDISK_SIZE_KB * 1024);
+
+    mem_region_set_util_page_address(KERNEL_UTIL_PAGE_ADDRESS);
 
     // where physical memory mapper can put its bitmap
     phys_addr_t kernel_top_address = 0;
@@ -284,13 +289,13 @@ static void initialize_physical_memory(boot_info_t *info) {
     pmm.mark_region_reserved((phys_addr_t)0, (size_t)kernel_top_address);
     pmm.finish_initialization();
 
-    log_info("Physical memory manager initialized. %u total pages, %u (%u KB or %u%%) reserved, %u (%u KB or %u%%) available",
+    log_info("Physical memory manager initialized. %u total pages, %u (%u MB or %u%%) reserved, %u (%u MB or %u%%) available",
         pmm.total_pages(),
         pmm.used_pages(),
-        pmm.used_pages() * 4,
+        (pmm.used_pages() * 4) / 1024,
         pmm.total_pages() == 0 ? 0 : (pmm.used_pages() * 100) / pmm.total_pages(),
         pmm.free_pages(),
-        pmm.free_pages() * 4,
+        (pmm.free_pages() * 4) / 1024,
         pmm.total_pages() == 0 ? 0 : (pmm.free_pages() * 100) / pmm.total_pages()
     );
 
