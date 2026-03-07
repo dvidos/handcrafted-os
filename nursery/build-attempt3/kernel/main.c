@@ -29,7 +29,6 @@
 #include "filesys/partitions/legacy_partition.h"
 #include "filesys/partitions/uefi_partition.h"
 #include "filesys/fs_drivers/skeleton_fs/skeleton_fs.h"
-#include "filesys/fs_drivers/dummy_fs/dummy_fs.h"
 #include "filesys/fs_drivers/sfs/sfs.h"
 
 #include "proc/semaphore.h"
@@ -362,7 +361,6 @@ static void initialize_storage_and_file_systems() {
 
     // register filesystems
     fs_register(&simple_fs);
-    // fs_register(&dummy_fs);
     // fs_register(&skeleton_fs);
 
     // let's go with the first, first.

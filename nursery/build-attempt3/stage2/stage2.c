@@ -12,6 +12,7 @@
     #error KERNEL_SECTOR_COUNT not defined
 #endif
 
+#define KERNEL_CMDLINE_MAX_LEN  127 // +1 for null terminator
 #define DEFAULT_TO_GRAPHICS 0
 
 
@@ -205,6 +206,11 @@ static void bios_hex16_dump(void *buffer, int len) {
         bios_print_char(' ');
         buffer += 2;
     }
+}
+static void bios_backspace() {
+    bios_print_char('\b'); // Move cursor back
+    bios_print_char(' ');  // Overwrite character
+    bios_print_char('\b'); // Move cursor back again
 }
 static void printf(const char *fmt, ...) {
     va_list vl;
@@ -738,14 +744,43 @@ void graphics_mode_menu() {
     }
 }
 
-void bios_diagnostics_menu() {
+void edit_kernel_command_line_menu() {
+    uint8_t scancode, ascii;
+    int current_len = strlen(boot_info.cmdline);
+    int cursor_pos = current_len;
+    
+    printf("Edit Kernel Command Line (ESC to cancel, ENTER to save):\r\n");
+    printf("> %s", boot_info.cmdline);
+
     while (1) {
-        printf("BIOS diagnostics menu\r\n");
-        printf("  ESC - back\r\n");
-        int choice = choice_of(0);
-        if (choice <  0) break;
+        get_key_with_timeout(0, &scancode, &ascii); // Wait indefinitely for a key
+        
+        if (scancode == SCANCODE_ESCAPE) { // ESC
+            // Discard changes
+            printf("\r\nEdit cancelled.\r\n");
+            break;
+        } else if (ascii == '\r') { // ENTER
+            // Save changes
+            boot_info.cmdline[current_len] = 0; // Null-terminate
+            printf("\r\nCommand line saved.\r\n");
+            break;
+        } else if (ascii == '\b') { // BACKSPACE
+            if (cursor_pos > 0) {
+                bios_backspace();
+                cursor_pos--;
+                current_len--;
+            }
+        } else if (ascii >= ' ' && ascii <= '~') { // Printable character
+            if (current_len < KERNEL_CMDLINE_MAX_LEN) {
+                bios_print_char(ascii);
+                boot_info.cmdline[current_len] = ascii;
+                cursor_pos++;
+                current_len++;
+            }
+        }
     }
 }
+
 
 void possibly_interactive_menu() {
     printf("Press any key to enter interactive mode...");
@@ -757,13 +792,13 @@ void possibly_interactive_menu() {
         printf("Main menu\r\n");
         printf("   1  - Select graphics mode\r\n");
         printf("   2  - Select text mode\r\n");
-        printf("   3  - BIOS diagnostics menu\r\n");
+        printf("   3  - Edit Kernel Command Line\r\n");
         printf("  ESC - Continue to boot\r\n");
-        int choice = choice_of(2);
+        int choice = choice_of(3); // Now 3 options
         if      (choice <  0) break;
         else if (choice == 0) { graphics_mode_menu(); }
         else if (choice == 1) { boot_in_text_mode = 1; }
-        else if (choice == 2) { bios_diagnostics_menu(); }
+        else if (choice == 2) { edit_kernel_command_line_menu(); }
     }
 }
 
@@ -778,6 +813,7 @@ void stage2_main(void) {
     // - enter protected mode and jump to the kernel entry
 
     initialize_serial_port(); // for debugging in QEMU, run with "-serial stdio"
+    strcpy(boot_info.cmdline, "console=serial");
     run_assembly_interface_tests();
 
     bios_print_str("Loading kernel...\r\n");
