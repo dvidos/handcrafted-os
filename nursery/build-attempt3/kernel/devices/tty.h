@@ -32,6 +32,6 @@ void tty_write_specific_tty(tty_t *tty, const char *buffer);
 void tty_set_title_specific_tty(tty_t *tty, const char *title);
 
 
-void tty_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump);
+void tty_log_appender(void *context, const char *str);
 
 #endif

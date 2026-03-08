@@ -45,7 +45,7 @@ void logger_add_appender(log_appender_func *write, void *context, log_level_t le
     appenders[appender_count].level = level;
 
     // since we added this, echo the mem_log, if any
-    write(context, NULL, NULL, NULL, mem_log_get_contents(), true);
+    write(context, mem_log_get_contents());
     
     appender_count++;
 }
@@ -74,26 +74,26 @@ void logger_set_global_minimum_log_level(log_level_t level) {
 
 static void _append_one_appender(const char *timing, const char *module_name, log_level_t level, const char *prompt, const char *message, appender_t *app) {
     if (app->write) {
-        app->write(NULL, NULL, NULL, NULL, timing, true);
-        app->write(NULL, NULL, NULL, NULL, " ", true);
+        app->write(app->context, timing);
+        app->write(app->context, " ");
 
         if (module_name != NULL && module_name[0] != 0) {
-            app->write(NULL, NULL, NULL, NULL, module_name, true);
+            app->write(app->context, module_name);
             for (int i = 0; i < 12 - strlen(module_name); i++)
-                app->write(NULL, NULL, NULL, NULL, " ", true);
-            app->write(NULL, NULL, NULL, NULL, " ", true);
+                app->write(app->context, " ");
+            app->write(app->context, " ");
         }
 
-        app->write(NULL, NULL, NULL, NULL, level_captions[level], true);
-        app->write(NULL, NULL, NULL, NULL, " ", true);
+        app->write(app->context, level_captions[level]);
+        app->write(app->context, " ");
 
         if (prompt != NULL && prompt[0] != 0) {
-            app->write(NULL, NULL, NULL, NULL, prompt, true);
-            app->write(NULL, NULL, NULL, NULL, " ", true);
+            app->write(app->context, prompt);
+            app->write(app->context, " ");
         }
 
-        app->write(NULL, NULL, NULL, NULL, message, true);
-        app->write(NULL, NULL, NULL, NULL, "\n", true);
+        app->write(app->context, message);
+        app->write(app->context, "\n");
     }
 }
 

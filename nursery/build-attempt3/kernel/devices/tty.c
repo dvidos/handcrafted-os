@@ -496,19 +496,8 @@ static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw) {
 
 // ---------------------------------------------------------------------------
 
-void tty_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump) {
+void tty_log_appender(void *context, const char *str) {
     // context is supposed to represent the logger tty device
     tty_t *tty = (tty_t *)context;
-    if (raw_dump) {
-        tty_write_specific_tty(tty, message);
-    } else {
-        tty_write_specific_tty(tty, timing);
-        tty_write_specific_tty(tty, " ");
-        tty_write_specific_tty(tty, module_name);
-        tty_write_specific_tty(tty, " ");
-        tty_write_specific_tty(tty, level);
-        tty_write_specific_tty(tty, " ");
-        tty_write_specific_tty(tty, message);
-        tty_write_specific_tty(tty, "\r\n");
-    }
+    tty_write_specific_tty(tty, str);
 }

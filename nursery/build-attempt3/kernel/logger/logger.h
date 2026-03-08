@@ -24,7 +24,7 @@ void logger_set_global_minimum_log_level(log_level_t level);
 
 // ----------------------------------------------
 
-typedef void (log_appender_func)(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump);
+typedef void (log_appender_func)(void *context, const char *str);
 void logger_add_appender(log_appender_func *appender, void *context, log_level_t level);
 void logger_remove_appender(log_appender_func *appender, void *context);
 

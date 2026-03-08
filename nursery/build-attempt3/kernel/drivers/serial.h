@@ -4,6 +4,6 @@
 int init_serial_port();
 void serial_write(char *str);
 void serial_panic_writer(const char *str);
-void serial_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump);
+void serial_log_appender(void *context, const char *str);
 
 #endif

@@ -10,8 +10,8 @@ static struct {
     .len = 0,
 };
 
-void mem_log_appender(void *context, const char *timing, const char *module_name, const char *level, const char *message, bool raw_dump) {
-    int slen = strlen(message) + 1; // include the zero terminator
+void mem_log_appender(void *context, const char *str) {
+    int slen = strlen(str) + 1; // include the zero terminator
 
     // if it does not fit, make just enough room for it
     if (memlog.len + slen >= (int)sizeof(memlog.buffer)) {
@@ -20,7 +20,7 @@ void mem_log_appender(void *context, const char *timing, const char *module_name
     }
 
     // now copy it.
-    memcpy(&memlog.buffer[memlog.len], message, slen);
+    memcpy(&memlog.buffer[memlog.len], str, slen);
     memlog.len = strlen(memlog.buffer);
 }
 
