@@ -2,28 +2,16 @@
 #include "../klib/string.h"
 #include "../memory/virtmem.h"
 #include "../memory/physmem.h"
+#include "../logger/logger.h"
+#include "../include/va_list.h"
+
+MODULE("MEM_MAP", LOG_LEVEL_WARN);
 
 
 static phys_addr_t _util_page_addr = 0;
 
-void mem_region_set_util_page_address(phys_addr_t addr) {
+void mem_region_set_mappable_page_address(phys_addr_t addr) {
     _util_page_addr = addr;
-}
-
-// ------------------------------------------------------------
-
-memory_region_t mem_region_empty() {
-    return (memory_region_t){
-        .address = 0,
-        .size = 0,
-        .flags = 0,
-        .name = 0
-    };
-}
-
-bool mem_region_is_empty(memory_region_t *reg) {
-    if (reg == NULL) return true;
-    return (reg->address == 0 && reg->size == 0 && reg->flags == 0 && reg->name == 0);
 }
 
 // ------------------------------------------------------------
@@ -38,8 +26,6 @@ error_t mem_region_allocate_clear_and_map(memory_region_t *reg, page_dir_t targe
     return mem_region_allocate_fill_and_map(reg, target_page_dir, &clear_filler);
 }
 
-// ------------------------------------------------------------
-
 static error_t _copy_filler_fill_page(size_t page_num, uintptr_t dest_addr, void *context) {
     uintptr_t base_source_address = (uintptr_t)context;
     uintptr_t source_address = base_source_address + page_num * PAGE_SIZE;
@@ -52,8 +38,6 @@ error_t mem_region_allocate_copy_and_map(memory_region_t *reg, page_dir_t target
     page_fill_t copy_filler = { .fill_page = _copy_filler_fill_page, .context = (void *)source_address };
     return mem_region_allocate_fill_and_map(reg, target_page_dir, &copy_filler);
 }
-
-// -------------------------------------------------------------
 
 error_t mem_region_allocate_fill_and_map(memory_region_t *reg, page_dir_t target_page_dir, page_fill_t *filler) {
     page_dir_t curr_page_dir = vmm_get_page_directory_register();
@@ -102,4 +86,96 @@ error_t mem_region_unmap_and_release(memory_region_t *reg, page_dir_t page_dir) 
     }
 
     return OK;
+}
+
+// ---------------------------------------------------------------------
+
+static const char *mem_region_usage_name(memory_region_t *reg) {
+    if (reg->name) return reg->name;
+
+    if      ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_CODE)  return "code";
+    else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_DATA)  return "data";
+    else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_STACK) return "stack";
+    else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_HEAP)  return "heap";
+    else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_MMIO)  return "mmio";
+    else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_SHMEM) return "shmem";
+    else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_FILE)  return "file";
+    else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_GUARD) return "guard";
+
+    return "other";
+}
+
+static void mem_region_describe_flags(memory_region_t *reg, char *buffer) {
+    buffer[0] = 0;
+
+    strcat(buffer, reg->flags & REGION_WRITE_ENABLE ? "write" : "ro");
+    strcat(buffer, ",");
+    strcat(buffer, reg->flags & REGION_USER_ACCESSIBLE ? "user" : "kernel");
+}
+
+void mem_region_formatter(log_write_stream_t *stream, va_list args) {
+    memory_region_t *reg = va_arg(args, memory_region_t *);
+    char flags[64];
+    
+    mem_region_describe_flags(reg, flags);
+    stream->printf(stream->context, "addr=0x%x, size=%x/%uKB, flags=%-16s, usage=%s",
+        reg->address,
+        reg->size,
+        reg->size / 1024,
+        flags,
+        mem_region_usage_name(reg)
+    );
+}
+
+void mem_map_formatter(log_write_stream_t *stream, va_list args) {
+    memory_map_t *map = va_arg(args, memory_map_t *);
+    char flags[64];
+    
+    if (map->name)
+        stream->printf(stream->context, "%s", map->name);
+
+    stream->printf(stream->context, "    No        From          To        Size    KB  Flags             Usage");
+    // |  No     Address          To        Size    KB  Flags             Usage
+    // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
+    // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
+    // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
+
+    for (int i = 0; i < map->count; i++) {
+        memory_region_t *reg = &map->regions[i];
+        mem_region_describe_flags(reg, flags);
+
+        stream->printf(stream->context, "    %2d  0x%08x  0x%08x  %10lu  %4d  %-16s  %s",
+            i,
+            reg->address,
+            reg->address + reg->size - 1,
+            reg->size,
+            reg->size / 1024,
+            flags,
+            mem_region_usage_name(reg)
+        );
+    }
+}
+
+// ---------------------------------------------------------------------
+
+void mem_map_add_region(memory_map_t *map, memory_region_t reg) {
+    if (map->count >= MEM_MAP_MAX_REGIONS) {
+        log_error("Memory map full, cannot add region");
+        return;
+    }
+
+    map->regions[map->count] = reg;
+    map->count += 1;
+}
+
+uintptr_t mem_map_get_top_address(memory_map_t *map) {
+    uintptr_t last = 0;
+
+    for (int i = 0; i < map->count; i++) {
+        uintptr_t region_last = map->regions[i].address + map->regions[i].size - 1;
+        if (region_last > last)
+            last = region_last;
+    }
+
+    return last;
 }

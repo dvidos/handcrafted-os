@@ -70,17 +70,6 @@ static void print_stage2_boot_info(boot_info_t *info);
 
 boot_info_t saved_multiboot_info;
 
-typedef struct mem_chunk_t {
-    char name[32];
-    phys_addr_t start;
-    size_t length;
-} mem_chunk_t;
-
-#define KERNEL_CHUNKS 8
-static mem_chunk_t kernel_chunks[KERNEL_CHUNKS];
-
-
-
 
 
 void kernel_main(boot_info_t* boot)
@@ -223,12 +212,6 @@ extern char _segment_zero_data_start[];
 extern char _segment_zero_data_end[];
 extern char _linker_end_address[];
 
-static inline void register_kernel_memory_chunk(int *num, const char *name, phys_addr_t addr, size_t size) {
-    strcpy(kernel_chunks[*num].name, name);
-    kernel_chunks[*num].start = addr;
-    kernel_chunks[*num].length = size;
-    (*num)++;
-}
 
 static void initialize_physical_memory(boot_info_t *info) {
 
@@ -240,26 +223,23 @@ static void initialize_physical_memory(boot_info_t *info) {
             machine_max_memory_64 = entry_top64;
     }
 
-    // we must convert these to memory_regions, now that we have a strong object...
-    int i = 0;
-    register_kernel_memory_chunk(&i, "text",          (phys_addr_t)&_segment_text_start,      (size_t)(_segment_text_end      - _segment_text_start));
-    register_kernel_memory_chunk(&i, "ro_data",       (phys_addr_t)&_segment_rodata_start,    (size_t)(_segment_rodata_end    - _segment_rodata_start));
-    register_kernel_memory_chunk(&i, "init_data",     (phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end - _segment_init_data_start));
-    register_kernel_memory_chunk(&i, "zero_data/bss", (phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start));
-    register_kernel_memory_chunk(&i, "stack",         (phys_addr_t)_segment_zero_data_end,    (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end));
-    register_kernel_memory_chunk(&i, "copy_page",     (phys_addr_t)KERNEL_UTIL_PAGE_ADDRESS,  (size_t)KERNEL_UTIL_PAGE_SIZE_KB * 1024);
-    register_kernel_memory_chunk(&i, "heap",          (phys_addr_t)KERNEL_HEAP_ADDRESS,       (size_t)KERNEL_HEAP_SIZE_KB * 1024);
-    register_kernel_memory_chunk(&i, "ramdisk",       (phys_addr_t)KERNEL_RAMDISK_ADDRESS,    (size_t)KERNEL_RAMDISK_SIZE_KB * 1024);
+    // this must be static, we are well before initializing heap...
+    memory_map_t kernel_physical_map = { .count = 0, .name = "Kernel physical memory map" };
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_code((phys_addr_t)&_segment_text_start,      (size_t)(_segment_text_end      - _segment_text_start)));
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_rodata((phys_addr_t)&_segment_rodata_start,    (size_t)(_segment_rodata_end    - _segment_rodata_start)));
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_data((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end - _segment_init_data_start)));
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_bss((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start)));
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_stack((phys_addr_t)_segment_zero_data_end,    (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end)));
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_other((phys_addr_t)KERNEL_UTIL_PAGE_ADDRESS,  (size_t)KERNEL_UTIL_PAGE_SIZE_KB * 1024, "util_page"));
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_heap((phys_addr_t)KERNEL_HEAP_ADDRESS,       (size_t)KERNEL_HEAP_SIZE_KB * 1024));
+    mem_map_add_region(&kernel_physical_map, mem_region_kernel_other((phys_addr_t)KERNEL_RAMDISK_ADDRESS,    (size_t)KERNEL_RAMDISK_SIZE_KB * 1024, "ramdisk"));
+    log_info_fmt("", &kernel_physical_map, mem_map_formatter);
 
-    mem_region_set_util_page_address(KERNEL_UTIL_PAGE_ADDRESS);
+
+    mem_region_set_mappable_page_address(KERNEL_UTIL_PAGE_ADDRESS);
 
     // where physical memory mapper can put its bitmap
-    phys_addr_t kernel_top_address = 0;
-    for (int i = 0; i < KERNEL_CHUNKS; i++) {
-        phys_addr_t chunk_top = kernel_chunks[i].start + kernel_chunks[i].length;
-        if (chunk_top > kernel_top_address)
-            kernel_top_address = chunk_top;
-    }
+    uintptr_t kernel_top_address = mem_map_get_top_address(&kernel_physical_map);
 
     log_info("Machine maximum memory address 0x%08x.%08x (%u KB, %u MB, %u GB)",
         (uint32_t)(machine_max_memory_64 >> 32),
@@ -269,19 +249,6 @@ static void initialize_physical_memory(boot_info_t *info) {
         (uint32_t)(machine_max_memory_64 / (1024 * 1024 * 1024))
     );
     log_info("Kernel area topmost address 0x%08x", kernel_top_address);
-    log_info("Kernel memory             From          To   From KB     To KB   Size KB");
-    //         - 1234567890123456  0x12345678  0x12345678 123456789 123456789   1234567
-    for (int i = 0; i < KERNEL_CHUNKS; i++) {
-        mem_chunk_t *chunk = &kernel_chunks[i];
-        log_info("- %-16s  0x%08x  0x%08x %9u %9u   %7u",
-            chunk->name,
-            chunk->start,
-            chunk->start + chunk->length,
-            chunk->start / 1024,
-            (chunk->start + chunk->length) / 1024,
-            chunk->length / 1024
-        );
-    }
 
     pmm.initialize(machine_max_memory_64, kernel_top_address);
     for (uint32_t i = 0; i < info->mem.count; i++) {
