@@ -9,7 +9,7 @@
 #include "../memory/kheap.h"
 #include "../klib/strerror.h"
 
-MODULE("SPAWN", LOG_LEVEL_WARN);
+MODULE("SPAWN", LOG_LEVEL_INFO);
 
 
 // try to keep a balance of executables-based processes, and light weight threads.
@@ -50,6 +50,8 @@ int spawnve(char *path, char *argv[], char *envp[]) {
     err = vfs_open(path, 0, &file);
     if (err) goto exit;
     file_open = true;
+
+    log_info_fmt("spawn opened file:", file, open_files.formatter);
 
     // this is where we could support the "#!/bin/sh" construct
     err = verify_elf_executable(file);

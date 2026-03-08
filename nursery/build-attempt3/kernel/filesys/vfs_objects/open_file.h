@@ -23,7 +23,7 @@ struct open_file {
 struct open_file_ops {
     open_file_t *(*create)(superblock_t *sb, inode_t *n);
     void (*destroy)(open_file_t *f);
-    void (*log)(log_level_t level, const char *preamble, open_file_t *f);
+    log_formatter_t *formatter;
 };
 
 extern struct open_file_ops open_files;
