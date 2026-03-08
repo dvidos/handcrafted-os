@@ -9,7 +9,7 @@
 #include "../include/uapi/vfs_seek_flags.h"
 
 
-MODULE("ELF", LOG_LEVEL_TRACE);
+MODULE("ELF", LOG_LEVEL_WARN);
 
 #define min(a, b)   ((a) <= (b) ? (a) : (b))
 #define max(a, b)   ((a) >= (b) ? (a) : (b))

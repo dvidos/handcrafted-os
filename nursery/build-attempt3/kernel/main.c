@@ -13,6 +13,7 @@
 #include "memory/virtmem.h"
 #include "memory/kheap.h"
 #include "logger/logger.h"
+#include "logger/mem_log.h"
 #include "utils/kcmd_line_args.h"
 #include "klib/string.h"
 #include "memory/physmem.h"
@@ -90,6 +91,7 @@ void kernel_main(boot_info_t* boot)
     // initialize in-memory log
     init_logger();
     logger_set_global_minimum_log_level(LOG_LEVEL_INFO);
+    logger_add_appender(mem_log_appender, NULL, LOG_LEVEL_TRACE);
 
     // initialize screen and allow logs to be written to it
     screen_init();
@@ -134,7 +136,7 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
     log_info("Initializing virtual memory mapping...");
-    init_virtual_memory_paging(0, pmm.get_top_identity_address());
+    vmm_initialize(0, pmm.get_top_identity_address());
 
     log_info("Enabling interrupts & NMI...");
     sti();

@@ -103,7 +103,7 @@ static virt_addr_t sys_sbrk(int diff_size) {
     if (diff_size > 0) {
         diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page / 4K
         virt_addr_t heap_end = p->user_proc.heap + p->user_proc.heap_size;
-        allocate_virtual_memory_range(heap_end, heap_end + diff_size, p->page_directory);
+        vmm_allocate_memory_range(heap_end, heap_end + diff_size, p->page_directory);
         p->user_proc.heap_size += diff_size;
     }
     return initial_break;

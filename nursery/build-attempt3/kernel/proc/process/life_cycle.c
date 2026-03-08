@@ -88,7 +88,7 @@ process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, pr
     // how can we setup the initial stack, i.e. the arguments to that entry point?
     p->esp = (uint32_t)(p->allocated_kernel_stack + stack_size - sizeof(switched_stack_snapshot_t));
     p->stack_snapshot->return_address = (uint32_t)proc_cleanup;
-    p->page_directory = get_kernel_page_directory();  // TODO: break this dependency, use function pointer / interface instead.
+    p->page_directory = vmm_get_kernel_page_directory();  // TODO: break this dependency, use function pointer / interface instead.
 
     // what our proc_cleanup() should call
     p->entry_point = entry_point;
@@ -134,8 +134,8 @@ void proc_destroy(process_t *proc) {
     if (proc->allocated_kernel_stack != 0)
         kfree(proc->allocated_kernel_stack);
 
-    if (proc->page_directory != 0 && proc->page_directory != get_kernel_page_directory())
-        destroy_page_directory(proc->page_directory);
+    if (proc->page_directory != 0 && proc->page_directory != vmm_get_kernel_page_directory())
+        vmm_destroy_page_directory(proc->page_directory);
 
     if (proc->user_proc.executable_path != NULL)
         kfree(proc->user_proc.executable_path);

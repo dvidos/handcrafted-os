@@ -113,7 +113,7 @@ struct process {
     void *allocated_kernel_stack;
 
     // each user process will have a specific page_directory
-    // use get_kernel_page_directory() for kernel
+    // use vmm_get_kernel_page_directory() for kernel
     page_dir_t page_directory;
 
     // data for loading and running user processes

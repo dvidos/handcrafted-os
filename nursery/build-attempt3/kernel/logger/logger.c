@@ -6,6 +6,7 @@
 #include "../drivers/screen.h"
 #include "../drivers/timer.h"
 #include "../logger/logger.h"
+#include "mem_log.h"
 
 static char *level_captions[] = {
     "NONE ",
@@ -16,12 +17,6 @@ static char *level_captions[] = {
     "DEBUG",
     "TRACE"
 };
-
-static struct {
-    char buffer[4096];
-    int len;
-} memlog;
-static void memlog_write(const char *str);
 
 
 
@@ -36,6 +31,7 @@ static appender_t appenders[MAX_APPENDERS];
 static int appender_count;
 log_level_t _logger_global_minimum_log_level;
 
+
 // -------------------------------------------------------------------------
 
 void logger_add_appender(log_appender_func *write, void *context, log_level_t level) {
@@ -48,11 +44,8 @@ void logger_add_appender(log_appender_func *write, void *context, log_level_t le
     appenders[appender_count].context = context;
     appenders[appender_count].level = level;
 
-    // since we added this, echo the memlog, if any
-    if (memlog.len > 0) {
-        write(context, "", "", "", memlog.buffer, true);
-        memlog.len = 0;
-    }
+    // since we added this, echo the mem_log, if any
+    write(context, NULL, NULL, NULL, mem_log_get_contents(), true);
     
     appender_count++;
 }
@@ -67,10 +60,8 @@ void logger_remove_appender(log_appender_func *write, void *context) {
     }
 }
 
+
 void init_logger() {
-    memset(memlog.buffer, '-', sizeof(memlog.buffer));
-    memlog.len = 0;
-    
     appender_count = 0;
     _logger_global_minimum_log_level = LOG_LEVEL_WARN;
 }
@@ -79,13 +70,50 @@ void logger_set_global_minimum_log_level(log_level_t level) {
     _logger_global_minimum_log_level = level;
 }
 
-void logger_append(const char *module_name, log_level_t level, const char *format, ...) {
-    if (format == NULL || strlen(format) == 0)
-        return;
+// --------------------------------------------------------------------------------------------------
 
+static void _append_one_appender(const char *timing, const char *module_name, log_level_t level, const char *prompt, const char *message, appender_t *app) {
+    if (app->write) {
+        app->write(NULL, NULL, NULL, NULL, timing, true);
+        app->write(NULL, NULL, NULL, NULL, " ", true);
+
+        if (module_name != NULL && module_name[0] != 0) {
+            app->write(NULL, NULL, NULL, NULL, module_name, true);
+            for (int i = 0; i < 12 - strlen(module_name); i++)
+                app->write(NULL, NULL, NULL, NULL, " ", true);
+            app->write(NULL, NULL, NULL, NULL, " ", true);
+        }
+
+        app->write(NULL, NULL, NULL, NULL, level_captions[level], true);
+        app->write(NULL, NULL, NULL, NULL, " ", true);
+
+        if (prompt != NULL && prompt[0] != 0) {
+            app->write(NULL, NULL, NULL, NULL, prompt, true);
+            app->write(NULL, NULL, NULL, NULL, " ", true);
+        }
+
+        app->write(NULL, NULL, NULL, NULL, message, true);
+        app->write(NULL, NULL, NULL, NULL, "\n", true);
+    }
+}
+
+static void _append_all_appenders(const char *module_name, log_level_t level, const char *prompt, const char *message) {
     char timing[64];
     uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
     sprintfn(timing, sizeof(timing), "%u.%03u", msecs / 1000, msecs % 1000);
+
+    for (int i = 0; i < appender_count; i++) {
+        appender_t *app = &appenders[i];
+        if (app->write == 0)    continue;
+        _append_one_appender(timing, module_name, level, prompt, message, app);
+    }
+}
+
+// ----------------------------------------------------------------------
+
+void logger_append(const char *module_name, log_level_t level, const char *format, ...) {
+    if (format == NULL || strlen(format) == 0)
+        return;
 
     va_list args;
     char message[256];
@@ -93,25 +121,54 @@ void logger_append(const char *module_name, log_level_t level, const char *forma
     vsprintfn(message, sizeof(message), format, args);
     va_end(args);
 
-    if (appender_count < 2) {
-        memlog_write(timing);
-        memlog_write(" ");
-        memlog_write(module_name);
-        int padding = 10 - strlen(module_name);
-        while (padding-- > 0) memlog_write(" ");
-        memlog_write(" ");
-        memlog_write(level_captions[level]);
-        memlog_write(" ");
-        memlog_write(message);
-        memlog_write("\n");
-    }
+    _append_all_appenders(module_name, level, NULL, message);
+}
 
-    for (int i = 0; i < appender_count; i++) {
-        appender_t *app = &appenders[i];
-        if (app->write == 0)    continue;
-        if (level > app->level) continue; // so, the appender MUST support this level... hmm...
-        app->write(app->context, timing, module_name, level_captions[level], message, false);
-    }
+
+struct _log_stream_printf_context {
+    const char *timing;
+    const char *module_name;
+    log_level_t level;
+    const char *prompt;
+};
+
+static void _log_stream_printf(void *context, const char *format, ...) {
+    struct _log_stream_printf_context *ctx = (struct _log_stream_printf_context *)context;
+
+    va_list args;
+    char message[256];
+    va_start(args, format);
+    vsprintfn(message, sizeof(message), format, args);
+    va_end(args);
+
+    _append_all_appenders(ctx->module_name, ctx->level, ctx->prompt, message);
+}
+
+void logger_append_using_formatter(const char *module_name, log_level_t level, const char *prompt, log_formatter_t *formatter, ...) {
+
+    if (formatter == NULL)
+        return;
+
+    char timing[64];
+    uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
+    sprintfn(timing, sizeof(timing), "%u.%03u", msecs / 1000, msecs % 1000);
+
+    struct _log_stream_printf_context stream_context = {
+        .level = level,
+        .module_name = module_name,
+        .timing = timing,
+        .prompt = prompt
+    };
+
+    log_write_stream_t stream = {
+        .printf = _log_stream_printf,
+        .context = &stream_context,
+    };
+
+    va_list args;
+    va_start(args, formatter);
+    formatter(&stream, args);
+    va_end(args);
 }
 
 static inline char is_printable(char c) {
@@ -140,20 +197,4 @@ void logger_append_hex(const char *module_name, log_level_t level,  uint8_t *buf
         length -= length > 16 ? 16 : length;
         start_address += 16;
     }
-}
-
-
-
-static void memlog_write(const char *str) {
-    int slen = strlen(str) + 1; // include the zero terminator
-
-    // if it does not fit, make just enough room for it
-    if (memlog.len + slen >= (int)sizeof(memlog.buffer)) {
-        memmove(memlog.buffer, memlog.buffer + slen, sizeof(memlog.buffer) - slen);
-        memlog.len -= slen;
-    }
-
-    // now copy it.
-    memcpy(&memlog.buffer[memlog.len], str, slen);
-    memlog.len = strlen(memlog.buffer);
 }

@@ -9,7 +9,7 @@
 #include "../memory/kheap.h"
 #include "../klib/strerror.h"
 
-MODULE("SPAWN", LOG_LEVEL_TRACE);
+MODULE("SPAWN", LOG_LEVEL_WARN);
 
 
 // try to keep a balance of executables-based processes, and light weight threads.
@@ -169,15 +169,15 @@ static void load_and_run_executable() {
     virt_addr_t heap = ((virt_addr_end + 0xFFF) & 0xFFFFF000);
 
     // create something to load the segments (kernel mapped included)
-    page_dir_t page_directory = create_page_directory(true);
-    allocate_virtual_memory_range(stack_bottom, heap + heap_size, page_directory);
+    page_dir_t page_directory = vmm_create_page_directory(true);
+    vmm_allocate_memory_range(stack_bottom, heap + heap_size, page_directory);
     log_debug("Allocated new page directory 0x%x for spawnve()", page_directory);
-    dump_page_directory(page_directory);
-    // dump_page_directory(get_kernel_page_directory());
+    vmm_dump_page_directory(page_directory);
+    // vmm_dump_page_directory(vmm_get_kernel_page_directory());
 
     // we are not waiting for a switch, we have to set CR3 now, to load the file.
     proc->page_directory = page_directory;
-    set_page_directory_register(page_directory);
+    vmm_set_page_directory_register(page_directory);
 
     // we should be safe to do it now
     err = load_elf_into_memory(file);

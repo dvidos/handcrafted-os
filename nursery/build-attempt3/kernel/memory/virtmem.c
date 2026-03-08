@@ -89,7 +89,7 @@ MODULE("VMEM", LOG_LEVEL_WARN);
    it turns out the bit allocation is implementation specific and never guaranteed!
 */
 
-page_dir_t create_page_directory(bool map_kernel_space);
+page_dir_t vmm_create_page_directory(bool map_kernel_space);
 
 
 
@@ -164,7 +164,7 @@ static inline uint32_t virt_addr_to_physical_page_offset(virt_addr_t virtual_add
 }
 
 
-phys_addr_t resolve_virtual_to_physical_address(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
+phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     // For each virtual address, when we are dealing with 4K pages:
     //     10 bits 31-22 dictate the page directory entry (we find the table)
     //     10 bits 21-12 dictate the page table entry (we find the page)
@@ -196,7 +196,7 @@ phys_addr_t resolve_virtual_to_physical_address(virt_addr_t virtual_addr, page_d
 }
 
 // map the virtual address to resolve to the physical one for the particular page directory.
-void map_virtual_address_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_addr, page_dir_t page_dir, bool user_accessible, bool write_enable) {
+void vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_addr, page_dir_t page_dir, bool user_accessible, bool write_enable) {
     log_trace("Mapping phys addr 0x%x to virt addr 0x%x, page dir 0x%x", physical_addr, virtual_addr, page_dir);
 
     uint32_t page_dir_index = virt_addr_to_page_directory_index(virtual_addr);
@@ -244,7 +244,7 @@ void map_virtual_address_to_physical(virt_addr_t virtual_addr, phys_addr_t physi
 }
 
 // unmap the virtual address to resolve to the physical one for the particular page directory.
-void unmap_virtual_address(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
+void vmm_unmap(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     // clear the entry of the page table, if all the page table is clear, 
     // maybe remove the entry from the page directory and free the page.
 
@@ -278,10 +278,10 @@ void unmap_virtual_address(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 }
 
 // map a range to itself
-void identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr) {
+void vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr) {
     log_trace("Identity mapping range 0x%p - 0x%p, page_dir=0x%p", start_addr, end_addr, page_dir_addr);
     for (phys_addr_t addr = start_addr; addr <= end_addr; addr += 4096) {
-        map_virtual_address_to_physical(addr, addr, page_dir_addr, true, true);
+        vmm_map_virtual_to_physical(addr, addr, page_dir_addr, true, true);
     }
 }
 
@@ -289,7 +289,7 @@ void identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t
 // Enabling paging is actually very simple. All that is needed is 
 // to load CR3 with the address of the page directory 
 // and to set the paging (PG) and protection (PE) bits of CR0.
-void set_page_directory_register(page_dir_t value) {
+void vmm_set_page_directory_register(page_dir_t value) {
     log_trace("Setting CR3 to 0x%x", value);
 
     __asm__ __volatile__(
@@ -302,7 +302,7 @@ void set_page_directory_register(page_dir_t value) {
 }
 
 // get current directory register (cr3)
-page_dir_t get_page_directory_register() {
+page_dir_t vmm_get_page_directory_register() {
     page_dir_t value;
 
     __asm__ __volatile__(
@@ -315,12 +315,12 @@ page_dir_t get_page_directory_register() {
     return value;
 }
 
-inline void invalidate_paging_cached_address(virt_addr_t virtual_addr) {
+inline void vmm_invalidate_cached_address(virt_addr_t virtual_addr) {
     // supported on i486+
     asm volatile("invlpg (%0)" : : "r" (virtual_addr) : "memory");
 }
 
-static void enable_memory_paging_cpu_bit() {
+static void vmm_enable_paging() {
     log_trace("Enabling memory paging in CPU");
 
     __asm__ __volatile__(
@@ -333,7 +333,7 @@ static void enable_memory_paging_cpu_bit() {
     );
 }
 
-static void disable_memory_paging_cpu_bit() {
+static void vmm_disable_paging() {
     log_trace("Disabling memory paging in CPU");
 
     __asm__ __volatile__(
@@ -354,13 +354,15 @@ static struct {
     phys_addr_t end_address;
 } kernel_info;
 
-void init_virtual_memory_paging(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address) {
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address) {
     
+    // TODO: here, accept a full memory map, and keep it referenced, as it will be useful as hell.
+
     kernel_info.start_address = kernel_start_address;
     kernel_info.end_address = kernel_end_address;
 
     // create a page directory for kernel.
-    kernel_info.page_directory = create_page_directory(true);
+    kernel_info.page_directory = vmm_create_page_directory(true);
 
     // log_debug("Kernel page directory contents:");
     // log_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
@@ -370,23 +372,23 @@ void init_virtual_memory_paging(phys_addr_t kernel_start_address, phys_addr_t ke
     // log_debug_hex(pt, 4096, (uint32_t)pt);
 
     // void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
-    // void *pa = resolve_virtual_to_physical_address(va, kernel_page_direcory);
+    // void *pa = vmm_resolve(va, kernel_page_direcory);
     // log_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
 
     // now enable paging (fingers crossed!)
-    set_page_directory_register(kernel_info.page_directory);
-    enable_memory_paging_cpu_bit();
+    vmm_set_page_directory_register(kernel_info.page_directory);
+    vmm_enable_paging();
 
     log_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
 }
 
-page_dir_t get_kernel_page_directory() {
+page_dir_t vmm_get_kernel_page_directory() {
     return kernel_info.page_directory;
 }
 
 // handles page faults. 
 // see https://wiki.osdev.org/Exceptions#Page_Fault
-void virtual_memory_page_fault_handler(uint32_t error_code) {
+void vmm_page_fault_handler(uint32_t error_code) {
     // CR2 contains the virtual address that caused the error.
     bool page_present    = IS_BIT(error_code, 0);
     bool write_attempt   = IS_BIT(error_code, 1);
@@ -411,14 +413,13 @@ void virtual_memory_page_fault_handler(uint32_t error_code) {
     // e.g. stack underflow, or heap overflow, guard, mem-mapped file, etc
 
     memory_address = ROUND_DOWN_4K(memory_address);
-    map_virtual_address_to_physical(memory_address, memory_address, page_dir_address, true, true);
+    vmm_map_virtual_to_physical(memory_address, memory_address, page_dir_address, true, true);
 }
 
 
 
-
 // allocates and creates a new page directory
-page_dir_t create_page_directory(bool map_kernel_space) {
+page_dir_t vmm_create_page_directory(bool map_kernel_space) {
     page_dir_t page_dir = pmm.allocate_physical_page();
     if (page_dir == INVALID_PAGE) {
         panic("Failed to allocate physical page for page directory!");
@@ -430,27 +431,27 @@ page_dir_t create_page_directory(bool map_kernel_space) {
         // that way, we can switch CR3 and jump into an elf loading function without issues.
         // or execute kerel code, or keep variables and pointers sane when switching tasks
         // TODO: it seems VMM needs to know a lot about kernel mem regions...
-        identity_map_range(kernel_info.start_address, kernel_info.end_address, page_dir);
+        vmm_identity_map_range(kernel_info.start_address, kernel_info.end_address, page_dir);
     }
 
-    log_trace("create_page_directory() -> 0x%p", page_dir);
+    log_trace("vmm_create_page_directory() -> 0x%p", page_dir);
     return page_dir;
 }
 
-// allocates pages and maps them to the virtual addresses requested
-// end address is non-inclusive
-void allocate_virtual_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end, page_dir_t page_dir_addr) {
-    log_trace("allocate_virtual_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
+// allocates pages and maps them to the virtual addresses requested (end address is non-inclusive)
+void vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end, page_dir_t page_dir_addr) {
+    log_trace("vmm_allocate_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
 
+    // TODO: this should update the memory map of the kernel/process
     for (virt_addr_t virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         phys_addr_t phys_page_addr = pmm.allocate_physical_page();
-        map_virtual_address_to_physical(virt_addr, phys_page_addr, page_dir_addr, true, true);
+        vmm_map_virtual_to_physical(virt_addr, phys_page_addr, page_dir_addr, true, true);
     }
 }
 
 // frees any pointed pages, page tables, and the page directory itself
-void destroy_page_directory(page_dir_t page_dir_address) {
-    log_trace("destroy_page_directory(0x%x)", page_dir_address);
+void vmm_destroy_page_directory(page_dir_t page_dir_address) {
+    log_trace("vmm_destroy_page_directory(0x%x)", page_dir_address);
     pushcli();
 
     // free linked tables and pages 
@@ -558,7 +559,7 @@ static void _dump_page_directory_aggregate(int call, uint32_t virt_addr, uint32_
     }
 }
 
-void dump_page_directory(virt_addr_t page_dir_address) {
+void vmm_dump_page_directory(virt_addr_t page_dir_address) {
     // essentially, map the mapping that a page directory has.
     // try to group common areas together.
     log_debug("Page directory at 0x%x mapping", page_dir_address);

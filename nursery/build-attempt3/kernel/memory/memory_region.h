@@ -11,18 +11,18 @@ void mem_region_set_util_page_address(phys_addr_t addr);
  * Flags and usage description of a memory region.
  */
 typedef enum region_flags {
-    REGION_WRITE_ENABLE = 0x01,    // e.g. cannot write
-    REGION_USER_ACCESSIBLE = 0x02, // e.g. user procs have access or only kernel
-    REGION_GLOBAL_MAP = 0x04,      // e.g. keep cache across different page directories
+    REGION_WRITE_ENABLE    = 0x01,   // e.g. cannot write
+    REGION_USER_ACCESSIBLE = 0x02,   // e.g. user procs have access or only kernel
+    REGION_GLOBAL_MAP      = 0x04,   // e.g. keep cache across different page directories
 
-    REGION_USAGE_CODE  = 0x0101,
-    REGION_USAGE_DATA  = 0x0102,
-    REGION_USAGE_STACK = 0x0103,
-    REGION_USAGE_HEAP  = 0x0104,
-    REGION_USAGE_MMIO  = 0x0105, // memory bound io or hardware (e.g. framebuffer)
-    REGION_USAGE_SHMEM = 0x0106, // shared memory
-    REGION_USAGE_FILE  = 0x0107, // memory-mapped files
-    REGION_USAGE_GUARD = 0x0108, // for heap or stack overflows
+    REGION_USAGE_CODE      = 0x0101,
+    REGION_USAGE_DATA      = 0x0102,
+    REGION_USAGE_STACK     = 0x0103,
+    REGION_USAGE_HEAP      = 0x0104,
+    REGION_USAGE_MMIO      = 0x0105, // memory bound io or hardware (e.g. framebuffer)
+    REGION_USAGE_SHMEM     = 0x0106, // shared memory
+    REGION_USAGE_FILE      = 0x0107, // memory-mapped files
+    REGION_USAGE_GUARD     = 0x0108, // for heap or stack overflows
 } region_flags_t;
 
 
@@ -54,4 +54,20 @@ error_t mem_region_allocate_clear_and_map(memory_region_t *reg, page_dir_t targe
 error_t mem_region_allocate_copy_and_map(memory_region_t *reg, page_dir_t target_page_dir, uintptr_t source_address);
 error_t mem_region_allocate_fill_and_map(memory_region_t *reg, page_dir_t target_page_dir, page_fill_t *filler);
 error_t mem_region_unmap_and_release(memory_region_t *reg, page_dir_t page_dir);
+
+/**
+ * A collection of regions. 
+ * Can be from kernel (identity mapped) or a process (virtual addresses)
+ * Would help debugging, detecting owners of memory pointers etc.
+ */
+typedef struct memory_map {
+    memory_region_t *regions_arr;
+    int count;
+    int capacity;
+    const char *name; // optional, helps debugging
+} memory_map_t;
+
+
+bool mem_map_contains_address(memory_map_t *map, uintptr_t address);
+const memory_region_t *mem_map_get_region(memory_map_t *map, uintptr_t address);
 

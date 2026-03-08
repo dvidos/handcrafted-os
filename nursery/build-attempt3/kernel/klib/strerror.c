@@ -15,6 +15,7 @@ const char *strerror(error_t err) {
         CASE(ERR_NOT_SUPPORTED);
         CASE(ERR_NOT_IMPLEMENTED);
         CASE(ERR_NOT_PERMITTED);
+        CASE(ERR_NOT_INITIALIZED);
         CASE(ERR_BAD_ARGUMENT);
         CASE(ERR_BAD_VALUE);
         CASE(ERR_ALREADY_EXISTS);
