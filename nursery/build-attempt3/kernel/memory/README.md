@@ -7,9 +7,9 @@ This `kernel/memory` directory contains the core components responsible for mana
 *   **What it is:** The PMM is the lowest-level memory manager, directly interacting with the physical RAM. It tracks the availability of raw physical memory pages.
 *   **How it works:**
     *   Utilizes a **bitmap** where each bit represents the status (used/free) of a 4KB physical page.
-    *   **Initialization (`pmm.initialize`):** Identifies available RAM regions (e.g., from an E820 map), marks kernel code/data, the PMM's own bitmap, and other known used areas as allocated, and the rest as free.
-    *   **Allocation (`pmm.allocate_physical_page`, `pmm.allocate_consecutive_pages`):** Provides functions to allocate single 4KB physical pages or contiguous blocks of physical pages.
-    *   **Deallocation (`pmm.free_physical_page`, `pmm.free_consecutive_pages`):** Releases physical pages back to the free pool, updating the bitmap.
+    *   **Initialization (`pmm_initialize`):** Identifies available RAM regions (e.g., from an E820 map), marks kernel code/data, the PMM's own bitmap, and other known used areas as allocated, and the rest as free.
+    *   **Allocation (`pmm_allocate_physical_page`, `pmm_allocate_consecutive_pages`):** Provides functions to allocate single 4KB physical pages or contiguous blocks of physical pages.
+    *   **Deallocation (`pmm_free_physical_page`, `pmm_free_consecutive_pages`):** Releases physical pages back to the free pool, updating the bitmap.
     *   Ensures thread-safety during critical operations by disabling interrupts (`pushcli`/`popcli`).
 *   **How to use it:** Directly provides raw physical memory pages. Primarily used by the VMM to acquire physical pages for page tables and virtual memory mappings, and by other low-level drivers that need direct physical memory access.
 
@@ -49,7 +49,7 @@ The three components work together to provide memory for processes:
     *   The **PMM** allocates the physical pages needed for these new page directories and page tables.
 
 2.  **Loading User Code and Data:**
-    *   As the process's executable (e.g., ELF file) is loaded, its code and data segments require physical memory. The **PMM** provides these raw physical pages (`pmm.allocate_physical_page()`).
+    *   As the process's executable (e.g., ELF file) is loaded, its code and data segments require physical memory. The **PMM** provides these raw physical pages (`pmm_allocate_physical_page()`).
     *   The **VMM** then maps these newly allocated physical pages into the process's specific virtual address range using `map_virtual_address_to_physical()`.
 
 3.  **Kernel Structures for Processes:**

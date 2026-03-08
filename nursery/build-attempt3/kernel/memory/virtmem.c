@@ -208,7 +208,7 @@ void vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_
         page_table_address = get_entry_address(page_dir_entry);
     } else {
         // we need to create one
-        page_table_address = pmm.allocate_physical_page();
+        page_table_address = pmm_allocate_physical_page();
         log_debug("Allocated new physical page at 0x%p for new page table", page_table_address);
         memset((void *)page_table_address, 0, 4096);
         uint32_t page_dir_value = create_directory_entry_value(
@@ -271,7 +271,7 @@ void vmm_unmap(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     }
     if (page_table_completely_empty) {
         log_debug("Page table is clear, freeing physical page at 0x%x", page_table_address);
-        pmm.free_physical_page((phys_addr_t)page_table_address);
+        pmm_free_physical_page((phys_addr_t)page_table_address);
         // remove entry from page directory
         set_table_entry(page_dir_addr, page_dir_index, 0);
     }
@@ -420,7 +420,7 @@ void vmm_page_fault_handler(uint32_t error_code) {
 
 // allocates and creates a new page directory
 page_dir_t vmm_create_page_directory(bool map_kernel_space) {
-    page_dir_t page_dir = pmm.allocate_physical_page();
+    page_dir_t page_dir = pmm_allocate_physical_page();
     if (page_dir == INVALID_PAGE) {
         panic("Failed to allocate physical page for page directory!");
     }
@@ -444,7 +444,7 @@ void vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_add
 
     // TODO: this should update the memory map of the kernel/process
     for (virt_addr_t virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
-        phys_addr_t phys_page_addr = pmm.allocate_physical_page();
+        phys_addr_t phys_page_addr = pmm_allocate_physical_page();
         vmm_map_virtual_to_physical(virt_addr, phys_page_addr, page_dir_addr, true, true);
     }
 }
@@ -479,14 +479,14 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address) {
             if (phys_page_address >= kernel_info.start_address && phys_page_address <= kernel_info.end_address)
                 continue;
 
-            pmm.free_physical_page((phys_addr_t)phys_page_address);
+            pmm_free_physical_page((phys_addr_t)phys_page_address);
         }
 
-        pmm.free_physical_page((phys_addr_t)page_table_address);
+        pmm_free_physical_page((phys_addr_t)page_table_address);
     }
 
     // we can now free the page directory itself
-    pmm.free_physical_page((phys_addr_t)page_dir_address);
+    pmm_free_physical_page((phys_addr_t)page_dir_address);
     popcli();
 }
 

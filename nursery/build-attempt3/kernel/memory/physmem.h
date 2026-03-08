@@ -19,25 +19,24 @@ typedef struct pmm_allocator_t {
 } pmm_allocator_t;
 
 
-struct pmm_ops {
-    void (*initialize)(uint64_t highest_address, phys_addr_t kernel_end);
-    void (*mark_region_available)(phys_addr_t start, size_t length);
-    void (*mark_region_reserved)(phys_addr_t start, size_t length);
-    void (*finish_initialization)();
+void pmm_initialize(uint64_t highest_address, phys_addr_t kernel_end);
+void pmm_mark_region_available(phys_addr_t start, size_t length);
+void pmm_mark_region_reserved(phys_addr_t start, size_t length);
+void pmm_finish_initialization();
 
-    phys_addr_t (*allocate_physical_page)();
-    void (*free_physical_page)(phys_addr_t addr);
-    phys_addr_t (*allocate_consecutive_pages)(size_t total_bytes);
-    void (*free_consecutive_pages)(phys_addr_t address, size_t total_bytes);
+phys_addr_t pmm_allocate_physical_page();
+void pmm_free_physical_page(phys_addr_t addr);
+phys_addr_t pmm_allocate_consecutive_pages(size_t total_bytes);
+void pmm_free_consecutive_pages(phys_addr_t address, size_t total_bytes);
 
-    uint32_t (*total_pages)();
-    uint32_t (*free_pages)();
-    uint32_t (*used_pages)();
+uint32_t pmm_total_pages();
+uint32_t pmm_free_pages();
+uint32_t pmm_used_pages();
 
-    pmm_allocator_t (*get_pmm_allocator)();
-    phys_addr_t (*get_top_identity_address)();
-    void (*debug_bitmap_ranges)();
-};
+pmm_allocator_t pmm_get_pmm_allocator();
+phys_addr_t pmm_get_top_identity_address();
+void pmm_debug_bitmap_ranges();
+
 
 
 #define PAGE_SIZE                 4096

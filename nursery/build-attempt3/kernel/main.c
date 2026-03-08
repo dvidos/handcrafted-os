@@ -125,7 +125,7 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
     log_info("Initializing virtual memory mapping...");
-    vmm_initialize(0, pmm.get_top_identity_address());
+    vmm_initialize(0, pmm_get_top_identity_address());
 
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -250,25 +250,25 @@ static void initialize_physical_memory(boot_info_t *info) {
     );
     log_info("Kernel area topmost address 0x%08x", kernel_top_address);
 
-    pmm.initialize(machine_max_memory_64, kernel_top_address);
+    pmm_initialize(machine_max_memory_64, kernel_top_address);
     for (uint32_t i = 0; i < info->mem.count; i++) {
         e820_memory_entry *entry = &info->mem.entries[i];
-        pmm.mark_region_available((phys_addr_t)entry->base, (size_t)entry->length);
+        pmm_mark_region_available((phys_addr_t)entry->base, (size_t)entry->length);
     }
-    pmm.mark_region_reserved((phys_addr_t)0, (size_t)kernel_top_address);
-    pmm.finish_initialization();
+    pmm_mark_region_reserved((phys_addr_t)0, (size_t)kernel_top_address);
+    pmm_finish_initialization();
 
     log_info("Physical memory manager initialized. %u total pages, %u (%u MB or %u%%) reserved, %u (%u MB or %u%%) available",
-        pmm.total_pages(),
-        pmm.used_pages(),
-        (pmm.used_pages() * 4) / 1024,
-        pmm.total_pages() == 0 ? 0 : (pmm.used_pages() * 100) / pmm.total_pages(),
-        pmm.free_pages(),
-        (pmm.free_pages() * 4) / 1024,
-        pmm.total_pages() == 0 ? 0 : (pmm.free_pages() * 100) / pmm.total_pages()
+        pmm_total_pages(),
+        pmm_used_pages(),
+        (pmm_used_pages() * 4) / 1024,
+        pmm_total_pages() == 0 ? 0 : (pmm_used_pages() * 100) / pmm_total_pages(),
+        pmm_free_pages(),
+        (pmm_free_pages() * 4) / 1024,
+        pmm_total_pages() == 0 ? 0 : (pmm_free_pages() * 100) / pmm_total_pages()
     );
 
-    pmm.debug_bitmap_ranges();
+    pmm_debug_bitmap_ranges();
 }
 
 static void print_stage2_boot_info(boot_info_t *info) {

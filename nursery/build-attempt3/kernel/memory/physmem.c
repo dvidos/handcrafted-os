@@ -30,9 +30,6 @@ struct pmm_data_t {
 
 static struct pmm_data_t pmm_data;
 
-static phys_addr_t _allocate_physical_page();
-static void _free_physical_page(phys_addr_t addr);
-
 static inline uint32_t round_up_4k(uint32_t address) {
     return ((address + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
 }
@@ -71,12 +68,12 @@ static inline void mark_page_free(uint32_t page_no) {
     }
 }
 
-static void _initialize(uint64_t highest_machine_address, phys_addr_t highest_kernel_address) {
-    pmm_data.allocator.allocate_physical_page = _allocate_physical_page;
-    pmm_data.allocator.free_physical_page = _free_physical_page;
+void pmm_initialize(uint64_t highest_machine_address, phys_addr_t highest_kernel_address) {
+    pmm_data.allocator.allocate_physical_page = pmm_allocate_physical_page;
+    pmm_data.allocator.free_physical_page = pmm_free_physical_page;
 
     pmm_data.total_pages = (uint32_t)((highest_machine_address + 4095) / PAGE_SIZE);
-    pmm_data.bitmap = (uint32_t *)round_up_4k(highest_kernel_address);
+    pmm_data.bitmap = (uint32_t *)round_up_4k(highest_kernel_address + 1);
     pmm_data.bitmap_uint_count = (pmm_data.total_pages + 31) / 32;
     pmm_data.next_allocation_page_hint = 0;
 
@@ -86,7 +83,7 @@ static void _initialize(uint64_t highest_machine_address, phys_addr_t highest_ke
     pmm_data.free_pages = 0;
 }
 
-static void _mark_region_available(phys_addr_t start, size_t length) {
+void pmm_mark_region_available(phys_addr_t start, size_t length) {
     if (length == 0)
         return;
     
@@ -97,7 +94,7 @@ static void _mark_region_available(phys_addr_t start, size_t length) {
         mark_page_free(page_no_for_address(addr));
 }
 
-static void _mark_region_reserved(phys_addr_t start, size_t length) {
+void pmm_mark_region_reserved(phys_addr_t start, size_t length) {
     if (length == 0)
         return;
     
@@ -108,7 +105,7 @@ static void _mark_region_reserved(phys_addr_t start, size_t length) {
         mark_page_used(page_no_for_address(addr));
 }
 
-static void _finish_initialization() {
+void pmm_finish_initialization() {
     // mark the pages of the bitmap as reserved
     phys_addr_t bitmap_start = (phys_addr_t)pmm_data.bitmap;
     phys_addr_t bitmap_end = (phys_addr_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count);
@@ -119,7 +116,7 @@ static void _finish_initialization() {
     mark_page_used(0);
 }
 
-static phys_addr_t _find_next_free_page() {
+phys_addr_t _find_next_free_page() {
     uint32_t index = pmm_data.next_allocation_page_hint / 32;
     for (uint32_t times = 0; times < pmm_data.bitmap_uint_count; times++) {
         if (pmm_data.bitmap[index] == 0xFFFFFFFF) {
@@ -147,7 +144,7 @@ static phys_addr_t _find_next_free_page() {
     return INVALID_PAGE;
 }
 
-static phys_addr_t _allocate_physical_page() { 
+phys_addr_t pmm_allocate_physical_page() { 
     phys_addr_t addr = 0;
     
     pushcli();
@@ -161,7 +158,7 @@ static phys_addr_t _allocate_physical_page() {
     return addr;
 }
 
-static void _free_physical_page(phys_addr_t addr) { 
+void pmm_free_physical_page(phys_addr_t addr) { 
     if (addr != round_down_4k(addr))
         panic("Freeing physical address not aligned to 4k (0x%x)", addr);
     uint32_t page_no = page_no_for_address(addr);
@@ -177,9 +174,9 @@ static void _free_physical_page(phys_addr_t addr) {
     popcli();
 }
 
-static phys_addr_t _allocate_consecutive_pages(size_t total_bytes) {
+phys_addr_t pmm_allocate_consecutive_pages(size_t total_bytes) {
     if (total_bytes <= PAGE_SIZE)
-        return _allocate_physical_page();
+        return pmm_allocate_physical_page();
 
     pushcli();
 
@@ -215,9 +212,9 @@ static phys_addr_t _allocate_consecutive_pages(size_t total_bytes) {
     return addr;
 }
 
-static void _free_consecutive_pages(phys_addr_t address, size_t total_bytes) {
+void pmm_free_consecutive_pages(phys_addr_t address, size_t total_bytes) {
     if (total_bytes <= PAGE_SIZE)
-        _free_physical_page(address);
+        pmm_free_physical_page(address);
 
     pushcli();
 
@@ -229,23 +226,23 @@ static void _free_consecutive_pages(phys_addr_t address, size_t total_bytes) {
     popcli();
 }
 
-static uint32_t _total_pages() {
+uint32_t pmm_total_pages() {
     return pmm_data.total_pages;
 }
 
-static uint32_t _free_pages() {
+uint32_t pmm_free_pages() {
     return pmm_data.free_pages;
 }
 
-static uint32_t _used_pages() {
+uint32_t pmm_used_pages() {
     return pmm_data.total_pages - pmm_data.free_pages;
 }
 
-static pmm_allocator_t _get_pmm_allocator() {
+pmm_allocator_t pmm_get_pmm_allocator() {
     return pmm_data.allocator;
 }
 
-static void _debug_bitmap_ranges() {
+void pmm_debug_bitmap_ranges() {
     uint32_t start_page = 0;
     bool current_used = (pmm_data.bitmap[0] & 1) != 0; // first page
     
@@ -284,25 +281,25 @@ static void _debug_bitmap_ranges() {
         );
 }
 
-static phys_addr_t _get_top_identity_address() {
+phys_addr_t pmm_get_top_identity_address() {
     // we already put the bitmap after the top of the kernel.
     // so, return the end of the bitmap, to identity map it.
     return (phys_addr_t)round_up_4k((uint32_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count * sizeof(uint32_t)));
 }
 
-struct pmm_ops pmm = {
-    .initialize = _initialize,
-    .mark_region_available = _mark_region_available,
-    .mark_region_reserved = _mark_region_reserved,
-    .finish_initialization = _finish_initialization,
-    .allocate_physical_page = _allocate_physical_page,
-    .allocate_consecutive_pages = _allocate_consecutive_pages,
-    .free_consecutive_pages = _free_consecutive_pages,
-    .free_physical_page = _free_physical_page,
-    .total_pages = _total_pages,
-    .free_pages = _free_pages,
-    .used_pages = _used_pages,
-    .get_pmm_allocator = _get_pmm_allocator,
-    .get_top_identity_address = _get_top_identity_address,
-    .debug_bitmap_ranges = _debug_bitmap_ranges,
-};
+// struct pmm_ops pmm = {
+//     .initialize = pmm_initialize,
+//     .mark_region_available = pmm_mark_region_available,
+//     .mark_region_reserved = pmm_mark_region_reserved,
+//     .finish_initialization = pmm_finish_initialization,
+//     .allocate_physical_page = pmm_allocate_physical_page,
+//     .allocate_consecutive_pages = pmm_allocate_consecutive_pages,
+//     .free_consecutive_pages = pmm_free_consecutive_pages,
+//     .free_physical_page = pmm_free_physical_page,
+//     .total_pages = pmm_total_pages,
+//     .free_pages = pmm_free_pages,
+//     .used_pages = pmm_used_pages,
+//     .get_pmm_allocator = pmm_get_pmm_allocator,
+//     .get_top_identity_address = pmm_get_top_identity_address,
+//     .debug_bitmap_ranges = pmm_debug_bitmap_ranges,
+// };

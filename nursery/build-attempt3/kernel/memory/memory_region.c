@@ -48,7 +48,7 @@ error_t mem_region_allocate_fill_and_map(memory_region_t *reg, page_dir_t target
     int pages = BYTES_TO_PAGES(reg->size);
     for (int i = 0; i < pages; i++) {
         // first grab a new page
-        phys_addr_t page_phys_addr = pmm.allocate_physical_page();
+        phys_addr_t page_phys_addr = pmm_allocate_physical_page();
         if (page_phys_addr == 0)
             return ERR_NO_MEMORY;
         
@@ -82,7 +82,7 @@ error_t mem_region_unmap_and_release(memory_region_t *reg, page_dir_t page_dir) 
 
         // unmap from here, then release the page
         vmm_unmap(virt_page, page_dir);
-        pmm.free_physical_page(phys_page);
+        pmm_free_physical_page(phys_page);
     }
 
     return OK;

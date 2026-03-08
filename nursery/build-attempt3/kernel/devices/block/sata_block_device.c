@@ -528,7 +528,7 @@ static void rebase_port(HBA_PORT *port) {
      * A total of: 9472 bytes, rounded up to 3 pages of 4K => 12288
      */
     int port_memory_size = 12288;
-    phys_addr_t port_memory_addr = pmm.allocate_consecutive_pages(port_memory_size);
+    phys_addr_t port_memory_addr = pmm_allocate_consecutive_pages(port_memory_size);
     if (!port_memory_addr)
         panic("Cannot allocate 12K for SATA drive");
     // map the memory so we can access it
