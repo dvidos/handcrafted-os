@@ -41,7 +41,10 @@ typedef          long  int tid_t;       // thread id. (tid=pid for main thread)
 #define container_of(member_ptr, type, member)    (type *)((char *)member_ptr - offsetof(type, member))
 
 
-
 _Static_assert(sizeof(void *)      == 4, "A pointer is expected to have a size of 4 bytes");
 _Static_assert(sizeof(uintptr_t)   == 4, "uintptr_t is expected to have a size of 4 bytes");
 
+
+typedef uintptr_t phys_addr_t;  // physical address. 32 bits -> 4 GB
+typedef uintptr_t virt_addr_t;  // virtual address. 32 bits -> 4 GB
+typedef uintptr_t page_dir_t;   // address of a page_directory, for CR3 register

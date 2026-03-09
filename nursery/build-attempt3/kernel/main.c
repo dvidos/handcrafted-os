@@ -17,7 +17,7 @@
 #include "utils/kcmd_line_args.h"
 #include "klib/string.h"
 #include "memory/physmem.h"
-#include "memory/memory_region.h"
+#include "memory/mem_region.h"
 
 #include "devices/devices.h"
 #include "devices/pci/pci_device.h"
@@ -69,7 +69,7 @@ static void initialize_storage_and_file_systems();
 static void print_stage2_boot_info(boot_info_t *info);
 
 boot_info_t saved_multiboot_info;
-memory_map_t kernel_phys_mem_map;
+mem_map_t kernel_phys_mem_map;
 
 
 
@@ -226,7 +226,7 @@ static void initialize_physical_memory(boot_info_t *info) {
 
     // this variable must be static, we are well before initializing heap...
     // notice that IVT, VGA, FB, don't _have_ to be identity matching, as long as any virtual address resolves to the correct physical one.
-    kernel_phys_mem_map = { .count = 0, .name = "Kernel physical memory map" };
+    kernel_phys_mem_map = (mem_map_t){ .count = 0, .name = "Kernel physical memory map" };
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other(0, 4096, "ivt_bios"));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_code((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start)));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_rodata((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start)));

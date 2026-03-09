@@ -5,7 +5,7 @@
 #include "../logger/logger.h"
 #include "../arch/cpu.h"
 #include "../klib/string.h"
-#include "../memory/memory_region.h"
+#include "../memory/mem_region.h"
 
 MODULE("VMEM", LOG_LEVEL_WARN);
 
@@ -90,6 +90,15 @@ MODULE("VMEM", LOG_LEVEL_WARN);
    it turns out the bit allocation is implementation specific and never guaranteed!
 */
 
+// this to be included in every page directory we create,
+// so that kernel structures and code are always available.
+static struct {
+    page_dir_t page_directory; 
+    phys_addr_t start_address;
+    phys_addr_t end_address;
+    mem_map_t *kernel_phys_map;
+} kernel_info;
+
 page_dir_t vmm_create_page_directory(bool map_kernel_space);
 
 
@@ -166,7 +175,7 @@ static inline uint32_t virt_addr_to_physical_page_offset(virt_addr_t virtual_add
 
 // --------------------------------------------------------
 
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, memory_map_t *kernel_phys_map) {
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, mem_map_t *kernel_phys_map) {
     
     // TODO: here, accept a full memory map, and keep it referenced, as it will be useful as hell.
 
@@ -350,7 +359,7 @@ inline void vmm_invalidate_cached_address(virt_addr_t virtual_addr) {
     asm volatile("invlpg (%0)" : : "r" (virtual_addr) : "memory");
 }
 
-static void vmm_enable_paging() {
+void vmm_enable_paging() {
     log_trace("Enabling memory paging in CPU");
 
     __asm__ __volatile__(
@@ -363,7 +372,7 @@ static void vmm_enable_paging() {
     );
 }
 
-static void vmm_disable_paging() {
+void vmm_disable_paging() {
     log_trace("Disabling memory paging in CPU");
 
     __asm__ __volatile__(
@@ -376,14 +385,6 @@ static void vmm_disable_paging() {
     );
 }
 
-// this to be included in every page directory we create,
-// so that kernel structures and code are always available.
-static struct {
-    page_dir_t page_directory; 
-    phys_addr_t start_address;
-    phys_addr_t end_address;
-    memory_map_t *kernel_phys_map;
-} kernel_info;
 
 page_dir_t vmm_get_kernel_page_directory() {
     return kernel_info.page_directory;

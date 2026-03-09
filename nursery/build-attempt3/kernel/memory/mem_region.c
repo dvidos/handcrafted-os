@@ -1,4 +1,4 @@
-#include "memory_region.h"
+#include "mem_region.h"
 #include "../klib/string.h"
 #include "../memory/virtmem.h"
 #include "../memory/physmem.h"
@@ -21,7 +21,7 @@ static error_t _clear_filler_fill_page(size_t page_num, uintptr_t dest_addr, voi
     return OK;
 }
 
-error_t mem_region_allocate_clear_and_map(memory_region_t *reg, page_dir_t target_page_dir) {
+error_t mem_region_allocate_clear_and_map(mem_region_t *reg, page_dir_t target_page_dir) {
     page_fill_t clear_filler = { .fill_page = _clear_filler_fill_page, .context = NULL };
     return mem_region_allocate_fill_and_map(reg, target_page_dir, &clear_filler);
 }
@@ -34,12 +34,12 @@ static error_t _copy_filler_fill_page(size_t page_num, uintptr_t dest_addr, void
     return OK;
 }
 
-error_t mem_region_allocate_copy_and_map(memory_region_t *reg, page_dir_t target_page_dir, uintptr_t source_address) {
+error_t mem_region_allocate_copy_and_map(mem_region_t *reg, page_dir_t target_page_dir, uintptr_t source_address) {
     page_fill_t copy_filler = { .fill_page = _copy_filler_fill_page, .context = (void *)source_address };
     return mem_region_allocate_fill_and_map(reg, target_page_dir, &copy_filler);
 }
 
-error_t mem_region_allocate_fill_and_map(memory_region_t *reg, page_dir_t target_page_dir, page_fill_t *filler) {
+error_t mem_region_allocate_fill_and_map(mem_region_t *reg, page_dir_t target_page_dir, page_fill_t *filler) {
     page_dir_t curr_page_dir = vmm_get_page_directory_register();
 
     if (_util_page_addr == 0) return ERR_NOT_INITIALIZED;
@@ -73,7 +73,7 @@ error_t mem_region_allocate_fill_and_map(memory_region_t *reg, page_dir_t target
 
 // --------------------------------------------------------------------
 
-error_t mem_region_unmap_and_release(memory_region_t *reg, page_dir_t page_dir) {
+error_t mem_region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir) {
 
     int pages = BYTES_TO_PAGES(reg->size);
     for (int i = 0; i < pages; i++) {
@@ -90,7 +90,7 @@ error_t mem_region_unmap_and_release(memory_region_t *reg, page_dir_t page_dir) 
 
 // ---------------------------------------------------------------------
 
-static const char *mem_region_usage_name(memory_region_t *reg) {
+const char *mem_region_usage_name(mem_region_t *reg) {
     if (reg->name) return reg->name;
 
     if      ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_CODE)  return "code";
@@ -105,7 +105,7 @@ static const char *mem_region_usage_name(memory_region_t *reg) {
     return "other";
 }
 
-static void mem_region_describe_flags(memory_region_t *reg, char *buffer) {
+void mem_region_describe_flags(mem_region_t *reg, char *buffer) {
     buffer[0] = 0;
 
     strcat(buffer, reg->flags & REGION_WRITE_ENABLE ? "write" : "ro");
@@ -114,7 +114,7 @@ static void mem_region_describe_flags(memory_region_t *reg, char *buffer) {
 }
 
 void mem_region_formatter(log_write_stream_t *stream, va_list args) {
-    memory_region_t *reg = va_arg(args, memory_region_t *);
+    mem_region_t *reg = va_arg(args, mem_region_t *);
     char flags[64];
     
     mem_region_describe_flags(reg, flags);
@@ -127,55 +127,6 @@ void mem_region_formatter(log_write_stream_t *stream, va_list args) {
     );
 }
 
-void mem_map_formatter(log_write_stream_t *stream, va_list args) {
-    memory_map_t *map = va_arg(args, memory_map_t *);
-    char flags[64];
-    
-    if (map->name)
-        stream->printf(stream->context, "%s", map->name);
-
-    stream->printf(stream->context, "    No        From          To        Size    KB  Flags             Usage");
-    // |  No     Address          To        Size    KB  Flags             Usage
-    // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
-    // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
-    // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
-
-    for (int i = 0; i < map->count; i++) {
-        memory_region_t *reg = &map->regions[i];
-        mem_region_describe_flags(reg, flags);
-
-        stream->printf(stream->context, "    %2d  0x%08x  0x%08x  %10lu  %4d  %-16s  %s",
-            i,
-            reg->address,
-            reg->address + reg->size - 1,
-            reg->size,
-            reg->size / 1024,
-            flags,
-            mem_region_usage_name(reg)
-        );
-    }
-}
-
-// ---------------------------------------------------------------------
-
-void mem_map_add_region(memory_map_t *map, memory_region_t reg) {
-    if (map->count >= MEM_MAP_MAX_REGIONS) {
-        log_error("Memory map full, cannot add region");
-        return;
-    }
-
-    map->regions[map->count] = reg;
-    map->count += 1;
-}
-
-uintptr_t mem_map_get_top_address(memory_map_t *map) {
-    uintptr_t last = 0;
-
-    for (int i = 0; i < map->count; i++) {
-        uintptr_t region_last = map->regions[i].address + map->regions[i].size - 1;
-        if (region_last > last)
-            last = region_last;
-    }
-
-    return last;
+bool mem_region_contains_address(mem_region_t *reg, uintptr_t address) {
+    return address >= reg->address && address < reg->address + reg->size;
 }

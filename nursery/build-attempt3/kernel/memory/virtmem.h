@@ -2,15 +2,13 @@
 #define _VIRTMEM_H
 
 #include "../include/ctypes.h"
-#include "physmem.h"
-
-
-typedef uintptr_t page_dir_t;   // address of a page_directory, for CR3 register
-typedef uintptr_t virt_addr_t;  // virtual address. 32 bits -> 4 GB
+#include "../memory/physmem.h"
+#include "../memory/mem_region.h"
+#include "../memory/mem_map.h"
 
 
 // initialize virtual memory paging.
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, memory_map_t *kernel_phys_map);
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, mem_map_t *kernel_phys_map);
 
 
 
@@ -35,11 +33,12 @@ page_dir_t vmm_get_kernel_page_directory();
 // to be called upon page fault interrupt
 void vmm_page_fault_handler(uint32_t error_code);
 
+// get/set bit 31 of CR0 register
+void vmm_enable_paging();
+void vmm_disable_paging();
 
-// write the CR3 register
+// read/write the CR3 register
 void vmm_set_page_directory_register(page_dir_t address);
-
-// read the CR3 register
 page_dir_t vmm_get_page_directory_register();
 
 

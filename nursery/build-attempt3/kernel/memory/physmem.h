@@ -9,8 +9,6 @@
 // this way, we depend on a linked-in panic() method, but nothing else.
 
 
-typedef uintptr_t phys_addr_t;  // physical address. 32 bits -> 4 GB
-
 
 // to be used as a dependency to other systems
 typedef struct pmm_allocator_t {
