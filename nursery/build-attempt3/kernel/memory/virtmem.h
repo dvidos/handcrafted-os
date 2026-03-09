@@ -9,6 +9,10 @@ typedef uintptr_t page_dir_t;   // address of a page_directory, for CR3 register
 typedef uintptr_t virt_addr_t;  // virtual address. 32 bits -> 4 GB
 
 
+// initialize virtual memory paging.
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, memory_map_t *kernel_phys_map);
+
+
 
 // resolve a virtual address, by reading the page dir and tables
 phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr);
@@ -24,9 +28,6 @@ void vmm_invalidate_cached_address(virt_addr_t virtual_addr);
 
 // identity map a whole range of addresses
 void vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr);
-
-// initialize virtual memory paging.
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address);
 
 // return the page direcrory address for the kernel
 page_dir_t vmm_get_kernel_page_directory();

@@ -5,6 +5,7 @@
 #include "../logger/logger.h"
 #include "../arch/cpu.h"
 #include "../klib/string.h"
+#include "../memory/memory_region.h"
 
 MODULE("VMEM", LOG_LEVEL_WARN);
 
@@ -163,6 +164,35 @@ static inline uint32_t virt_addr_to_physical_page_offset(virt_addr_t virtual_add
     return ((uint32_t)virtual_address) & 0xFFF;
 }
 
+// --------------------------------------------------------
+
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, memory_map_t *kernel_phys_map) {
+    
+    // TODO: here, accept a full memory map, and keep it referenced, as it will be useful as hell.
+
+    kernel_info.start_address = kernel_start_address;
+    kernel_info.end_address = kernel_end_address;
+
+    // create a page directory for kernel.
+    kernel_info.page_directory = vmm_create_page_directory(true);
+
+    // log_debug("Kernel page directory contents:");
+    // log_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
+
+    // void *pt = get_entry_address(get_table_entry(kernel_page_direcory, 0));
+    // log_debug("Kernel first page table contents:");
+    // log_debug_hex(pt, 4096, (uint32_t)pt);
+
+    // void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
+    // void *pa = vmm_resolve(va, kernel_page_direcory);
+    // log_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
+
+    // now enable paging (fingers crossed!)
+    vmm_set_page_directory_register(kernel_info.page_directory);
+    vmm_enable_paging();
+
+    log_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
+}
 
 phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     // For each virtual address, when we are dealing with 4K pages:
@@ -352,35 +382,8 @@ static struct {
     page_dir_t page_directory; 
     phys_addr_t start_address;
     phys_addr_t end_address;
+    memory_map_t *kernel_phys_map;
 } kernel_info;
-
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address) {
-    
-    // TODO: here, accept a full memory map, and keep it referenced, as it will be useful as hell.
-
-    kernel_info.start_address = kernel_start_address;
-    kernel_info.end_address = kernel_end_address;
-
-    // create a page directory for kernel.
-    kernel_info.page_directory = vmm_create_page_directory(true);
-
-    // log_debug("Kernel page directory contents:");
-    // log_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
-
-    // void *pt = get_entry_address(get_table_entry(kernel_page_direcory, 0));
-    // log_debug("Kernel first page table contents:");
-    // log_debug_hex(pt, 4096, (uint32_t)pt);
-
-    // void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
-    // void *pa = vmm_resolve(va, kernel_page_direcory);
-    // log_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
-
-    // now enable paging (fingers crossed!)
-    vmm_set_page_directory_register(kernel_info.page_directory);
-    vmm_enable_paging();
-
-    log_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
-}
 
 page_dir_t vmm_get_kernel_page_directory() {
     return kernel_info.page_directory;

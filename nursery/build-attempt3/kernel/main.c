@@ -69,6 +69,7 @@ static void initialize_storage_and_file_systems();
 static void print_stage2_boot_info(boot_info_t *info);
 
 boot_info_t saved_multiboot_info;
+memory_map_t kernel_phys_mem_map;
 
 
 
@@ -125,7 +126,7 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
     log_info("Initializing virtual memory mapping...");
-    vmm_initialize(0, pmm_get_top_identity_address());
+    vmm_initialize(0, pmm_get_top_identity_address(), &kernel_phys_mem_map);
 
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -223,23 +224,26 @@ static void initialize_physical_memory(boot_info_t *info) {
             machine_max_memory_64 = entry_top64;
     }
 
-    // this must be static, we are well before initializing heap...
-    memory_map_t kernel_physical_map = { .count = 0, .name = "Kernel physical memory map" };
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_code((phys_addr_t)&_segment_text_start,      (size_t)(_segment_text_end      - _segment_text_start)));
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_rodata((phys_addr_t)&_segment_rodata_start,    (size_t)(_segment_rodata_end    - _segment_rodata_start)));
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_data((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end - _segment_init_data_start)));
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_bss((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start)));
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_stack((phys_addr_t)_segment_zero_data_end,    (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end)));
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_other((phys_addr_t)KERNEL_UTIL_PAGE_ADDRESS,  (size_t)KERNEL_UTIL_PAGE_SIZE_KB * 1024, "util_page"));
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_heap((phys_addr_t)KERNEL_HEAP_ADDRESS,       (size_t)KERNEL_HEAP_SIZE_KB * 1024));
-    mem_map_add_region(&kernel_physical_map, mem_region_kernel_other((phys_addr_t)KERNEL_RAMDISK_ADDRESS,    (size_t)KERNEL_RAMDISK_SIZE_KB * 1024, "ramdisk"));
-    log_info_fmt("", &kernel_physical_map, mem_map_formatter);
+    // this variable must be static, we are well before initializing heap...
+    // notice that IVT, VGA, FB, don't _have_ to be identity matching, as long as any virtual address resolves to the correct physical one.
+    kernel_phys_mem_map = { .count = 0, .name = "Kernel physical memory map" };
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other(0, 4096, "ivt_bios"));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_code((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start)));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_rodata((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start)));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_data((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start)));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_bss((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start)));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_stack((phys_addr_t)_segment_zero_data_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end)));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_UTIL_PAGE_ADDRESS, (size_t)KERNEL_UTIL_PAGE_SIZE_KB * 1024, "util_page"));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other(640*1024, (1024-640)*1024, "low_mem"));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_heap((phys_addr_t)KERNEL_HEAP_ADDRESS, (size_t)KERNEL_HEAP_SIZE_KB * 1024));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_RAMDISK_ADDRESS, (size_t)KERNEL_RAMDISK_SIZE_KB * 1024, "ramdisk"));
+    log_info_fmt("", &kernel_phys_mem_map, mem_map_formatter);
 
-
+    // page to be used for temp mapping for loading of programs
     mem_region_set_mappable_page_address(KERNEL_UTIL_PAGE_ADDRESS);
 
     // where physical memory mapper can put its bitmap
-    uintptr_t kernel_top_address = mem_map_get_top_address(&kernel_physical_map);
+    uintptr_t kernel_top_address = mem_map_get_top_address(&kernel_phys_mem_map);
 
     log_info("Machine maximum memory address 0x%08x.%08x (%u KB, %u MB, %u GB)",
         (uint32_t)(machine_max_memory_64 >> 32),
@@ -273,8 +277,8 @@ static void initialize_physical_memory(boot_info_t *info) {
 
 static void print_stage2_boot_info(boot_info_t *info) {
     log_info("boot_info from stage 2 (ptr address 0x%08x)", info);
-    log_info("- cmd line: \"%s\"", info->cmdline);
-    log_info("- memory map (total of %u entries)", info->mem.count);
+    log_info("- kernel cmd line: \"%s\"", info->cmdline);
+    log_info("- machine memory map (total of %u entries)", info->mem.count);
     log_info("    No              Address               Length  Type  ACPI");
     //             00  0x12345678-12345678  0x12345678-12345678  1234  1234
     for (uint32_t i = 0; i < info->mem.count; i++) {
