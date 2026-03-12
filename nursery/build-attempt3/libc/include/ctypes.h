@@ -43,7 +43,6 @@ typedef signed long long int s64;
 #define UINT32_MAX  4294967295
 #define UINT64_MAX  18446744073709551615
 
-
 #define bool     _Bool
 #define true	((_Bool)1)
 #define false	((_Bool)0)

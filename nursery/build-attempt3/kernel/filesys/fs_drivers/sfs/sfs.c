@@ -11,11 +11,6 @@
 
 MODULE("SFS", LOG_LEVEL_WARN);
 
-#define KB (1024)
-#define MB (1024 * KB)
-
-
-
 static bool sb_recognized(block_device_t *dev) {
 
     char *buffer = kmalloc(dev->block_size);

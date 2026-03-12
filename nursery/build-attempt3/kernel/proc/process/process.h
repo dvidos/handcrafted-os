@@ -7,6 +7,17 @@
 #include "../filesys/vfs_api.h"
 #include "../../memory/virtmem.h"
 
+/**
+ * Virtual memory map of a process (if user process, not kernel task)
+ * 
+ * 0x40000000  2GB, top of stack (growing down)
+ * 0x00xxxxxx  heap (growing up)
+ * 0x00xxxxxx  bss segment
+ * 0x00xxxxxx  data segment
+ * 0x08000000  128 MB, text segment (0x08048000  typical ELF entry point)
+ */
+
+
 
 // used to detect stack overflows
 #define STACK_BOTTOM_MAGIC_VALUE    0x12345678
@@ -21,14 +32,16 @@ typedef struct process process_t;
 // a function to execute as the task code
 typedef void (* func_ptr)();
 
+typedef enum proc_priority {
+    PRIORITY_KERNEL       = 0,
+    PRIORITY_KERNEL_TASK  = 1,
+    PRIORITY_DRIVERS      = 2,
+    PRIORITY_USER_PROGRAM = 4,
+    PRIORITY_IDLE_TASK    = 7
+} proc_priority_t;
 
-// idle runs on the lowest priority level
-#define PRIORITY_KERNEL           0
-#define PRIORITY_DRIVERS          1
-#define PRIORITY_USER_PROGRAM     4
-#define PRIORITY_IDLE_TASK        7
 
-#define MAX_FILE_HANDLES         16
+#define MAX_FILE_HANDLES     16
 
 /**
  * this is what's pushed when switching and is used to prepare the target return
@@ -71,10 +84,17 @@ struct process {
     pid_t pid;
     process_t *parent;
     process_t *children_list; // list of children
-    process_t *next_sibling;  // ptr to next sibling in the parent's list
+    process_t *next_child;  // ptr to next sibling in the parent's list
     char *name;
     uint8_t flags;
-    uint8_t  priority;
+    proc_priority_t priority;
+
+
+    // each user process will have a specific page_directory
+    // use vmm_get_kernel_page_directory() for kernel
+    page_dir_t page_directory;
+    mem_region_t stack;
+    mem_map_t mmap; // other regions with code, data, stack etc.
 
     func_ptr entry_point; // where to jump after initializing this process
     
@@ -99,6 +119,7 @@ struct process {
     uint64_t wake_up_time;
 
     // possibly, the process has an associated tty
+    // TODO: break this dependency, try to make process depending on abstraction only.
     tty_t *tty;
 
     // exit code, to be used for parent process
@@ -111,10 +132,6 @@ struct process {
     // allocated from kernel heap. 
     // used for kernel tasks and for the first stage of loading an executable
     void *allocated_kernel_stack;
-
-    // each user process will have a specific page_directory
-    // use vmm_get_kernel_page_directory() for kernel
-    page_dir_t page_directory;
 
     // data for loading and running user processes
     struct {
@@ -156,7 +173,7 @@ bool proc_has_children(process_t *parent);
 
 
 // life_cycle.c
-process_t *create_process(char *name, func_ptr entry_point, uint8_t priority, process_t *parent, tty_t *tty);
+process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty);
 void proc_start(process_t *proc);
 void proc_exit(process_t *proc, int exit_code); 
 void proc_destroy(process_t *proc);

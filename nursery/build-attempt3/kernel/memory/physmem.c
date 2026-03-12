@@ -30,13 +30,8 @@ struct pmm_data_t {
 
 static struct pmm_data_t pmm_data;
 
-static inline uint32_t round_up_4k(uint32_t address) {
-    return ((address + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
-}
-
-static inline uint32_t round_down_4k(uint32_t address) {
-    return (address / PAGE_SIZE) * PAGE_SIZE;
-}
+static inline uint32_t round_up_4k(uint32_t address) { return ((address + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE; }
+static inline uint32_t round_down_4k(uint32_t address) { return (address / PAGE_SIZE) * PAGE_SIZE; }
 
 static inline uint32_t page_no_for_address(phys_addr_t address) {
     return address / PAGE_SIZE;

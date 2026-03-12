@@ -139,6 +139,14 @@ void *__kmalloc(size_t size, char *explanation, char *file, uint16_t line) {
     return ptr;
 }
 
+char *__kstrdup(const char *str, char *file, uint16_t line) {
+    if (str == NULL)
+        return NULL;
+    
+    char *dup = __kmalloc(strlen(str) + 1, "strdup()", file, line);
+    strcpy(dup, str);
+    return dup;
+}
 
 // checks magic numbers and logs possible overflow/underflow
 void __kcheck(void *ptr, char *name, char *file, int line) {

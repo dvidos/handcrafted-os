@@ -6,6 +6,10 @@
 #include "../memory/mem_region.h"
 #include "../memory/mem_map.h"
 
+static inline uint32_t vmm_page_size()   { return 4096; }
+static inline uint32_t vmm_round_up(uint32_t address)   { return ((address + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE; }
+static inline uint32_t vmm_round_down(uint32_t address) { return ( address                  / PAGE_SIZE) * PAGE_SIZE; }
+
 
 // initialize virtual memory paging.
 void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, mem_map_t *kernel_phys_map);

@@ -13,6 +13,9 @@ static phys_addr_t _util_page_addr = 0;
 void mem_region_set_mappable_page_address(phys_addr_t addr) {
     _util_page_addr = addr;
 }
+phys_addr_t mem_region_get_mappable_page_address() {
+    return _util_page_addr;
+}
 
 // ------------------------------------------------------------
 
@@ -22,7 +25,7 @@ static error_t _clear_filler_fill_page(size_t page_num, uintptr_t dest_addr, voi
 }
 
 error_t mem_region_allocate_clear_and_map(mem_region_t *reg, page_dir_t target_page_dir) {
-    page_fill_t clear_filler = { .fill_page = _clear_filler_fill_page, .context = NULL };
+    page_filler_t clear_filler = { .fill_page = _clear_filler_fill_page, .context = NULL };
     return mem_region_allocate_fill_and_map(reg, target_page_dir, &clear_filler);
 }
 
@@ -35,11 +38,11 @@ static error_t _copy_filler_fill_page(size_t page_num, uintptr_t dest_addr, void
 }
 
 error_t mem_region_allocate_copy_and_map(mem_region_t *reg, page_dir_t target_page_dir, uintptr_t source_address) {
-    page_fill_t copy_filler = { .fill_page = _copy_filler_fill_page, .context = (void *)source_address };
+    page_filler_t copy_filler = { .fill_page = _copy_filler_fill_page, .context = (void *)source_address };
     return mem_region_allocate_fill_and_map(reg, target_page_dir, &copy_filler);
 }
 
-error_t mem_region_allocate_fill_and_map(mem_region_t *reg, page_dir_t target_page_dir, page_fill_t *filler) {
+error_t mem_region_allocate_fill_and_map(mem_region_t *reg, page_dir_t target_page_dir, page_filler_t *filler) {
     page_dir_t curr_page_dir = vmm_get_page_directory_register();
 
     if (_util_page_addr == 0) return ERR_NOT_INITIALIZED;

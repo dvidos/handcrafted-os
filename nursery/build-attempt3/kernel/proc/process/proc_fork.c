@@ -3,7 +3,11 @@
 
 // clone, return child's PID on parent, zero on child.
 int proc_fork(process_t *proc) {
-    process_t *child = create_process(proc->name, proc->entry_point, proc->priority, proc, proc->tty);
+    bool was_kernel = (proc->flags & PROC_FLAG_IS_USER_PROCESS);
+
+    process_t *child = create_process(
+      was_kernel,
+      proc->name, proc->entry_point, proc->priority, proc, proc->tty);
     proc_start(child);
 
 
@@ -29,6 +33,8 @@ int proc_fork(process_t *proc) {
         - finaly, when we have mapped and prepared all memory of the child,
           we copy the stack snapshot, file descriptors, 
     */
+
+    
 
     return ERR_NOT_IMPLEMENTED;
 }

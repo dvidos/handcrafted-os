@@ -9,6 +9,7 @@
  * This is a virt address to be used for copying pages, one page at a time
  */
 void mem_region_set_mappable_page_address(phys_addr_t addr);
+phys_addr_t mem_region_get_mappable_page_address();
 
 /**
  * Flags and usage description of a memory region.
@@ -78,11 +79,11 @@ bool mem_region_contains_address(mem_region_t *reg, uintptr_t address);
 typedef struct page_filler {
     error_t (*fill_page)(size_t page_num, uintptr_t dest_addr, void *context);
     void *context;
-} page_fill_t;
+} page_filler_t;
 
 
 error_t mem_region_allocate_clear_and_map(mem_region_t *reg, page_dir_t target_page_dir);
 error_t mem_region_allocate_copy_and_map(mem_region_t *reg, page_dir_t target_page_dir, uintptr_t source_address);
-error_t mem_region_allocate_fill_and_map(mem_region_t *reg, page_dir_t target_page_dir, page_fill_t *filler);
+error_t mem_region_allocate_fill_and_map(mem_region_t *reg, page_dir_t target_page_dir, page_filler_t *filler);
 error_t mem_region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir);
 

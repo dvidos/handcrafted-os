@@ -4,7 +4,7 @@
 #include "process/process.h"
 #include "../klib/strvec.h"
 #include "../devices/tty.h"
-#include "elf_loader.h"
+#include "elf_reader.h"
 #include "../memory/virtmem.h"
 #include "../memory/kheap.h"
 #include "../klib/strerror.h"
@@ -54,7 +54,7 @@ int spawnve(char *path, char *argv[], char *envp[]) {
     log_info_fmt("spawn opened file:", file, open_files.formatter);
 
     // this is where we could support the "#!/bin/sh" construct
-    err = verify_elf_executable(file);
+    err = elf_verify_executable(file);
     if (err) goto exit;
     
     err = vfs_close(file);
@@ -63,6 +63,7 @@ int spawnve(char *path, char *argv[], char *envp[]) {
 
     process_t *parent = running_process();
     process_t *new_proc = create_process(
+        false,
         path,
         load_and_run_executable,
         parent == NULL ? PRIORITY_USER_PROGRAM : parent->priority,
@@ -149,7 +150,9 @@ static void load_and_run_executable() {
     virt_addr_t virt_addr_end = 0;
     virt_addr_t elf_entry_point = 0;
 
-    err = get_elf_load_information(file, &virt_addr_start, &virt_addr_end, &elf_entry_point);
+    elf_dump_information(file);
+
+    err = elf_get_loading_information(file, &virt_addr_start, &virt_addr_end, &elf_entry_point);
     log_debug("ELF to be loaded at virtual addresses 0x%p - 0x%x, entry point 0x%p", virt_addr_start, virt_addr_end, elf_entry_point);
     if (err) {
         log_error("Failed getting info from executable");
@@ -182,7 +185,7 @@ static void load_and_run_executable() {
     vmm_set_page_directory_register(page_directory);
 
     // we should be safe to do it now
-    err = load_elf_into_memory(file);
+    err = elf_load_into_memory(file);
     if (err) {
         log_error("Failed loading executable \"%s\"", proc->user_proc.executable_path);
         proc_exit(running_process(), -3);
@@ -229,4 +232,3 @@ static void load_and_run_executable() {
     log_warn("elf_loader(): somehow, crt0._start() returned, this was not expected!");
     proc_exit(running_process(), -5);
 }
-

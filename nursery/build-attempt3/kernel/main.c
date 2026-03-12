@@ -168,15 +168,15 @@ static void launch_initial_processes() {
     
     int tty = 0;
     process_t *proc;
-    int pri = PRIORITY_USER_PROGRAM;
+    proc_priority_t pri = PRIORITY_USER_PROGRAM;
 
-    proc = create_process("Init Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty++));
+    proc = create_process(true, "Init Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty++));
     proc_start(proc);
 
-    proc = create_process("Process Monitor", process_monitor_main, pri, 0, tty_manager_get_device(tty++));
+    proc = create_process(true, "Process Monitor", process_monitor_main, pri, 0, tty_manager_get_device(tty++));
     proc_start(proc);
 
-    proc = create_process("VFS Monitor", vfs_monitor_main, pri, 0, tty_manager_get_device(tty++));
+    proc = create_process(true, "VFS Monitor", vfs_monitor_main, pri, 0, tty_manager_get_device(tty++));
     proc_start(proc);
 }
 

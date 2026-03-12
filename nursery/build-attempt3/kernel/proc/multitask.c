@@ -29,6 +29,7 @@ void init_multitasking() {
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
     process_t *idle = create_process(
+        true,
         "Idle", 
         NULL, 
         PROCESS_PRIORITY_LEVELS - 1,  // lowest priority by definition

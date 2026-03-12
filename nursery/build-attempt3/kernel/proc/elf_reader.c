@@ -7,9 +7,10 @@
 #include "../proc/process/process.h"
 #include "../devices/tty.h"
 #include "../include/uapi/vfs_seek_flags.h"
+#include "elf_reader.h"
 
 
-MODULE("ELF", LOG_LEVEL_WARN);
+MODULE("ELF", LOG_LEVEL_DEBUG);
 
 #define min(a, b)   ((a) <= (b) ? (a) : (b))
 #define max(a, b)   ((a) >= (b) ? (a) : (b))
@@ -169,9 +170,34 @@ typedef struct {
 
 // -------------------------------------------------------------------------------------------------
 
+static error_t load_elf_arbitrary_block(open_file_t *f, off_t offset, size_t size, void *buffer) {
+    off_t off = vfs_seek(f, offset, SEEK_SET);
+    if (off != offset) return ERR_READING_FILE;
+
+    ssize_t read = vfs_read(f, buffer, size);
+    if (read < 0) return read;
+    if ((size_t)read != size) return ERR_READING_FILE;
+
+    return OK;
+}
+
+static error_t load_elf_header(open_file_t *f, elf32_header_t *header) {
+    return load_elf_arbitrary_block(f, 0, sizeof(elf32_header_t), header);
+}
+
+static error_t load_elf_program_header(open_file_t *f, elf32_header_t *elf_header, int entry_no, elf32_program_header_t *prog_header) {
+    if (entry_no < 0 || entry_no >= elf_header->phnum)
+        return ERR_INVALID_ARGS;
+    
+    off_t offset = elf_header->phoff + (entry_no * elf_header->phentsize);
+    return load_elf_arbitrary_block(f, offset, sizeof(elf32_program_header_t), prog_header);
+}
+
+// -------------------------------------------------------------------------------------------------
+
 // returns OK or ERR_NOT_SUPPORTED accordingly
-int verify_elf_executable(open_file_t *file) {
-    log_trace("verify_elf_executable(inode=%ld)", file->inode.inode_num);
+error_t elf_verify_executable(open_file_t *file) {
+    log_trace("elf_verify_executable(inode=%ld)", file->inode.inode_num);
     char identification[16];
 
     int err = vfs_seek(file, 0, SEEK_SET);
@@ -212,9 +238,9 @@ int verify_elf_executable(open_file_t *file) {
     return OK;
 }
 
-// calcualtes information for setting up a new process
-int get_elf_load_information(open_file_t *file, virt_addr_t *virt_addr_start, virt_addr_t *virt_addr_end, virt_addr_t *entry_point) {
-    log_trace("get_elf_load_information(inode=%ld)", file->inode.inode_num);
+// calculates information for setting up a new process
+error_t elf_get_loading_information(open_file_t *file, virt_addr_t *virt_addr_start, virt_addr_t *virt_addr_end, virt_addr_t *entry_point) {
+    log_trace("elf_get_loading_information(inode=%ld)", file->inode.inode_num);
 
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -273,9 +299,12 @@ exit:
     return err;
 }
 
+
+
+
 // loads segments from the file into memory
-int load_elf_into_memory(open_file_t *file) {
-    log_trace("load_elf_into_memory(inode=%ld)", file->inode.inode_num);
+error_t elf_load_into_memory(open_file_t *file) {
+    log_trace("elf_load_into_memory(inode=%ld)", file->inode.inode_num);
     
     elf32_header_t *elf_header = NULL;
     char *prg_headers = NULL;
@@ -336,97 +365,7 @@ exit:
     return err;
 }
 
-
-static void dump_elf_header(elf32_header_t *header);
-static void dump_elf_section_header(bool title_line, int num, elf32_section_header_t *section, char *names_data);
-static void dump_elf_program_header(bool title_line, elf32_program_header_t *program);
-static void dump_elf_raw_data(open_file_t *file, char *title, uint32_t offset, uint32_t length);
-
-// logs debug information about the elf, and how we understand it.
-int dump_elf_information(open_file_t *file) {
-    int err;
-    elf32_header_t *header = NULL;
-    char *section_headers = NULL;
-    char *program_headers = NULL;
-    char *names_data = NULL;
-    
-    header = kmalloc(sizeof(elf32_header_t));
-    err = vfs_seek(file, 0, SEEK_SET);
-    if (err < 0) goto exit;
-    err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
-    if (err < 0) goto exit;
-
-    log_info("ELF header");
-    dump_elf_header(header);
-
-    // so now we can load all section headers and all program headers
-    int sec_hdr_bytes = header->shnum * header->shentsize;
-    int prg_hdr_bytes = header->phnum * header->phentsize;
-    section_headers = kmalloc(header->shnum * header->shentsize);
-    program_headers = kmalloc(header->phnum * header->phentsize);
-
-    err = vfs_seek(file, header->shoff, SEEK_SET);
-    if (err < 0) goto exit;
-    err = vfs_read(file, section_headers, sec_hdr_bytes);
-    if (err < 0) goto exit;
-    
-    log_info("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
-    log_debug_hex((void *)section_headers, header->shnum * header->shentsize, 0);
-
-    err = vfs_seek(file, header->phoff, SEEK_SET);
-    if (err < 0) goto exit;
-    err = vfs_read(file, program_headers, prg_hdr_bytes);
-    if (err < 0) goto exit;
-    
-    log_info("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
-    log_debug_hex((void *)program_headers, header->phnum * header->phentsize, 0);
-    
-    if (header->shstrndx != 0) {
-        elf32_section_header_t *names_header = (elf32_section_header_t *)(section_headers + (header->shstrndx * header->shentsize));
-        names_data = kmalloc(names_header->sh_size);
-
-        err = vfs_seek(file, names_header->sh_offset, SEEK_SET);
-        if (err < 0) goto exit;
-        err = vfs_read(file, names_data, names_header->sh_size);
-        if (err < 0) goto exit;
-
-        log_info("Names from names section");
-        log_debug_hex(names_data, names_header->sh_size, 0);
-    }
-
-    log_info("Sections");
-    dump_elf_section_header(true, 0, NULL, NULL);
-    for (int i = 0; i < header->shnum; i++) {
-        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
-        dump_elf_section_header(false, i, section, names_data);
-    }
-
-    for (int i = 0; i < header->shnum; i++) {
-        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
-        char title[64];
-        sprintfn(title, sizeof(title), "Section #%d data", i);
-        dump_elf_raw_data(file, title, section->sh_offset, section->sh_size);
-    }
-
-    log_info("Programs");
-    dump_elf_program_header(true, NULL);
-    for (int i = 0; i < header->phnum; i++) {
-        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
-        dump_elf_program_header(false, program);
-    }
-
-    err = OK;
-exit:
-    if (names_data != NULL)
-        kfree(names_data);
-    if (section_headers != NULL)
-        kfree(section_headers);
-    if (program_headers != NULL)
-        kfree(program_headers);
-    if (header != NULL)
-        kfree(header);
-    return err;
-}
+// -------------------------------------------------------------------------------
 
 static void dump_elf_header(elf32_header_t *header) {
     char *elf_types[] = {
@@ -436,7 +375,7 @@ static void dump_elf_header(elf32_header_t *header) {
         "DYNAMIC",
         "CORE"
     };
-    log_info("ELF identification: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+    log_debug("ELF identification: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
         header->identification[0],
         header->identification[1],
         header->identification[2],
@@ -455,19 +394,19 @@ static void dump_elf_header(elf32_header_t *header) {
         header->identification[15]
     );
 
-    log_info("  elf type:                   %d (%s)", header->type, elf_types[header->type]);
-    log_info("  machine:                    %d (3 = 386)", header->machine);
-    log_info("  version:                    %d", header->version);
-    log_info("  entry point address:        0x%x", header->entry);
-    log_info("  start of program headers:   0x%x", header->phoff);
-    log_info("  start of section headers:   0x%x", header->shoff);
-    log_info("  flags:                      0x%x", header->flags);
-    log_info("  elf header size:            0x%x", header->ehsize);
-    log_info("  program header entry size:  0x%x", header->phentsize);
-    log_info("  program headers count:      %d", header->phnum);
-    log_info("  section header entry size:  0x%x", header->shentsize);
-    log_info("  section headers count:      %d", header->shnum);
-    log_info("  section name string index:  %d", header->shstrndx);
+    log_debug("  elf type:                   %d (%s)", header->type, elf_types[header->type]);
+    log_debug("  machine:                    %d (3 = 386)", header->machine);
+    log_debug("  version:                    %d", header->version);
+    log_debug("  entry point address:        0x%x", header->entry);
+    log_debug("  start of program headers:   0x%x", header->phoff);
+    log_debug("  start of section headers:   0x%x", header->shoff);
+    log_debug("  flags:                      0x%x", header->flags);
+    log_debug("  elf header size:            0x%x", header->ehsize);
+    log_debug("  program header entry size:  0x%x", header->phentsize);
+    log_debug("  program headers count:      %d", header->phnum);
+    log_debug("  section header entry size:  0x%x", header->shentsize);
+    log_debug("  section headers count:      %d", header->shnum);
+    log_debug("  section name string index:  %d", header->shstrndx);
 }
 
 static void dump_elf_section_header(bool title_line, int num, elf32_section_header_t *section, char *names_data) {
@@ -487,10 +426,10 @@ static void dump_elf_section_header(bool title_line, int num, elf32_section_head
     };
 
     if (title_line) {
-        log_info("  No Name             Type         Addr     Offset   Size     ES Flg Lk Inf Al");
+        log_debug("  No Name             Type         Addr     Offset   Size     ES Flg Lk Inf Al");
         //            XX 1234567890123456 123456789012 12345678 12345678 12345678
     } else {
-        log_info("  %2d %-16s %-12s %08x %08x %08x %02x %c%c%c %2d %3d %2d",
+        log_debug("  %2d %-16s %-12s %08x %08x %08x %02x %c%c%c %2d %3d %2d",
             num,
             names_data == NULL ? "?" : names_data + section->sh_name, // we have to resolve this.
             stypes[section->sh_type],
@@ -520,10 +459,10 @@ static void dump_elf_program_header(bool title_line, elf32_program_header_t *pro
     };
 
     if (title_line) {
-        log_info("  Type     Offset     Virt Addr  Phys Addr  FileSiz    MemSiz     Flg Align");
+        log_debug("  Type     Offset     Virt Addr  Phys Addr  FileSiz    MemSiz     Flg Align");
         //            12345678 0x12345678 0x12345678 0x12345678 0x12345678 0x12345678 123 0x0000
     } else {
-        log_info("  %-8s 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x %c%c%c 0x%04x",
+        log_debug("  %-8s 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x %c%c%c 0x%04x",
             program->p_type <= 6 ? ptypes[program->p_type] : "?",
             program->p_offset,
             program->p_vaddr,
@@ -540,18 +479,165 @@ static void dump_elf_program_header(bool title_line, elf32_program_header_t *pro
 
 static void dump_elf_raw_data(open_file_t *file, char *title, uint32_t offset, uint32_t length) {
     int err = vfs_seek(file, (int)offset, SEEK_SET);
-    if (err < 0)
+    if (err < 0) {
+        log_warn("Failed seeking to %u in elf file", offset);
         return;
+    }
     
     char *p = kmalloc(length);
     memset(p, 0, length);
     err = vfs_read(file, p, length);
     if (err < 0) {
+        log_warn("Failed reading %u bytes from elf file", length);
         kfree(p);
         return;
     }
-    log_info(title);
-    log_debug_hex(p, length, 0);
+    log_debug(title);
+    log_debug_hex(p, min(length, 64), 0);
     kfree(p);
 }
 
+error_t elf_dump_information(open_file_t *file) {
+    int err;
+    elf32_header_t *header = NULL;
+    char *section_headers = NULL;
+    char *program_headers = NULL;
+    char *names_data = NULL;
+    
+    header = kmalloc(sizeof(elf32_header_t));
+    err = vfs_seek(file, 0, SEEK_SET);
+    if (err < 0) goto exit;
+    err = vfs_read(file, (char *)header, sizeof(elf32_header_t));
+    if (err < 0) goto exit;
+
+    log_debug("ELF header");
+    dump_elf_header(header);
+
+    // so now we can load all section headers and all program headers
+    int sec_hdr_bytes = header->shnum * header->shentsize;
+    int prg_hdr_bytes = header->phnum * header->phentsize;
+    section_headers = kmalloc(header->shnum * header->shentsize);
+    program_headers = kmalloc(header->phnum * header->phentsize);
+
+    err = vfs_seek(file, header->shoff, SEEK_SET);
+    if (err < 0) goto exit;
+    err = vfs_read(file, section_headers, sec_hdr_bytes);
+    if (err < 0) goto exit;
+    
+    log_debug("Section headers hex follows (%d bytes)", header->shnum * header->shentsize);
+    log_debug_hex((void *)section_headers, header->shnum * header->shentsize, 0);
+
+    err = vfs_seek(file, header->phoff, SEEK_SET);
+    if (err < 0) goto exit;
+    err = vfs_read(file, program_headers, prg_hdr_bytes);
+    if (err < 0) goto exit;
+    
+    log_debug("Program headers hex follows (%d bytes)", header->phnum * header->phentsize);
+    log_debug_hex((void *)program_headers, header->phnum * header->phentsize, 0);
+    
+    if (header->shstrndx != 0) {
+        elf32_section_header_t *names_header = (elf32_section_header_t *)(section_headers + (header->shstrndx * header->shentsize));
+        names_data = kmalloc(names_header->sh_size);
+
+        err = vfs_seek(file, names_header->sh_offset, SEEK_SET);
+        if (err < 0) goto exit;
+        err = vfs_read(file, names_data, names_header->sh_size);
+        if (err < 0) goto exit;
+
+        log_debug("Names from names section");
+        log_debug_hex(names_data, names_header->sh_size, 0);
+    }
+
+    log_debug("Sections");
+    dump_elf_section_header(true, 0, NULL, NULL);
+    for (int i = 0; i < header->shnum; i++) {
+        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
+        dump_elf_section_header(false, i, section, names_data);
+    }
+
+    for (int i = 0; i < header->shnum; i++) {
+        elf32_section_header_t *section = (elf32_section_header_t *)(section_headers + (i * header->shentsize));
+        if (section->sh_size == 0)
+            continue;
+        char title[64];
+        sprintfn(title, sizeof(title), "Section #%d '%s' contents (len=%d)", i, names_data + section->sh_name, section->sh_size);
+        dump_elf_raw_data(file, title, section->sh_offset, section->sh_size);
+    }
+
+    log_debug("Programs");
+    dump_elf_program_header(true, NULL);
+    for (int i = 0; i < header->phnum; i++) {
+        elf32_program_header_t *program = (elf32_program_header_t *)(program_headers + (i * header->phentsize));
+        dump_elf_program_header(false, program);
+    }
+
+    err = OK;
+exit:
+    if (names_data != NULL)
+        kfree(names_data);
+    if (section_headers != NULL)
+        kfree(section_headers);
+    if (program_headers != NULL)
+        kfree(program_headers);
+    if (header != NULL)
+        kfree(header);
+    return err;
+}
+
+// ------------------------------------------------------------
+
+error_t elf_get_entry_point(open_file_t *file, virt_addr_t *entry_point) {
+    elf32_header_t header;
+    error_t err = load_elf_header(file, &header);
+    if (err) return err;
+
+    *entry_point = header.entry;
+    return OK;
+}
+
+error_t elf_get_program_headers_count(open_file_t *file, int *count) {
+    elf32_header_t header;
+    error_t err = load_elf_header(file, &header);
+    if (err) return err;
+
+    (*count) = 0;
+    elf32_program_header_t prog;
+    for (int hdr = 0; hdr < header.phnum; hdr++) {
+        err = load_elf_program_header(file, &header, hdr, &prog);
+        if (err) return err;
+        if (prog.p_type != PT_LOAD)
+            continue;
+        
+        (*count) += 1;
+    }
+
+    return OK;
+}
+
+error_t elf_get_program_headers_info(open_file_t *file, elf_loadable_segment_t *segments_arr, int arr_size) {
+    elf32_header_t header;
+    error_t err = load_elf_header(file, &header);
+    if (err) return err;
+
+    elf32_program_header_t prog;
+    int arr_idx = 0;
+    for (int hdr = 0; hdr < header.phnum; hdr++) {
+        if (arr_idx >= arr_size)
+            break;
+        
+        err = load_elf_program_header(file, &header, hdr, &prog);
+        if (err) return err;
+        if (prog.p_type != PT_LOAD)
+            continue;
+        
+        segments_arr[arr_idx].offset_in_file = prog.p_offset;
+        segments_arr[arr_idx].size_in_file = prog.p_filesz;
+        segments_arr[arr_idx].address_in_mem = prog.p_vaddr;
+        segments_arr[arr_idx].size_in_mem = prog.p_memsz;
+        segments_arr[arr_idx].writable = prog.p_flags & PF_WRITE;
+        segments_arr[arr_idx].writable = prog.p_flags & PF_EXEC;
+        arr_idx++;
+    }
+
+    return OK;
+}
