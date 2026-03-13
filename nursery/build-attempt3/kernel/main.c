@@ -233,14 +233,14 @@ static void initialize_physical_memory(boot_info_t *info) {
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_data((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start)));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_bss((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start)));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_stack((phys_addr_t)_segment_zero_data_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end)));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_UTIL_PAGE_ADDRESS, (size_t)KERNEL_UTIL_PAGE_SIZE_KB * 1024, "util_page"));
+    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_COPY_AREA_ADDRESS, (size_t)KERNEL_COPY_AREA_SIZE_KB * 1024, "util_page"));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other(640*1024, (1024-640)*1024, "low_mem"));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_heap((phys_addr_t)KERNEL_HEAP_ADDRESS, (size_t)KERNEL_HEAP_SIZE_KB * 1024));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_RAMDISK_ADDRESS, (size_t)KERNEL_RAMDISK_SIZE_KB * 1024, "ramdisk"));
     log_info_fmt("", &kernel_phys_mem_map, mem_map_formatter);
 
     // page to be used for temp mapping for loading of programs
-    mem_region_set_mappable_page_address(KERNEL_UTIL_PAGE_ADDRESS);
+    mem_region_set_mappable_page_address(KERNEL_COPY_AREA_ADDRESS);
 
     // where physical memory mapper can put its bitmap
     uintptr_t kernel_top_address = mem_map_get_top_address(&kernel_phys_mem_map);

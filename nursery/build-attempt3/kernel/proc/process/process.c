@@ -70,6 +70,25 @@ MODULE("PROC", LOG_LEVEL_WARN);
  */
 
 
+// starts a process, by putting it on the ready list.
+void proc_start(process_t *process) {
+
+    // if we have not started multitasking yet... not much
+    if (!multitasking_enabled()) {
+        proclist_append(&ready_lists[process->priority], process);
+        return;
+    }
+
+    lock_scheduler();
+    proclist_append(&ready_lists[process->priority], process);
+
+    // if running task is lower priority (e.g. idle task), preempt it
+    if (running_process() != NULL && process->priority < running_process()->priority)
+        schedule();
+    
+    unlock_scheduler();
+}
+
 
 // this is how someone can unblock a process by reason
 void unblock_process_that(enum block_reasons block_reason, void *block_channel) {
@@ -168,3 +187,27 @@ pid_t proc_getppid(process_t *proc) {
     return proc->parent->pid;
 }
 
+
+// a task can ask to be terminated
+void proc_exit(process_t *proc, int exit_code) {
+    lock_scheduler();
+
+    proc->state = TERMINATED;
+    proc->exit_code = exit_code;
+    proclist_append(&terminated_list, proc);
+    log_trace("Process %s[%d] exited, exit code %d", proc->name, proc->pid, exit_code);
+
+    // possibly wake up parent process
+    process_t *parent = proc->parent;
+    if (parent != NULL && parent->state == BLOCKED && parent->block_reason == WAIT_CHILD_EXIT) {
+        log_trace("Will unblock parent process %s[%d]", parent->name, parent->pid);
+        parent->terminated_child_pid = proc->pid;
+        parent->terminated_child_exit_code = exit_code;
+        log_debug("Added pid %d and exit code %d to parent", proc->pid, exit_code);
+        proc_unblock(parent);
+    }
+
+    // whether we unblocked parent or not, somebody else should run
+    schedule();
+    unlock_scheduler();
+}

@@ -94,6 +94,7 @@ struct process {
     // use vmm_get_kernel_page_directory() for kernel
     page_dir_t page_directory;
     mem_region_t stack;
+    mem_region_t heap;
     mem_map_t mmap; // other regions with code, data, stack etc.
 
     func_ptr entry_point; // where to jump after initializing this process
@@ -164,18 +165,18 @@ process_t *running_process();
 void unblock_process_that(enum block_reasons block_reason, void *block_channel);
 
 // actions that a running task can use
+void proc_start(process_t *proc);
 void proc_yield(process_t *proc);  // voluntarily give up the CPU to another task
 pid_t proc_getpid(process_t *proc); // get pid of current process
 pid_t proc_getppid(process_t *proc); // get parent pid of running process
 bool proc_has_children(process_t *parent);
-
-
-
-
-// life_cycle.c
-process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty);
-void proc_start(process_t *proc);
 void proc_exit(process_t *proc, int exit_code); 
+
+
+
+
+// proc_create.c
+process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty);
 void proc_destroy(process_t *proc);
 
 // cwd.c
