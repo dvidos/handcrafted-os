@@ -90,17 +90,21 @@ struct process {
     proc_priority_t priority;
 
 
-    // each user process will have a specific page_directory
-    // use vmm_get_kernel_page_directory() for kernel
-    page_dir_t page_directory;
-    mem_region_t stack;
-    mem_region_t heap;
-    mem_map_t mmap; // other regions with code, data, stack etc.
+    struct memory {
+        page_dir_t page_dir;
 
-    func_ptr entry_point; // where to jump after initializing this process
+        mem_region_t stack;  // could have a guard page, for stack underflow
+        mem_region_t heap;   // could have a guard page, for heap overflow
+
+        #define MAX_PROCESS_ELF_SECTIONS 4 // good enough even for dynamic executable
+        mem_region_t elf_sections[MAX_PROCESS_ELF_SECTIONS]; // can be .text, .data, .rodata, .bss, etc.
+        int elf_sections_count;
+    } memory;
+
+    uintptr_t entry_point; // where to jump after initializing this process
     
     // used in switching, two views of the same piece of information
-    union { 
+    union {
         uint32_t esp;                               // value of the stack pointer
         switched_stack_snapshot_t *stack_snapshot;  // pointer to pushed data on the stack
     };
@@ -159,6 +163,12 @@ struct process {
 };
 
 
+static inline pid_t proc_get_pid(process_t *proc) { return proc == NULL ? 0 : proc->pid; }
+static inline pid_t proc_get_ppid(process_t *proc) { return proc == NULL ? 0 : (proc->parent == NULL ? 0 : proc->parent->pid); }
+static inline pid_t proc_is_user_proc(process_t *proc) { return proc == NULL ? false : (proc->flags & PROC_FLAG_IS_USER_PROCESS) != 0; }
+static inline pid_t proc_is_kernel_proc(process_t *proc) { return proc == NULL ? false : (proc->flags & PROC_FLAG_IS_USER_PROCESS) == 0; }
+
+
 // get the running process (converts volatile to steady pointer)
 process_t *running_process();
 
@@ -167,8 +177,6 @@ void unblock_process_that(enum block_reasons block_reason, void *block_channel);
 // actions that a running task can use
 void proc_start(process_t *proc);
 void proc_yield(process_t *proc);  // voluntarily give up the CPU to another task
-pid_t proc_getpid(process_t *proc); // get pid of current process
-pid_t proc_getppid(process_t *proc); // get parent pid of running process
 bool proc_has_children(process_t *parent);
 void proc_exit(process_t *proc, int exit_code); 
 

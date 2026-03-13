@@ -177,17 +177,6 @@ void proc_yield(process_t *proc) {
 }
 
 
-pid_t proc_getpid(process_t *proc) {
-    if (proc == NULL) return 0;
-    return proc->pid;
-}
-
-pid_t proc_getppid(process_t *proc) {
-    if (proc == NULL || proc->parent == NULL) return 0;
-    return proc->parent->pid;
-}
-
-
 // a task can ask to be terminated
 void proc_exit(process_t *proc, int exit_code) {
     lock_scheduler();

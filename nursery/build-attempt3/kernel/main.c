@@ -126,6 +126,7 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
     log_info("Initializing virtual memory mapping...");
+    vmm_set_kernel_copy_area(KERNEL_COPY_AREA_ADDRESS, KERNEL_COPY_AREA_SIZE_KB / 4);
     vmm_initialize(0, pmm_get_top_identity_address(), &kernel_phys_mem_map);
 
     log_info("Enabling interrupts & NMI...");
@@ -181,7 +182,7 @@ static void launch_initial_processes() {
 }
 
 static void shell_launcher() {
-    log_info("Shell launcher started, PID %d", proc_getpid(running_process()));
+    log_info("Shell launcher started, PID %d", proc_get_pid(running_process()));
     tty_set_title("Shell");
 
     while (true) {
@@ -238,9 +239,6 @@ static void initialize_physical_memory(boot_info_t *info) {
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_heap((phys_addr_t)KERNEL_HEAP_ADDRESS, (size_t)KERNEL_HEAP_SIZE_KB * 1024));
     mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_RAMDISK_ADDRESS, (size_t)KERNEL_RAMDISK_SIZE_KB * 1024, "ramdisk"));
     log_info_fmt("", &kernel_phys_mem_map, mem_map_formatter);
-
-    // page to be used for temp mapping for loading of programs
-    mem_region_set_mappable_page_address(KERNEL_COPY_AREA_ADDRESS);
 
     // where physical memory mapper can put its bitmap
     uintptr_t kernel_top_address = mem_map_get_top_address(&kernel_phys_mem_map);

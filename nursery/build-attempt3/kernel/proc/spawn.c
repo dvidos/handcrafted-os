@@ -181,7 +181,7 @@ static void load_and_run_executable() {
     // vmm_dump_page_directory(vmm_get_kernel_page_directory());
 
     // we are not waiting for a switch, we have to set CR3 now, to load the file.
-    proc->page_directory = page_directory;
+    proc->memory.page_dir = page_directory;
     vmm_set_page_directory_register(page_directory);
 
     // we should be safe to do it now

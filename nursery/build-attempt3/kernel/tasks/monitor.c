@@ -30,7 +30,7 @@ static void show_process(bool title, process_t *p, int *row) {
             proc_get_status_name(p->state),
             p->state == BLOCKED ? proc_get_block_reason_name(p->block_reason) : "",
             tty_dev,
-            p->page_directory,
+            p->memory.page_dir,
             p->user_proc.heap_size / 1024,
             p->user_proc.stack_size / 1024,
             p->name

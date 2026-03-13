@@ -97,9 +97,15 @@ static struct {
     phys_addr_t start_address;
     phys_addr_t end_address;
     mem_map_t *kernel_phys_map;
+
+    virt_addr_t copy_area_addr;
+    int copy_area_pages;
 } kernel_info;
 
+
 page_dir_t vmm_create_page_directory(bool map_kernel_space);
+
+
 
 
 
@@ -202,6 +208,20 @@ void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_add
 
     log_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
 }
+
+void vmm_set_kernel_copy_area(virt_addr_t addr, int num_pages) {
+    kernel_info.copy_area_addr = addr;
+    kernel_info.copy_area_pages = num_pages;
+}
+
+virt_addr_t vmm_get_kernel_copy_area_address() {
+    return kernel_info.copy_area_addr;
+}
+
+virt_addr_t vmm_get_kernel_copy_area_num_pages() {
+    return kernel_info.copy_area_pages;
+}
+
 
 phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     // For each virtual address, when we are dealing with 4K pages:

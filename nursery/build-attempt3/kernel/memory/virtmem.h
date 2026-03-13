@@ -6,14 +6,21 @@
 #include "../memory/mem_region.h"
 #include "../memory/mem_map.h"
 
-static inline uint32_t vmm_page_size()   { return 4096; }
-static inline uint32_t vmm_round_up(uint32_t address)   { return ((address + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE; }
-static inline uint32_t vmm_round_down(uint32_t address) { return ( address                  / PAGE_SIZE) * PAGE_SIZE; }
+static inline uint32_t vmm_page_size()                         { return PAGE_SIZE; }
+static inline uint32_t vmm_round_up(uint32_t address)          { return ((address + vmm_page_size() - 1) / vmm_page_size()) * vmm_page_size(); }
+static inline uint32_t vmm_round_down(uint32_t address)        { return ((address                      ) / vmm_page_size()) * vmm_page_size(); }
+static inline uint32_t vmm_is_page_aligned(uint32_t address)   { return address == vmm_round_down(address); }
+static inline uint32_t vmm_pages_for_size(uint32_t size)       { return vmm_round_up(size) / vmm_page_size(); }
 
 
 // initialize virtual memory paging.
 void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, mem_map_t *kernel_phys_map);
 
+
+// used for loading processes and fork()
+void vmm_set_kernel_copy_area(virt_addr_t addr, int num_pages);
+virt_addr_t vmm_get_kernel_copy_area_address();
+virt_addr_t vmm_get_kernel_copy_area_num_pages();
 
 
 // resolve a virtual address, by reading the page dir and tables

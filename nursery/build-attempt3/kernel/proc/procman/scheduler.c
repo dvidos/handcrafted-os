@@ -90,7 +90,7 @@ void schedule() {
     running_proc->state = RUNNING;
     reset_switching_time();
 
-    log_trace("scheduler(): switching \"%s\" --> \"%s\", page dir 0x%p", previous->name, next->name, next->page_directory);
+    log_trace("scheduler(): switching \"%s\" --> \"%s\", page dir 0x%p", previous->name, next->name, next->memory.page_dir);
     
     /**
      * -------------------------------------------------------------------
@@ -109,7 +109,7 @@ void schedule() {
     low_level_context_switch(
         &previous->esp,
         (uint32_t *)&running_proc->esp,
-        (uint32_t)running_proc->page_directory
+        (uint32_t)running_proc->memory.page_dir
     );
 
     running_proc->cpu_ticks_last = timer_get_uptime_msecs();

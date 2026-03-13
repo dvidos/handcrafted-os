@@ -103,7 +103,7 @@ static virt_addr_t sys_sbrk(int diff_size) {
     if (diff_size > 0) {
         diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page / 4K
         virt_addr_t heap_end = p->user_proc.heap + p->user_proc.heap_size;
-        vmm_allocate_memory_range(heap_end, heap_end + diff_size, p->page_directory);
+        vmm_allocate_memory_range(heap_end, heap_end + diff_size, p->memory.page_dir);
         p->user_proc.heap_size += diff_size;
     }
     return initial_break;
@@ -282,10 +282,10 @@ int isr_syscall(struct syscall_stack stack) {
             // return_value = vfs_rmdir((char *)stack.passed.arg1);
             break;
         case SYS_GET_PID:   // returns pid
-            return_value = proc_getpid(running_process());
+            return_value = proc_get_pid(running_process());
             break;
         case SYS_GET_PPID:   // returns ppid
-            return_value = proc_getppid(running_process());
+            return_value = proc_get_ppid(running_process());
             break;
         case SYS_FORK:   // returns 0 in child, child PID in parent, neg error in parent
             return_value = proc_fork(running_process());
