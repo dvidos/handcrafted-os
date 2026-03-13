@@ -255,7 +255,7 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 }
 
 // map the virtual address to resolve to the physical one for the particular page directory.
-void vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_addr, page_dir_t page_dir, bool user_accessible, bool write_enable) {
+error_t vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_addr, page_dir_t page_dir, bool user_accessible, bool write_enable) {
     log_trace("Mapping phys addr 0x%x to virt addr 0x%x, page dir 0x%x", physical_addr, virtual_addr, page_dir);
 
     uint32_t page_dir_index = virt_addr_to_page_directory_index(virtual_addr);
@@ -268,6 +268,9 @@ void vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_
     } else {
         // we need to create one
         page_table_address = pmm_allocate_physical_page();
+        if (page_table_address == 0)
+            return ERR_NO_MEMORY;
+        
         log_debug("Allocated new physical page at 0x%p for new page table", page_table_address);
         memset((void *)page_table_address, 0, 4096);
         uint32_t page_dir_value = create_directory_entry_value(
@@ -286,7 +289,7 @@ void vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_
     uint32_t page_table_index = virt_addr_to_page_table_index(virtual_addr);
     uint32_t page_table_entry = get_table_entry(page_table_address, page_table_index);
     if (is_entry_present(page_table_entry))
-        return; // already mapped
+        return OK; // already mapped
     
     page_table_entry = create_table_entry_value(
         physical_addr,
@@ -300,6 +303,7 @@ void vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_
     );
     // log_debug("new page_table entry value = 0x%08x", page_table_entry);
     set_table_entry(page_table_address, page_table_index, page_table_entry);
+    return OK;
 }
 
 // unmap the virtual address to resolve to the physical one for the particular page directory.
@@ -337,11 +341,14 @@ void vmm_unmap(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 }
 
 // map a range to itself
-void vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr) {
+error_t vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr) {
     log_trace("Identity mapping range 0x%p - 0x%p, page_dir=0x%p", start_addr, end_addr, page_dir_addr);
     for (phys_addr_t addr = start_addr; addr <= end_addr; addr += 4096) {
-        vmm_map_virtual_to_physical(addr, addr, page_dir_addr, true, true);
+        error_t err = vmm_map_virtual_to_physical(addr, addr, page_dir_addr, true, true);
+        // TODO: better error handling
     }
+
+    return OK;
 }
 
 
@@ -437,7 +444,8 @@ void vmm_page_fault_handler(uint32_t error_code) {
     // e.g. stack underflow, or heap overflow, guard, mem-mapped file, etc
 
     memory_address = ROUND_DOWN_4K(memory_address);
-    vmm_map_virtual_to_physical(memory_address, memory_address, page_dir_address, true, true);
+    error_t err = vmm_map_virtual_to_physical(memory_address, memory_address, page_dir_address, true, true);
+    // ignore errors, or fail?
 }
 
 
@@ -463,14 +471,17 @@ page_dir_t vmm_create_page_directory(bool map_kernel_space) {
 }
 
 // allocates pages and maps them to the virtual addresses requested (end address is non-inclusive)
-void vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end, page_dir_t page_dir_addr) {
+error_t vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end, page_dir_t page_dir_addr) {
     log_trace("vmm_allocate_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
 
     // TODO: this should update the memory map of the kernel/process
     for (virt_addr_t virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         phys_addr_t phys_page_addr = pmm_allocate_physical_page();
-        vmm_map_virtual_to_physical(virt_addr, phys_page_addr, page_dir_addr, true, true);
+        error_t err = vmm_map_virtual_to_physical(virt_addr, phys_page_addr, page_dir_addr, true, true);
+        // TODO: better error handling
     }
+
+    return OK;
 }
 
 // frees any pointed pages, page tables, and the page directory itself

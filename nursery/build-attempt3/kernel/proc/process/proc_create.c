@@ -117,7 +117,8 @@ static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir) 
     bool user = reg->flags & REGION_USER_ACCESSIBLE;
     bool writable = reg->flags & REGION_WRITE_ENABLE;
     for (int page = 0; page < num_pages; page++) {
-        vmm_map_virtual_to_physical(vaddr, pages_arr[page], page_dir, user, writable);
+        err = vmm_map_virtual_to_physical(vaddr, pages_arr[page], page_dir, user, writable);
+        // TODO: fix error recovery
         vaddr += vmm_page_size();
     }
     
@@ -215,7 +216,8 @@ static error_t _memory_allocate_and_map_stack_region(int kilobytes, virt_addr_t 
     bool user_accessible = proc_is_user_proc(proc);
 
     for (int page = 0; page < num_pages; page++) {
-        vmm_map_virtual_to_physical(stack_base + page * vmm_page_size(), pages_arr[page], proc->memory.page_dir, user_accessible, true);
+        err = vmm_map_virtual_to_physical(stack_base + page * vmm_page_size(), pages_arr[page], proc->memory.page_dir, user_accessible, true);
+        // TODO: better error handling
     }
     
     proc->memory.stack = mem_region_of(stack_base, num_pages * vmm_page_size(),
@@ -233,7 +235,8 @@ static error_t _memory_allocate_and_map_heap_region(int kilobytes, virt_addr_t h
 
     bool user_accessible = proc_is_user_proc(proc);
     for (int page = 0; page < num_pages; page++) {
-        vmm_map_virtual_to_physical(heap_addr + page * vmm_page_size(), pages_arr[page], proc->memory.page_dir, user_accessible, true);
+        err = vmm_map_virtual_to_physical(heap_addr + page * vmm_page_size(), pages_arr[page], proc->memory.page_dir, user_accessible, true);
+        // TODO: better error handling
     }
     
     proc->memory.stack = mem_region_of(heap_addr, num_pages * vmm_page_size(),
@@ -317,7 +320,8 @@ static error_t _memory_allocate_and_load_from_elf_one_segment(process_t *proc, o
     for (int page = 0; page < num_pages; page++) {
         // temp mapping to copy
         phys_addr_t page_addr = phys_addresses[page];
-        vmm_map_virtual_to_physical(copy_area_addr, page_addr, curr_page_dir, false, true);
+        err = vmm_map_virtual_to_physical(copy_area_addr, page_addr, curr_page_dir, false, true);
+        // TODO: better error handling
         memset((void *)copy_area_addr, 0, vmm_page_size());
 
         // load from file into page, pay attention to offsets as things don't always align
@@ -330,7 +334,8 @@ static error_t _memory_allocate_and_load_from_elf_one_segment(process_t *proc, o
 
         // move to final mapping, using proc's properties
         vmm_unmap(copy_area_addr, curr_page_dir);
-        vmm_map_virtual_to_physical(base_vaddr + page * vmm_page_size(), page_addr, proc->memory.page_dir, true, seg->writable);
+        err = vmm_map_virtual_to_physical(base_vaddr + page * vmm_page_size(), page_addr, proc->memory.page_dir, true, seg->writable);
+        // TODO: better error handling
     }
 
     // we've loaded and prepared all the loadable pages to the target proc!
@@ -430,6 +435,7 @@ static error_t proc_load_executable_segment(process_t *proc, open_file_t *f, elf
     log_info("loading segment from file (0x%x/%u) into memory (0x%x/%u), flags=R%c%c",
         segment->offset_in_file, segment->size_in_file, segment->address_in_mem, segment->size_in_mem, segment->writable ? 'W' : ' ', segment->executable ? 'X' : ' ');
 
+    error_t err;
     virt_addr_t mem_start_aligned = vmm_round_down(segment->address_in_mem);
     virt_addr_t mem_end_aligned = vmm_round_up(segment->address_in_mem + segment->size_in_mem);
     size_t num_pages = (mem_end_aligned - mem_start_aligned) / vmm_page_size();
@@ -451,7 +457,8 @@ static error_t proc_load_executable_segment(process_t *proc, open_file_t *f, elf
         }
 
         // Temporarily map the physical page to a known kernel virtual address
-        vmm_map_virtual_to_physical(working_page_address, page_phys_addr, curr_page_dir, true, true);
+        err = vmm_map_virtual_to_physical(working_page_address, page_phys_addr, curr_page_dir, true, true);
+        // TODO: better error handling
 
         // Clear the entire temporary page first
         memset((void *)working_page_address, 0, vmm_page_size());
@@ -498,7 +505,8 @@ static error_t proc_load_executable_segment(process_t *proc, open_file_t *f, elf
         vmm_unmap(working_page_address, curr_page_dir);
 
         // Map the physical page to its final virtual address in the process's page directory
-        vmm_map_virtual_to_physical(current_page_virt_start, page_phys_addr, proc->memory.page_dir, user_accessible, write_enable);
+        err = vmm_map_virtual_to_physical(current_page_virt_start, page_phys_addr, proc->memory.page_dir, user_accessible, write_enable);
+        // TODO: better error handling
     }
 
     return OK;
