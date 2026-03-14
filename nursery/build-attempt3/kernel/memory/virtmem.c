@@ -368,7 +368,7 @@ void vmm_set_page_directory_register(page_dir_t value) {
 }
 
 // get current directory register (cr3)
-page_dir_t vmm_get_page_directory_register() {
+page_dir_t vmm_get_current_page_dir() {
     page_dir_t value;
 
     __asm__ __volatile__(

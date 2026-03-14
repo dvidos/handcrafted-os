@@ -17,10 +17,11 @@
  * 0x08000000  128 MB, text segment (0x08048000  typical ELF entry point)
  */
 
-
-
+ 
 // used to detect stack overflows
 #define STACK_BOTTOM_MAGIC_VALUE    0x12345678
+
+
 
 
 // posix has it, i think

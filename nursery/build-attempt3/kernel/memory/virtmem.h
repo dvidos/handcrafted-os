@@ -50,7 +50,7 @@ void vmm_disable_paging();
 
 // read/write the CR3 register
 void vmm_set_page_directory_register(page_dir_t address);
-page_dir_t vmm_get_page_directory_register();
+page_dir_t vmm_get_current_page_dir();
 
 
 

@@ -532,7 +532,7 @@ static void rebase_port(HBA_PORT *port) {
     if (!port_memory_addr)
         panic("Cannot allocate 12K for SATA drive");
     // map the memory so we can access it
-    vmm_identity_map_range(port_memory_addr, port_memory_addr + port_memory_size - 1, vmm_get_page_directory_register());
+    vmm_identity_map_range(port_memory_addr, port_memory_addr + port_memory_size - 1, vmm_get_current_page_dir());
     memset((void *)port_memory_addr, 0, port_memory_size);
 
     // for some reason, these are not exactly the sizes, they are somewhat smaller...

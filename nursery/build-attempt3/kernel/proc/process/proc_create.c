@@ -16,6 +16,18 @@
 
 MODULE("PROC_CREATE", LOG_LEVEL_WARN);
 
+static pid_t   next_pid();
+static void    proc_add_child(process_t *parent, process_t *child);
+static void    proc_remove_child(process_t *parent, process_t *child);
+
+static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_addr_t **addresses_arr);
+static error_t _release_lot_of_physical_pages_atomically(phys_addr_t *addresses_arr, int num_pages);
+static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir);
+static error_t _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir);
+
+static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt_addr_t stack_top);
+static error_t _allocate_and_map_heap_region(process_t *proc, size_t size, virt_addr_t heap_base);
+static error_t _allocate_and_map_elf_segment(process_t *proc, elf_loadable_segment_t *seg);
 
 
 // ----------------------------------------------------------
@@ -65,6 +77,18 @@ static void proc_remove_child(process_t *parent, process_t *child) {
 
 // ----------------------------------------------------------------
 
+static virt_addr_t _calculate_proc_heap_bottom(process_t *proc) {
+    virt_addr_t heap = 128 * MB;
+    for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) {
+        mem_region_t *section = &proc->memory.elf_sections[i];
+        virt_addr_t top = vmm_round_up(section->address + section->size);
+        heap = max(heap, top);
+    }
+    return vmm_round_up(heap);
+}
+
+// ----------------------------------------------------------------
+
 static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_addr_t **addresses_arr) {
     ASSERT(num_pages > 0);
     ASSERT(addresses_arr != NULL);
@@ -77,6 +101,7 @@ static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_ad
     for (int page = 0; page < num_pages; page++) {
         phys_addr_t addr = pmm_allocate_physical_page();
         if (addr == 0) { failed = true; break; }
+        memset((void *)addr, 0, vmm_page_size());
         arr[page] = addr;
     }
 
@@ -113,13 +138,15 @@ static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir) 
     error_t err = _allocate_lot_of_physical_pages_atomically(num_pages, &pages_arr);
     if (err) return err;
 
-    virt_addr_t vaddr = reg->address;
     bool user = reg->flags & REGION_USER_ACCESSIBLE;
     bool writable = reg->flags & REGION_WRITE_ENABLE;
     for (int page = 0; page < num_pages; page++) {
-        err = vmm_map_virtual_to_physical(vaddr, pages_arr[page], page_dir, user, writable);
-        // TODO: fix error recovery
-        vaddr += vmm_page_size();
+        err = vmm_map_virtual_to_physical(reg->address + page * vmm_page_size(), pages_arr[page], page_dir, user, writable);
+        if (err) {
+            while (--page >= 0) vmm_unmap(reg->address + page * vmm_page_size(), page_dir);
+            _release_lot_of_physical_pages_atomically(pages_arr, num_pages);
+            return err;
+        }
     }
     
     kfree(pages_arr);
@@ -145,7 +172,7 @@ static error_t _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir)
     return OK;
 }
 
-static error_t proc_allocate_and_map_stack(process_t *proc, size_t size, virt_addr_t stack_top) {
+static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt_addr_t stack_top) {
     ASSERT(proc != NULL);
     ASSERT(size > 0);
     ASSERT(stack_top > 0);
@@ -162,7 +189,7 @@ static error_t proc_allocate_and_map_stack(process_t *proc, size_t size, virt_ad
     return OK;
 }
 
-static error_t proc_allocate_and_map_heap(process_t *proc, size_t size, virt_addr_t heap_base) {
+static error_t _allocate_and_map_heap_region(process_t *proc, size_t size, virt_addr_t heap_base) {
     ASSERT(proc != NULL);
     ASSERT(size > 0);
     ASSERT(heap_base > 0);
@@ -179,7 +206,7 @@ static error_t proc_allocate_and_map_heap(process_t *proc, size_t size, virt_add
     return OK;
 }
 
-static error_t proc_allocate_and_map_elf_segment(process_t *proc, elf_loadable_segment_t *seg) {
+static error_t _allocate_and_map_elf_segment(process_t *proc, elf_loadable_segment_t *seg) {
     ASSERT(proc != NULL);
     ASSERT(seg != NULL);
     ASSERT(proc->memory.elf_sections_count < MAX_PROCESS_ELF_SECTIONS);
@@ -199,356 +226,93 @@ static error_t proc_allocate_and_map_elf_segment(process_t *proc, elf_loadable_s
     return OK;
 }
 
-// ##############################################################################
+static error_t _load_elf_segment_page(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg, int page_no, phys_addr_t page_addr) {
+    error_t err;
 
-typedef struct reader_interface {
-    error_t (*read)(void *context, size_t offset, void *buffer, size_t size);
-    void *context;
-} reader_interface_t;
+    // we map the physical page to a copy area, using whatever CR3 we currently have.
+    // the kernel is running on ring 0, so it does have access to it, no matter the contents of CR3.
+    page_dir_t work_pd = vmm_get_current_page_dir();
+    vmm_map_virtual_to_physical(vmm_get_kernel_copy_area_address(), page_addr, work_pd, false, true);
 
-static error_t _memory_allocate_and_map_stack_region(int kilobytes, virt_addr_t stack_top, process_t *proc) {
-    phys_addr_t *pages_arr;
-    int num_pages = vmm_round_up(kilobytes * 1024) / vmm_page_size();
-    error_t err = _allocate_lot_of_physical_pages_atomically(num_pages, &pages_arr);
-    if (err) return err;
+    size_t page_gap = page_no > 0 ? 0 : seg->address_in_mem - vmm_round_down(seg->address_in_mem);
+    off_t offset_in_file = seg->offset_in_file + page_no * vmm_page_size();
+    size_t remaining_bytes = seg->size_in_file - page_no * vmm_page_size();
+    size_t bytes_to_read = min(remaining_bytes, vmm_page_size() - page_gap);
 
-    virt_addr_t stack_base = stack_top - (num_pages * vmm_page_size());
-    bool user_accessible = proc_is_user_proc(proc);
-
-    for (int page = 0; page < num_pages; page++) {
-        err = vmm_map_virtual_to_physical(stack_base + page * vmm_page_size(), pages_arr[page], proc->memory.page_dir, user_accessible, true);
-        // TODO: better error handling
-    }
-    
-    proc->memory.stack = mem_region_of(stack_base, num_pages * vmm_page_size(),
-        REGION_USAGE_STACK | (user_accessible ? REGION_USER_ACCESSIBLE : REGION_SUPERVISOR_ONLY));
-    kfree(pages_arr);
-
-    return OK;
-}
-
-static error_t _memory_allocate_and_map_heap_region(int kilobytes, virt_addr_t heap_addr, process_t *proc) {
-    phys_addr_t *pages_arr;
-    int num_pages = vmm_round_up(kilobytes * 1024) / vmm_page_size();
-    error_t err = _allocate_lot_of_physical_pages_atomically(num_pages, &pages_arr);
-    if (err) return err;
-
-    bool user_accessible = proc_is_user_proc(proc);
-    for (int page = 0; page < num_pages; page++) {
-        err = vmm_map_virtual_to_physical(heap_addr + page * vmm_page_size(), pages_arr[page], proc->memory.page_dir, user_accessible, true);
-        // TODO: better error handling
-    }
-    
-    proc->memory.stack = mem_region_of(heap_addr, num_pages * vmm_page_size(),
-        REGION_USAGE_HEAP | (user_accessible ? REGION_USER_ACCESSIBLE : REGION_SUPERVISOR_ONLY) | REGION_WRITE_ENABLE);
-    kfree(pages_arr);
-
-    return OK;
-}
-
-static error_t proc_memory_read_elf_chunk_into_memory(open_file_t *elf, off_t offset, size_t size, virt_addr_t target) {
-    if (size == 0) return OK;
-
-    off_t new_offset = vfs_seek(elf, offset, SEEK_SET);
-    if (new_offset != offset) return ERR_READING_FILE;
-
-    ssize_t bytes = vfs_read(elf, (void *)target, size);
-    if (bytes < 0) return bytes;
-    if ((size_t)bytes != size) return ERR_READING_FILE;
-
-    return OK;
-}
-
-static void proc_memory_calculate_elf_segment_metrics(elf_loadable_segment_t *seg, int page_no, off_t *file_offset, size_t *page_offset, size_t *chunk_len) {
-    // file offsets do not always align with 4k in memory.
-
-    virt_addr_t page_start = vmm_round_down(seg->address_in_mem);
-    size_t first_page_gap = seg->address_in_mem - page_start; // so if he wants to load at 5000, the gap is (5000-4096)=904
-
-    // example, if he wants us to load 5k of data, at address 5k, we need to
-    // - load 3k towards the end of the first page
-    // - load 2k towards the start of the second page
-
-
-    //     // Calculate the virtual address of the current page within the process's address space.                                                                                              │
-    //     // The segment's address_in_mem might not be page-aligned, so we find the first page                                                                                                  │
-    //     // that contains part of this segment.                                                                                                                                                │
-    //     virt_addr_t segment_first_page_vaddr = vmm_round_down(seg->address_in_mem);                                                                                                           │
-    //     virt_addr_t current_page_vaddr = segment_first_page_vaddr + (page_no * vmm_page_size());                                                                                              │
-    //                                                                                                                                                                                           │
-    //     // Determine the actual start and end addresses of the segment's *data* within this current page                                                                                      │
-    //     virt_addr_t segment_data_start_in_current_page = max(current_page_vaddr, seg->address_in_mem);                                                                                        │
-    //     virt_addr_t segment_data_end_in_current_page = min(current_page_vaddr + vmm_page_size(), seg->address_in_mem + seg->size_in_file);                                                    │
-    //                                                                                                                                                                                           │
-    //     // If there's actual segment data to load into this page                                                                                                                              │
-    //     if (segment_data_start_in_current_page < segment_data_end_in_current_page) {                                                                                                          │
-    //         *copy_size = segment_data_end_in_current_page - segment_data_start_in_current_page;                                                                                               │
-    //         *mem_page_offset = segment_data_start_in_current_page - current_page_vaddr;                                                                                                       │
-    //         *file_offset = seg->offset_in_file + (segment_data_start_in_current_page - seg->address_in_mem);                                                                                  │
-    //     } else {                                                                                                                                                                              │
-    //         // No file data for this portion of the segment in this page                                                                                                                      │
-    //         *copy_size = 0;                                                                                                                                                                   │
-    //         *mem_page_offset = 0;                                                                                                                                                             │
-    //         *file_offset = 0;                                                                                                                                                                 │
-    //     }                                                                                                                                                                                     │
-    // }                                    
-}
-
-static error_t _memory_allocate_and_load_from_elf_one_segment(process_t *proc, open_file_t *elf, int header_no, elf_loadable_segment_t *seg) {
-    error_t err = OK;
-    phys_addr_t *phys_addresses = NULL;
-
-    // this is wrong, it may take 2 pages but be less than 4096...
-    size_t total_size = round_up(seg->size_in_mem, vmm_page_size());
-    int num_pages = total_size / vmm_page_size();
-    phys_addresses = kmalloc(sizeof(phys_addr_t) * num_pages);
-    if (phys_addresses == NULL) { err = ERR_NO_MEMORY; goto exit; }
-
-    // allocate all, to enable clean release
-    memset(phys_addresses, 0, sizeof(phys_addr_t) * num_pages);
-    for (int page = 0; page < num_pages; page++) {
-        phys_addr_t addr = pmm_allocate_physical_page();
-        if (addr == 0) { err = ERR_NO_MEMORY; goto exit; }
-        phys_addresses[page] = addr;
-    }
-
-    page_dir_t curr_page_dir = vmm_get_page_directory_register();
-    virt_addr_t copy_area_addr = vmm_get_kernel_copy_area_address();
-    virt_addr_t base_vaddr = vmm_round_down(seg->address_in_mem);
-
-    // for each: { map, load, unmap, map on target page_dir }
-    for (int page = 0; page < num_pages; page++) {
-        // temp mapping to copy
-        phys_addr_t page_addr = phys_addresses[page];
-        err = vmm_map_virtual_to_physical(copy_area_addr, page_addr, curr_page_dir, false, true);
-        // TODO: better error handling
-        memset((void *)copy_area_addr, 0, vmm_page_size());
-
-        // load from file into page, pay attention to offsets as things don't always align
-        off_t file_offset = 0;
-        size_t page_offset = 0;
-        size_t chunk_len = 0;
-        proc_memory_calculate_elf_segment_metrics(seg, page, &file_offset, &page_offset, &chunk_len);
-        err = proc_memory_read_elf_chunk_into_memory(elf, file_offset, chunk_len, copy_area_addr + page_offset);
-        if (err) { vmm_unmap(copy_area_addr, curr_page_dir); err = ERR_READING_FILE; goto exit; }
-
-        // move to final mapping, using proc's properties
-        vmm_unmap(copy_area_addr, curr_page_dir);
-        err = vmm_map_virtual_to_physical(base_vaddr + page * vmm_page_size(), page_addr, proc->memory.page_dir, true, seg->writable);
-        // TODO: better error handling
-    }
-
-    // we've loaded and prepared all the loadable pages to the target proc!
-    // should fill in the proc->memory.elf_sections[h] section.
-    proc->memory.elf_sections[proc->memory.elf_sections_count].address = base_vaddr;
-    proc->memory.elf_sections[proc->memory.elf_sections_count].size = num_pages * vmm_page_size();
-    proc->memory.elf_sections[proc->memory.elf_sections_count].flags = seg->writable ? REGION_WRITE_ENABLE : 0;
+    memset((void *)vmm_get_kernel_copy_area_address(), 0, vmm_page_size());
+    ssize_t read = vfs_read(elf, (void *)(vmm_get_kernel_copy_area_address() + page_gap), bytes_to_read);
+    if (read < 0) { err = (error_t)read; goto exit; }
+    if ((size_t)read < bytes_to_read) { err = ERR_READING_FILE; goto exit; }
 
 exit:
-    if (phys_addresses != NULL) {
-        for (int i = 0; i < num_pages; i++)
-            if (phys_addresses[i])
-                pmm_free_physical_page(phys_addresses[i]);
-        kfree(phys_addresses);
-    }
-    // free all physical pages
+    vmm_unmap(vmm_get_kernel_copy_area_address(), work_pd);
     return err;
 }
 
-static error_t _memory_allocate_and_load_from_elf_all_segments(process_t *proc, const char *file_path) {
-    log_trace("_memory_allocate_and_load_from_elf_all_segments(proc=%p, file_path=%s)", proc, file_path);
+static error_t _load_elf_segment(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg) {
+    log_trace("loading elf segment from file (0x%x/%u) into memory (0x%x/%u), flags=R%c%c",
+        seg->offset_in_file, seg->size_in_file, seg->address_in_mem, seg->size_in_mem, seg->writable ? 'W' : '-', seg->executable ? 'X' : '-');
 
-    open_file_t *f = NULL;
-    error_t err = OK;
-    elf_loadable_segment_t *segments_arr = NULL;
-    
-    err = vfs_open(file_path, 0, &f);
+    // this allocates and maps, to prepare the memory for loading
+    error_t err = _allocate_and_map_elf_segment(proc, seg);
     if (err) goto exit;
 
-    err = elf_verify_executable(f);
-    if (err) { vfs_close(f); return err; }
+    // now we need to take it one by one.
+    mem_region_t *reg = &proc->memory.elf_sections[proc->memory.elf_sections_count - 1];
+    int num_pages = reg->size / vmm_page_size();
+    page_dir_t pd = proc->memory.page_dir;
+    for (int page = 0; page < num_pages; page++) {
+        virt_addr_t vaddr = reg->address + page * vmm_page_size();
+        phys_addr_t paddr = vmm_resolve(vaddr, pd);
+
+        // load into physical page, via temp mapping onto kernel copy area
+        err = _load_elf_segment_page(proc, elf, seg, page, paddr);
+        if (err) goto exit;
+    }
+
+    return OK;
+exit:
+    return err;
+}
+
+static error_t _load_elf_segments(process_t *proc, open_file_t *elf) {
+    elf_loadable_segment_t *segments_arr = NULL;
+    error_t err = OK;
 
     int headers = 0;
-    err = elf_get_program_headers_count(f, &headers);
+    err = elf_get_program_headers_count(elf, &headers);
     if (err) goto exit;
+    if (headers <= 0 || headers > MAX_PROCESS_ELF_SECTIONS)
+        return ERR_CORRUPTION_DETECTED;
 
     segments_arr = kmalloc(sizeof(elf_loadable_segment_t) * headers);
     if (segments_arr == NULL) { err = ERR_NO_MEMORY; goto exit; }
 
-    err = elf_get_program_headers_info(f, segments_arr, headers);
+    err = elf_get_program_headers_info(elf, segments_arr, headers);
     if (err) goto exit;
 
-    for (int h = 0; h < headers; h++) {
-        err = _memory_allocate_and_load_from_elf_one_segment(proc, f, h, &segments_arr[h]);
+    for (int i = 0; i < headers; i++) {
+        err = _load_elf_segment(proc, elf, &segments_arr[i]);
         if (err) goto exit;
     }
 
-    // TODO: stack, heap?
+    // let's not forget this!
+    err = elf_get_entry_point(elf, (virt_addr_t *)&proc->entry_point);
+    if (err) goto exit;
+    err = OK;
 
 exit:
-    if (segments_arr) kfree(segments_arr);
-    if (f) vfs_close(f);
+    if (segments_arr != NULL) kfree(segments_arr);
     return err;
 }
 
-static error_t _memory_allocate_and_copy_from_proc(process_t *dest, process_t *src) {
-    log_warn("_memory_allocate_and_copy_from_proc(dest=%p, src=%p) skeleton called", dest, src);
-    // This function will encapsulate the logic to:
-    // 1. Iterate through each memory region in src->mmap.
-    // 2. For each region:
-    //    a. Allocate new physical pages for the destination process.
-    //    b. Map these new pages into dest->memory.page_dir.
-    //    c. Copy content from src's region (through its page directory) to dest's new pages.
-    //    d. Add the new region to dest->mmap.
-    // This includes copying segments for ELF and heap.
-
-    // further idea, facilitates error handling:
-    // - for each mem_region needed
-    //   - allocate all physical pages
-    //   - for each page { map, load, unmap }
-    //   - map them all to target process
-
-    return ERR_NOT_IMPLEMENTED;
-}
-
-static error_t _memory_unmap_and_release(process_t *proc) {
-    log_warn("proc_memory_unmap_and_release(proc=%p) skeleton called", proc);
-    // This function will encapsulate the logic to:
-    // 1. Iterate through each memory region in proc->mmap.
-    // 2. For each region:
-    //    a. Unmap the virtual pages from proc->memory.page_dir.
-    //    b. Free the associated physical pages.
-    // 3. Clear proc->mmap.
-
-    // further idea:
-    // - for each mem_region in the process:
-    //   - for each page in region
-    //     - { find physical, unmap, release physical }
-
-
-    return ERR_NOT_IMPLEMENTED;
-}
-
-// ##############################################################################
-
-static error_t proc_load_executable_segment(process_t *proc, open_file_t *f, elf_loadable_segment_t *segment) {
-    log_info("loading segment from file (0x%x/%u) into memory (0x%x/%u), flags=R%c%c",
-        segment->offset_in_file, segment->size_in_file, segment->address_in_mem, segment->size_in_mem, segment->writable ? 'W' : ' ', segment->executable ? 'X' : ' ');
-
+static error_t _create_base_process_v2(page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, 
+                                    size_t stack_size, virt_addr_t stack_top, process_t **proc_ptr)  {
+    process_t *proc = NULL;
     error_t err;
-    virt_addr_t mem_start_aligned = vmm_round_down(segment->address_in_mem);
-    virt_addr_t mem_end_aligned = vmm_round_up(segment->address_in_mem + segment->size_in_mem);
-    size_t num_pages = (mem_end_aligned - mem_start_aligned) / vmm_page_size();
-
-    page_dir_t curr_page_dir = vmm_get_page_directory_register();
-    virt_addr_t working_page_address = mem_region_get_mappable_page_address();
-
-    // Permissions for the target mapping
-    bool user_accessible = true; // User processes
-    bool write_enable = segment->writable; // Writable based on segment flags
-
-    for (size_t page_num = 0; page_num < num_pages; page_num++) {
-        // Allocate a physical page
-        phys_addr_t page_phys_addr = pmm_allocate_physical_page();
-        if (page_phys_addr == 0) {
-            log_error("Failed to allocate physical page for ELF segment.");
-            // TODO: Clean up
-            return ERR_NO_MEMORY;
-        }
-
-        // Temporarily map the physical page to a known kernel virtual address
-        err = vmm_map_virtual_to_physical(working_page_address, page_phys_addr, curr_page_dir, true, true);
-        // TODO: better error handling
-
-        // Clear the entire temporary page first
-        memset((void *)working_page_address, 0, vmm_page_size());
-
-        // Calculate the virtual address range of the *current page* within the process's address space
-        virt_addr_t current_page_virt_start = mem_start_aligned + (page_num * vmm_page_size());
-        virt_addr_t current_page_virt_end = current_page_virt_start + vmm_page_size();
-
-        // Determine the actual start and end addresses of the segment's *data* within this current page
-        virt_addr_t segment_data_start_in_current_page = max(current_page_virt_start, segment->address_in_mem);
-        virt_addr_t segment_data_end_in_current_page   = min(current_page_virt_end, segment->address_in_mem + segment->size_in_file);
-
-        // If there's actual segment data to load into this page
-        if (segment_data_start_in_current_page < segment_data_end_in_current_page) {
-            size_t bytes_to_read = segment_data_end_in_current_page - segment_data_start_in_current_page;
-            size_t dest_buffer_offset = segment_data_start_in_current_page - current_page_virt_start;
-            off_t file_read_offset = segment->offset_in_file + (segment_data_start_in_current_page - segment->address_in_mem);
-
-            error_t seek_err = vfs_seek(f, file_read_offset, SEEK_SET);
-            if (seek_err) {
-                log_error("ELF loader: Failed to seek in file (0x%x): %d", file_read_offset, seek_err);
-                vmm_unmap(working_page_address, curr_page_dir);
-                pmm_free_physical_page(page_phys_addr);
-                return seek_err;
-            }
-
-            ssize_t bytes_read = vfs_read(f, (void *)(working_page_address + dest_buffer_offset), bytes_to_read);
-            if (bytes_read < 0) {
-                log_error("ELF loader: Failed to read from file: %d", (error_t)bytes_read);
-                vmm_unmap(working_page_address, curr_page_dir);
-                pmm_free_physical_page(page_phys_addr);
-                return (error_t)bytes_read;
-            }
-            if ((size_t)bytes_read != bytes_to_read) {
-                log_warn("ELF loader: Short read for segment (0x%x). Expected %u, got %zd.",
-                         segment->address_in_mem, bytes_to_read, bytes_read);
-                vmm_unmap(working_page_address, curr_page_dir);
-                pmm_free_physical_page(page_phys_addr);
-                return ERR_READING_FILE;
-            }
-        }
-
-        // Unmap the temporary page
-        vmm_unmap(working_page_address, curr_page_dir);
-
-        // Map the physical page to its final virtual address in the process's page directory
-        err = vmm_map_virtual_to_physical(current_page_virt_start, page_phys_addr, proc->memory.page_dir, user_accessible, write_enable);
-        // TODO: better error handling
-    }
-
-    return OK;
-}
-
-static error_t proc_load_executable_segments(process_t *proc, const char *file_path) {
-    open_file_t *f;
-
-    error_t err = vfs_open(file_path, 0, &f);
-    if (err) return err;
-
-    err = elf_verify_executable(f);
-    if (err) { vfs_close(f); return err; }
-
-    int headers = 0;
-    err = elf_get_program_headers_count(f, &headers);
-    if (err) return err;
-
-    elf_loadable_segment_t *segments_arr = kmalloc(sizeof(elf_loadable_segment_t) * headers);
-    if (segments_arr == NULL) return ERR_NO_MEMORY;
-
-    err = elf_get_program_headers_info(f, segments_arr, headers);
-    if (err) { kfree(segments_arr); return err; }
-
-    // now load the headers
-    for (int i = 0; i < headers; i++) {
-        err = proc_load_executable_segment(proc, f, &segments_arr[i]);
-        if (err) { kfree(segments_arr); return err; }
-    }
-
-    kfree(segments_arr);
-
-    err = elf_get_entry_point(f, (virt_addr_t *)&proc->entry_point);
-    if (err) return err;
-    proc->name = kstrdup(file_path);
-
-    return OK;
-}
-
-static process_t *_create_process_base(page_dir_t pd, uintptr_t stack_top, size_t stack_size, process_t *parent, proc_priority_t priority, const char *name)  {
-    process_t *proc = (process_t *)kmalloc(sizeof(process_t));
-    if (proc == NULL) return NULL;
+    
+    proc = (process_t *)kmalloc(sizeof(process_t));
+    if (proc == NULL) return ERR_NO_MEMORY;
 
     memset(proc, 0, sizeof(process_t));
     
@@ -560,74 +324,77 @@ static process_t *_create_process_base(page_dir_t pd, uintptr_t stack_top, size_
     proc->priority = priority;
     proc->name = kstrdup(name);
 
+    // any kernel or user task will need a stack.
+    err = _allocate_and_map_stack_region(proc, stack_size, stack_top);
+    if (err) goto failed;
+
     // set the cwd
     // set the open files (stdin, stdout, stderr)
     // push env and argv
-    return proc;
+
+    *proc_ptr = proc;
+    return OK;
+
+failed:
+    if (proc && proc->name) kfree(proc->name);
+    if (proc) kfree(proc);
+    return err;
 }
 
-process_t *create_kernel_process(const char *name, uintptr_t function_to_call) {
+error_t create_kernel_process_v2(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr) {
     static int kernel_processes_count = 0; 
 
     // since kernel is up to 64MB, let's say task stacks will be 64MB downwards
+    size_t stack_size = 16 * KB;
     uintptr_t stacks_ceiling = 64 * MB;
-    size_t stack_size = 8 * KB;
     uintptr_t stack_top = stacks_ceiling - (stack_size * kernel_processes_count);
     kernel_processes_count += 1;
 
-    process_t *p = _create_process_base(vmm_get_kernel_page_directory(), stack_top, stack_size, NULL, PRIORITY_KERNEL_TASK, name);
+    process_t *proc;
+    error_t err = _create_base_process_v2(vmm_get_kernel_page_directory(), NULL, priority, name, stack_size, stack_top, &proc);
+    if (err) return err;
 
-    // there's little more to do here, isn't it
-    // set the entry point.
+    // there's little more to do here, isn't it...
+    proc->entry_point = function_to_call;
 
-    return p;
+    *proc_ptr = proc;
+    return OK;
 }
 
-process_t *create_user_process(process_t *parent, const char *file_path) {
-    // for user processes, stack is at 1GB growing downwards
+error_t create_user_process_v2(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr) {
+    open_file_t *elf = NULL;
+    process_t *proc = NULL;
+    page_dir_t pd = 0;
+
+    error_t err = vfs_open(file_path, 0, &elf);
+    if (err) goto failed;
+
+    err = elf_verify_executable(elf); // verify early for better recovery
+    if (err) goto failed;
+
+    pd = vmm_create_page_directory(true);
     size_t stack_size = 64 * KB;
-    uintptr_t stack_top = (1 * GB) - stack_size;
-    page_dir_t pd = vmm_create_page_directory(true);
-
-    process_t *p = _create_process_base(pd, stack_top, stack_size, parent, PRIORITY_USER_PROGRAM, file_path);
-    if (p == NULL) {
-        vmm_destroy_page_directory(pd); // Clean up page directory if process creation fails
-        return NULL;
-    }
+    virt_addr_t stack_top = (1 * GB) - stack_size;
     
-    // Assign the new page directory to the process
-    p->memory.page_dir = pd;
+    err = _create_base_process_v2(pd, parent, priority, file_path, stack_size, stack_top, &proc);
+    if (err) goto failed;
+    
+    err = _load_elf_segments(proc, elf);
+    if (err) goto failed;
 
-    // Load executable segments
-    // error_t err = proc_load_executable_segments(p, file_path);
-    // if (err) {
-    //     log_error("Failed to load executable segments for %s: %d", file_path, err);
-    //     // TODO: Proper cleanup, including unmapping regions that were already mapped
-    //     // For now, destroy the page directory and free the process struct
-    //     vmm_destroy_page_directory(pd);
-    //     kfree(p);
-    //     return NULL;
-    // }
+    size_t heap_size = 64 * KB;
+    virt_addr_t heap_addr = _calculate_proc_heap_bottom(proc); // above segments
+    err = _allocate_and_map_heap_region(proc, heap_size, heap_addr);
+    if (err) goto failed;
 
-    // // Map user stack region
-    // // User stack needs to be user accessible and writable
-    // mem_region_t user_stack_region = mem_region_of(stack_top, stack_size, REGION_USER_ACCESSIBLE | REGION_WRITE_ENABLE | REGION_USAGE_STACK, "user_stack");
-    // err = mem_region_allocate_clear_and_map(&user_stack_region, p->memory.page_dir);
-    // if (err) {
-    //     log_error("Failed to allocate and map user stack for %s: %d", file_path, err);
-    //     // TODO: Proper cleanup
-    //     vmm_destroy_page_directory(pd);
-    //     kfree(p);
-    //     return NULL;
-    // }
-    // // Set the process's stack pointer to the top of the user stack
-    // // The stack grows downwards, so esp should point to the highest address initially.
-    // p->esp = stack_top + stack_size; 
+    vfs_close(elf);
+    *proc_ptr = proc;
+    return OK;
 
-    // // The entry point is already set by proc_load_executable_segments
-
-    log_trace("create_user_process(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
-    return p;
+failed:
+    if (elf) vfs_close(elf);
+    if (proc) proc_destroy(proc);
+    return err;
 }
 
 // --------------- original kernel's attempt ---------------------------------
