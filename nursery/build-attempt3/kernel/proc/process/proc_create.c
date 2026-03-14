@@ -23,7 +23,7 @@ static void    proc_remove_child(process_t *parent, process_t *child);
 static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_addr_t **addresses_arr);
 static error_t _release_lot_of_physical_pages_atomically(phys_addr_t *addresses_arr, int num_pages);
 static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir);
-static error_t _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir);
+static void    _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir);
 
 static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt_addr_t stack_top);
 static error_t _allocate_and_map_heap_region(process_t *proc, size_t size, virt_addr_t heap_base);
@@ -153,7 +153,7 @@ static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir) 
     return OK;
 }
 
-static error_t _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir) {
+static void _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir) {
     ASSERT(reg != NULL);
     ASSERT(page_dir > 0);
     ASSERT(vmm_is_page_aligned(reg->address));
@@ -169,7 +169,6 @@ static error_t _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir)
     }
 
     *reg = mem_region_empty();
-    return OK;
 }
 
 static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt_addr_t stack_top) {
@@ -227,7 +226,12 @@ static error_t _allocate_and_map_elf_segment(process_t *proc, elf_loadable_segme
 }
 
 static error_t _load_elf_segment_page(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg, int page_no, phys_addr_t page_addr) {
-    error_t err;
+    ASSERT(proc != NULL);
+    ASSERT(elf != NULL);
+    ASSERT(seg != NULL);
+    ASSERT(page_addr != 0);
+
+    error_t err = OK;
 
     // we map the physical page to a copy area, using whatever CR3 we currently have.
     // the kernel is running on ring 0, so it does have access to it, no matter the contents of CR3.
@@ -250,6 +254,10 @@ exit:
 }
 
 static error_t _load_elf_segment(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg) {
+    ASSERT(proc != NULL);
+    ASSERT(elf != NULL);
+    ASSERT(seg != NULL);
+
     log_trace("loading elf segment from file (0x%x/%u) into memory (0x%x/%u), flags=R%c%c",
         seg->offset_in_file, seg->size_in_file, seg->address_in_mem, seg->size_in_mem, seg->writable ? 'W' : '-', seg->executable ? 'X' : '-');
 
@@ -276,6 +284,9 @@ exit:
 }
 
 static error_t _load_elf_segments(process_t *proc, open_file_t *elf) {
+    ASSERT(proc != NULL);
+    ASSERT(elf != NULL);
+
     elf_loadable_segment_t *segments_arr = NULL;
     error_t err = OK;
 
@@ -308,6 +319,12 @@ exit:
 
 static error_t _create_base_process_v2(page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, 
                                     size_t stack_size, virt_addr_t stack_top, process_t **proc_ptr)  {
+    ASSERT(pd != 0);
+    ASSERT(name != NULL);
+    ASSERT(stack_size > 0);
+    ASSERT(stack_top > 0);
+    ASSERT(proc_ptr != NULL);
+
     process_t *proc = NULL;
     error_t err;
     
@@ -345,7 +362,7 @@ error_t create_kernel_process_v2(const char *name, uintptr_t function_to_call, p
     static int kernel_processes_count = 0; 
 
     // since kernel is up to 64MB, let's say task stacks will be 64MB downwards
-    size_t stack_size = 16 * KB;
+    size_t stack_size = 16 * KB; // must be multiples of 4K
     uintptr_t stacks_ceiling = 64 * MB;
     uintptr_t stack_top = stacks_ceiling - (stack_size * kernel_processes_count);
     kernel_processes_count += 1;
@@ -362,11 +379,12 @@ error_t create_kernel_process_v2(const char *name, uintptr_t function_to_call, p
 }
 
 error_t create_user_process_v2(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr) {
+    error_t err = OK;
     open_file_t *elf = NULL;
     process_t *proc = NULL;
     page_dir_t pd = 0;
 
-    error_t err = vfs_open(file_path, 0, &elf);
+    err = vfs_open(file_path, 0, &elf);
     if (err) goto failed;
 
     err = elf_verify_executable(elf); // verify early for better recovery
@@ -378,6 +396,7 @@ error_t create_user_process_v2(process_t *parent, const char *file_path, proc_pr
     
     err = _create_base_process_v2(pd, parent, priority, file_path, stack_size, stack_top, &proc);
     if (err) goto failed;
+    pd = 0; // from now on, the process shall destroy the PD
     
     err = _load_elf_segments(proc, elf);
     if (err) goto failed;
@@ -392,6 +411,7 @@ error_t create_user_process_v2(process_t *parent, const char *file_path, proc_pr
     return OK;
 
 failed:
+    if (pd) vmm_destroy_page_directory(pd);
     if (elf) vfs_close(elf);
     if (proc) proc_destroy(proc);
     return err;
@@ -478,6 +498,13 @@ void proc_destroy(process_t *proc) {
 
     if (proc->allocated_kernel_stack != 0)
         kfree(proc->allocated_kernel_stack);
+
+    for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) {
+        mem_region_t *reg = &proc->memory.elf_sections[i];
+        if (mem_region_is_empty(reg)) _region_unmap_and_release(reg, proc->memory.page_dir);
+    }
+    if (!mem_region_is_empty(&proc->memory.heap))  _region_unmap_and_release(&proc->memory.heap, proc->memory.page_dir);
+    if (!mem_region_is_empty(&proc->memory.stack)) _region_unmap_and_release(&proc->memory.stack, proc->memory.page_dir);
 
     if (proc->memory.page_dir != 0 && proc->memory.page_dir != vmm_get_kernel_page_directory())
         vmm_destroy_page_directory(proc->memory.page_dir);
