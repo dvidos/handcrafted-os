@@ -126,7 +126,7 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
     log_info("Initializing virtual memory mapping...");
-    vmm_set_kernel_copy_area(KERNEL_COPY_AREA_ADDRESS, KERNEL_COPY_AREA_SIZE_KB / 4);
+    vmm_set_kernel_copy_areas(KERNEL_COPY_AREA_ADDRESS, KERNEL_COPY_AREA_SIZE_KB / 4);
     vmm_initialize(0, pmm_get_top_identity_address(), &kernel_phys_mem_map);
 
     log_info("Enabling interrupts & NMI...");

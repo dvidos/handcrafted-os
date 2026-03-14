@@ -17,9 +17,9 @@
 #define UINT32_MAX  4294967295LU
 #define UINT64_MAX  18446744073709551615LLU
 
-#define KB          1024
-#define MB          (1024 * KB)
-#define GB          (1024 * MB)
+#define KB          (size_t)1024
+#define MB          ((size_t)1024 * KB)
+#define GB          ((size_t)1024 * MB)
 
 #define bool     _Bool
 #define true	((_Bool)1)

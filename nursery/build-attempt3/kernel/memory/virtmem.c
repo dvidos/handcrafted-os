@@ -1,3 +1,4 @@
+#include "../utils/assert.h"
 #include "../include/bits.h"
 #include "physmem.h"
 #include "virtmem.h"
@@ -209,18 +210,31 @@ void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_add
     log_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
 }
 
-void vmm_set_kernel_copy_area(virt_addr_t addr, int num_pages) {
+void vmm_set_kernel_copy_areas(virt_addr_t addr, int num_pages) {
+    ASSERT(addr != 0);
+    ASSERT(num_pages >= 2);
+
     kernel_info.copy_area_addr = addr;
     kernel_info.copy_area_pages = num_pages;
 }
 
-virt_addr_t vmm_get_kernel_copy_area_address() {
+virt_addr_t vmm_get_kernel_copy_area1() {
+    ASSERT(kernel_info.copy_area_addr != 0);
     return kernel_info.copy_area_addr;
 }
 
-virt_addr_t vmm_get_kernel_copy_area_num_pages() {
-    return kernel_info.copy_area_pages;
+virt_addr_t vmm_get_kernel_copy_area2() {
+    ASSERT(kernel_info.copy_area_pages > 1);
+    return kernel_info.copy_area_addr + vmm_page_size();
 }
+
+virt_addr_t vmm_get_kernel_top_address() {
+    ASSERT(kernel_info.end_address != 0);
+    // this will be identity mapped anyway
+    // used for task stacks, to allow kernel heap to grow
+    return kernel_info.end_address;
+}
+
 
 
 phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
@@ -255,7 +269,7 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 }
 
 // map the virtual address to resolve to the physical one for the particular page directory.
-error_t vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physical_addr, page_dir_t page_dir, bool user_accessible, bool write_enable) {
+error_t vmm_map_page(virt_addr_t virtual_addr, phys_addr_t physical_addr, page_dir_t page_dir, bool user_accessible, bool write_enable) {
     log_trace("Mapping phys addr 0x%x to virt addr 0x%x, page dir 0x%x", physical_addr, virtual_addr, page_dir);
 
     uint32_t page_dir_index = virt_addr_to_page_directory_index(virtual_addr);
@@ -307,7 +321,7 @@ error_t vmm_map_virtual_to_physical(virt_addr_t virtual_addr, phys_addr_t physic
 }
 
 // unmap the virtual address to resolve to the physical one for the particular page directory.
-void vmm_unmap(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
+void vmm_unmap_page(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     // clear the entry of the page table, if all the page table is clear, 
     // maybe remove the entry from the page directory and free the page.
 
@@ -344,7 +358,7 @@ void vmm_unmap(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 error_t vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr) {
     log_trace("Identity mapping range 0x%p - 0x%p, page_dir=0x%p", start_addr, end_addr, page_dir_addr);
     for (phys_addr_t addr = start_addr; addr <= end_addr; addr += 4096) {
-        error_t err = vmm_map_virtual_to_physical(addr, addr, page_dir_addr, true, true);
+        error_t err = vmm_map_page(addr, addr, page_dir_addr, true, true);
         // TODO: better error handling
     }
 
@@ -444,7 +458,7 @@ void vmm_page_fault_handler(uint32_t error_code) {
     // e.g. stack underflow, or heap overflow, guard, mem-mapped file, etc
 
     memory_address = ROUND_DOWN_4K(memory_address);
-    error_t err = vmm_map_virtual_to_physical(memory_address, memory_address, page_dir_address, true, true);
+    error_t err = vmm_map_page(memory_address, memory_address, page_dir_address, true, true);
     // ignore errors, or fail?
 }
 
@@ -477,7 +491,7 @@ error_t vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_
     // TODO: this should update the memory map of the kernel/process
     for (virt_addr_t virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         phys_addr_t phys_page_addr = pmm_allocate_physical_page();
-        error_t err = vmm_map_virtual_to_physical(virt_addr, phys_page_addr, page_dir_addr, true, true);
+        error_t err = vmm_map_page(virt_addr, phys_page_addr, page_dir_addr, true, true);
         // TODO: better error handling
     }
 
