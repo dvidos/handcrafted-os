@@ -14,23 +14,24 @@ static inline uint32_t vmm_pages_for_size(uint32_t size)       { return vmm_roun
 
 
 // initialize virtual memory paging.
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, mem_map_t *kernel_phys_map);
-
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, phys_addr_t utility_pages_addr, size_t utility_pages_size, mem_map_t *kernel_phys_map);
+phys_addr_t vmm_create_kernel_page_directory_using_physical_pages(phys_addr_t kernel_cutoff);
 
 // used for loading processes and fork()
-void vmm_set_kernel_copy_areas(virt_addr_t addr, int num_pages);
-virt_addr_t vmm_get_kernel_copy_area1();
-virt_addr_t vmm_get_kernel_copy_area2();
+void vmm_set_KERNEL_UTIL_PAGESs(virt_addr_t addr, int num_pages);
+virt_addr_t vmm_get_copy_page1_addr();
+virt_addr_t vmm_get_copy_page2_addr();
 virt_addr_t vmm_get_kernel_top_address();
 
 // resolve a virtual address, by reading the page dir and tables
 phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr);
 
-// map a virtual address to a physical one
-error_t vmm_map_page(virt_addr_t virtual_addr, phys_addr_t physical_addr, page_dir_t page_dir, bool user_accessible, bool write_enable);
 
-// unmap a virtual address (remove paging entries)
-void vmm_unmap_page(virt_addr_t virtual_addr, page_dir_t page_dir_addr);
+// map / unmap pages to current or given page directory
+error_t vmm_map_page(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable);
+error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable, page_dir_t page_dir);
+void    vmm_unmap_page(virt_addr_t virtual_addr);
+void    vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir);
 
 // invalidate TLB cache
 void vmm_invalidate_cached_address(virt_addr_t virtual_addr);

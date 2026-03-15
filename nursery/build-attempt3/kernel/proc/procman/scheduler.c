@@ -107,8 +107,8 @@ void schedule() {
      * -------------------------------------------------------------------
      */
     low_level_context_switch(
-        &previous->esp,
-        (uint32_t *)&running_proc->esp,
+        &previous->memory.execution.stack_pointer,
+        (uint32_t *)&running_proc->memory.execution.stack_pointer,
         (uint32_t)running_proc->memory.page_dir
     );
 

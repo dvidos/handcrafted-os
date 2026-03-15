@@ -634,10 +634,23 @@ error_t elf_get_program_headers_info(open_file_t *file, elf_loadable_segment_t *
         segments_arr[arr_idx].size_in_file = prog.p_filesz;
         segments_arr[arr_idx].address_in_mem = prog.p_vaddr;
         segments_arr[arr_idx].size_in_mem = prog.p_memsz;
-        segments_arr[arr_idx].writable = prog.p_flags & PF_WRITE;
-        segments_arr[arr_idx].writable = prog.p_flags & PF_EXEC;
+        segments_arr[arr_idx].writable = (prog.p_flags & PF_WRITE) != 0;
+        segments_arr[arr_idx].executable = (prog.p_flags & PF_EXEC) != 0;
         arr_idx++;
     }
 
     return OK;
+}
+
+void elf_segment_formatter(log_write_stream_t *stream, va_list args) {
+    elf_loadable_segment_t *seg = va_arg(args, elf_loadable_segment_t *);
+
+    stream->printf(stream->context, "file_off=%x, file_sz=%u, mem_addr=%x, mem_sz=%u, wrt=%d, exe=%d",
+        seg->offset_in_file,
+        seg->size_in_file,
+        seg->address_in_mem,
+        seg->size_in_mem,
+        seg->writable ? 1 : 0,
+        seg->executable ? 1 : 0
+    );
 }

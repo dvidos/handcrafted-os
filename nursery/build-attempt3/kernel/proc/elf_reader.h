@@ -29,3 +29,4 @@ error_t elf_get_entry_point(open_file_t *file, virt_addr_t *entry_point);
 error_t elf_get_program_headers_count(open_file_t *file, int *count);
 error_t elf_get_program_headers_info(open_file_t *file, elf_loadable_segment_t *segments_arr, int count);
 
+void elf_segment_formatter(log_write_stream_t *stream, va_list args);

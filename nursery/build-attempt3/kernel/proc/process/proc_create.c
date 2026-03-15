@@ -13,8 +13,8 @@
 #include "../elf_reader.h"
 
 
+MODULE("PROC_CREATE", LOG_LEVEL_TRACE);
 
-MODULE("PROC_CREATE", LOG_LEVEL_WARN);
 
 static pid_t   next_pid();
 static int     next_kernel_stack_no();
@@ -28,7 +28,7 @@ static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_ad
 static error_t _release_lot_of_physical_pages_atomically(phys_addr_t *addresses_arr, int num_pages);
 static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir);
 static void    _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir);
-static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_dir, mem_region_t *src_reg, page_dir_t src_dir);
+static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd);
 
 static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt_addr_t stack_top);
 static error_t _allocate_and_map_heap_region(process_t *proc, size_t size, virt_addr_t heap_base);
@@ -37,11 +37,11 @@ static error_t _load_elf_segment_page_from_file(process_t *proc, open_file_t *el
 static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg);
 static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_file_t *elf);
 
-static error_t _duplicate_memory_region_if_needed(mem_region_t *dest_reg, page_dir_t dest_dir, mem_region_t *src_reg, page_dir_t src_dir);
+static error_t _duplicate_memory_region_if_needed(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd);
 static error_t _allocate_and_initialize_all_regions_for_elf(process_t *proc, open_file_t *elf);
 static error_t _duplicate_all_memory_regions_from_process(process_t *dest, process_t *src);
 static error_t _unmap_and_release_all_regions_of_process(process_t *proc);
-static error_t _create_base_process_v2(page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, process_t **proc_ptr);
+static error_t _create_base_process_v2(bool is_user_proc, page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, process_t **proc_ptr);
 
 
 // ----------------------------------------------------------
@@ -108,6 +108,7 @@ static void _calculate_proc_stack(process_t *proc, size_t *stack_size, virt_addr
     ASSERT(proc != NULL);
     ASSERT(stack_top != NULL);
     ASSERT(stack_size != NULL);
+    log_trace("_calculate_proc_stack(proc=%p)", proc);
 
     if (proc_is_kernel_proc(proc)) {
         size_t sz = 64 * KB;
@@ -128,6 +129,7 @@ static void _calculate_proc_heap(process_t *proc, size_t *heap_size, virt_addr_t
     ASSERT(proc != NULL);
     ASSERT(heap_bottom != NULL);
     ASSERT(heap_size != NULL);
+    log_trace("_calculate_proc_heap(proc=%p)", proc);
 
     if (proc_is_kernel_proc(proc)) {
         // kernel should not use this one, it already has heap
@@ -156,16 +158,16 @@ static void _calculate_proc_heap(process_t *proc, size_t *heap_size, virt_addr_t
 static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_addr_t **addresses_arr) {
     ASSERT(num_pages > 0);
     ASSERT(addresses_arr != NULL);
+    log_trace("_allocate_lot_of_physical_pages_atomically(num=%d)", num_pages);
 
     phys_addr_t *arr = kmalloc(sizeof(phys_addr_t) * num_pages);
-    if (arr == NULL) return ERR_NO_MEMORY;
+    if (arr == NULL) return traceable(ERR_NO_MEMORY);
     memset(arr, 0, sizeof(phys_addr_t) * num_pages);
 
     bool failed = false;
     for (int page = 0; page < num_pages; page++) {
         phys_addr_t addr = pmm_allocate_physical_page();
         if (addr == 0) { failed = true; break; }
-        memset((void *)addr, 0, vmm_page_size());
         arr[page] = addr;
     }
 
@@ -174,16 +176,18 @@ static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_ad
             if (arr[page])
                 pmm_free_physical_page(arr[page]);
         kfree(arr);
-        return ERR_NO_MEMORY;
+        return traceable(ERR_NO_MEMORY);
     }
 
     *addresses_arr = arr;
+    log_trace("_allocate_lot_of_physical_pages_atomically() done");
     return OK;
 }
 
 static error_t _release_lot_of_physical_pages_atomically(phys_addr_t *addresses_arr, int num_pages) {
     ASSERT(addresses_arr != NULL);
     ASSERT(num_pages > 0);
+    log_trace("_release_lot_of_physical_pages_atomically(addr=%p, num=%d)", addresses_arr, num_pages);
 
     for (int page = 0; page < num_pages; page++) {
         if (addresses_arr[page])
@@ -197,22 +201,29 @@ static error_t _release_lot_of_physical_pages_atomically(phys_addr_t *addresses_
 static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir) {
     ASSERT(reg != NULL);
     ASSERT(page_dir > 0);
-
+    log_trace("_region_allocate_and_map(reg=%p, page_dir=%x)", reg, page_dir);
+    
     phys_addr_t *pages_arr;
     int num_pages = vmm_pages_for_size(reg->size);
     error_t err = _allocate_lot_of_physical_pages_atomically(num_pages, &pages_arr);
     if (err) return err;
 
+log_trace("--AAM1--");
     bool user = (reg->flags & REGION_USER_ACCESSIBLE) != 0;
     bool writable = (reg->flags & REGION_WRITE_ENABLE) != 0;
+log_trace("--AAM2--");
     for (int page = 0; page < num_pages; page++) {
-        err = vmm_map_page(reg->address + page * vmm_page_size(), pages_arr[page], page_dir, user, writable);
+log_trace("--AAM2a--");
+        err = vmm_map_page_to_pd(reg->address + page * vmm_page_size(), pages_arr[page], user, writable, page_dir);
+log_trace("--AAM2b--");
         if (err) {
-            while (--page >= 0) vmm_unmap_page(reg->address + page * vmm_page_size(), page_dir);
+            log_warn("error while mapping page %d/%d, will unmap all and release physical pages", page, num_pages);
+            while (--page >= 0) vmm_unmap_page_from_pd(reg->address + page * vmm_page_size(), page_dir);
             _release_lot_of_physical_pages_atomically(pages_arr, num_pages);
             return err;
         }
     }
+log_trace("--AAM3--");
     
     kfree(pages_arr);
     return OK;
@@ -223,13 +234,14 @@ static void _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir) {
     ASSERT(page_dir > 0);
     ASSERT(vmm_is_page_aligned(reg->address));
     ASSERT(vmm_is_page_aligned(reg->size));
+    log_trace("_region_unmap_and_release(reg=%p, page_dir=%x)", reg, page_dir);
 
     int num_pages = reg->size / vmm_page_size();
     virt_addr_t vaddr = reg->address;
     for (int page = 0; page < num_pages; page++) {
         phys_addr_t paddr = vmm_resolve(vaddr, page_dir);
 
-        vmm_unmap_page(vaddr, page_dir);
+        vmm_unmap_page_from_pd(vaddr, page_dir);
         if (paddr != 0)
             pmm_free_physical_page(paddr);
         
@@ -239,52 +251,52 @@ static void _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir) {
     *reg = mem_region_empty();
 }
 
-static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_dir, mem_region_t *src_reg, page_dir_t src_dir) {
+static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd) {
     ASSERT(dest_reg != NULL);
     ASSERT(dest_reg->address > 0);
     ASSERT(dest_reg->size > 0);
     ASSERT(vmm_is_page_aligned(dest_reg->size));
-    ASSERT(dest_dir > 0);
+    ASSERT(dest_pd > 0);
     ASSERT(src_reg != NULL);
     ASSERT(src_reg->address > 0);
     ASSERT(src_reg->size > 0);
     ASSERT(vmm_is_page_aligned(src_reg->size));
-    ASSERT(src_dir > 0);
+    ASSERT(src_pd > 0);
+    log_trace("_region_copy_contents(dest_reg=%p, dest_pd=%x, src_reg=%p, src_pd=%x)", dest_reg, dest_pd, src_reg, src_pd);
 
     error_t err = OK;
     bool page1_mapped = false;
     bool page2_mapped = false;
 
     // we map the physical pages to a copy area, using whatever CR3 we currently have.
-    page_dir_t work_pd = vmm_get_current_page_dir();
     int num_pages = src_reg->size / vmm_page_size();
 
     for (int i = 0; i < num_pages; i++) {
-        phys_addr_t dest_paddr = vmm_resolve(dest_reg->address + i * vmm_page_size(), dest_dir);
-        phys_addr_t src_paddr = vmm_resolve(src_reg->address + i * vmm_page_size(), src_dir);
-        if (dest_paddr == 0 || src_paddr == 0) return ERR_INVALID_ARGS;
+        phys_addr_t dest_paddr = vmm_resolve(dest_reg->address + i * vmm_page_size(), dest_pd);
+        phys_addr_t src_paddr = vmm_resolve(src_reg->address + i * vmm_page_size(), src_pd);
+        if (dest_paddr == 0 || src_paddr == 0) return traceable(ERR_INVALID_ARGS);
 
-        err = vmm_map_page(vmm_get_kernel_copy_area1(), dest_paddr, work_pd, false, true);
+        err = vmm_map_page(vmm_get_copy_page1_addr(), dest_paddr, false, true);
         if (err) goto exit;
         page1_mapped = true;
 
-        err = vmm_map_page(vmm_get_kernel_copy_area2(), src_paddr, work_pd, false, false);
+        err = vmm_map_page(vmm_get_copy_page2_addr(), src_paddr, false, false);
         if (err) goto exit;
         page2_mapped = true;
 
-        memcpy((void *)vmm_get_kernel_copy_area1(), (void *)vmm_get_kernel_copy_area2(), vmm_page_size());
+        memcpy((void *)vmm_get_copy_page1_addr(), (void *)vmm_get_copy_page2_addr(), vmm_page_size());
         
-        vmm_unmap_page(vmm_get_kernel_copy_area1(), work_pd);
+        vmm_unmap_page(vmm_get_copy_page1_addr());
         page1_mapped = false;
 
-        vmm_unmap_page(vmm_get_kernel_copy_area2(), work_pd);
+        vmm_unmap_page(vmm_get_copy_page2_addr());
         page2_mapped = false;
     }
 
 exit:
-    if (page1_mapped) vmm_unmap_page(vmm_get_kernel_copy_area1(), work_pd);
-    if (page2_mapped) vmm_unmap_page(vmm_get_kernel_copy_area2(), work_pd);
-    return err;
+    if (page1_mapped) vmm_unmap_page(vmm_get_copy_page1_addr());
+    if (page2_mapped) vmm_unmap_page(vmm_get_copy_page2_addr());
+    return traceable(err);
 }
 
 static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt_addr_t stack_top) {
@@ -293,6 +305,7 @@ static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt
     ASSERT(stack_top > 0);
     ASSERT(vmm_is_page_aligned(size));
     ASSERT(vmm_is_page_aligned(stack_top));
+    log_trace("_allocate_and_map_stack_region(proc=%p, size=%u, top=%x)", proc, size, stack_top);
 
     // suggestion: add two guard pages, one for overflow and one for underflow.
 
@@ -303,6 +316,7 @@ static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt
     if (err) return err;
 
     proc->memory.stack = reg;
+    proc->memory.execution.stack_pointer = stack_top - sizeof(switched_stack_snapshot_t);
     return OK;
 }
 
@@ -312,6 +326,7 @@ static error_t _allocate_and_map_heap_region(process_t *proc, size_t size, virt_
     ASSERT(heap_base > 0);
     ASSERT(vmm_is_page_aligned(size));
     ASSERT(vmm_is_page_aligned(heap_base));
+    log_trace("_allocate_and_map_heap_region(proc=%p, size=%u, base=%x)", proc, size, heap_base);
 
     // suggestion: add one guard page for heap overflow
 
@@ -329,19 +344,25 @@ static error_t _allocate_and_map_elf_segment(process_t *proc, elf_loadable_segme
     ASSERT(proc != NULL);
     ASSERT(seg != NULL);
     ASSERT(proc->memory.elf_sections_count < MAX_PROCESS_ELF_SECTIONS);
+    log_trace("_allocate_and_map_elf_segment(proc=%p, seg=%p)", proc, seg);
 
+log_debug("---AMES1---");
     virt_addr_t addr = vmm_round_down(seg->address_in_mem);
     size_t size = vmm_round_up(seg->address_in_mem + seg->size_in_mem) - addr;
     region_flags_t flags = REGION_USAGE_ELF |
         (seg->writable ? REGION_WRITE_ENABLE : REGION_READ_ONLY) |
         (proc_is_user_proc(proc) ? REGION_USER_ACCESSIBLE : REGION_SUPERVISOR_ONLY);
     
+log_debug("---AMES2---");
     mem_region_t reg = mem_region_of(addr, size, flags);
+log_debug("---AMES3---");
     error_t err = _region_allocate_and_map(&reg, proc->memory.page_dir);
     if (err) return err;
+log_debug("---AMES4---");
 
     proc->memory.elf_sections[proc->memory.elf_sections_count] = reg;
     proc->memory.elf_sections_count += 1;
+log_debug("---AMES5---");
     return OK;
 }
 
@@ -350,65 +371,79 @@ static error_t _load_elf_segment_page_from_file(process_t *proc, open_file_t *el
     ASSERT(elf != NULL);
     ASSERT(seg != NULL);
     ASSERT(page_addr != 0);
-
+    log_trace("_load_elf_segment_page_from_file(proc=%p, elf=%p, seg=%p, page_no=%d, page_addr=%p)", proc, elf, seg, page_no, page_addr);
+log_trace("--L1--");
     error_t err = OK;
 
     // we map the physical page to a copy area, using whatever CR3 we currently have.
     // the kernel is running on ring 0, so it does have access to it, no matter the contents of CR3.
-    page_dir_t work_pd = vmm_get_current_page_dir();
-    vmm_map_page(vmm_get_kernel_copy_area1(), page_addr, work_pd, false, true);
+log_trace("--L1--");
+    vmm_map_page(vmm_get_copy_page1_addr(), page_addr, false, true);
+log_trace("--L2--");
 
     size_t page_gap = page_no > 0 ? 0 : seg->address_in_mem - vmm_round_down(seg->address_in_mem);
     off_t offset_in_file = seg->offset_in_file + page_no * vmm_page_size();
     size_t remaining_bytes = seg->size_in_file - page_no * vmm_page_size();
     size_t bytes_to_read = min(remaining_bytes, vmm_page_size() - page_gap);
+log_trace("--L3--");
 
-    memset((void *)vmm_get_kernel_copy_area1(), 0, vmm_page_size());
+    memset((void *)vmm_get_copy_page1_addr(), 0, vmm_page_size());
+log_trace("--L4--");
 
     off_t new_off = vfs_seek(elf, offset_in_file, SEEK_SET);
     if (new_off != offset_in_file) { err = ERR_READING_FILE; goto exit; }
-    ssize_t read = vfs_read(elf, (void *)(vmm_get_kernel_copy_area1() + page_gap), bytes_to_read);
+    ssize_t read = vfs_read(elf, (void *)(vmm_get_copy_page1_addr() + page_gap), bytes_to_read);
     if (read < 0) { err = (error_t)read; goto exit; }
     if ((size_t)read < bytes_to_read) { err = ERR_READING_FILE; goto exit; }
+log_trace("--L5--");
 
 exit:
-    vmm_unmap_page(vmm_get_kernel_copy_area1(), work_pd);
-    return err;
+    vmm_unmap_page(vmm_get_copy_page1_addr());
+    return traceable(err);
 }
 
 static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg) {
     ASSERT(proc != NULL);
     ASSERT(elf != NULL);
     ASSERT(seg != NULL);
+    log_trace("_allocate_and_load_elf_segment_from_file(proc=%p, elf=%p, seg=%p)", proc, elf, seg);
 
-    log_trace("loading elf segment from file (0x%x/%u) into memory (0x%x/%u), flags=R%c%c",
+
+    log_debug("loading elf segment from file (0x%x/%u) into memory (0x%x/%u), flags=R%c%c",
         seg->offset_in_file, seg->size_in_file, seg->address_in_mem, seg->size_in_mem, seg->writable ? 'W' : '-', seg->executable ? 'X' : '-');
 
+log_trace("---S1---");
     // this allocates and maps, to prepare the memory for loading
     error_t err = _allocate_and_map_elf_segment(proc, seg);
     if (err) goto exit;
 
+log_trace("---S2---");
     // now we need to take it one by one.
     mem_region_t *reg = &proc->memory.elf_sections[proc->memory.elf_sections_count - 1];
     int num_pages = reg->size / vmm_page_size();
     page_dir_t pd = proc->memory.page_dir;
+log_trace("---S3---");
     for (int page = 0; page < num_pages; page++) {
         virt_addr_t vaddr = reg->address + page * vmm_page_size();
         phys_addr_t paddr = vmm_resolve(vaddr, pd);
+log_trace("---S4---");
 
         // load into physical page, via temp mapping onto kernel copy area
         err = _load_elf_segment_page_from_file(proc, elf, seg, page, paddr);
         if (err) goto exit;
+log_trace("---S5---");
     }
 
+log_trace("---S6---");
     return OK;
 exit:
-    return err;
+    return traceable(err);
 }
 
 static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_file_t *elf) {
     ASSERT(proc != NULL);
     ASSERT(elf != NULL);
+    log_trace("_allocate_and_load_elf_segments_from_file(proc=%p, elf=%p)", proc, elf);
 
     elf_loadable_segment_t *segments_arr = NULL;
     error_t err = OK;
@@ -417,30 +452,39 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
     err = elf_get_program_headers_count(elf, &headers);
     if (err) goto exit;
     if (headers <= 0 || headers > MAX_PROCESS_ELF_SECTIONS)
-        return ERR_CORRUPTION_DETECTED;
+        return traceable(ERR_CORRUPTION_DETECTED);
 
     segments_arr = kmalloc(sizeof(elf_loadable_segment_t) * headers);
     if (segments_arr == NULL) { err = ERR_NO_MEMORY; goto exit; }
 
     err = elf_get_program_headers_info(elf, segments_arr, headers);
     if (err) goto exit;
+    for (int i = 0; i < headers; i++) log_debug_fmt("segment from elf:", &segments_arr[i], elf_segment_formatter);
 
     for (int i = 0; i < headers; i++) {
         err = _allocate_and_load_elf_segment_from_file(proc, elf, &segments_arr[i]);
         if (err) goto exit;
     }
 
-    // let's not forget this!
-    err = elf_get_entry_point(elf, (virt_addr_t *)&proc->entry_point);
+    // put the entry point on stack. Stack MUST be initialized by now.
+    virt_addr_t elf_entry_point = 0;
+    err = elf_get_entry_point(elf, &elf_entry_point);
     if (err) goto exit;
+    ASSERT(proc->memory.execution.stack_pointer != 0);
+    proc->memory.execution.stack_snapshot->return_address = elf_entry_point;
+
     err = OK;
 
 exit:
     if (segments_arr != NULL) kfree(segments_arr);
-    return err;
+    return traceable(err);
 }
 
-static error_t _duplicate_memory_region_if_needed(mem_region_t *dest_reg, page_dir_t dest_dir, mem_region_t *src_reg, page_dir_t src_dir) {
+static error_t _duplicate_memory_region_if_needed(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd) {
+    ASSERT(dest_reg != NULL);
+    ASSERT(dest_pd != 0);
+    log_trace("_duplicate_memory_region_if_needed(dest_reg=%p, dest_pd=%x, src_reg=%p, src_pd=%x)", dest_reg, dest_pd, src_reg, src_pd);
+
     error_t err = OK;
     bool region_allocated = false;
 
@@ -449,48 +493,60 @@ static error_t _duplicate_memory_region_if_needed(mem_region_t *dest_reg, page_d
 
     *dest_reg = *src_reg; // copy values
 
-    err = _region_allocate_and_map(dest_reg, dest_dir);
+    err = _region_allocate_and_map(dest_reg, dest_pd);
     if (err) goto error;
     region_allocated = true;
 
-    err = _region_copy_contents(dest_reg, dest_dir, src_reg, src_dir);
+    err = _region_copy_contents(dest_reg, dest_pd, src_reg, src_pd);
     if (err) goto error;
 
     return OK;
 error:
     if (region_allocated)
-        _region_unmap_and_release(dest_reg, dest_dir);
+        _region_unmap_and_release(dest_reg, dest_pd);
     *dest_reg = mem_region_empty(); // clear
-    return err;
+    return traceable(err);
 }
 
 static error_t _allocate_and_initialize_all_regions_for_elf(process_t *proc, open_file_t *elf) {
     ASSERT(proc != NULL);
     ASSERT(elf != NULL);
+    log_trace("_allocate_and_initialize_all_regions_for_elf(proc=%p, elf=%p)", proc, elf);
 
     error_t err = OK;
 
+log_info("-A-");
+    size_t stack_size = 0;
+    virt_addr_t stack_top = 0;
+    _calculate_proc_stack(proc, &stack_size, &stack_top);
+    err = _allocate_and_map_stack_region(proc, stack_size, stack_top);
+    if (err) goto exit;
+log_info("-B-");
+
     err = _allocate_and_load_elf_segments_from_file(proc, elf);
     if (err) goto exit;
+log_info("-C-");
 
     size_t heap_size = 0;
     virt_addr_t heap_addr = 0;
     _calculate_proc_heap(proc, &heap_size, &heap_addr);
     err = _allocate_and_map_heap_region(proc, heap_size, heap_addr);
     if (err) goto exit;
-
-    size_t stack_size = 0;
-    virt_addr_t stack_top = 0;
-    _calculate_proc_stack(proc, &stack_size, &stack_top);
-    err = _allocate_and_map_stack_region(proc, stack_size, stack_top);
-    if (err) goto exit;
+log_info("-D-");
 
 exit:
-    return err;
+    return traceable(err);
 }
 
 static error_t _duplicate_all_memory_regions_from_process(process_t *dest, process_t *src) {
+    ASSERT(dest != NULL);
+    ASSERT(src != NULL);
+    log_trace("_duplicate_all_memory_regions_from_process(dest=%p, src=%p)", dest, src);
+
     error_t err = OK;
+
+    err = _duplicate_memory_region_if_needed(&dest->memory.stack, dest->memory.page_dir, &src->memory.stack, src->memory.page_dir);
+    if (err) goto exit;
 
     for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) {
         err = _duplicate_memory_region_if_needed(&dest->memory.elf_sections[i], dest->memory.page_dir, &src->memory.elf_sections[i], src->memory.page_dir);
@@ -498,17 +554,17 @@ static error_t _duplicate_all_memory_regions_from_process(process_t *dest, proce
     }
     dest->memory.elf_sections_count = src->memory.elf_sections_count;
     
-    err = _duplicate_memory_region_if_needed(&dest->memory.stack, dest->memory.page_dir, &src->memory.stack, src->memory.page_dir);
-    if (err) goto exit;
-
     err = _duplicate_memory_region_if_needed(&dest->memory.heap, dest->memory.page_dir, &src->memory.heap, src->memory.page_dir);
     if (err) goto exit;
 
 exit:
-    return err;
+    return traceable(err);
 }
 
 static error_t _unmap_and_release_all_regions_of_process(process_t *proc) {
+    ASSERT(proc != NULL);
+    log_trace("_unmap_and_release_all_regions_of_process(proc=%p)", proc);
+
     page_dir_t page_dir = proc->memory.page_dir;
 
     for (int i = 0; i < proc->memory.elf_sections_count; i++) {
@@ -526,10 +582,12 @@ static error_t _unmap_and_release_all_regions_of_process(process_t *proc) {
     return OK;
 }
 
-static error_t _create_base_process_v2(page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, process_t **proc_ptr) {
+static error_t _create_base_process_v2(bool is_user_proc, page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, process_t **proc_ptr) {
     ASSERT(pd != 0);
     ASSERT(name != NULL);
     ASSERT(proc_ptr != NULL);
+
+    log_trace("_create_base_process_v2()");
 
     process_t *proc = NULL;
     error_t err = OK;
@@ -547,6 +605,9 @@ static error_t _create_base_process_v2(page_dir_t pd, process_t *parent, proc_pr
     proc->name = kstrdup(name);
     if (proc->name == NULL) { err = ERR_NO_MEMORY; goto failed; }
 
+    proc->flags |= (is_user_proc ? PROC_FLAG_IS_USER_PROCESS : 0);
+    proc->memory.page_dir = pd;
+
     // set the cwd
     // set the open files (stdin, stdout, stderr)
     // push env and argv
@@ -557,12 +618,14 @@ static error_t _create_base_process_v2(page_dir_t pd, process_t *parent, proc_pr
 failed:
     if (proc && proc->name) kfree(proc->name);
     if (proc) kfree(proc);
-    return err;
+    return traceable(err);
 }
 
-error_t create_kernel_process_v2(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr) {
+error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr) {
+    log_trace("process_v2_create_for_kernel(name=%s)", name);
+
     process_t *proc;
-    error_t err = _create_base_process_v2(vmm_get_kernel_page_directory(), NULL, priority, name, &proc);
+    error_t err = _create_base_process_v2(false, vmm_get_kernel_page_directory(), NULL, priority, name, &proc);
     if (err) return err;
 
     size_t stack_size = 0;
@@ -578,43 +641,50 @@ error_t create_kernel_process_v2(const char *name, uintptr_t function_to_call, p
     return OK;
 }
 
-error_t create_user_process_v2(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr) {
+error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr) {
     ASSERT(file_path != 0); 
     ASSERT(proc_ptr != 0);
+    log_trace("process_v2_create_for_spawn(parent=%p, file='%s')", parent, file_path);
 
     error_t err = OK;
     open_file_t *elf = NULL;
     process_t *proc = NULL;
-    page_dir_t pd = 0;
+    page_dir_t new_pd = 0;
 
     err = vfs_open(file_path, 0, &elf);
     if (err) goto failed;
     err = elf_verify_executable(elf); // verify early for better recovery
     if (err) goto failed;
 
-    pd = vmm_create_page_directory(true);
+    new_pd = vmm_create_page_directory(true);
+    log_debug("Current proc pd is 0x%x, new process pd is 0x%x", vmm_get_current_page_dir(), new_pd);
     
-    err = _create_base_process_v2(pd, parent, priority, file_path, &proc);
+    err = _create_base_process_v2(true, new_pd, parent, priority, file_path, &proc);
     if (err) goto failed;
-    pd = 0; // from now on, the process shall destroy the PD
+    new_pd = 0; // from now on, the process shall destroy the PD
     
     err = _allocate_and_initialize_all_regions_for_elf(proc, elf);
     if (err) goto failed;
 
+    ASSERT(proc->memory.execution.stack_pointer != 0);
+    ASSERT(proc->memory.execution.stack_snapshot->return_address != 0);
+
     vfs_close(elf);
     *proc_ptr = proc;
+    log_trace("process_v2_create_for_spawn() returning OK");
     return OK;
 
 failed:
-    if (pd) vmm_destroy_page_directory(pd);
+    if (new_pd) vmm_destroy_page_directory(new_pd);
     if (elf) vfs_close(elf);
     if (proc) proc_destroy(proc);
-    return err;
+    return traceable(err);
 }
 
-error_t replace_user_process_v2(process_t *proc, const char *file_path) {
+error_t process_v2_replace_for_exec(process_t *proc, const char *file_path) {
     ASSERT(proc != NULL);
     ASSERT(file_path != NULL);
+    log_trace("process_v2_replace_for_exec(proc=%p, file='%s')", proc, file_path);
 
     error_t err = OK;
     open_file_t *elf;
@@ -641,12 +711,13 @@ failed:
     if (elf) vfs_close(elf);
     // we may be in a pretty unrunnable state! 
     // real kernels solve this by loading new image and if success, swap. not blindly destroying first
-    return err;
+    return traceable(err);
 }
 
-error_t fork_user_process_v2(process_t *parent, process_t **proc_ptr) {
+error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
     ASSERT(parent != NULL);
     ASSERT(proc_ptr != NULL);
+    log_trace("process_v2_create_for_fork(parent=%p)", parent);
 
     error_t err = OK;
     process_t *child = NULL;
@@ -654,7 +725,7 @@ error_t fork_user_process_v2(process_t *parent, process_t **proc_ptr) {
 
     pd = vmm_create_page_directory(true);
     
-    err = _create_base_process_v2(pd, parent, parent->priority, parent->name, &child);
+    err = _create_base_process_v2(true, pd, parent, parent->priority, parent->name, &child);
     if (err) goto failed;
     pd = 0; // from now on, the process shall destroy the PD
     
@@ -662,6 +733,8 @@ error_t fork_user_process_v2(process_t *parent, process_t **proc_ptr) {
     if (err) goto failed;
 
     // we'll need a few more things, but this is looking better
+    ASSERT(child->memory.execution.stack_pointer != 0);
+    ASSERT(child->memory.execution.stack_snapshot->return_address != 0);
 
     *proc_ptr = child;
     return OK;
@@ -669,7 +742,7 @@ error_t fork_user_process_v2(process_t *parent, process_t **proc_ptr) {
 failed:
     if (pd) vmm_destroy_page_directory(pd);
     if (child) proc_destroy(child);
-    return err;
+    return traceable(err);
 }
 
 
@@ -700,14 +773,6 @@ process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc
         return NULL;
     }
 
-    /*
-        it seems this is not so easy. So processes will belong to kernel, e.g. the idle task,
-        so they only need stack, 
-        and some processes will belong to user programs, so we don't know yet what kind of memory 
-        mapping they will need.
-        sometimes we'll toss it out to reset (exec), sometimes copy (fork) and sometimes set (kernel)
-    */
-
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
     
@@ -731,8 +796,8 @@ process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc
 
     // we now have a small stack to set the "return" address for the first switching.
     // how can we setup the initial stack, i.e. the arguments to that entry point?
-    p->esp = (uint32_t)(p->allocated_kernel_stack + stack_size - sizeof(switched_stack_snapshot_t));
-    p->stack_snapshot->return_address = (uint32_t)_unlock_and_run_entry_point;
+    p->memory.execution.stack_pointer = (uint32_t)(p->allocated_kernel_stack + stack_size - sizeof(switched_stack_snapshot_t));
+    p->memory.execution.stack_snapshot->return_address = (uint32_t)_unlock_and_run_entry_point;
     p->memory.page_dir = vmm_get_kernel_page_directory();  
 
     // what our _unlock_and_run_entry_point() should call
@@ -744,7 +809,6 @@ process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc
     log_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
     return p;
 }
-
 
 // after a process has terminated, clean up resources
 void proc_destroy(process_t *proc) {
@@ -775,13 +839,4 @@ void proc_destroy(process_t *proc) {
     
     // can't think of anything else to free
     kfree(proc);
-}
-
-// ---------------------------------------------------------
-
-//TODO: finish the log formatter for proc
-void proc_log_formatter(log_write_stream_t *stream, va_list args) {
-    process_t *proc = va_arg(args, process_t *);
-
-    // ...
 }

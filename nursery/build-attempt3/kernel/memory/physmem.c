@@ -279,22 +279,6 @@ void pmm_debug_bitmap_ranges() {
 phys_addr_t pmm_get_top_identity_address() {
     // we already put the bitmap after the top of the kernel.
     // so, return the end of the bitmap, to identity map it.
+    // actually, we 
     return (phys_addr_t)round_up_4k((uint32_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count * sizeof(uint32_t)));
 }
-
-// struct pmm_ops pmm = {
-//     .initialize = pmm_initialize,
-//     .mark_region_available = pmm_mark_region_available,
-//     .mark_region_reserved = pmm_mark_region_reserved,
-//     .finish_initialization = pmm_finish_initialization,
-//     .allocate_physical_page = pmm_allocate_physical_page,
-//     .allocate_consecutive_pages = pmm_allocate_consecutive_pages,
-//     .free_consecutive_pages = pmm_free_consecutive_pages,
-//     .free_physical_page = pmm_free_physical_page,
-//     .total_pages = pmm_total_pages,
-//     .free_pages = pmm_free_pages,
-//     .used_pages = pmm_used_pages,
-//     .get_pmm_allocator = pmm_get_pmm_allocator,
-//     .get_top_identity_address = pmm_get_top_identity_address,
-//     .debug_bitmap_ranges = pmm_debug_bitmap_ranges,
-// };

@@ -100,15 +100,16 @@ struct process {
         #define MAX_PROCESS_ELF_SECTIONS 4 // good enough even for dynamic executable
         mem_region_t elf_sections[MAX_PROCESS_ELF_SECTIONS]; // can be .text, .data, .rodata, .bss, etc.
         int elf_sections_count;
+
+        union {
+            uint32_t stack_pointer;                     // value of the stack pointer
+            switched_stack_snapshot_t *stack_snapshot;  // pointer to pushed data on the stack
+        } execution;
     } memory;
 
     uintptr_t entry_point; // where to jump after initializing this process
     
     // used in switching, two views of the same piece of information
-    union {
-        uint32_t esp;                               // value of the stack pointer
-        switched_stack_snapshot_t *stack_snapshot;  // pointer to pushed data on the stack
-    };
 
     // for housekeeping, not good if runtimes < 1 msecs...
     uint64_t cpu_ticks_total;
@@ -188,6 +189,12 @@ void proc_exit(process_t *proc, int exit_code);
 process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty);
 void proc_destroy(process_t *proc);
 
+error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);
+error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr);
+error_t process_v2_replace_for_exec(process_t *proc, const char *file_path);
+error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr);
+
+
 // cwd.c
 int proc_getcwd(process_t *proc, char *buffer, int size);
 int proc_chdir(process_t *proc, const char *path);
@@ -219,6 +226,6 @@ int proc_closedir(process_t *proc, int handle);
 void dump_process_table();
 const char *proc_get_status_name(enum process_state state);
 const char *proc_get_block_reason_name(enum block_reasons reason);
-
+void proc_log_formatter(log_write_stream_t *stream, va_list args);
 
 #endif

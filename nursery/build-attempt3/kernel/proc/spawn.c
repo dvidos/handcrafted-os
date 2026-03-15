@@ -9,7 +9,7 @@
 #include "../memory/kheap.h"
 #include "../klib/strerror.h"
 
-MODULE("SPAWN", LOG_LEVEL_INFO);
+MODULE("SPAWN", LOG_LEVEL_DEBUG);
 
 
 // try to keep a balance of executables-based processes, and light weight threads.
@@ -121,13 +121,27 @@ exit:
 
 
 // loads and executes an executable in a separate process
-int spawn(char *path) {
+int spawn_v1(char *path) {
     // both argv and envp are considered to be terminated by a null ptr.
     char *null_ptr = NULL;
     char *argv[2] = { path, NULL };
 
     // we should reuse current process' environment
     return spawnve(path, argv, &null_ptr);
+}
+
+int spawn(char *executable) {
+    log_info("Trying the new process creation code");
+
+    process_t *proc;
+    error_t err = process_v2_create_for_spawn(NULL, executable, PRIORITY_USER_PROGRAM, &proc);
+    if (err) return err;
+    log_debug_fmt("process_v2_create_for_spawn() --> ", proc, proc_log_formatter);
+
+    log_debug("freezing");
+    for(;;);
+    proc_start(proc);
+    return proc_get_pid(proc);
 }
 
 static void load_and_run_executable() {

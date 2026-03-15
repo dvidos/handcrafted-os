@@ -43,7 +43,6 @@ void isr_handler(registers_t regs) {
             break;
         case 0x0E:
             // Page Fault: https://wiki.osdev.org/Exceptions#Page_Fault
-            log_warn("Page fault detected");
             vmm_page_fault_handler(regs.err_code);
             break;
         case 0x0D:
