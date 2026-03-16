@@ -181,10 +181,10 @@ static inline uint32_t _virt_addr_to_physical_page_offset(virt_addr_t virtual_ad
 // this work page is a reserve address that allows us to modify physical pages with temporary mapping
 static inline virt_addr_t vmm_workpd() { return kernel_info.work_page1_addr; }
 static inline virt_addr_t vmm_workpt() { return kernel_info.work_page2_addr; }
-static inline error_t vmm_workpd_map_to(phys_addr_t phys_addr) { return vmm_map_page(vmm_workpd(), phys_addr, false, true); }
-static inline error_t vmm_workpt_map_to(phys_addr_t phys_addr) { return vmm_map_page(vmm_workpt(), phys_addr, false, true); }
-static inline void vmm_workpd_unmap() { vmm_unmap_page(vmm_workpd()); }
-static inline void vmm_workpt_unmap() { vmm_unmap_page(vmm_workpt()); }
+static inline error_t vmm_workpd_map_to(phys_addr_t phys_addr) { error_t err; if ((err = vmm_map_page(vmm_workpd(), phys_addr, false, true)) != OK) return err; vmm_invalidate_cached_address(vmm_workpd()); return OK; }
+static inline error_t vmm_workpt_map_to(phys_addr_t phys_addr) { error_t err; if ((err = vmm_map_page(vmm_workpt(), phys_addr, false, true)) != OK) return err; vmm_invalidate_cached_address(vmm_workpt()); return OK; }
+static inline void vmm_workpd_unmap() { vmm_unmap_page(vmm_workpd()); vmm_invalidate_cached_address(vmm_workpd()); }
+static inline void vmm_workpt_unmap() { vmm_unmap_page(vmm_workpt()); vmm_invalidate_cached_address(vmm_workpt()); }
 
 
 // --------------------------------------------------------
@@ -206,6 +206,8 @@ void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_add
     // create a page directory for kernel.
     kernel_info.kernel_phys_map = kernel_phys_map;
     kernel_info.page_directory = vmm_create_kernel_page_directory_using_physical_pages(64 * MB);
+    vmm_dump_page_directory(kernel_info.page_directory);
+
     
     // log_debug("Kernel page directory contents:");
     // log_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
@@ -509,11 +511,20 @@ void vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir) {
 
 // map a range to itself
 error_t vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr) {
-    log_trace("Identity mapping range 0x%p - 0x%p, page_dir=0x%p", start_addr, end_addr, page_dir_addr);
-    for (phys_addr_t addr = start_addr; addr <= end_addr; addr += 4096) {
-        error_t err = vmm_map_page_to_pd(addr, addr, true, true, page_dir_addr);
-        // TODO: better error handling
-    }
+    log_trace("vmm_identity_map_range(): copying kernel's PD (0x%x) to other PD (0x%x)", kernel_info.page_directory, page_dir_addr);
+
+    // we actually want to copy the contents of the kernel page directory into the new page directory.
+    // i.e. the pointers to the page directories.
+    // let's use the workpd and workpt to copy, 
+    // since we don't know if the actual physical pages are accessible through current PD
+
+    vmm_workpd_map_to(kernel_info.page_directory);
+    vmm_workpt_map_to(page_dir_addr);
+    memcpy((void *)vmm_workpt(), (void *)vmm_workpd(), vmm_page_size());
+    log_debug_hex((void *)vmm_workpt(), 16 * 16, 0);
+    vmm_dump_page_directory(vmm_workpt());
+    vmm_workpt_unmap();
+    vmm_workpd_unmap();
 
     return OK;
 }
@@ -628,7 +639,11 @@ page_dir_t vmm_create_page_directory(bool map_kernel_space) {
     if (page_dir == INVALID_PAGE) {
         panic("Failed to allocate physical page for page directory!");
     }
-    memset((void *)page_dir, 0, PAGE_SIZE);
+    // we need to map this.
+    log_debug("new page directory is 0x%x", page_dir);
+    vmm_workpd_map_to(page_dir);
+    memset((void *)vmm_workpd(), 0x00, PAGE_SIZE);
+    vmm_workpd_unmap();
 
     if (map_kernel_space) {
         // the kernel (code, data, heap etc) must be mapped in the same address in all address spaces.
@@ -772,6 +787,7 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
     log_debug("Page directory at 0x%x mapping", page_dir_address);
 
     uint32_t entry;
+    bool all_empty = true;
 
     // free linked tables and pages 
     _dump_page_directory_aggregate(1, 0, 0);
@@ -779,6 +795,7 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
         entry = _get_table_entry(page_dir_address, pd_index);
         if (!_is_entry_present(entry))
             continue;
+        all_empty = false;
         
         uintptr_t page_table_address = _get_entry_address(entry);
         if (page_table_address == 0)

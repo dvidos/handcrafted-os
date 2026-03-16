@@ -111,13 +111,13 @@ static void _calculate_proc_stack(process_t *proc, size_t *stack_size, virt_addr
     log_trace("_calculate_proc_stack(proc=%p)", proc);
 
     if (proc_is_kernel_proc(proc)) {
-        size_t sz = 64 * KB;
+        size_t sz = 16 * KB;
         // put all kernel stacks near top of kernel, to allow for heap growth
         *stack_size = sz;
         *stack_top = vmm_get_kernel_top_address() - (sz * next_kernel_stack_no());
     } else {
         // put user stack at a high enough address
-        *stack_size = 1 * MB;
+        *stack_size = 16 * KB;
         *stack_top = (2 * GB) - (*stack_size);
     }
 
@@ -208,14 +208,10 @@ static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir) 
     error_t err = _allocate_lot_of_physical_pages_atomically(num_pages, &pages_arr);
     if (err) return err;
 
-log_trace("--AAM1--");
     bool user = (reg->flags & REGION_USER_ACCESSIBLE) != 0;
     bool writable = (reg->flags & REGION_WRITE_ENABLE) != 0;
-log_trace("--AAM2--");
     for (int page = 0; page < num_pages; page++) {
-log_trace("--AAM2a--");
         err = vmm_map_page_to_pd(reg->address + page * vmm_page_size(), pages_arr[page], user, writable, page_dir);
-log_trace("--AAM2b--");
         if (err) {
             log_warn("error while mapping page %d/%d, will unmap all and release physical pages", page, num_pages);
             while (--page >= 0) vmm_unmap_page_from_pd(reg->address + page * vmm_page_size(), page_dir);
@@ -223,7 +219,6 @@ log_trace("--AAM2b--");
             return err;
         }
     }
-log_trace("--AAM3--");
     
     kfree(pages_arr);
     return OK;
@@ -346,23 +341,18 @@ static error_t _allocate_and_map_elf_segment(process_t *proc, elf_loadable_segme
     ASSERT(proc->memory.elf_sections_count < MAX_PROCESS_ELF_SECTIONS);
     log_trace("_allocate_and_map_elf_segment(proc=%p, seg=%p)", proc, seg);
 
-log_debug("---AMES1---");
     virt_addr_t addr = vmm_round_down(seg->address_in_mem);
     size_t size = vmm_round_up(seg->address_in_mem + seg->size_in_mem) - addr;
     region_flags_t flags = REGION_USAGE_ELF |
         (seg->writable ? REGION_WRITE_ENABLE : REGION_READ_ONLY) |
         (proc_is_user_proc(proc) ? REGION_USER_ACCESSIBLE : REGION_SUPERVISOR_ONLY);
     
-log_debug("---AMES2---");
     mem_region_t reg = mem_region_of(addr, size, flags);
-log_debug("---AMES3---");
     error_t err = _region_allocate_and_map(&reg, proc->memory.page_dir);
     if (err) return err;
-log_debug("---AMES4---");
 
     proc->memory.elf_sections[proc->memory.elf_sections_count] = reg;
     proc->memory.elf_sections_count += 1;
-log_debug("---AMES5---");
     return OK;
 }
 
@@ -422,11 +412,13 @@ log_trace("---S2---");
     mem_region_t *reg = &proc->memory.elf_sections[proc->memory.elf_sections_count - 1];
     int num_pages = reg->size / vmm_page_size();
     page_dir_t pd = proc->memory.page_dir;
-log_trace("---S3---");
+    vmm_dump_page_directory(pd);
+
+log_trace("---S3---, the process' PD is 0x%x", pd);
     for (int page = 0; page < num_pages; page++) {
         virt_addr_t vaddr = reg->address + page * vmm_page_size();
         phys_addr_t paddr = vmm_resolve(vaddr, pd);
-log_trace("---S4---");
+log_trace("---S4---, will load elf segment, page_no=%d, vaddr=0x%x, paddr=0x%x", page, vaddr, paddr);
 
         // load into physical page, via temp mapping onto kernel copy area
         err = _load_elf_segment_page_from_file(proc, elf, seg, page, paddr);
@@ -658,6 +650,9 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
 
     new_pd = vmm_create_page_directory(true);
     log_debug("Current proc pd is 0x%x, new process pd is 0x%x", vmm_get_current_page_dir(), new_pd);
+    vmm_dump_page_directory(new_pd);
+    log_debug("Current proc pd is 0x%x, new process pd is 0x%x", vmm_get_current_page_dir(), new_pd);
+    for(;;);
     
     err = _create_base_process_v2(true, new_pd, parent, priority, file_path, &proc);
     if (err) goto failed;
