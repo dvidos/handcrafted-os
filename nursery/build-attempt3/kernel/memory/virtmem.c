@@ -220,15 +220,11 @@ void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_add
     // create a page directory for kernel.
     vmm_create_kernel_page_directory_using_physical_pages(kernel_info.page_directory, kernel_info.cutoff_address);
     
-    // this one works when mapping is already enabled
-    log_debug_hex((void *)kernel_info.page_directory, 16 * 4, 0);
-    vmm_dump_page_directory(kernel_info.page_directory);
+    // log_debug_hex((void *)kernel_info.page_directory, 16 * 4, 0);
+    // vmm_dump_page_directory(kernel_info.page_directory);
 
     // now enable paging (fingers crossed!)
-    log_debug("Setting CR3 to kernel directory (0x%x)", kernel_info.page_directory);
     vmm_set_page_directory_register(kernel_info.page_directory);
-
-    log_debug("Enabling paging");
     vmm_enable_paging();
 }
 
@@ -563,18 +559,10 @@ void vmm_page_fault_handler(uint32_t error_code) {
 // allocates and creates a new page directory
 page_dir_t vmm_create_page_directory(bool map_kernel_space) {
     ASSERT(kernel_info.paging_enabled); // we rely on this
-    char buff[4096];
-
-    log_trace("kernel's PD");
-    log_debug_hex((void *)kernel_info.page_directory, 16 * 4, 0);
-    log_trace("reading it into stack variable (ptr=%p)", buff);
-    vmm_physpg_read(kernel_info.page_directory, 0, buff, sizeof(buff));
-    log_debug_hex(buff, 16 * 4, 0);
-
-
 
     page_dir_t page_dir = pmm_allocate_physical_page();
-    if (page_dir == INVALID_PAGE) panic("Failed to allocate physical page for page directory!");
+    if (page_dir == 0)
+        return 0;
 
     log_trace("vmm_create_page_directory(), new PD 0x%x", page_dir);
     vmm_physpg_clear(page_dir);
@@ -582,10 +570,6 @@ page_dir_t vmm_create_page_directory(bool map_kernel_space) {
     if (map_kernel_space) {
         log_debug("copying kernel PD contents to new page_directory");
         vmm_physpg_copy(page_dir, kernel_info.page_directory);
-        // maybe dump it?
-
-        vmm_physpg_read(page_dir, 0, buff, 4096);
-        log_debug_hex(buff, 16 * 4, 0);
     }
 
     return page_dir;
@@ -799,20 +783,10 @@ void vmm_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size
 
     page_dir_t pd = vmm_get_current_page_dir();
     virt_addr_t pa = vmm_resolve(vmm_workpg1(), pd);
-    log_info("work page 1 0x%x, before is mapped to 0x%x", vmm_workpg1(), pa);
-
-    // INFO  work page 1 0x91000, before is mapped to 0x91000
-    // TRACE vmm_map_page(virt=0x91000, phys=0x90000), curr page_dir=0x90000)
-    // INFO  work page 1 0x91000, after is mapped to 0x91000  <----------------------
-    // INFO  first int of 0x91000 is 0x00000000
 
     vmm_map_work_page_primitive(vmm_workpg1(), paddr);
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
-
-    pa = vmm_resolve(vmm_workpg1(), vmm_get_current_page_dir());
-    log_info("work page 1 0x%x, after is mapped to 0x%x", vmm_workpg1(), pa);
-    log_info("first int of 0x%x is 0x%08x", vmm_workpg1(), *(uint32_t *)vmm_workpg1());
     memcpy(buffer, (void *)vmm_workpg1() + offset, size);
 
     // mutex_release(&kernel_info.work_pages_lock);
