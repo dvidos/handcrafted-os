@@ -18,8 +18,6 @@ void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_add
 void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t kernel_cutoff);
 
 // used for loading processes and fork()
-virt_addr_t vmm_get_copy_page1_addr();
-virt_addr_t vmm_get_copy_page2_addr();
 virt_addr_t vmm_get_kernel_cutoff_address();
 
 // resolve a virtual address, by reading the page dir and tables
@@ -27,8 +25,6 @@ virt_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr);
 
 
 // map / unmap pages to current or given page directory
-void    vmm_map_work_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr);
-void    vmm_unmap_work_page_primitive(virt_addr_t virtual_addr);
 error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable, page_dir_t page_dir);
 void    vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir);
 

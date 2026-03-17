@@ -259,10 +259,7 @@ static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd,
     ASSERT(src_pd > 0);
     log_trace("_region_copy_contents(dest_reg=%p, dest_pd=%x, src_reg=%p, src_pd=%x)", dest_reg, dest_pd, src_reg, src_pd);
 
-    page_dir_t curr_pd = vmm_get_current_page_dir();
     error_t err = OK;
-    bool page1_mapped = false;
-    bool page2_mapped = false;
 
     // we map the physical pages to a copy area, using whatever CR3 we currently have.
     int num_pages = src_reg->size / vmm_page_size();
@@ -270,28 +267,12 @@ static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd,
     for (int i = 0; i < num_pages; i++) {
         phys_addr_t dest_paddr = vmm_resolve(dest_reg->address + i * vmm_page_size(), dest_pd);
         phys_addr_t src_paddr = vmm_resolve(src_reg->address + i * vmm_page_size(), src_pd);
-        if (dest_paddr == 0 || src_paddr == 0) return traceable(ERR_INVALID_ARGS);
+        if (dest_paddr == 0 || src_paddr == 0)
+            return traceable(ERR_INVALID_ARGS);
 
-        err = vmm_map_page_to_pd(vmm_get_copy_page1_addr(), dest_paddr, false, true, curr_pd);
-        if (err) goto exit;
-        page1_mapped = true;
-
-        err = vmm_map_page_to_pd(vmm_get_copy_page2_addr(), src_paddr, false, false, curr_pd);
-        if (err) goto exit;
-        page2_mapped = true;
-
-        memcpy((void *)vmm_get_copy_page1_addr(), (void *)vmm_get_copy_page2_addr(), vmm_page_size());
-        
-        vmm_unmap_page_from_pd(vmm_get_copy_page1_addr(), curr_pd);
-        page1_mapped = false;
-
-        vmm_unmap_page_from_pd(vmm_get_copy_page2_addr(), curr_pd);
-        page2_mapped = false;
+        vmm_physpg_copy(dest_paddr, src_paddr);
     }
 
-exit:
-    if (page1_mapped) vmm_unmap_page_from_pd(vmm_get_copy_page1_addr(), curr_pd);
-    if (page2_mapped) vmm_unmap_page_from_pd(vmm_get_copy_page2_addr(), curr_pd);
     return traceable(err);
 }
 
@@ -460,6 +441,8 @@ log_info("-loading entry point-");
     err = elf_get_entry_point(elf, &elf_entry_point);
     if (err) goto exit;
     ASSERT(proc->memory.execution.stack_pointer != 0);
+
+    // BUG: this line accesses memory on other PD, use vmm_physpg_write()
     proc->memory.execution.stack_snapshot->return_address = elf_entry_point;
 
 log_info("-one segment success-");

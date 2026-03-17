@@ -188,13 +188,17 @@ static inline uint32_t _virt_addr_to_physical_page_offset(virt_addr_t virtual_ad
     return ((uint32_t)virtual_address) & 0xFFF;
 }
 
+static void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr);
+static void _unmap_page_primitive(virt_addr_t virtual_addr);
+
+
 // this work page is a reserve address that allows us to modify physical pages with temporary mapping
 static inline virt_addr_t vmm_workpg1() { return kernel_info.workpg1_vaddr; }
 static inline virt_addr_t vmm_workpg2() { return kernel_info.workpg2_vaddr; }
-static inline void vmm_workpg1_map_to(phys_addr_t phys_addr) { vmm_map_work_page_primitive(vmm_workpg1(), phys_addr); }
-static inline void vmm_workpg2_map_to(phys_addr_t phys_addr) { vmm_map_work_page_primitive(vmm_workpg2(), phys_addr); }
-static inline void vmm_workpg1_unmap() { vmm_unmap_work_page_primitive(vmm_workpg1()); }
-static inline void vmm_workpg2_unmap() { vmm_unmap_work_page_primitive(vmm_workpg2()); }
+static inline void vmm_workpg1_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg1(), phys_addr); }
+static inline void vmm_workpg2_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg2(), phys_addr); }
+static inline void vmm_workpg1_unmap() { _unmap_page_primitive(vmm_workpg1()); }
+static inline void vmm_workpg2_unmap() { _unmap_page_primitive(vmm_workpg2()); }
 
 // --------------------------------------------------------
 
@@ -276,17 +280,6 @@ void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd,
     }
 }
 
-virt_addr_t vmm_get_copy_page1_addr() {
-    // TODO: deprecate this in facor of the "vmm_physpg" functions
-    log_warn("vmm_get_copy_page1_addr() is deprecated, use vmm_physpg functions / ops instead");
-    return kernel_info.workpg1_vaddr;
-}
-
-virt_addr_t vmm_get_copy_page2_addr() {
-    log_warn("vmm_get_copy_page2_addr() is deprecated, use vmm_physpg functions / ops instead");
-    return kernel_info.workpg2_vaddr;
-}
-
 virt_addr_t vmm_get_kernel_cutoff_address() {
     ASSERT(kernel_info.cutoff_address != 0);
     // this will be identity mapped anyway
@@ -327,7 +320,7 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     return (address + offset);
 }
 
-void vmm_map_work_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
+void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
     // this function is expected operate on the work pages the kernel has.
     // it will not setup an new PTE, therefore it will not recurse.
     ASSERT(vmm_is_page_aligned(virtual_addr));
@@ -353,7 +346,7 @@ void vmm_map_work_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_
     vmm_invalidate_cached_address(virtual_addr);
 }
 
-void vmm_unmap_work_page_primitive(virt_addr_t virtual_addr) {
+void _unmap_page_primitive(virt_addr_t virtual_addr) {
     // this function is expected operate on the work pages the kernel has.
     // it will not setup an new PTE, therefore it will not recurse.
     ASSERT(vmm_is_page_aligned(virtual_addr));
@@ -395,20 +388,20 @@ error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, 
             return ERR_NO_MEMORY;
         
         // map/clear/unmap to initialize the PT
-        vmm_map_work_page_primitive(vmm_workpg1(), page_table_paddr);
+        _map_page_primitive(vmm_workpg1(), page_table_paddr);
         memset((void *)vmm_workpg1(), 0, vmm_page_size());
-        vmm_unmap_work_page_primitive(vmm_workpg1());
+        _unmap_page_primitive(vmm_workpg1());
 
         
         // map/update/unmap, to add the new PT in the PD
-        vmm_map_work_page_primitive(vmm_workpg1(), page_dir);
+        _map_page_primitive(vmm_workpg1(), page_dir);
         uint32_t page_dir_value = make_pd_entry(page_table_paddr, false, false, user_accessible, true, true);
         ((uint32_t *)vmm_workpg1())[index] = page_dir_value;
-        vmm_unmap_work_page_primitive(vmm_workpg1());
+        _unmap_page_primitive(vmm_workpg1());
     }
 
     // map/update/unmap to set the entry in the PT
-    vmm_map_work_page_primitive(vmm_workpg1(), page_table_paddr);
+    _map_page_primitive(vmm_workpg1(), page_table_paddr);
     index = page_table_index(virtual_addr);
     entry = make_pt_entry(physical_addr, false, false, false, false, user_accessible, write_enable, true);
     ((uint32_t *)vmm_workpg1())[index] = entry;
@@ -428,7 +421,7 @@ void vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir) {
 
     // map/update/unmap to clear the entry in the PT
     phys_addr_t page_table_paddr = _get_entry_address(entry);
-    vmm_map_work_page_primitive(vmm_workpg1(), page_table_paddr);
+    _map_page_primitive(vmm_workpg1(), page_table_paddr);
     index = page_table_index(virtual_addr);
     ((uint32_t *)vmm_workpg1())[index] = 0;
     vmm_workpg1_unmap();
@@ -784,7 +777,7 @@ void vmm_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size
     page_dir_t pd = vmm_get_current_page_dir();
     virt_addr_t pa = vmm_resolve(vmm_workpg1(), pd);
 
-    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    _map_page_primitive(vmm_workpg1(), paddr);
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
     memcpy(buffer, (void *)vmm_workpg1() + offset, size);
@@ -795,7 +788,7 @@ void vmm_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size
 void vmm_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
     // mutex_acquire(&kernel_info.work_pages_lock);
 
-    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    _map_page_primitive(vmm_workpg1(), paddr);
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
     memcpy((void *)vmm_workpg1() + offset, buffer, size);
@@ -806,7 +799,7 @@ void vmm_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t siz
 void vmm_physpg_clear(virt_addr_t paddr) {
     // mutex_acquire(&kernel_info.work_pages_lock);
 
-    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    _map_page_primitive(vmm_workpg1(), paddr);
     memset((void *)vmm_workpg1(), 0, vmm_page_size());
 
     // mutex_release(&kernel_info.work_pages_lock);
@@ -815,7 +808,7 @@ void vmm_physpg_clear(virt_addr_t paddr) {
 uint32_t vmm_physpg_get_entry(virt_addr_t paddr, int index) {
     // mutex_acquire(&kernel_info.work_pages_lock);
 
-    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    _map_page_primitive(vmm_workpg1(), paddr);
     index = clamp(index, 0, 1023);
     return ((uint32_t *)vmm_workpg1())[index];
 
@@ -825,7 +818,7 @@ uint32_t vmm_physpg_get_entry(virt_addr_t paddr, int index) {
 void vmm_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value) {
     // mutex_acquire(&kernel_info.work_pages_lock);
 
-    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    _map_page_primitive(vmm_workpg1(), paddr);
     index = clamp(index, 0, 1023);
     ((uint32_t *)vmm_workpg1())[index] = value;
 
@@ -835,8 +828,8 @@ void vmm_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value) {
 void vmm_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
     // mutex_acquire(&kernel_info.work_pages_lock);
 
-    vmm_map_work_page_primitive(vmm_workpg1(), pdest);
-    vmm_map_work_page_primitive(vmm_workpg2(), psource);
+    _map_page_primitive(vmm_workpg1(), pdest);
+    _map_page_primitive(vmm_workpg2(), psource);
     memcpy((void *)vmm_workpg1(), (void *)vmm_workpg2(), vmm_page_size());
 
     // mutex_release(&kernel_info.work_pages_lock);
