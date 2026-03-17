@@ -394,7 +394,6 @@ static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_fi
 
         // load into physical page, via temp mapping onto kernel copy area
         err = _load_elf_segment_page_from_file(proc, elf, seg, page, paddr, page_buffer);
-log_info("-after loading one page of one segment-");
         if (err) goto exit;
     }
 
@@ -430,11 +429,8 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
 
     for (int i = 0; i < headers; i++) {
         err = _allocate_and_load_elf_segment_from_file(proc, elf, &segments_arr[i], page_buffer);
-log_info("-after loading one segment-");
         if (err) goto exit;
     }
-log_info("-loading entry point-");
-// TODO: when loading the entry point into the stack, use the temp work pages, this belongs to another PD.
 
     // put the entry point on stack. Stack MUST be initialized by now.
     virt_addr_t elf_entry_point = 0;
@@ -442,10 +438,19 @@ log_info("-loading entry point-");
     if (err) goto exit;
     ASSERT(proc->memory.execution.stack_pointer != 0);
 
-    // BUG: this line accesses memory on other PD, use vmm_physpg_write()
-    proc->memory.execution.stack_snapshot->return_address = elf_entry_point;
+    // set the return address in a foreign physical page
+    virt_addr_t return_address_vlocation = 
+        proc->memory.stack.address + proc->memory.stack.size -
+        sizeof(switched_stack_snapshot_t) + offsetof(switched_stack_snapshot_t, return_address);
+    phys_addr_t return_address_plocation = vmm_resolve(return_address_vlocation, proc->memory.page_dir);
+    phys_addr_t page_addr = return_address_plocation & 0xFFFFF000;
+    size_t offset_in_page = return_address_plocation & 0xFFF;
+    // note: if we have pushed env/args, we may be crossing page boundaries
+    ASSERT(proc->memory.execution.stack_pointer != 0);
+    vmm_physpg_write(page_addr, offset_in_page, &elf_entry_point, sizeof(uint32_t));
+    ASSERT(proc->memory.execution.stack_pointer != 0);
+    // proc->memory.execution.stack_snapshot->return_address = elf_entry_point;
 
-log_info("-one segment success-");
     err = OK;
 
 exit:
@@ -489,26 +494,20 @@ static error_t _allocate_and_initialize_all_regions_for_elf(process_t *proc, ope
 
     error_t err = OK;
 
-log_info("-A-");
     size_t stack_size = 0;
     virt_addr_t stack_top = 0;
     _calculate_proc_stack(proc, &stack_size, &stack_top);
     err = _allocate_and_map_stack_region(proc, stack_size, stack_top);
     if (err) goto exit;
-log_info("-B-");
 
     err = _allocate_and_load_elf_segments_from_file(proc, elf);
-log_info("-after loading all segments-");
-    for(;;);
     if (err) goto exit;
-log_info("-C-");
 
     size_t heap_size = 0;
     virt_addr_t heap_addr = 0;
     _calculate_proc_heap(proc, &heap_size, &heap_addr);
     err = _allocate_and_map_heap_region(proc, heap_size, heap_addr);
     if (err) goto exit;
-log_info("-D-");
 
 exit:
     return traceable(err);
@@ -644,12 +643,13 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     if (err) goto failed;
 
     ASSERT(proc->memory.execution.stack_pointer != 0);
-    ASSERT(proc->memory.execution.stack_snapshot->return_address != 0);
-    for(;;);
-
+    // this is unmapped, we cannot check it: 
+    // ASSERT(proc->memory.execution.stack_snapshot->return_address != 0);
+    
     vfs_close(elf);
     *proc_ptr = proc;
     log_trace("process_v2_create_for_spawn() returning OK");
+    for(;;);
     return OK;
 
 failed:
