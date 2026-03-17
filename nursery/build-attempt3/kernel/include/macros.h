@@ -6,7 +6,7 @@
 #define max(a, b)                   ((a) > (b) ? (a) : (b))
 #define min(a, b)                   ((a) < (b) ? (a) : (b))
 
-#define clamp(vallue, a, b)         ((value) < (a) ? (a) : ((value) > (b) ? (b) : (value)))
+#define clamp(value, a, b)          ((value) < (a) ? (a) : ((value) > (b) ? (b) : (value)))
 
 #define round_up(value, unit)       ((((value) + (unit) - 1)/(unit))*(unit))
 #define round_down(value, unit)     ((((value)             )/(unit))*(unit))

@@ -1,14 +1,17 @@
+#include "../include/macros.h"
 #include "../utils/assert.h"
 #include "../include/bits.h"
 #include "physmem.h"
 #include "virtmem.h"
 #include "../utils/panic.h"
+#include "../utils/mutex.h"
+#include "../memory/kheap.h"
 #include "../logger/logger.h"
 #include "../arch/cpu.h"
 #include "../klib/string.h"
 #include "../memory/mem_region.h"
 
-MODULE("VMEM", LOG_LEVEL_TRACE);
+MODULE("VMM", LOG_LEVEL_TRACE);
 
 /*
    Paging is mapping a virtual address to a physical one.
@@ -94,23 +97,30 @@ MODULE("VMEM", LOG_LEVEL_TRACE);
 // this to be included in every page directory we create,
 // so that kernel structures and code are always available.
 static struct {
+    bool paging_enabled;
     page_dir_t page_directory; 
     phys_addr_t start_address;
     phys_addr_t end_address;
+    phys_addr_t cutoff_address;
     mem_map_t *kernel_phys_map;
 
     // utility reserved addresses
-    virt_addr_t work_page1_addr;
-    virt_addr_t work_page2_addr;
-    virt_addr_t copy_page1_addr;
-    virt_addr_t copy_page2_addr;
+    virt_addr_t workpg1_vaddr;
+    virt_addr_t workpg2_vaddr;
+    virt_addr_t workpg3_vaddr;
+
+    // and their currently mapped physical addresses
+    virt_addr_t workpg1_mapped_paddr;
+    virt_addr_t workpg2_mapped_paddr;
+    virt_addr_t workpg3_mapped_paddr;
+
+    lock_t work_pages_lock;
 } kernel_info;
 
 
-page_dir_t vmm_create_page_directory(bool map_kernel_space);
 
 
-static inline uint32_t create_directory_entry_value(uintptr_t address,
+static inline uint32_t make_pd_entry(uintptr_t address,
     bool cache_disable, bool write_through,
     bool user_access, bool write_enabled, bool page_present) {
 
@@ -123,7 +133,7 @@ static inline uint32_t create_directory_entry_value(uintptr_t address,
         (((uint32_t)page_present  & 1));
 }
 
-static inline uint32_t create_table_entry_value(uintptr_t address, bool global, bool page_attr_table,
+static inline uint32_t make_pt_entry(uintptr_t address, bool global, bool page_attr_table,
     bool cache_disable, bool write_through, bool user_access, bool write_enabled, bool page_present) {
     // this value for 4 KB page directory entries
     // accessed set to zero,
@@ -141,7 +151,7 @@ static inline uint32_t create_table_entry_value(uintptr_t address, bool global, 
 }
 
 // common to both page directory and page tables
-static inline bool _is_entry_present(uint32_t entry_value) {
+static inline bool entry_is_present(uint32_t entry_value) {
     return (entry_value & 0x01);
 }
 
@@ -161,15 +171,15 @@ static inline void _set_table_entry(virt_addr_t table_address, uint32_t index, u
 }
 
 // extracts the page directory entry num from a virtual address
-static inline int _virt_addr_to_page_directory_index(virt_addr_t virtual_address) {
+static inline int page_dir_index(virt_addr_t address) {
     // highest 10 bits (31-22) are the entry of the page table
-    return (int)((((uint32_t)virtual_address) >> 22) & 0x3FF);
+    return (int)((((uint32_t)address) >> 22) & 0x3FF);
 }
 
 // extracts the page table entry num from a virtual address
-static inline int _virt_addr_to_page_table_index(virt_addr_t virtual_address) {
+static inline int page_table_index(virt_addr_t address) { 
     // second 10 bits (21-12) are the entry of the page table
-    return (int)((((uint32_t)virtual_address) >> 12) & 0x3FF);
+    return (int)((((uint32_t)address) >> 12) & 0x3FF);
 }
 
 // extracts the physical page offset from a virtual address
@@ -179,80 +189,72 @@ static inline uint32_t _virt_addr_to_physical_page_offset(virt_addr_t virtual_ad
 }
 
 // this work page is a reserve address that allows us to modify physical pages with temporary mapping
-static inline virt_addr_t vmm_workpd() { return kernel_info.work_page1_addr; }
-static inline virt_addr_t vmm_workpt() { return kernel_info.work_page2_addr; }
-static inline error_t vmm_workpd_map_to(phys_addr_t phys_addr) { error_t err; if ((err = vmm_map_page(vmm_workpd(), phys_addr, false, true)) != OK) return err; vmm_invalidate_cached_address(vmm_workpd()); return OK; }
-static inline error_t vmm_workpt_map_to(phys_addr_t phys_addr) { error_t err; if ((err = vmm_map_page(vmm_workpt(), phys_addr, false, true)) != OK) return err; vmm_invalidate_cached_address(vmm_workpt()); return OK; }
-static inline void vmm_workpd_unmap() { vmm_unmap_page(vmm_workpd()); vmm_invalidate_cached_address(vmm_workpd()); }
-static inline void vmm_workpt_unmap() { vmm_unmap_page(vmm_workpt()); vmm_invalidate_cached_address(vmm_workpt()); }
-
+static inline virt_addr_t vmm_workpg1() { return kernel_info.workpg1_vaddr; }
+static inline virt_addr_t vmm_workpg2() { return kernel_info.workpg2_vaddr; }
+static inline void vmm_workpg1_map_to(phys_addr_t phys_addr) { vmm_map_work_page_primitive(vmm_workpg1(), phys_addr); }
+static inline void vmm_workpg2_map_to(phys_addr_t phys_addr) { vmm_map_work_page_primitive(vmm_workpg2(), phys_addr); }
+static inline void vmm_workpg1_unmap() { vmm_unmap_work_page_primitive(vmm_workpg1()); }
+static inline void vmm_workpg2_unmap() { vmm_unmap_work_page_primitive(vmm_workpg2()); }
 
 // --------------------------------------------------------
 
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, phys_addr_t utility_pages_addr, size_t utility_pages_size, mem_map_t *kernel_phys_map) {
-    log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, uaddr=0x%x, usize=%d, kmap=0x%x)", kernel_start_address, kernel_end_address, utility_pages_addr, utility_pages_size, kernel_phys_map);
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, phys_addr_t cutoff_address, phys_addr_t utility_pages_addr, size_t utility_pages_size, mem_map_t *kernel_phys_map) {
+    log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, cutoff=%d KB, uaddr=0x%x, usize=%d, kmap=0x%x)", kernel_start_address, kernel_end_address, cutoff_address / 1024, utility_pages_addr, utility_pages_size, kernel_phys_map);
+
+    ASSERT(kernel_end_address > kernel_start_address);
+    ASSERT(cutoff_address > kernel_end_address); // includes heap + stacks
+    ASSERT(utility_pages_addr > 0);
+    ASSERT(vmm_round_down(utility_pages_size) / vmm_page_size() >= 4);
+
+    memset(&kernel_info, 0, sizeof(kernel_info));
 
     kernel_info.start_address = kernel_start_address;
     kernel_info.end_address = kernel_end_address;
-
-    // reserved work addresses / pages
-    ASSERT(utility_pages_addr > 0);
-    ASSERT(vmm_round_down(utility_pages_size) / vmm_page_size() >= 4);
-    kernel_info.work_page1_addr = utility_pages_addr + 0 * vmm_page_size();
-    kernel_info.work_page2_addr = utility_pages_addr + 1 * vmm_page_size();
-    kernel_info.copy_page1_addr = utility_pages_addr + 2 * vmm_page_size();
-    kernel_info.copy_page2_addr = utility_pages_addr + 3 * vmm_page_size();
+    kernel_info.cutoff_address = cutoff_address;
+    kernel_info.page_directory = utility_pages_addr + 0 * vmm_page_size();;
+    kernel_info.workpg1_vaddr  = utility_pages_addr + 1 * vmm_page_size();
+    kernel_info.workpg2_vaddr  = utility_pages_addr + 2 * vmm_page_size();
+    kernel_info.workpg3_vaddr  = utility_pages_addr + 3 * vmm_page_size();
+    kernel_info.kernel_phys_map = kernel_phys_map;
 
     // create a page directory for kernel.
-    kernel_info.kernel_phys_map = kernel_phys_map;
-    kernel_info.page_directory = vmm_create_kernel_page_directory_using_physical_pages(64 * MB);
-    vmm_dump_page_directory(kernel_info.page_directory);
-
+    vmm_create_kernel_page_directory_using_physical_pages(kernel_info.page_directory, kernel_info.cutoff_address);
     
-    // log_debug("Kernel page directory contents:");
-    // log_debug_hex(kernel_page_direcory, 4096, (uint32_t)kernel_page_direcory);
-
-    // void *pt = _get_entry_address(_get_table_entry(kernel_page_direcory, 0));
-    // log_debug("Kernel first page table contents:");
-    // log_debug_hex(pt, 4096, (uint32_t)pt);
-
-    // void *va = (void *)(1024*1024 + 4096 + 7); // 1 MB
-    // void *pa = vmm_resolve(va, kernel_page_direcory);
-    // log_debug("Virtual address 0x%p resolves to physical address 0x%p", va, pa);
+    // this one works when mapping is already enabled
+    log_debug_hex((void *)kernel_info.page_directory, 16 * 4, 0);
+    vmm_dump_page_directory(kernel_info.page_directory);
 
     // now enable paging (fingers crossed!)
     log_debug("Setting CR3 to kernel directory (0x%x)", kernel_info.page_directory);
     vmm_set_page_directory_register(kernel_info.page_directory);
+
     log_debug("Enabling paging");
     vmm_enable_paging();
-
-    log_debug("Virtual memory paging initialized, range 0x%x - 0x%x will always be identity mapped");
 }
 
-phys_addr_t vmm_create_kernel_page_directory_using_physical_pages(phys_addr_t kernel_cutoff) {
+void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t kernel_cutoff) {
     // Identity map the kernel before paging is enabled.
+    ASSERT(kernel_pd != 0);
     ASSERT((kernel_cutoff & 0xFFF) == 0); // multiple of 4 KB
 
-    phys_addr_t kernel_pd = pmm_allocate_physical_page();
-    if (!kernel_pd) panic("Cannot allocate kernel PD");
     memset((void *)kernel_pd, 0, vmm_page_size());
 
-    for (phys_addr_t addr = 0; addr < kernel_cutoff; addr += 4096) {
+    for (virt_addr_t addr = 0; addr < kernel_cutoff; addr += 4096) {
         // Determine page directory index
         int pd_index = (int)(addr >> 22); // bits 31-22
         int pt_index = (int)((addr >> 12) & 0x3FF); // bits 21-12
 
         // Allocate page table if not already present
         uint32_t pd_entry = ((uint32_t *)kernel_pd)[pd_index];
-        phys_addr_t page_table;
-        if (_is_entry_present(pd_entry)) {
+        virt_addr_t page_table;
+        if (entry_is_present(pd_entry)) {
             page_table = _get_entry_address(pd_entry);
         } else {
             page_table = pmm_allocate_physical_page();
             if (!page_table) panic("Cannot allocate kernel page table");
             memset((void *)page_table, 0, vmm_page_size());
 
-            uint32_t entry = create_directory_entry_value(
+            uint32_t entry = make_pd_entry(
                 page_table,
                 false, // cache disable
                 false, // write through
@@ -264,7 +266,7 @@ phys_addr_t vmm_create_kernel_page_directory_using_physical_pages(phys_addr_t ke
         }
 
         // Set the page table entry
-        uint32_t pt_entry = create_table_entry_value(
+        uint32_t pt_entry = make_pt_entry(
             addr,  // physical address
             true,  // global
             true,  // PAT
@@ -276,23 +278,24 @@ phys_addr_t vmm_create_kernel_page_directory_using_physical_pages(phys_addr_t ke
         );
         ((uint32_t *)page_table)[pt_index] = pt_entry;
     }
-
-    return kernel_pd;
 }
 
 virt_addr_t vmm_get_copy_page1_addr() {
-    return kernel_info.copy_page1_addr;
+    // TODO: deprecate this in facor of the "vmm_physpg" functions
+    log_warn("vmm_get_copy_page1_addr() is deprecated, use vmm_physpg functions / ops instead");
+    return kernel_info.workpg1_vaddr;
 }
 
 virt_addr_t vmm_get_copy_page2_addr() {
-    return kernel_info.copy_page2_addr;
+    log_warn("vmm_get_copy_page2_addr() is deprecated, use vmm_physpg functions / ops instead");
+    return kernel_info.workpg2_vaddr;
 }
 
-virt_addr_t vmm_get_kernel_top_address() {
-    ASSERT(kernel_info.end_address != 0);
+virt_addr_t vmm_get_kernel_cutoff_address() {
+    ASSERT(kernel_info.cutoff_address != 0);
     // this will be identity mapped anyway
     // used for task stacks, to allow kernel heap to grow
-    return kernel_info.end_address;
+    return kernel_info.cutoff_address;
 }
 
 
@@ -306,18 +309,18 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     phys_addr_t address;
 
     // first resolve page directory.
-    index = _virt_addr_to_page_directory_index(virtual_addr);
+    index = page_dir_index(virtual_addr);
     entry = _get_table_entry(page_dir_addr, index);
-    if (!_is_entry_present(entry))
+    if (!entry_is_present(entry))
         return 0;
     address = _get_entry_address(entry);
     if (address == 0)
         return 0;
     
     // then resolve page table
-    index = _virt_addr_to_page_table_index(virtual_addr);
+    index = page_table_index(virtual_addr);
     entry = _get_table_entry(address, index);
-    if (!_is_entry_present(entry))
+    if (!entry_is_present(entry))
         return 0;
     address = _get_entry_address(entry);
     if (address == 0)
@@ -328,203 +331,127 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     return (address + offset);
 }
 
-error_t vmm_map_page(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable) {
-    page_dir_t page_dir = vmm_get_current_page_dir();
-    log_trace("vmm_map_page(virt=0x%x, phys=0x%x), curr page_dir=0x%x)", virtual_addr, physical_addr, page_dir);
+void vmm_map_work_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
+    // this function is expected operate on the work pages the kernel has.
+    // it will not setup an new PTE, therefore it will not recurse.
+    ASSERT(vmm_is_page_aligned(virtual_addr));
+    ASSERT(vmm_is_page_aligned(physical_addr));
 
-    int index;
-    uint32_t entry;
+    page_dir_t pd_address = vmm_get_current_page_dir();
+    ASSERT(pd_address != 0);
 
-    // from the page directory, find or create the page table
-    index = _virt_addr_to_page_directory_index(virtual_addr);
-    entry = _get_table_entry(page_dir, index);
-    phys_addr_t page_table_paddr;
-    if (_is_entry_present(entry)) {
-        page_table_paddr = _get_entry_address(entry);
-    } else {
-        page_table_paddr = pmm_allocate_physical_page();
-        if (page_table_paddr == 0)
-            return ERR_NO_MEMORY;
-        
-        memset((void *)page_table_paddr, 0, vmm_page_size());
+    // entry for page table MUST be there, we are in the first 4 MB
+    int idx = page_dir_index(virtual_addr);
+    uint32_t entry = ((uint32_t *)pd_address)[idx];
+    ASSERT(entry_is_present(entry));
 
-        uint32_t page_dir_value = create_directory_entry_value(
-            page_table_paddr,
-            true, // cache disable
-            true, // write through
-            user_accessible, // user accessible
-            true, // write enabled
-            true  // page present
-        );
-
-        // map, update, unmap
-        _set_table_entry(page_dir, index, page_dir_value);
-    }
-
-    // map the table, read/write, unmap
-    index = _virt_addr_to_page_table_index(virtual_addr);
-    entry = _get_table_entry(page_table_paddr, index);
-    if (!_is_entry_present(entry)) {
-        entry = create_table_entry_value(
-            physical_addr,
-            true, // global
-            true, // PAT
-            true, // cache disable
-            true, // write through
-            user_accessible, // user accessible
-            write_enable, // writable
-            true  // page present
-        );
-        _set_table_entry(page_table_paddr, index, entry);
-    }
+    // now, we may or may not have a value there.
+    // no matter what was there, we will just rewrite it.
+    phys_addr_t pt_address = (entry & 0xFFFFF000);
+    ASSERT(pt_address != 0);
+    idx = page_table_index(virtual_addr);
+    entry = make_pt_entry(physical_addr, false, false, false, false, false, true, true);
+    ((uint32_t *)pt_address)[idx] = entry;
     
-    return OK;
+    // invalidate for CPU to recalculate
+    vmm_invalidate_cached_address(virtual_addr);
 }
 
-error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable, page_dir_t page_dir) {
+void vmm_unmap_work_page_primitive(virt_addr_t virtual_addr) {
+    // this function is expected operate on the work pages the kernel has.
+    // it will not setup an new PTE, therefore it will not recurse.
+    ASSERT(vmm_is_page_aligned(virtual_addr));
+    page_dir_t pd_address = vmm_get_current_page_dir();
+    ASSERT(pd_address != 0);
+
+    // entry for page table MUST be there, we are in the first 4 MB
+    int idx = page_dir_index(virtual_addr);
+    uint32_t entry = ((uint32_t *)pd_address)[idx];
+    ASSERT(entry_is_present(entry));
+
+    // now, we may or may not have a value there.
+    // no matter what was there, we will just rewrite it.
+    phys_addr_t pt_address = (entry & 0xFFFFF000);
+    ASSERT(pt_address != 0);
+    idx = page_table_index(virtual_addr);
+    ((uint32_t *)pt_address)[idx] = 0;
+    
+    // invalidate for CPU to recalculate
+    vmm_invalidate_cached_address(virtual_addr);
+}
+
+error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, bool user_accessible, bool write_enable, page_dir_t page_dir) {
     log_trace("vmm_map_page_to_pd(virt=0x%x, phys=0x%x, page_dir=0x%x)", virtual_addr, physical_addr, page_dir);
 
-    if (page_dir == vmm_get_current_page_dir())
-        return vmm_map_page(virtual_addr, physical_addr, user_accessible, write_enable);
-
     int index;
     uint32_t entry;
 
     // from the page directory, find or create the page table
-    index = _virt_addr_to_page_directory_index(virtual_addr);
-    entry = _get_table_entry(page_dir, index);
-    phys_addr_t page_table_paddr;
-    if (_is_entry_present(entry)) {
+    index = page_dir_index(virtual_addr);
+    entry = ((uint32_t *)page_dir)[index];
+
+    virt_addr_t page_table_paddr;
+    if (entry_is_present(entry)) {
         page_table_paddr = _get_entry_address(entry);
     } else {
         page_table_paddr = pmm_allocate_physical_page();
         if (page_table_paddr == 0)
             return ERR_NO_MEMORY;
         
-        // map, clear, unmap
-        vmm_workpt_map_to(page_table_paddr);
-        memset((void *)vmm_workpt(), 0, vmm_page_size());
-        vmm_workpt_unmap();
+        // map/clear/unmap to initialize the PT
+        vmm_map_work_page_primitive(vmm_workpg1(), page_table_paddr);
+        memset((void *)vmm_workpg1(), 0, vmm_page_size());
+        vmm_unmap_work_page_primitive(vmm_workpg1());
 
-        uint32_t page_dir_value = create_directory_entry_value(
-            page_table_paddr,
-            true, // cache disable
-            true, // write through
-            user_accessible, // user accessible
-            true, // write enabled
-            true  // page present
-        );
-
-        // map, update, unmap
-        vmm_workpd_map_to(page_dir);
-        _set_table_entry(vmm_workpd(), index, page_dir_value);
-        vmm_workpd_unmap();
+        
+        // map/update/unmap, to add the new PT in the PD
+        vmm_map_work_page_primitive(vmm_workpg1(), page_dir);
+        uint32_t page_dir_value = make_pd_entry(page_table_paddr, false, false, user_accessible, true, true);
+        ((uint32_t *)vmm_workpg1())[index] = page_dir_value;
+        vmm_unmap_work_page_primitive(vmm_workpg1());
     }
 
-    // map the table, read/write, unmap
-    vmm_workpt_map_to(page_table_paddr);
-    index = _virt_addr_to_page_table_index(virtual_addr);
-    entry = _get_table_entry(vmm_workpt(), index);
-    if (!_is_entry_present(entry)) {
-        entry = create_table_entry_value(
-            physical_addr,
-            true, // global
-            true, // PAT
-            true, // cache disable
-            true, // write through
-            user_accessible, // user accessible
-            write_enable, // writable
-            true  // page present
-        );
-        _set_table_entry(vmm_workpt(), index, entry);
-    }
-    vmm_workpt_unmap();
+    // map/update/unmap to set the entry in the PT
+    vmm_map_work_page_primitive(vmm_workpg1(), page_table_paddr);
+    index = page_table_index(virtual_addr);
+    entry = make_pt_entry(physical_addr, false, false, false, false, user_accessible, write_enable, true);
+    ((uint32_t *)vmm_workpg1())[index] = entry;
+    vmm_workpg1_unmap();
     
     return OK;
-}
-
-void vmm_unmap_page(virt_addr_t virtual_addr) {
-    page_dir_t page_dir = vmm_get_current_page_dir();
-    log_trace("vmm_unmap_page(vaddr=%x), curr page_dir=0x%x)", virtual_addr, page_dir);
-
-    // find page table address
-    int page_dir_index = _virt_addr_to_page_directory_index(virtual_addr);
-
-    uint32_t page_dir_entry = _get_table_entry(page_dir, page_dir_index);
-
-    if (!_is_entry_present(page_dir_entry))
-        return; // no need, there's no page_table at all
-    phys_addr_t page_table_address = _get_entry_address(page_dir_entry);
-    
-    // clear the page table entry
-    uint32_t page_table_index = _virt_addr_to_page_table_index(virtual_addr);
-    _set_table_entry(page_table_address, page_table_index, 0);
-    bool pt_is_empty = memchk((void *)page_table_address, 0, vmm_page_size());
-
-    if (pt_is_empty) {
-        log_debug("Page table is clear, freeing physical page at 0x%x", page_table_address);
-        pmm_free_physical_page(page_table_address);
-
-        // remove entry from page directory
-        _set_table_entry(page_dir, page_dir_index, 0);
-    }
 }
 
 void vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir) {
-    // clear the entry of the page table, if all the page table is clear, 
-    // maybe remove the entry from the page directory and free the page.
+    log_trace("vmm_unmap_page_from_pd(virt=0x%x, page_dir=0x%x)", virtual_addr, page_dir);
 
-    log_trace("vmm_unmap_page_from_pd(vaddr=%x, page_dir=0x%x)", virtual_addr, page_dir);
+    // from the page directory, find or create the page table
+    int index = page_dir_index(virtual_addr);
+    uint32_t entry = ((uint32_t *)page_dir)[index];
+    if (!entry_is_present(entry))
+        return;
 
-    if (page_dir == vmm_get_current_page_dir())
-        return vmm_unmap_page(virtual_addr);
-
-    // find page table address
-    int page_dir_index = _virt_addr_to_page_directory_index(virtual_addr);
-
-    vmm_workpd_map_to(page_dir);
-    uint32_t page_dir_entry = _get_table_entry(vmm_workpd(), page_dir_index);
-    vmm_workpd_unmap();
-
-    if (!_is_entry_present(page_dir_entry))
-        return; // no need, there's no page_table at all
-    phys_addr_t page_table_address = _get_entry_address(page_dir_entry);
-    
-    // clear the page table entry
-    uint32_t page_table_index = _virt_addr_to_page_table_index(virtual_addr);
-    vmm_workpt_map_to(page_table_address);
-    _set_table_entry(vmm_workpt(), page_table_index, 0);
-    bool pt_is_empty = memchk((void *)vmm_workpt(), 0, vmm_page_size());
-    vmm_workpt_unmap();
-
-    if (pt_is_empty) {
-        log_debug("Page table is clear, freeing physical page at 0x%x", page_table_address);
-        pmm_free_physical_page(page_table_address);
-
-        // remove entry from page directory
-        vmm_workpd_map_to(page_dir);
-        _set_table_entry(vmm_workpd(), page_dir_index, 0);
-        vmm_workpd_unmap();
-    }
+    // map/update/unmap to clear the entry in the PT
+    phys_addr_t page_table_paddr = _get_entry_address(entry);
+    vmm_map_work_page_primitive(vmm_workpg1(), page_table_paddr);
+    index = page_table_index(virtual_addr);
+    ((uint32_t *)vmm_workpg1())[index] = 0;
+    vmm_workpg1_unmap();
 }
 
 
 // map a range to itself
-error_t vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr) {
-    log_trace("vmm_identity_map_range(): copying kernel's PD (0x%x) to other PD (0x%x)", kernel_info.page_directory, page_dir_addr);
+error_t vmm_identity_map_range(virt_addr_t start_addr, virt_addr_t end_addr, page_dir_t page_dir_addr) {
+    log_trace("vmm_identity_map_range(start=0x%x, end=0x%x, page_dir=0x%x)", start_addr, end_addr, page_dir_addr);
 
     // we actually want to copy the contents of the kernel page directory into the new page directory.
     // i.e. the pointers to the page directories.
     // let's use the workpd and workpt to copy, 
     // since we don't know if the actual physical pages are accessible through current PD
 
-    vmm_workpd_map_to(kernel_info.page_directory);
-    vmm_workpt_map_to(page_dir_addr);
-    memcpy((void *)vmm_workpt(), (void *)vmm_workpd(), vmm_page_size());
-    log_debug_hex((void *)vmm_workpt(), 16 * 16, 0);
-    vmm_dump_page_directory(vmm_workpt());
-    vmm_workpt_unmap();
-    vmm_workpd_unmap();
+    for (virt_addr_t addr = start_addr; addr < end_addr; addr += vmm_page_size()) {
+        error_t err = vmm_map_page_to_pd(addr, addr, false, true, page_dir_addr);
+        if (err) return err;
+    }
 
     return OK;
 }
@@ -534,7 +461,7 @@ error_t vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, pag
 // to load CR3 with the address of the page directory 
 // and to set the paging (PG) and protection (PE) bits of CR0.
 void vmm_set_page_directory_register(page_dir_t value) {
-    log_trace("Setting CR3 to 0x%x", value);
+    log_trace("vmm_set_page_directory_register(0x%x)", value);
 
     __asm__ __volatile__(
         "mov %0, %%eax\n\t"
@@ -582,6 +509,8 @@ void vmm_enable_paging() {
         :       // no inputs
         : "eax" // garbled registers
     );
+
+    kernel_info.paging_enabled = true;
 }
 
 void vmm_disable_paging() {
@@ -631,29 +560,34 @@ void vmm_page_fault_handler(uint32_t error_code) {
     error_t err = vmm_map_page_to_pd(vmm_round_down(memory_address), memory_address, true, true, page_dir_address);
 }
 
-
-
 // allocates and creates a new page directory
 page_dir_t vmm_create_page_directory(bool map_kernel_space) {
+    ASSERT(kernel_info.paging_enabled); // we rely on this
+    char buff[4096];
+
+    log_trace("kernel's PD");
+    log_debug_hex((void *)kernel_info.page_directory, 16 * 4, 0);
+    log_trace("reading it into stack variable (ptr=%p)", buff);
+    vmm_physpg_read(kernel_info.page_directory, 0, buff, sizeof(buff));
+    log_debug_hex(buff, 16 * 4, 0);
+
+
+
     page_dir_t page_dir = pmm_allocate_physical_page();
-    if (page_dir == INVALID_PAGE) {
-        panic("Failed to allocate physical page for page directory!");
-    }
-    // we need to map this.
-    log_debug("new page directory is 0x%x", page_dir);
-    vmm_workpd_map_to(page_dir);
-    memset((void *)vmm_workpd(), 0x00, PAGE_SIZE);
-    vmm_workpd_unmap();
+    if (page_dir == INVALID_PAGE) panic("Failed to allocate physical page for page directory!");
+
+    log_trace("vmm_create_page_directory(), new PD 0x%x", page_dir);
+    vmm_physpg_clear(page_dir);
 
     if (map_kernel_space) {
-        // the kernel (code, data, heap etc) must be mapped in the same address in all address spaces.
-        // that way, we can switch CR3 and jump into an elf loading function without issues.
-        // or execute kerel code, or keep variables and pointers sane when switching tasks
-        // TODO: it seems VMM needs to know a lot about kernel mem regions...
-        vmm_identity_map_range(kernel_info.start_address, kernel_info.end_address, page_dir);
+        log_debug("copying kernel PD contents to new page_directory");
+        vmm_physpg_copy(page_dir, kernel_info.page_directory);
+        // maybe dump it?
+
+        vmm_physpg_read(page_dir, 0, buff, 4096);
+        log_debug_hex(buff, 16 * 4, 0);
     }
 
-    log_trace("vmm_create_page_directory() -> 0x%p", page_dir);
     return page_dir;
 }
 
@@ -663,7 +597,7 @@ error_t vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_
 
     // TODO: this should update the memory map of the kernel/process
     for (virt_addr_t virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
-        phys_addr_t phys_page_addr = pmm_allocate_physical_page();
+        virt_addr_t phys_page_addr = pmm_allocate_physical_page();
         error_t err = vmm_map_page_to_pd(virt_addr, phys_page_addr, true, true, page_dir_addr);
         // TODO: better error handling
     }
@@ -680,7 +614,7 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address) {
     uint32_t entry;
     for (int pd_index = 0; pd_index < 1024; pd_index++) {
         entry = _get_table_entry(page_dir_address, pd_index);
-        if (!_is_entry_present(entry))
+        if (!entry_is_present(entry))
             continue;
         
         uintptr_t page_table_address = _get_entry_address(entry);
@@ -690,7 +624,7 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address) {
         // free any linked physical pages first
         for (int pt_index = 0; pt_index < 1024; pt_index++) {
             entry = _get_table_entry(page_table_address, pt_index);
-            if (!_is_entry_present(entry))
+            if (!entry_is_present(entry))
                 continue;
 
             phys_addr_t phys_page_address = _get_entry_address(entry);
@@ -716,14 +650,14 @@ static void _dump_page_directory_print(uint32_t virt_mem_group_start, uint32_t v
 
     if (virt_mem_group_start == virt_mem_group_end) {
         // single mapping
-        log_debug("Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
+        log_debug("  Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
             virt_mem_group_start >> 12, 
             phys_mem_group_start >> 12,
             virt_mem_group_start == phys_mem_group_start ? "(identity)" : ""
         );
     } else {
         // group mapping
-        log_debug("Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
+        log_debug("  Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
             virt_mem_group_start >> 12, 
             virt_mem_group_end   >> 12, 
             phys_mem_group_start >> 12,
@@ -782,8 +716,9 @@ static void _dump_page_directory_aggregate(int call, uint32_t virt_addr, uint32_
 }
 
 void vmm_dump_page_directory(virt_addr_t page_dir_address) {
-    // essentially, map the mapping that a page directory has.
-    // try to group common areas together.
+
+    // this version needs mapping to work first
+    vmm_page_ops_t *ops = vmm_page_ops_for(page_dir_address);
     log_debug("Page directory at 0x%x mapping", page_dir_address);
 
     uint32_t entry;
@@ -792,8 +727,8 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
     // free linked tables and pages 
     _dump_page_directory_aggregate(1, 0, 0);
     for (int pd_index = 0; pd_index < 1024; pd_index++) {
-        entry = _get_table_entry(page_dir_address, pd_index);
-        if (!_is_entry_present(entry))
+        entry = ops->get_entry(page_dir_address, pd_index);
+        if (!entry_is_present(entry))
             continue;
         all_empty = false;
         
@@ -803,8 +738,8 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
 
         // free any linked physical pages first
         for (int pt_index = 0; pt_index < 1024; pt_index++) {
-            entry = _get_table_entry(page_table_address, pt_index);
-            if (!_is_entry_present(entry))
+            entry = ops->get_entry(page_table_address, pt_index);
+            if (!entry_is_present(entry))
                 continue;
 
             uint32_t physical_address = (uint32_t)_get_entry_address(entry);
@@ -815,5 +750,155 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
             _dump_page_directory_aggregate(2, virtual_address, physical_address);
         }
     }
+
     _dump_page_directory_aggregate(3, 0, 0);
+    log_debug("Page directory at 0x%x end", page_dir_address);
 }
+
+
+
+
+// -------------------------------------------------------------------
+
+/*
+In order to operate on physical pages when they are not mapped
+(e.g. when preparing a new page directory)
+vmm needs to temporarily map them in known virtual address
+Keeping track of what is mapped avoids double mapping time
+Unmapping can be avoided as an optimization, used only when needed.
+*/
+
+
+static vmm_page_ops_t _mapped_page_ops = {
+    .read      = vmm_physpg_read,
+    .write     = vmm_physpg_write,
+    .clear     = vmm_physpg_clear,
+    .get_entry = vmm_physpg_get_entry,
+    .set_entry = vmm_physpg_set_entry,
+    .copy      = vmm_physpg_copy,
+};
+static vmm_page_ops_t _direct_page_ops = {
+    .read      = vmm_direct_physpg_read,
+    .write     = vmm_direct_physpg_write,
+    .clear     = vmm_direct_physpg_clear,
+    .get_entry = vmm_direct_physpg_get_entry,
+    .set_entry = vmm_direct_physpg_set_entry,
+    .copy      = vmm_direct_physpg_copy,
+};
+
+vmm_page_ops_t *vmm_page_ops_for(page_dir_t page_dir) {
+    // TODO: convert elf loading to use this functionality
+    page_dir_t curr = vmm_get_current_page_dir();
+    return (!kernel_info.paging_enabled || page_dir == curr) ? &_direct_page_ops : &_mapped_page_ops;
+}
+
+// --------------------------------------------------------------
+
+void vmm_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
+    // mutex_acquire(&kernel_info.work_pages_lock);
+
+    page_dir_t pd = vmm_get_current_page_dir();
+    virt_addr_t pa = vmm_resolve(vmm_workpg1(), pd);
+    log_info("work page 1 0x%x, before is mapped to 0x%x", vmm_workpg1(), pa);
+
+    // INFO  work page 1 0x91000, before is mapped to 0x91000
+    // TRACE vmm_map_page(virt=0x91000, phys=0x90000), curr page_dir=0x90000)
+    // INFO  work page 1 0x91000, after is mapped to 0x91000  <----------------------
+    // INFO  first int of 0x91000 is 0x00000000
+
+    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    offset = min(offset, vmm_page_size());
+    size = min(size, vmm_page_size() - offset);
+
+    pa = vmm_resolve(vmm_workpg1(), vmm_get_current_page_dir());
+    log_info("work page 1 0x%x, after is mapped to 0x%x", vmm_workpg1(), pa);
+    log_info("first int of 0x%x is 0x%08x", vmm_workpg1(), *(uint32_t *)vmm_workpg1());
+    memcpy(buffer, (void *)vmm_workpg1() + offset, size);
+
+    // mutex_release(&kernel_info.work_pages_lock);
+}
+
+void vmm_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
+    // mutex_acquire(&kernel_info.work_pages_lock);
+
+    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    offset = min(offset, vmm_page_size());
+    size = min(size, vmm_page_size() - offset);
+    memcpy((void *)vmm_workpg1() + offset, buffer, size);
+
+    // mutex_release(&kernel_info.work_pages_lock);
+}
+
+void vmm_physpg_clear(virt_addr_t paddr) {
+    // mutex_acquire(&kernel_info.work_pages_lock);
+
+    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    memset((void *)vmm_workpg1(), 0, vmm_page_size());
+
+    // mutex_release(&kernel_info.work_pages_lock);
+}
+
+uint32_t vmm_physpg_get_entry(virt_addr_t paddr, int index) {
+    // mutex_acquire(&kernel_info.work_pages_lock);
+
+    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    index = clamp(index, 0, 1023);
+    return ((uint32_t *)vmm_workpg1())[index];
+
+    // mutex_release(&kernel_info.work_pages_lock);
+}
+
+void vmm_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value) {
+    // mutex_acquire(&kernel_info.work_pages_lock);
+
+    vmm_map_work_page_primitive(vmm_workpg1(), paddr);
+    index = clamp(index, 0, 1023);
+    ((uint32_t *)vmm_workpg1())[index] = value;
+
+    // mutex_release(&kernel_info.work_pages_lock);
+}
+
+void vmm_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
+    // mutex_acquire(&kernel_info.work_pages_lock);
+
+    vmm_map_work_page_primitive(vmm_workpg1(), pdest);
+    vmm_map_work_page_primitive(vmm_workpg2(), psource);
+    memcpy((void *)vmm_workpg1(), (void *)vmm_workpg2(), vmm_page_size());
+
+    // mutex_release(&kernel_info.work_pages_lock);
+}
+
+
+// --------------------------------------------
+
+void vmm_direct_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
+    offset = min(offset, vmm_page_size());
+    size = min(size, vmm_page_size() - offset);
+    memcpy(buffer, (void *)(paddr + offset), size);
+}
+
+void vmm_direct_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
+    offset = min(offset, vmm_page_size());
+    size = min(size, vmm_page_size() - offset);
+    memcpy((void *)(paddr + offset), buffer, size);
+}
+
+void vmm_direct_physpg_clear(virt_addr_t paddr) {
+    memset((void *)paddr, 0, vmm_page_size());
+}
+
+uint32_t vmm_direct_physpg_get_entry(virt_addr_t paddr, int index) {
+    index = clamp(index, 0, 1023);
+    return ((uint32_t *)paddr)[index];
+}
+
+void vmm_direct_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value) {
+    index = clamp(index, 0, 1023);
+    ((uint32_t *)paddr)[index] = value;
+}
+
+void vmm_direct_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
+    memcpy((void *)pdest, (void *)psource, vmm_page_size());
+}
+
+// ------------------------------------------

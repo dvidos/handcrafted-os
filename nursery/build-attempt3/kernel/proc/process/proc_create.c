@@ -114,7 +114,7 @@ static void _calculate_proc_stack(process_t *proc, size_t *stack_size, virt_addr
         size_t sz = 16 * KB;
         // put all kernel stacks near top of kernel, to allow for heap growth
         *stack_size = sz;
-        *stack_top = vmm_get_kernel_top_address() - (sz * next_kernel_stack_no());
+        *stack_top = vmm_get_kernel_cutoff_address() - (sz * next_kernel_stack_no());
     } else {
         // put user stack at a high enough address
         *stack_size = 16 * KB;
@@ -162,7 +162,7 @@ static error_t _allocate_lot_of_physical_pages_atomically(int num_pages, phys_ad
 
     phys_addr_t *arr = kmalloc(sizeof(phys_addr_t) * num_pages);
     if (arr == NULL) return traceable(ERR_NO_MEMORY);
-    memset(arr, 0, sizeof(phys_addr_t) * num_pages);
+    memset(arr, 0, sizeof(virt_addr_t) * num_pages);
 
     bool failed = false;
     for (int page = 0; page < num_pages; page++) {
@@ -259,6 +259,7 @@ static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd,
     ASSERT(src_pd > 0);
     log_trace("_region_copy_contents(dest_reg=%p, dest_pd=%x, src_reg=%p, src_pd=%x)", dest_reg, dest_pd, src_reg, src_pd);
 
+    page_dir_t curr_pd = vmm_get_current_page_dir();
     error_t err = OK;
     bool page1_mapped = false;
     bool page2_mapped = false;
@@ -271,26 +272,26 @@ static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd,
         phys_addr_t src_paddr = vmm_resolve(src_reg->address + i * vmm_page_size(), src_pd);
         if (dest_paddr == 0 || src_paddr == 0) return traceable(ERR_INVALID_ARGS);
 
-        err = vmm_map_page(vmm_get_copy_page1_addr(), dest_paddr, false, true);
+        err = vmm_map_page_to_pd(vmm_get_copy_page1_addr(), dest_paddr, false, true, curr_pd);
         if (err) goto exit;
         page1_mapped = true;
 
-        err = vmm_map_page(vmm_get_copy_page2_addr(), src_paddr, false, false);
+        err = vmm_map_page_to_pd(vmm_get_copy_page2_addr(), src_paddr, false, false, curr_pd);
         if (err) goto exit;
         page2_mapped = true;
 
         memcpy((void *)vmm_get_copy_page1_addr(), (void *)vmm_get_copy_page2_addr(), vmm_page_size());
         
-        vmm_unmap_page(vmm_get_copy_page1_addr());
+        vmm_unmap_page_from_pd(vmm_get_copy_page1_addr(), curr_pd);
         page1_mapped = false;
 
-        vmm_unmap_page(vmm_get_copy_page2_addr());
+        vmm_unmap_page_from_pd(vmm_get_copy_page2_addr(), curr_pd);
         page2_mapped = false;
     }
 
 exit:
-    if (page1_mapped) vmm_unmap_page(vmm_get_copy_page1_addr());
-    if (page2_mapped) vmm_unmap_page(vmm_get_copy_page2_addr());
+    if (page1_mapped) vmm_unmap_page_from_pd(vmm_get_copy_page1_addr(), curr_pd);
+    if (page2_mapped) vmm_unmap_page_from_pd(vmm_get_copy_page2_addr(), curr_pd);
     return traceable(err);
 }
 
@@ -364,11 +365,12 @@ static error_t _load_elf_segment_page_from_file(process_t *proc, open_file_t *el
     log_trace("_load_elf_segment_page_from_file(proc=%p, elf=%p, seg=%p, page_no=%d, page_addr=%p)", proc, elf, seg, page_no, page_addr);
 log_trace("--L1--");
     error_t err = OK;
+    page_dir_t curr_pd = vmm_get_current_page_dir();
 
     // we map the physical page to a copy area, using whatever CR3 we currently have.
     // the kernel is running on ring 0, so it does have access to it, no matter the contents of CR3.
 log_trace("--L1--");
-    vmm_map_page(vmm_get_copy_page1_addr(), page_addr, false, true);
+    vmm_map_page_to_pd(vmm_get_copy_page1_addr(), page_addr, false, true, curr_pd);
 log_trace("--L2--");
 
     size_t page_gap = page_no > 0 ? 0 : seg->address_in_mem - vmm_round_down(seg->address_in_mem);
@@ -388,7 +390,7 @@ log_trace("--L4--");
 log_trace("--L5--");
 
 exit:
-    vmm_unmap_page(vmm_get_copy_page1_addr());
+    vmm_unmap_page_from_pd(vmm_get_copy_page1_addr(), curr_pd);
     return traceable(err);
 }
 

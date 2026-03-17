@@ -14,23 +14,22 @@ static inline uint32_t vmm_pages_for_size(uint32_t size)       { return vmm_roun
 
 
 // initialize virtual memory paging.
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, phys_addr_t utility_pages_addr, size_t utility_pages_size, mem_map_t *kernel_phys_map);
-phys_addr_t vmm_create_kernel_page_directory_using_physical_pages(phys_addr_t kernel_cutoff);
+void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, phys_addr_t cutoff_address, phys_addr_t utility_pages_addr, size_t utility_pages_size, mem_map_t *kernel_phys_map);
+void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t kernel_cutoff);
 
 // used for loading processes and fork()
-void vmm_set_KERNEL_UTIL_PAGESs(virt_addr_t addr, int num_pages);
 virt_addr_t vmm_get_copy_page1_addr();
 virt_addr_t vmm_get_copy_page2_addr();
-virt_addr_t vmm_get_kernel_top_address();
+virt_addr_t vmm_get_kernel_cutoff_address();
 
 // resolve a virtual address, by reading the page dir and tables
-phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr);
+virt_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr);
 
 
 // map / unmap pages to current or given page directory
-error_t vmm_map_page(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable);
+void    vmm_map_work_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr);
+void    vmm_unmap_work_page_primitive(virt_addr_t virtual_addr);
 error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable, page_dir_t page_dir);
-void    vmm_unmap_page(virt_addr_t virtual_addr);
 void    vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir);
 
 // invalidate TLB cache
@@ -66,6 +65,33 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address);
 
 // logs the virtual to physical mapping that a page directory causes
 void vmm_dump_page_directory(virt_addr_t page_dir_address);
+
+// -------------------------------------
+
+typedef struct vmm_page_ops {
+    void     (*read)(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
+    void     (*write)(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
+    void     (*clear)(virt_addr_t paddr);
+    uint32_t (*get_entry)(virt_addr_t paddr, int index);
+    void     (*set_entry)(virt_addr_t paddr, int index, uint32_t value);
+    void     (*copy)(virt_addr_t pdest, virt_addr_t psource);
+} vmm_page_ops_t;
+
+vmm_page_ops_t *vmm_page_ops_for(page_dir_t page_dir);
+
+void     vmm_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
+void     vmm_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
+void     vmm_physpg_clear(virt_addr_t paddr);
+uint32_t vmm_physpg_get_entry(virt_addr_t paddr, int index);
+void     vmm_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value);
+void     vmm_physpg_copy(virt_addr_t pdest, virt_addr_t psource);
+
+void     vmm_direct_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
+void     vmm_direct_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
+void     vmm_direct_physpg_clear(virt_addr_t paddr);
+uint32_t vmm_direct_physpg_get_entry(virt_addr_t paddr, int index);
+void     vmm_direct_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value);
+void     vmm_direct_physpg_copy(virt_addr_t pdest, virt_addr_t psource);
 
 
 

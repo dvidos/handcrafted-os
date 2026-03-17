@@ -126,9 +126,8 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
 
     log_info("Initializing virtual memory mapping...");
-    phys_addr_t top_id = pmm_get_top_identity_address();
-    log_info("top id = 0x%x", top_id);
-    vmm_initialize(0, top_id, KERNEL_UTIL_PAGES_ADDRESS, KERNEL_UTIL_PAGES_SIZE_KB * 1024, &kernel_phys_mem_map);
+    phys_addr_t max_used_address = pmm_get_top_identity_address();
+    vmm_initialize(0, max_used_address, 16 * MB, KERNEL_UTIL_PAGES_ADDRESS, KERNEL_UTIL_PAGES_SIZE_KB * 1024, &kernel_phys_mem_map);
 
     log_info("Enabling interrupts & NMI...");
     sti();
