@@ -23,9 +23,31 @@
  * See also https://handwiki.org/wiki/Crt0
  */
 
-// arguments are pushed on the new stack, before jumping here
-// see load_and_run_executable() method in kernel
-void _start(int argc, char **argv, char **envp) {
+// void _start(int argc, char **argv, char **envp) {
+
+//     extern int getpid();
+//     syslog_debug("__start() from PID %d", getpid());
+
+//     extern void __init_heap();
+//     __init_heap();
+
+//     extern void __init_env(char **envp);
+//     __init_env(envp);
+
+//     // then call main()
+
+//     extern int main(int argc, char *argv[], char *envp[]);
+//     int exit_code = main(argc, argv, envp);
+
+//     // then call the atexit() functions,
+//     // we could call terminate() to remove our process from the running / ready list
+//     exit(exit_code);
+// }
+void _start() {
+
+    // TODO: make space for 3 arguments in the initial setup of the process, for argc and 2 pointers
+    // then, maybe here we'll parse them and push onto the stack or something.
+    // Or, we make the proc_creation smarter and to it there.
 
     extern int getpid();
     syslog_debug("__start() from PID %d", getpid());
@@ -34,12 +56,13 @@ void _start(int argc, char **argv, char **envp) {
     __init_heap();
 
     extern void __init_env(char **envp);
-    __init_env(envp);
+    // __init_env(envp);
+    __init_env(NULL);
 
     // then call main()
 
     extern int main(int argc, char *argv[], char *envp[]);
-    int exit_code = main(argc, argv, envp);
+    int exit_code = main(0, NULL, NULL);
 
     // then call the atexit() functions,
     // we could call terminate() to remove our process from the running / ready list

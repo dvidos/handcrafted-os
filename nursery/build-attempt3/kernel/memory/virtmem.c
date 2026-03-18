@@ -575,8 +575,13 @@ error_t vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_
     // TODO: this should update the memory map of the kernel/process
     for (virt_addr_t virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         virt_addr_t phys_page_addr = pmm_allocate_physical_page();
+        if (phys_page_addr == 0)
+            return ERR_NO_MEMORY;
         error_t err = vmm_map_page_to_pd(virt_addr, phys_page_addr, true, true, page_dir_addr);
-        // TODO: better error handling
+        if (err) {
+            pmm_free_physical_page(phys_page_addr);
+            return err;
+        }
     }
 
     return OK;
@@ -764,7 +769,6 @@ static vmm_page_ops_t _direct_page_ops = {
 };
 
 vmm_page_ops_t *vmm_page_ops_for(page_dir_t page_dir) {
-    // TODO: convert elf loading to use this functionality
     page_dir_t curr = vmm_get_current_page_dir();
     return (!kernel_info.paging_enabled || page_dir == curr) ? &_direct_page_ops : &_mapped_page_ops;
 }

@@ -125,35 +125,23 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     format_mem_region(stream, "elf #3", &proc->memory.elf_sections[3]);
     format_mem_region(stream, "heap", &proc->memory.heap);
     
-    // we should show other things as well, such as arguments, environment, open files etc.
-    
-    uint32_t esp = proc->memory.execution.stack_pointer;
-    log_debug("- ESP points to (VA) %p", esp);
-    phys_addr_t esp_phys = vmm_resolve(proc->memory.execution.stack_pointer, proc->memory.page_dir);
-    log_debug("- ESP points to (PA) %p", esp_phys);
+    uint32_t esp_virt = proc->memory.execution.stack_pointer;
+    phys_addr_t esp_phys = vmm_resolve(esp_virt, proc->memory.page_dir);
+    stream->printf(stream->context, "- Stack frame (ESP virt addr %x, phys %x)", esp_virt, esp_phys);
 
-    // i think we need to resolve this first, through the process's page directory...
-    // to get other registers, we need to read the page where ESP points to.
     phys_addr_t page_addr = esp_phys & 0xFFFFF000;
     size_t offset = esp_phys & 0xFFF;
     switched_stack_snapshot_t snapshot = { 0 };
     vmm_physpg_read(page_addr, offset, &snapshot, sizeof(switched_stack_snapshot_t));
 
-    stream->printf(stream->context, "- ESP: 0x%08x", proc->memory.execution.stack_pointer);
-    stream->printf(stream->context, "- EDI: 0x%08x",            snapshot.edi);
-    stream->printf(stream->context, "- ESI: 0x%08x",            snapshot.esi);
-    stream->printf(stream->context, "- EBP: 0x%08x",            snapshot.ebp);
-    stream->printf(stream->context, "- EBX: 0x%08x",            snapshot.ebx);
-    stream->printf(stream->context, "- EDX: 0x%08x",            snapshot.edx);
-    stream->printf(stream->context, "- ECX: 0x%08x",            snapshot.ecx);
-    stream->printf(stream->context, "- EAX: 0x%08x",            snapshot.eax);
-    stream->printf(stream->context, "- eflags: 0x%08x",         snapshot.eflags);
-    stream->printf(stream->context, "- return_address: 0x%08x", snapshot.return_address); 
+    stream->printf(stream->context, "    EAX 0x%08x   EBX 0x%08x   ECX 0x%08x   EDX 0x%08x",
+        snapshot.eax, snapshot.ebx, snapshot.ecx, snapshot.edx);
+    stream->printf(stream->context, "    ESP 0x%08x   EBP 0x%08x   EDI 0x%08x   ESI 0x%08x",
+        proc->memory.execution.stack_pointer, snapshot.ebp, snapshot.edi, snapshot.esi);
+    stream->printf(stream->context, "    return address 0x%08x         flags 0x%08x",
+        snapshot.return_address, snapshot.eflags);
 
-    // bool same_pd = vmm_get_current_page_dir() == proc->memory.page_dir;
-    // dump_bytes(same_pd, (uintptr_t)&proc->memory.execution, sizeof(switched_stack_snapshot_t));
-    // dump_bytes(same_pd, (uintptr_t)proc->memory.execution.stack_pointer - 128, 128);
-    // dump_bytes(same_pd, (uintptr_t)proc->memory.execution.stack_pointer, 128);
-    // dump_bytes(same_pd, proc->memory.stack.address + proc->memory.stack.size - 128, 128);
-    // dump_bytes(same_pd, proc->memory.stack.address + proc->memory.stack.size,       128);
+    stream->printf(stream->context, "- Arguments");
+    stream->printf(stream->context, "- Environment");
+    stream->printf(stream->context, "- File descriptors");
 }
