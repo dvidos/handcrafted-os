@@ -27,6 +27,9 @@
 // see load_and_run_executable() method in kernel
 void _start(int argc, char **argv, char **envp) {
 
+    extern int getpid();
+    syslog_debug("__start() from PID %d", getpid());
+
     extern void __init_heap();
     __init_heap();
 

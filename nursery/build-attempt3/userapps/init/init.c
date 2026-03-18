@@ -37,5 +37,6 @@ int main(int argc, char *argv[]) {
     //     i++;
     // }
 
+    printf("Looping forever...");
     for(;;);
 }

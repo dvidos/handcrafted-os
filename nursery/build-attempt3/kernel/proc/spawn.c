@@ -62,7 +62,7 @@ int spawnve(char *path, char *argv[], char *envp[]) {
     file_open = false;
 
     process_t *parent = running_process();
-    process_t *new_proc = create_process(
+    process_t *new_proc = create_process_v1(
         false,
         path,
         load_and_run_executable,
@@ -136,10 +136,9 @@ int spawn(char *executable) {
     process_t *proc;
     error_t err = process_v2_create_for_spawn(NULL, executable, PRIORITY_USER_PROGRAM, &proc);
     if (err) return err;
-    log_debug_fmt("process_v2_create_for_spawn() --> ", proc, proc_log_formatter);
+    log_debug_fmt("creat2(): ", proc, proc_log_formatter);
 
     log_debug("freezing");
-    for(;;);
     proc_start(proc);
     return proc_get_pid(proc);
 }

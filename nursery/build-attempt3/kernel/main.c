@@ -62,7 +62,7 @@ MODULE("MAIN", LOG_LEVEL_WARN);
 
 
 
-static void launch_initial_processes();
+static void launch_initial_process();
 static void shell_launcher();
 static void initialize_physical_memory(boot_info_t *info);
 static void initialize_storage_and_file_systems();
@@ -155,7 +155,7 @@ void kernel_main(boot_info_t* boot)
     logger_add_appender(tty_log_appender, log_tty, LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
-    launch_initial_processes();
+    launch_initial_process();
 
     // start_multitasking() will never return
     log_info("Starting multitasking, goodbye from main()!");
@@ -163,42 +163,13 @@ void kernel_main(boot_info_t* boot)
     panic("start_multitasking() returned to main");
 }
 
-static void launch_initial_processes() {
+static void launch_initial_process() {
     
-    // this would be surpassed by /etc/initrc at some point
-    
-    int tty = 0;
     process_t *proc;
-    proc_priority_t pri = PRIORITY_USER_PROGRAM;
+    error_t err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
+    if (err) panic("Cannot create init process: %s", strerror(err));
 
-    proc = create_process(true, "Init Launcher", shell_launcher, pri, 0, tty_manager_get_device(tty++));
     proc_start(proc);
-
-    proc = create_process(true, "Process Monitor", process_monitor_main, pri, 0, tty_manager_get_device(tty++));
-    proc_start(proc);
-
-    proc = create_process(true, "VFS Monitor", vfs_monitor_main, pri, 0, tty_manager_get_device(tty++));
-    proc_start(proc);
-}
-
-static void shell_launcher() {
-    log_info("Shell launcher started, PID %d", proc_get_pid(running_process()));
-    tty_set_title("Shell");
-
-    while (true) {
-        tty_write("Launching user-space shell program\n");
-        int err = spawn("/bin/init");
-        if (err < 0) {
-            printf("spawn(\"/bin/init\") returned %d\n", err);
-        } else {
-            // wait for the child?
-            pid_t child_proc = (pid_t)err;
-            int exit_code = 0;
-            err = proc_wait_child(running_process(), &exit_code);
-            printf("Shell exit code was %d\n", exit_code);
-        }
-        proc_sleep(running_process(), 3000);
-    }
 }
 
 // these are defined in the linker.ld script

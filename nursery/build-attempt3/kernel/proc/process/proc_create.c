@@ -54,7 +54,7 @@ static lock_t kernel_stacks_lock;
 
 static pid_t next_pid() {
     mutex_acquire(&pid_lock);
-    pid_t id = ++last_pid;
+    pid_t id = last_pid++;
     mutex_release(&pid_lock);
     return id;
 }
@@ -446,10 +446,7 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
     phys_addr_t page_addr = return_address_plocation & 0xFFFFF000;
     size_t offset_in_page = return_address_plocation & 0xFFF;
     // note: if we have pushed env/args, we may be crossing page boundaries
-    ASSERT(proc->memory.execution.stack_pointer != 0);
     vmm_physpg_write(page_addr, offset_in_page, &elf_entry_point, sizeof(uint32_t));
-    ASSERT(proc->memory.execution.stack_pointer != 0);
-    // proc->memory.execution.stack_snapshot->return_address = elf_entry_point;
 
     err = OK;
 
@@ -648,8 +645,6 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     
     vfs_close(elf);
     *proc_ptr = proc;
-    log_trace("process_v2_create_for_spawn() returning OK");
-    for(;;);
     return OK;
 
 failed:
@@ -745,7 +740,7 @@ static void _unlock_and_run_entry_point() {
 }
 
 // create but don't start yet
-process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty) {
+process_t *create_process_v1(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty) {
     if (priority >= PROCESS_PRIORITY_LEVELS) {
         log_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
         return NULL;
@@ -754,10 +749,7 @@ process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     memset(p, 0, sizeof(process_t));
     
-    mutex_acquire(&pid_lock);
-    p->pid = ++last_pid;
-    mutex_release(&pid_lock);
-
+    p->pid = next_pid();
     p->parent = parent;
     p->priority = priority;
     p->tty = tty;

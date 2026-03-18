@@ -186,7 +186,7 @@ void proc_exit(process_t *proc, int exit_code);
 
 
 // proc_create.c
-process_t *create_process(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty);
+process_t *create_process_v1(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty);
 void proc_destroy(process_t *proc);
 
 error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);

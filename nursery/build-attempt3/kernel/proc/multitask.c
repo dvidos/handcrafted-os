@@ -28,7 +28,7 @@ void init_multitasking() {
     initialize_process_lists();
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
-    process_t *idle = create_process(
+    process_t *idle = create_process_v1(
         true,
         "Idle", 
         NULL, 

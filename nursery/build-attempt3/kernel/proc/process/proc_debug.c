@@ -110,4 +110,13 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     format_mem_region(stream, "heap", &proc->memory.heap);
     
     // we should show other things as well, such as arguments, environment, open files etc.
+    
+    uint32_t esp = proc->memory.execution.stack_pointer;
+    // to get other registers, we need to read the page where ESP points to.
+    phys_addr_t page_addr = esp & 0xFFFFF000;
+    size_t offset = esp & 0xFFF;
+    switched_stack_snapshot_t snapshot = { 0 };
+    vmm_physpg_read(page_addr, offset, &snapshot, sizeof(switched_stack_snapshot_t));
+
+    stream->printf(stream->context, "EIP 0x%08x,  ESP 0x%08x", snapshot.return_address, esp);
 }
