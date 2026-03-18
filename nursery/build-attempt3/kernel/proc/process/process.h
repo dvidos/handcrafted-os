@@ -103,7 +103,7 @@ struct process {
 
         union {
             uint32_t stack_pointer;                     // value of the stack pointer
-            switched_stack_snapshot_t *stack_snapshot;  // pointer to pushed data on the stack
+            switched_stack_snapshot_t *stack_snapshot_at_esp;  // pointer to pushed data on the stack
         } execution;
     } memory;
 

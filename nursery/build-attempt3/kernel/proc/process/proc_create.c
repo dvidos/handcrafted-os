@@ -13,7 +13,7 @@
 #include "../elf_reader.h"
 
 
-MODULE("PROC_CREATE", LOG_LEVEL_INFO);
+MODULE("PROC_CREATE", LOG_LEVEL_DEBUG);
 
 
 static pid_t   next_pid();
@@ -436,6 +436,7 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
     virt_addr_t elf_entry_point = 0;
     err = elf_get_entry_point(elf, &elf_entry_point);
     if (err) goto exit;
+    log_debug("Elf entry point is 0x%08x", elf_entry_point);
     ASSERT(proc->memory.execution.stack_pointer != 0);
 
     // set the return address in a foreign physical page
@@ -707,7 +708,7 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
 
     // we'll need a few more things, but this is looking better
     ASSERT(child->memory.execution.stack_pointer != 0);
-    ASSERT(child->memory.execution.stack_snapshot->return_address != 0);
+    ASSERT(child->memory.execution.stack_snapshot_at_esp->return_address != 0);
 
     *proc_ptr = child;
     return OK;

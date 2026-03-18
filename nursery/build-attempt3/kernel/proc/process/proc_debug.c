@@ -1,6 +1,7 @@
 #include "process.h"
 #include "../procman/proclist.h"
 #include "../../logger/logger.h"
+#include "../../memory/kheap.h"
 
 MODULE("PROC_DBG", LOG_LEVEL_TRACE);
 
@@ -89,6 +90,20 @@ static void format_mem_region(log_write_stream_t *stream, char *name, mem_region
 }
 
 
+void dump_bytes(bool direct, uintptr_t address, int how_many) {
+    char *buffer = kmalloc(4096);
+    if (direct) {
+        log_debug("Dumping %d bytes at address 0x%x", how_many, address);
+        log_debug_hex((void *)address, how_many, 0);
+    } else {
+        size_t offset_in_page = address - vmm_round_down(address);
+        vmm_physpg_read(vmm_round_down(address), 0, buffer, 4096);
+        log_debug("Dumping %d bytes at address 0x%x", how_many, address);
+        log_debug_hex(buffer + offset_in_page, how_many, 0);
+    }
+    kfree(buffer);
+}
+
 void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     process_t *proc = va_arg(args, process_t *);
 
@@ -101,7 +116,7 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
         proc->flags
     );
 
-    stream->printf(stream->context, "- Memory: (page_dir=0x%x)", proc->memory.page_dir);
+    stream->printf(stream->context, "- Memory: (proc_pd=0x%x, curr_pd=0x%x)", proc->memory.page_dir, vmm_get_current_page_dir());
     stream->printf(stream->context, "    Region       Address          To        Size    KB  Usr  Wrt  Usage");
     format_mem_region(stream, "stack", &proc->memory.stack);
     format_mem_region(stream, "elf #0", &proc->memory.elf_sections[0]);
@@ -113,11 +128,32 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     // we should show other things as well, such as arguments, environment, open files etc.
     
     uint32_t esp = proc->memory.execution.stack_pointer;
+    log_debug("- ESP points to (VA) %p", esp);
+    phys_addr_t esp_phys = vmm_resolve(proc->memory.execution.stack_pointer, proc->memory.page_dir);
+    log_debug("- ESP points to (PA) %p", esp_phys);
+
+    // i think we need to resolve this first, through the process's page directory...
     // to get other registers, we need to read the page where ESP points to.
-    phys_addr_t page_addr = esp & 0xFFFFF000;
-    size_t offset = esp & 0xFFF;
+    phys_addr_t page_addr = esp_phys & 0xFFFFF000;
+    size_t offset = esp_phys & 0xFFF;
     switched_stack_snapshot_t snapshot = { 0 };
     vmm_physpg_read(page_addr, offset, &snapshot, sizeof(switched_stack_snapshot_t));
 
-    stream->printf(stream->context, "EIP 0x%08x,  ESP 0x%08x", snapshot.return_address, esp);
+    stream->printf(stream->context, "- ESP: 0x%08x", proc->memory.execution.stack_pointer);
+    stream->printf(stream->context, "- EDI: 0x%08x",            snapshot.edi);
+    stream->printf(stream->context, "- ESI: 0x%08x",            snapshot.esi);
+    stream->printf(stream->context, "- EBP: 0x%08x",            snapshot.ebp);
+    stream->printf(stream->context, "- EBX: 0x%08x",            snapshot.ebx);
+    stream->printf(stream->context, "- EDX: 0x%08x",            snapshot.edx);
+    stream->printf(stream->context, "- ECX: 0x%08x",            snapshot.ecx);
+    stream->printf(stream->context, "- EAX: 0x%08x",            snapshot.eax);
+    stream->printf(stream->context, "- eflags: 0x%08x",         snapshot.eflags);
+    stream->printf(stream->context, "- return_address: 0x%08x", snapshot.return_address); 
+
+    // bool same_pd = vmm_get_current_page_dir() == proc->memory.page_dir;
+    // dump_bytes(same_pd, (uintptr_t)&proc->memory.execution, sizeof(switched_stack_snapshot_t));
+    // dump_bytes(same_pd, (uintptr_t)proc->memory.execution.stack_pointer - 128, 128);
+    // dump_bytes(same_pd, (uintptr_t)proc->memory.execution.stack_pointer, 128);
+    // dump_bytes(same_pd, proc->memory.stack.address + proc->memory.stack.size - 128, 128);
+    // dump_bytes(same_pd, proc->memory.stack.address + proc->memory.stack.size,       128);
 }
