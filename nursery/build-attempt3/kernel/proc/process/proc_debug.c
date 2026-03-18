@@ -92,7 +92,8 @@ static void format_mem_region(log_write_stream_t *stream, char *name, mem_region
 void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     process_t *proc = va_arg(args, process_t *);
 
-    stream->printf(stream->context, "Process pid=%d, ppipd=%d, name='%s', priority=%d, flags=0x%x", 
+    stream->printf(stream->context, "Process ptr=0x%x, pid=%d, ppipd=%d, name='%s', priority=%d, flags=0x%x", 
+        proc,
         proc_get_pid(proc),
         proc_get_ppid(proc),
         proc->name,

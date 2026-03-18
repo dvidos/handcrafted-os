@@ -95,18 +95,20 @@ static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t s
     log_debug_hex(address, length, starting_num);
 }
 
-static virt_addr_t sys_sbrk(int diff_size) {
+static virt_addr_t sys_sbrk(int difference) {
     process_t *p = running_process();
     if (!p) return 0;
     
-    virt_addr_t initial_break = p->user_proc.heap + p->user_proc.heap_size;
-    if (diff_size > 0) {
-        diff_size = (diff_size + 0xFFF) & 0xFFFFF000; // round up to next page / 4K
-        virt_addr_t heap_end = p->user_proc.heap + p->user_proc.heap_size;
-        vmm_allocate_memory_range(heap_end, heap_end + diff_size, p->memory.page_dir);
-        p->user_proc.heap_size += diff_size;
+    virt_addr_t original_break = p->memory.heap.address + p->memory.heap.size;
+
+    if (difference > 0) {
+        difference = vmm_round_up(difference);
+        virt_addr_t new_break = p->memory.heap.address + p->memory.heap.size;
+        vmm_allocate_memory_range(new_break, new_break + difference, p->memory.page_dir);
+        p->memory.heap.size += difference;
     }
-    return initial_break;
+
+    return original_break;
 }
 static int sys_exit(int exit_code) {
     // current process exiting, preserve exit code, wake up waiting parents
@@ -155,7 +157,13 @@ static int sys_readdir(int handle, void *dirent) {
 static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
 }
+static int sys_fork() {
+    return proc_fork(running_process());
+}
 static int sys_exec(char *path, char **argv, char **envp) {
+    return proc_execve(running_process(), path, argv, envp);
+}
+static int sys_spawn(char *path, char **argv, char **envp) {
     return spawnve(path, argv, envp);
 }
 static int sys_wait_child(int *exit_code) {
@@ -292,6 +300,9 @@ int isr_syscall(struct syscall_stack stack) {
             break;
         case SYS_EXEC:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
             return_value = sys_exec((char *)stack.passed.arg1, (char **)stack.passed.arg2, (char **)stack.passed.arg3);
+            break;
+        case SYS_SPAWN:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
+            return_value = spawnve((char *)stack.passed.arg1, (char **)stack.passed.arg2, (char **)stack.passed.arg3);
             break;
         case SYS_WAIT_CHILD:
             return_value = sys_wait_child((int *)stack.passed.arg1);

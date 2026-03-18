@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 
 // generate a init_data segment, by having some variables.
@@ -38,5 +39,8 @@ int main(int argc, char *argv[]) {
     // }
 
     printf("Looping forever...");
-    for(;;);
+    for(;;) {
+        syslog_info("Hello from init");
+        sleep(500);
+    }
 }

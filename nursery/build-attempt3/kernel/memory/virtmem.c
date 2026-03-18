@@ -11,7 +11,7 @@
 #include "../klib/string.h"
 #include "../memory/mem_region.h"
 
-MODULE("VMM", LOG_LEVEL_TRACE);
+MODULE("VMM", LOG_LEVEL_INFO);
 
 /*
    Paging is mapping a virtual address to a physical one.
@@ -546,7 +546,7 @@ void vmm_page_fault_handler(uint32_t error_code) {
     // but, if we had a memory map (the mem_regions), we could identify who errored
     // e.g. stack underflow, or heap overflow, guard, mem-mapped file, etc
     
-    error_t err = vmm_map_page_to_pd(vmm_round_down(memory_address), memory_address, true, true, page_dir_address);
+    error_t err = vmm_map_page_to_pd(vmm_round_down(memory_address), vmm_round_down(memory_address), true, true, page_dir_address);
 }
 
 // allocates and creates a new page directory

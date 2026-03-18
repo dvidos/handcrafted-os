@@ -8,6 +8,7 @@
 #include "../memory/kheap.h"
 #include "../memory/virtmem.h"
 #include "../klib/string.h"
+#include "../utils/panic.h"
 
 MODULE("MTASK", LOG_LEVEL_WARN);
 
@@ -28,16 +29,13 @@ void init_multitasking() {
     initialize_process_lists();
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
-    process_t *idle = create_process_v1(
-        true,
-        "Idle", 
-        NULL, 
-        PROCESS_PRIORITY_LEVELS - 1,  // lowest priority by definition
-        0,
-        NULL
-    );
+    process_t *idle;
+    error_t err = process_v2_create_for_kernel("idle", 0, PRIORITY_IDLE_TASK, &idle);
+    if (err) panic("Error creating the idle task: %s", strerror(err));
+
+    // set to running in order to swap it
     running_proc = idle;
-    running_proc->state = RUNNING; // set to running in order to swap it
+    running_proc->state = RUNNING;
 
     // idle task is by definition the lowest priority
     proclist_append(&ready_lists[idle->priority], idle);
@@ -62,7 +60,6 @@ void start_multitasking() {
     // we shall become the idle task.
     // this task must not sleep or block
     while (true) {
-        
         // maybe not ideal for an idle task, 
         // but maybe we can use it for some housekeeping
         while (terminated_list.head != NULL) {

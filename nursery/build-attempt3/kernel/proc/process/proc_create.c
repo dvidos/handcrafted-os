@@ -13,7 +13,7 @@
 #include "../elf_reader.h"
 
 
-MODULE("PROC_CREATE", LOG_LEVEL_TRACE);
+MODULE("PROC_CREATE", LOG_LEVEL_INFO);
 
 
 static pid_t   next_pid();
@@ -719,66 +719,6 @@ failed:
 }
 
 
-// --------------- original kernel's attempt ---------------------------------
-// original proc create code below
-// ---------------------------------------------------------------------------
-
-static void _unlock_and_run_entry_point() {
-    // unlock the scheduler in our first execution
-    unlock_scheduler(); 
-
-    // we can now call the entry point.
-    // for kernel tasks, this is a method in kernel space.
-    // for exec(), this is a kernel method to load and run the executable
-    // the called method should not return, but call exit() to exit.
-    process_t *r = running_process();
-    ((func_ptr)r->entry_point)();
-
-    // terminate and later free the process
-    log_warn("process(): It seems main returned");
-    proc_exit(r, -7);
-}
-
-// create but don't start yet
-process_t *create_process_v1(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty) {
-    if (priority >= PROCESS_PRIORITY_LEVELS) {
-        log_warn("priority %d requested when we only have %d levels", priority, PROCESS_PRIORITY_LEVELS);
-        return NULL;
-    }
-
-    process_t *p = (process_t *)kmalloc(sizeof(process_t));
-    memset(p, 0, sizeof(process_t));
-    
-    p->pid = next_pid();
-    p->parent = parent;
-    p->priority = priority;
-    p->tty = tty;
-    p->name = kmalloc(strlen(name) + 1);
-    strcpy(p->name, name);
-    p->state = READY;
-
-    // every process gets this small stack, to be able to switch in
-    // since this is inside kernel's mapped memory, no paging faults should occur
-    int stack_size = 4096;
-    p->allocated_kernel_stack = kmalloc(stack_size);
-    memset(p->allocated_kernel_stack, 0, stack_size);
-    *(uint32_t *)p->allocated_kernel_stack = STACK_BOTTOM_MAGIC_VALUE;
-
-    // we now have a small stack to set the "return" address for the first switching.
-    // how can we setup the initial stack, i.e. the arguments to that entry point?
-    p->memory.execution.stack_pointer = (uint32_t)(p->allocated_kernel_stack + stack_size - sizeof(switched_stack_snapshot_t));
-    p->memory.execution.stack_snapshot->return_address = (uint32_t)_unlock_and_run_entry_point;
-    p->memory.page_dir = vmm_get_kernel_page_directory();  
-
-    // what our _unlock_and_run_entry_point() should call
-    p->entry_point = (uintptr_t)entry_point;
-
-    // set working directory
-    proc_chdir(p, "/");
-
-    log_trace("process_create(name=\"%s\") -> PID %d, ptr 0x%p", p->name, p->pid, p);
-    return p;
-}
 
 // after a process has terminated, clean up resources
 void proc_destroy(process_t *proc) {
@@ -788,9 +728,6 @@ void proc_destroy(process_t *proc) {
 
     if (proc->name != NULL)
         kfree(proc->name);
-
-    if (proc->allocated_kernel_stack != 0)
-        kfree(proc->allocated_kernel_stack);
 
     _unmap_and_release_all_regions_of_process(proc);
 

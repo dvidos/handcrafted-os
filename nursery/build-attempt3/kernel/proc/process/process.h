@@ -136,27 +136,11 @@ struct process {
     pid_t terminated_child_pid;
     int   terminated_child_exit_code;
 
-    // allocated from kernel heap. 
-    // used for kernel tasks and for the first stage of loading an executable
-    void *allocated_kernel_stack;
-
     // data for loading and running user processes
     struct {
         char *executable_path;
-
         char **argv;
         char **envp;
-
-        // for user processes, libc will call sbrk()
-        virt_addr_t heap;           // heap will grow upwards
-        uint32_t heap_size;   // to allow sbrk() to work
-
-        // this stack allocated from physical memory
-        // along with the other segments (e.g. .code, .data, .bss)
-        // stack bottom used to set and detect stack underflow
-        virt_addr_t stack_bottom;
-        uint32_t stack_size;
-
     } user_proc;
 
     inode_t *curr_dir;

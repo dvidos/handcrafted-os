@@ -58,7 +58,7 @@
     #error "To compile for kernel the __KERNEL__ macro must be defined"
 #endif
 
-MODULE("MAIN", LOG_LEVEL_WARN);
+MODULE("MAIN", LOG_LEVEL_INFO);
 
 
 
@@ -169,6 +169,7 @@ static void launch_initial_process() {
     error_t err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
 
+    log_info_fmt("init: ", proc, proc_log_formatter);
     proc_start(proc);
 }
 
