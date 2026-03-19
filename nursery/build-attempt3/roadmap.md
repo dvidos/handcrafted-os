@@ -4,9 +4,10 @@ At high level, the steps will be:
 
 * ~~Make the sfs_tool to generate image~~
 * Make and verify: fork(), execve(), spawn(), wait(), waitpid(), _exit(), elf loader, syscalls
-* Make and put the tiniest executables, into the image
-* Then bring in libc, on top of syscalls, make unit tests
+* ~~Make and put the tiniest executables, into the image~~
+* ~~Then bring in libc, on top of syscalls, make unit tests~~
 * Then bring in the basic programs from : init, shell, edit, etc.
+
 
 _(we are now in parity with existing kernel, move to project root)_
 

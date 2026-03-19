@@ -12,16 +12,14 @@ static int allocate_file_handle(process_t *proc, open_file_t *file) {
     mutex_acquire(&proc->process_lock);
 
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
-        // if entry is all zeros, means it's unused
-        if (memchk(&proc->file_handles[i], 0, sizeof(open_file_t))) {
+        if (proc->file_handles[i] == NULL) {
             handle = i;
             break;
         }
     }
 
     if (handle >= 0 && handle < MAX_FILE_HANDLES)
-        // we should really do a deep copy function
-        memcpy(&proc->file_handles[handle], file, sizeof(open_file_t));
+        proc->file_handles[handle] = file;
     
     mutex_release(&proc->process_lock);
     return handle;
@@ -31,19 +29,21 @@ static bool is_valid_handle(process_t *proc, int handle) {
     if (handle < 0 || handle >= MAX_FILE_HANDLES)
         return false;
     
-    // the handle should not contain all zeros, to be used
-    return !memchk(&(proc->file_handles[handle]), 0, sizeof(open_file_t));
+    return proc->file_handles[handle] != NULL;
 }
 
 static int free_file_handle(process_t *proc, int handle) {
-    if (!is_valid_handle(proc, handle))
-        return ERR_BAD_ARGUMENT;
-    
+    error_t err = OK;
+
     mutex_acquire(&proc->process_lock);
-    memset(&proc->file_handles[handle], 0, sizeof(open_file_t));
+    if (is_valid_handle(proc, handle)) {
+        proc->file_handles[handle] = NULL;
+    } else {
+        err = ERR_BAD_ARGUMENT;
+    }
     mutex_release(&proc->process_lock);
 
-    return OK;
+     return err;
 }
 
 int proc_open(process_t *proc, char *name) {
@@ -57,27 +57,31 @@ int proc_open(process_t *proc, char *name) {
 }
 
 int proc_read(process_t *proc, int handle, char *buffer, int length) {
-    if (!is_valid_handle(proc, handle))
+    if (!is_valid_handle(proc, handle)) {
+        log_warn("error proc pid %d, gave bad handle %d on read()", proc->pid, handle);
         return ERR_BAD_ARGUMENT;
-    return vfs_read(&proc->file_handles[handle], buffer, length);
+    }
+    return vfs_read(proc->file_handles[handle], buffer, length);
 }
 
 int proc_write(process_t *proc, int handle, char *buffer, int length) {
-    if (!is_valid_handle(proc, handle))
+    if (!is_valid_handle(proc, handle)) {
+        log_warn("error proc pid %d, gave bad handle %d on write()", proc->pid, handle);
         return ERR_BAD_ARGUMENT;
-    return vfs_write(&proc->file_handles[handle], buffer, length);
+    }
+    return vfs_write(proc->file_handles[handle], buffer, length);
 }
 
 int proc_seek(process_t *proc, int handle, int offset, int origin) {
     if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
-    return vfs_seek(&proc->file_handles[handle], offset, origin);
+    return vfs_seek(proc->file_handles[handle], offset, origin);
 }
 
 int proc_close(process_t *proc, int handle) {
     if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
-    int err = vfs_close(&proc->file_handles[handle]);
+    int err = vfs_close(proc->file_handles[handle]);
     if (err) return err;
 
     free_file_handle(proc, handle);
@@ -102,7 +106,7 @@ int proc_readdir(process_t *proc, int handle, vfs_dirent_t *entry) {
     // if (handle < 0 || handle >= MAX_FILE_HANDLES)
     //     return ERR_BAD_ARGUMENT;
     // inode_t *n;
-    // int err = vfs_readdir(&proc->file_handles[handle], &n);
+    // int err = vfs_readdir(proc->file_handles[handle], &n);
     // if (!err) {
     //     entry->location = n->location;
     //     entry->size = n->size;
@@ -119,7 +123,7 @@ int proc_closedir(process_t *proc, int handle) {
     if (handle < 0 || handle >= MAX_FILE_HANDLES)
         return ERR_BAD_ARGUMENT;
 
-    int err = vfs_closedir(&proc->file_handles[handle]);
+    int err = vfs_closedir(proc->file_handles[handle]);
     if (err) return err;
 
     free_file_handle(proc, handle);

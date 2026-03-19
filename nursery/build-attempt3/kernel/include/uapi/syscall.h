@@ -1,5 +1,5 @@
-#ifndef _SYSCALL_H
-#define _SYSCALL_H
+#ifndef _KERNEL_SYSCALL_H
+#define _KERNEL_SYSCALL_H
 
 
 

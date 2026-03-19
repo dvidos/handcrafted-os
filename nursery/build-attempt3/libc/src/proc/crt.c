@@ -2,8 +2,6 @@
 #include <syscall.h>
 #include <stdlib.h>
 
-#ifndef __is_tests  // if we are compiling for tests, we want the host system's crt0
-
 /**
  * As at the moment I have no idea how I will exec() any user land process,
  * I am atm just interested in removing the warnings and improving the build system
@@ -69,5 +67,3 @@ void _start() {
     exit(exit_code);
 }
 
-
-#endif // not __is_tests

@@ -5,6 +5,7 @@
 #include "../utils/mutex.h"
 #include "../devices/tty.h"
 #include "../filesys/vfs_api.h"
+#include "../filesys/fs_drivers/fs_driver.h"
 #include "../../memory/virtmem.h"
 
 /**
@@ -145,7 +146,7 @@ struct process {
 
     inode_t *curr_dir;
     char *curr_dir_path;
-    open_file_t file_handles[MAX_FILE_HANDLES];
+    open_file_t *file_handles[MAX_FILE_HANDLES];
 };
 
 

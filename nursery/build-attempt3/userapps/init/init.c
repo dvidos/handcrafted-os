@@ -19,6 +19,8 @@ int main(int argc, char *argv[]) {
     printf("Hello from init!\n");
     // int i = 1;
 
+    write(1, "Hello stdout!\n", 14);
+
     initialized_variable_a += 123;
     initialized_variable_e += 666;
 
@@ -41,6 +43,6 @@ int main(int argc, char *argv[]) {
     printf("Looping forever...");
     for(;;) {
         syslog_info("Hello from init");
-        sleep(500);
+        sleep(1500);
     }
 }
