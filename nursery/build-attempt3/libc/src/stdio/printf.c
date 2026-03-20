@@ -5,13 +5,14 @@
 
 
 int printf(char* format, ...) {
-	char buffer[128];
+	char buffer[256];
 
     va_list args;
     va_start(args, format);
     vsprintfn(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    return puts(buffer);
+    write(1, buffer, strlen(buffer));
+    return 0;
 }
 

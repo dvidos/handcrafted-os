@@ -5,7 +5,7 @@
 #include "../../../logger/logger.h"
 
 
-MODULE("DEV_TTY", LOG_LEVEL_TRACE);
+MODULE("DEV_TTY", LOG_LEVEL_DEBUG);
 
 static superblock_t tty_superblock;
 

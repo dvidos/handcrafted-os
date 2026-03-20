@@ -14,7 +14,7 @@
 #include "../klib/strerror.h"
 #include "../filesys/fs_api.h"
 
-MODULE("VFS", LOG_LEVEL_DEBUG);
+MODULE("VFS", LOG_LEVEL_INFO);
 
 
 typedef struct substring {

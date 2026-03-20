@@ -2,7 +2,7 @@
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 
-MODULE("OPEN_FILE", LOG_LEVEL_TRACE);
+MODULE("OPEN_FILE", LOG_LEVEL_DEBUG);
 
 
 static open_file_t *_open_file_create(superblock_t *sb, inode_t *n) {

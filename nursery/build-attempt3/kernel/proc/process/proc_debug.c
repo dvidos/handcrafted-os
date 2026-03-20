@@ -3,7 +3,7 @@
 #include "../../logger/logger.h"
 #include "../../memory/kheap.h"
 
-MODULE("PROC_DBG", LOG_LEVEL_TRACE);
+MODULE("PROC_DBG", LOG_LEVEL_DEBUG);
 
 
 

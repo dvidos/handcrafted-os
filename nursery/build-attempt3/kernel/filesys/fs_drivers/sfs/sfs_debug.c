@@ -1,7 +1,7 @@
 #include "sfs_internal.h"
 #include "../../../logger/logger.h"
 
-MODULE("SFS", LOG_LEVEL_TRACE);
+MODULE("SFS", LOG_LEVEL_DEBUG);
 
 
 

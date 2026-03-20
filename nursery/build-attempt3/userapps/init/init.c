@@ -43,14 +43,16 @@ void open_tty() {
     int h = open("/dev/tty0");
     if (h < 0) fatal("Failed opening tty0");
 
-    // h == 0, stdin
+    open("/dev/tty0"); // 1=stdout
+    open("/dev/tty0"); // 2=stderr
+
     // dup(h); // 1 = stdout
     // dup(h); // 2 = stderr
 }
 
 
-char *load_rc_file() {
-    int h = open("/etc/rc");
+char *load_initrc_file() {
+    int h = open("/etc/initrc");
     if (h < 0) return NULL;
 
     int length = seek(h, 0, SEEK_END);
@@ -66,19 +68,21 @@ char *load_rc_file() {
     return buff;
 }
 
-int execute_command(char *cmd_line) {
-    // fork and exec, for testing?
-    return 0;
+void execute_command(char *cmd_line) {
+    if (cmd_line[0] == 0)
+        return;
+    
+    printf("would execute '%s'\n", cmd_line);
 }
 
 int execute_rc_file() {
-    char *text = load_rc_file();
+    char *text = load_initrc_file();
     if (text == NULL) {
         printf("Error loading /etc/rc file\n");
         return -1;
     }
 
-    int cmd_size = 4096;
+    int cmd_size = 1024;
     char *cmd = malloc(cmd_size);
 
     // now parse the good old way
@@ -86,7 +90,7 @@ int execute_rc_file() {
     while (start != NULL && *start != 0) {
         char *end = strchr(start, '\n');
         end = end != NULL ? end : start + strlen(start);
-        int cmd_len = end - start;
+        int cmd_len = end - start + 1;
 
         cmd_len = cmd_len > cmd_size - 1 ? cmd_size - 1 : cmd_len;
         strncpy(cmd, start, cmd_len);
@@ -96,10 +100,7 @@ int execute_rc_file() {
         if (*start == '\n')
             start++;
 
-        if (strlen(cmd) == 0 || cmd[0] == '#')
-            continue;
-
-        printf("Init would execute '%s'\n", cmd);
+        execute_command(cmd);
     }
 
     free(text);
@@ -108,33 +109,11 @@ int execute_rc_file() {
 }
 
 int main(int argc, char *argv[]) {
-    printf("Hello from init!\n");
-    // int i = 1;
-
     open_tty();
-    write(0, "Hello tty!\n", 14);
-    // write(1, "Hello stdout!\n", 14);
-    // write(2, "Hello stderr!\n", 14);
+    printf("init running...\n");
 
-    initialized_variable_a += 123;
-    initialized_variable_e += 666;
-
-    printf("And here's another string, hoping for a nice rodata section! (%d) \n", 
-            initialized_variable_a + initialized_variable_f);
-
-    // int ret = fork();
-    // if (ret == 0) {
-    //     printf("fork returned zero\n");
-    // } else {
-    //     printf("fork returned %d\n", ret);
-    // }
-
-    printf("Executing /etc/initrc file");
     execute_rc_file();
 
-    printf("Looping forever...");
-    for(;;) {
-        syslog_info("Hello from init");
-        sleep(1500);
-    }
+    printf("init pausing...");
+    for(;;) { sleep(1000); }
 }
