@@ -85,7 +85,7 @@ void real_time_clock_interrupt_interrupt_handler(registers_t *regs) {
     // Bit 6 – Periodic
     // Bit 5 – Alarm
     // Bit 4 – Update Ended    
-    // printf("(tick)", type_of_interrupt);
+    // tty_printf("(tick)", type_of_interrupt);
 
     if (type_of_interrupt & 0x40) {
         // we mostly would like an interrupt per second, but divider of 0xF gives us 2 Hz.
@@ -204,8 +204,8 @@ void get_real_time_clock(real_time_clock_info_t *p) {
     // Bit 2 – Invalid Time or Data (32nd)
 
 
-    // printf("RTC registers: a:%02x  b:%02x\n", register_a, register_b);
-    // printf("RTC values:    s:%02x  m:%02x  h:%02x  w:%02x  d:%02x  m:%02x  y:%02x  c:%02x\n", seconds, minutes, hours, dow, days, months, years, centuries);
+    // tty_printf("RTC registers: a:%02x  b:%02x\n", register_a, register_b);
+    // tty_printf("RTC values:    s:%02x  m:%02x  h:%02x  w:%02x  d:%02x  m:%02x  y:%02x  c:%02x\n", seconds, minutes, hours, dow, days, months, years, centuries);
 
     // bit 3 in register b tells us if values are already in decimal. 
     bool is_bcd_format = (register_b & 0x04) == 0;

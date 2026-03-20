@@ -29,16 +29,21 @@ void syslog_hex_dump(int level, void *address, uint32_t length, uint32_t startin
 int getpid();
 int getppid();
 
-
 int sleep(unsigned int milliseconds);
 void exit(int exit_code);
+
+// on child it returns zero, on parent, the child's PID
 int fork();
 
 // wait for any child. positive returned value is the PID
 int wait(int *exit_status);
 
-// execute a fule. argv[0] expected to be path
+// execute a file. never returns
 int exec(char *path, char **argv, char **envp);
+
+// execute the file in a child process
+int spawn(char *path, char **argv, char **envp);
+
 
 
 // environ value may change after setenv()

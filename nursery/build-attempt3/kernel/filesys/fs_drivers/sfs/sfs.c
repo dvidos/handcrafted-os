@@ -619,7 +619,7 @@ static error_t sfs_driver_truncate(inode_t *n, size_t size) {
 }
 
 
-static fs_driver_ops_t simple_fs_ops = {
+static fs_driver_ops_t console_fs_ops = {
     .probe        = sfs_driver_probe,
     .mount        = sfs_driver_mount,
     .unmount      = sfs_driver_unmount,
@@ -646,7 +646,7 @@ static fs_driver_ops_t simple_fs_ops = {
 
 fs_driver_t simple_fs = {
     .name = "Simple file system (SFS)",
-    .ops = &simple_fs_ops,
+    .ops = &console_fs_ops,
     .probe = sfs_driver_probe,
     .mkfs = sfs_driver_mkfs,
 };

@@ -50,6 +50,7 @@ KERNEL_C_FILES = \
 	$(wildcard filesys/*.c) \
 	$(wildcard filesys/partitions/*.c) \
 	$(wildcard filesys/vfs_objects/*.c) \
+	$(wildcard filesys/dev_drivers/tty/*.c) \
 	$(wildcard filesys/fs_drivers/skeleton_fs/*.c) \
 	$(wildcard filesys/fs_drivers/dummy_fs/*.c) \
 	$(wildcard filesys/fs_drivers/sfs/*.c) \

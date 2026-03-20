@@ -192,9 +192,9 @@ static void screen_putchar(char c)
     screen_set_cursor(screen_row, screen_column);
 }
 
-void screen_write(const char* data)
+void screen_write(const char* data, int len)
 {
-    while (*data != '\0')
+    while (len-- > 0)
         screen_putchar(*data++);
 }
 
@@ -205,7 +205,7 @@ void screen_panic_writer(const char* data)
 }
 
 void screen_log_appender(void *context, const char *str) {
-    screen_write(str);
+    screen_write(str, strlen(str));
 }
 
 // printk() prints to screen directly using the driver
@@ -217,6 +217,6 @@ void printk(char *format, ...) {
     vsprintfn(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    screen_write(buffer);
+    screen_write(buffer, strlen(buffer));
 }
 

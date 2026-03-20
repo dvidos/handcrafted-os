@@ -10,7 +10,7 @@ int screen_rows();
 int screen_cols();
 
 void screen_clear();
-void screen_write(const char* data);
+void screen_write(const char* data, int len);
 
 uint8_t screen_get_color();
 void screen_set_color(uint8_t color);

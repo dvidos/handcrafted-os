@@ -12,8 +12,9 @@
 #include "../logger/logger.h"
 #include "../utils/assert.h"
 #include "../klib/strerror.h"
+#include "../filesys/fs_api.h"
 
-MODULE("VFS", LOG_LEVEL_WARN);
+MODULE("VFS", LOG_LEVEL_DEBUG);
 
 
 typedef struct substring {
@@ -41,7 +42,7 @@ static substring_t get_path_first_substring(const char *path) {
 }
 
 
-static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t *inod_out, const char **name_out) {
+static error_t vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent, inode_t *inod_out, const char **name_out) {
     log_trace("vfs_flex_lookup(start=%llu, path='%s', parent=%s)", (start == NULL ? 0ULL : start->inode_num), path, lookup_parent ? "true" : "false");
     if (path == NULL || *path == 0 || path[0] != '/')
         return traceable(ERR_BAD_ARGUMENT);
@@ -113,7 +114,7 @@ static int vfs_flex_lookup(inode_t *start, const char *path, bool lookup_parent,
     return OK;
 }
 
-static int vfs_lookup_target(const char *path, inode_t *target_out) {
+static error_t vfs_lookup_target(const char *path, inode_t *target_out) {
     log_trace("vfs_lookup_target(path='%s')", path);
     if (path[0] != '/') return traceable(ERR_BAD_ARGUMENT); // till we get process cwd
 
@@ -124,7 +125,7 @@ static int vfs_lookup_target(const char *path, inode_t *target_out) {
     return OK;
 }
 
-static int vfs_lookup_parent(const char *path, inode_t *parent_out, const char **final_name_out) {
+static error_t vfs_lookup_parent(const char *path, inode_t *parent_out, const char **final_name_out) {
     log_trace("vfs_lookup_parent(path='%s')", path);
     if (path[0] != '/') return traceable(ERR_BAD_ARGUMENT); // till we get process cwd
 
@@ -136,7 +137,7 @@ static int vfs_lookup_parent(const char *path, inode_t *parent_out, const char *
 
 // ----------------------------------------------------------------------------------------
 
-int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
+error_t vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     log_trace("vfs_mount(path='%s', dev='%s')", path, dev->id);
     int err;
     inode_t host_dir = inodes.empty();
@@ -173,7 +174,7 @@ int vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
     return OK;
 }
 
-int vfs_unmount(const char *path) {
+error_t vfs_unmount(const char *path) {
     log_trace("vfs_unmount(path='%s')", path);
     int err;
     inode_t dir = inodes.empty();
@@ -197,7 +198,7 @@ int vfs_unmount(const char *path) {
     return OK;
 }
 
-int vfs_sync(void) {
+error_t vfs_sync(void) {
     log_trace("vfs_sync()");
     for (mount_entry_t *entry = mtab.get_entries_list(); entry; entry = entry->next) {
         // ignore errors and try to sync all, anyway
@@ -206,10 +207,27 @@ int vfs_sync(void) {
     return OK;
 }
 
-int vfs_open(const char *path, int flags, open_file_t **file) {
+static error_t vfs_open_device(const char *path, int flags, open_file_t **file) {
+    log_trace("vfs_open_device(path='%s')", path);
+
+    const device_t *dev = fs_lookup_device(path);
+    if (dev == NULL)
+        return ERR_NOT_FOUND;
+    
+    log_debug("device is #%d", dev->dev_number);
+    inode_t dev_inode = { .inode_num = dev->dev_number };
+    return dev->driver->ops->open(&dev_inode, 0, file);
+}
+
+error_t vfs_open(const char *path, int flags, open_file_t **file) {
     log_trace("vfs_open(path='%s', flags=%d)", path, flags);
     int err;
     inode_t n = inodes.empty();
+
+    // ideally a /dev is mounted. for now we take a shortcut
+    if (memcmp((char *)path, "/dev/", 5) == 0) {
+        return vfs_open_device(path + 5, flags, file);
+    }
 
     err = vfs_lookup_target(path, &n);
     if (err) return err;
@@ -226,7 +244,7 @@ int vfs_open(const char *path, int flags, open_file_t **file) {
     return OK;
 }
 
-int vfs_close(open_file_t *file) {
+error_t vfs_close(open_file_t *file) {
     log_trace("vfs_close(file=%ld)", file->inode);
     int err = file->sb->driver->close(file);
     if (err) return err;

@@ -13,7 +13,7 @@
 static void show_process(bool title, process_t *p, int *row) {
     tty_set_cursor(*row, 0);
     if (title) {
-        printf("  PID  PPID Pr Status     Block Rsn  TTY  PgDir Heap Stack Name");
+        tty_printf("  PID  PPID Pr Status     Block Rsn  TTY  PgDir Heap Stack Name");
         //      12345 12345 12 1234567890 1234567890 123 123456 1234  1234 12345678901234567890
         (*row)++;
     } else if (p != NULL) {
@@ -23,7 +23,7 @@ static void show_process(bool title, process_t *p, int *row) {
         else
             strcpy(tty_dev, "-");
         
-        printf("%5d %5d %2d %-10s %-10s %3s %6x %4d  %4d %s",
+        tty_printf("%5d %5d %2d %-10s %-10s %3s %6x %4d  %4d %s",
             p->pid,
             p->parent == NULL ? 0 : p->parent->pid,
             p->priority,
@@ -100,7 +100,7 @@ void process_monitor_main() {
         uint32_t heap_percent = (heap_used * 100) / heap_total;
 
         tty_set_cursor(0, 0);
-        printf("Memory          Total     Free     Used Used");
+        tty_printf("Memory          Total     Free     Used Used");
         tty_set_cursor(1, 0);
         // printf("Phys Mem KB  %8d %8d %8d %3d%%", phys_mem.kb_total, phys_mem.kb_free, phys_mem.kb_used, phys_mem_kb_percent);
         // tty_set_cursor(2, 0);
@@ -109,13 +109,13 @@ void process_monitor_main() {
         // printf("Kern Heap KB %8d %8d %8d %3d%%", heap_total, heap_free, heap_used, heap_percent);
 
         tty_set_cursor(0, 50);
-        printf("%3s, %2d %3s %04d, %02d:%02d:%02d",
+        tty_printf("%3s, %2d %3s %04d, %02d:%02d:%02d",
             days[time.dow], time.days, months[time.months], time.years, 
             time.hours, time.minutes, time.seconds
         );
 
         tty_set_cursor(1, 50);
-        printf("Uptime %2dd %02dh %02dm %02ds", up_days, up_hours, up_mins, up_secs);
+        tty_printf("Uptime %2dd %02dh %02dm %02ds", up_days, up_hours, up_mins, up_secs);
 
         // we shouldn't dive into multitasking internals, but how? 
         int row = 5;
@@ -139,37 +139,37 @@ void vfs_monitor_main() {
         int row = 0;
 
         tty_set_cursor(row++, 0);
-        printf("---------- Block Devices ----------");
+        tty_printf("---------- Block Devices ----------");
         tty_set_cursor(row++, 0);
-        printf("ID         BlkSz     Blocks  Name");
+        tty_printf("ID         BlkSz     Blocks  Name");
         //     |1234567890 12345 1234567890  123456789012345678901234567890
         list_foreach(&block_devices_list, block_device_t, bdev) {
             tty_set_cursor(row++, 0);
-            printf("%10s %5lu %10lu %s", bdev->id, bdev->block_size, bdev->total_blocks, bdev->name);
+            tty_printf("%10s %5lu %10lu %s", bdev->id, bdev->block_size, bdev->total_blocks, bdev->name);
         }
         row++;
 
 
         tty_set_cursor(row++, 0);
-        printf("---------- Char Devices ----------");
+        tty_printf("---------- Char Devices ----------");
         tty_set_cursor(row++, 0);
-        printf("ID Name                          ");
+        tty_printf("ID Name                          ");
         //     |1234567890 123456789012345678901234567890
         list_foreach(&char_devices_list, char_device_t, cdev) {
             tty_set_cursor(row++, 0);
-            printf("%10s %s", cdev->id, cdev->name);
+            tty_printf("%10s %s", cdev->id, cdev->name);
         }
         row++;
 
         tty_set_cursor(row++, 0);
-        printf("---------- Mounted Filesystems ----------");
+        tty_printf("---------- Mounted Filesystems ----------");
         tty_set_cursor(row++, 0);
-        printf("Host Dir     Root Dir    Flags");
+        tty_printf("Host Dir     Root Dir    Flags");
         //     |
         mount_entry_t *mount_entry = mtab_entries_list_head;
         while (mount_entry != NULL) {
             tty_set_cursor(row++, 0);
-            printf("%8d   %8d    %8d",
+            tty_printf("%8d   %8d    %8d",
                 mount_entry->host_dir.inode_num,
                 mount_entry->root_dir.inode_num,
                 mount_entry->flags

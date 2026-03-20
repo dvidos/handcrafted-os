@@ -104,6 +104,10 @@ typedef struct dirent {
 } dirent_t;
 
 
+#define SEEK_SET   0
+#define SEEK_CUR   1
+#define SEEK_END   2
+
 int getcwd(char *buffer, int size);
 int chdir(char *path);
 

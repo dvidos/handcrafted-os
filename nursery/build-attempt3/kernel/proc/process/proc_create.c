@@ -555,45 +555,6 @@ static error_t _unmap_and_release_all_regions_of_process(process_t *proc) {
     return OK;
 }
 
-// -------------------------------------
-
-static ssize_t _std_stream_read(open_file_t *file, void *buf, size_t len, off_t offset) {
-    // let's say we don't support getting keys / chars now.
-    return 0;
-}
-
-static ssize_t _std_stream_write(open_file_t *file, const void *buf, size_t len, off_t offset) {
-    log_info("Pseudo write called!, buf='%s'" ,buf);
-    tty_write_specific_tty(tty_manager_get_device(0), buf);
-    return strlen(buf);
-}
-
-static fs_driver_ops_t std_stream_ops = {
-    .read = _std_stream_read,
-    .write = _std_stream_write
-};
-
-static superblock_t std_stream_sb = {
-    .driver = &std_stream_ops,
-};
-
-static open_file_t *_prepare_pseudo_file(int num) {
-    open_file_t *f = kmalloc(sizeof(open_file_t));
-    memset(f, 0, sizeof(open_file_t));
-    f->sb = &std_stream_sb;
-    f->inode.inode_num = num;
-    return f;
-}
-
-static error_t _prepare_std_in_out_err(process_t *proc) {
-    proc->file_handles[0] = _prepare_pseudo_file(0);
-    proc->file_handles[1] = _prepare_pseudo_file(1);
-    proc->file_handles[2] = _prepare_pseudo_file(2);
-    return OK;
-}
-
-// -----------------------------------------
-
 static error_t _create_base_process_v2(bool is_user_proc, page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, process_t **proc_ptr) {
     ASSERT(pd != 0);
     ASSERT(name != NULL);
@@ -677,9 +638,6 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     new_pd = 0; // from now on, the process shall destroy the PD
     
     err = _allocate_and_initialize_all_regions_for_elf(proc, elf);
-    if (err) goto failed;
-
-    err = _prepare_std_in_out_err(proc);
     if (err) goto failed;
 
     vfs_close(elf);

@@ -17,6 +17,7 @@ int strcmp(const char *a, const char *b);
 char *strchr(char *str, char c);
 char *strstr(char *haystack, char *needle);
 char *strtok(char *str, char *delimiters);
+void strncpy(char *target, char *source, size_t target_size);
 
 // caller is supposed to free the duplicate
 char *strdup(const char *str);

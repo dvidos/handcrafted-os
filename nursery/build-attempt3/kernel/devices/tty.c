@@ -120,6 +120,10 @@ void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
     keyboard_register_hook(handle_key_in_interrupt);
 }
 
+int tty_manager_get_devices_count() {
+    return tty_mgr_data.num_of_ttys;
+}
+
 tty_t *tty_manager_get_device(int dev_no) {
     tty_t *tty = tty_mgr_data.ttys_list;
     while (tty != NULL) {
@@ -193,12 +197,12 @@ void tty_read_key(key_event_t *event) {
 void tty_write(const char *buffer) {
     tty_t *tty = running_process()->tty;
     if (tty != NULL)
-        tty_write_specific_tty(tty, buffer);
+        tty_write_specific_tty(tty, buffer, strlen(buffer));
 }
 
 
-// printf() prints to the process tty
-void printf(char *format, ...) {
+// tty_printf() prints to the process tty
+void tty_printf(char *format, ...) {
     char buffer[128];
 
     va_list args;
@@ -209,21 +213,46 @@ void printf(char *format, ...) {
     tty_write(buffer);
 }
 
-void tty_write_specific_tty(tty_t *tty, const char *buffer) {
+void tty_write_specific_tty(tty_t *tty, const char *buffer, int length) {
     if (tty == NULL)
         return;
     
     // put something on the buffer of the tty 
     // if tty is visibile, put it on the screen as well    
-    int len = strlen(buffer);
     //log_trace("tty: writing %d bytes on tty %d", len, tty->dev_no);
     
     bool need_screen_redraw = false;
-    virtual_buffer_put_buffer(tty, buffer, len, &need_screen_redraw);
+    virtual_buffer_put_buffer(tty, buffer, length, &need_screen_redraw);
 
     if (tty == tty_mgr_data.active_tty) {
         draw_tty_buffer_to_screen(tty);
     }
+}
+
+int tty_read_specific_tty(tty_t *tty, char *buffer, int length) {
+    key_event_t event;
+
+    if (length == 0)
+        return 0;
+    int read = 0;
+
+    if (tty->keys_buffer_len == 0) {
+        tty_read_key(&event);
+        *buffer++ =  event.ascii;
+        length--;
+        read++;
+    }
+
+    // now collect any others, if they exist
+    while (tty->keys_buffer_len > 0 && length > 0) {
+        tty_read_key(&event);
+        *buffer++ =  event.ascii;
+        length--;
+        read++;
+    }
+
+    // we are done
+    return read;
 }
 
 void tty_set_color(int color) {
@@ -499,5 +528,5 @@ static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw) {
 void tty_log_appender(void *context, const char *str) {
     // context is supposed to represent the logger tty device
     tty_t *tty = (tty_t *)context;
-    tty_write_specific_tty(tty, str);
+    tty_write_specific_tty(tty, str, strlen(str));
 }

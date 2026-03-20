@@ -32,6 +32,7 @@
 #include "filesys/partitions/uefi_partition.h"
 #include "filesys/fs_drivers/skeleton_fs/skeleton_fs.h"
 #include "filesys/fs_drivers/sfs/sfs.h"
+#include "filesys/dev_drivers/tty/dev_tty.h"
 
 #include "proc/semaphore.h"
 #include "proc/multitask.h"
@@ -143,15 +144,17 @@ void kernel_main(boot_info_t* boot)
     log_info("Initializing multi-tasking...");
     init_multitasking();
 
-    // tty 0-3 - Alt+1 through Alt+4: Shell
-    // tty 4 - Alt+5: process monitor (memory, heap, processes)
-    // tty 5 - Alt+6: filesystem monitor (devices, partitions, mounts)
-    // tty 6 - Alt+7: kernel log
     log_info("Giving the console to TTY manager...");
+    logger_remove_appender(screen_log_appender, NULL);
     init_tty_manager(7, 100);
-
-    // now that we have ttys, let's dedicate one to syslog
+    fs_register_device("tty0", &tty_dev_driver, 0);
+    fs_register_device("tty1", &tty_dev_driver, 1);
+    fs_register_device("tty2", &tty_dev_driver, 2);
+    fs_register_device("tty3", &tty_dev_driver, 3);
+    fs_register_device("tty4", &tty_dev_driver, 4);
+    fs_register_device("tty5", &tty_dev_driver, 5);
     tty_t *log_tty = tty_manager_get_device(6);
+    tty_set_title_specific_tty(log_tty, "System log");
     logger_add_appender(tty_log_appender, log_tty, LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
@@ -309,7 +312,6 @@ static void initialize_storage_and_file_systems() {
 
     // register filesystems
     fs_register(&simple_fs);
-    // fs_register(&skeleton_fs);
 
     // let's go with the first, first.
     bool mounted_one = false;

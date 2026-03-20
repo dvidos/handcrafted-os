@@ -78,7 +78,7 @@ void memcpy(void *dest, const void *source, size_t size) {
     }
 }
 
-int memcmp(void *a, void *b, size_t size) {
+int memcmp(const void *a, const void *b, size_t size) {
     char *ca = (char *)a;
     char *cb = (char *)b;
     while (size-- > 0) {
