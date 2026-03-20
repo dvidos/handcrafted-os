@@ -15,13 +15,27 @@ static open_file_t *_open_file_create(superblock_t *sb, inode_t *n) {
     f->driver_priv_data = 0; // driver-specific open context
     f->lock = 0;    // protects offset & state
 
+    f->refcount = 1; // for the function we'll return to.
+
     return f;
 }
 
-static void _open_file_destroy(open_file_t *f) {
-    if (f == NULL)
-        return;
-    kfree(f);
+static void _open_file_hold(open_file_t *f) {
+    // called by dup(), dup2(), fork(), ensures object is not fred while someone is using it
+    if (f != NULL)
+        f->refcount++;
+}
+
+static void _open_file_release(open_file_t *f) {
+    // Called by close(fd) or when a process exits and frees all fds.
+    // Only frees the actual object when last reference disappears.
+    if (f == NULL) return;
+
+    f->refcount--;
+    if (f->refcount == 0) {
+        // ..close inode, relase driver priv data...
+        kfree(f);
+    }
 }
 
 
@@ -37,6 +51,7 @@ static void _open_file_log_formatter(log_write_stream_t *stream, va_list args) {
 
 struct open_file_ops open_files = {
     .create  = _open_file_create,
-    .destroy = _open_file_destroy,
+    .hold = _open_file_hold,
+    .release = _open_file_release,
     .formatter = _open_file_log_formatter,
 };

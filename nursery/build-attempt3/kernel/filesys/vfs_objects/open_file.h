@@ -15,14 +15,15 @@ struct open_file {
     uint64_t offset;        // VFS-maintained file position
     uint64_t size;          // VFS-maintained size copy
     uint32_t flags;         // RDONLY, WRONLY, APPEND, etc
+    uint32_t refcount;      // track file descriptors using this
     void *driver_priv_data; // driver-specific open context
     lock_t lock;            // protects offset & state
 };
 
-
 struct open_file_ops {
     open_file_t *(*create)(superblock_t *sb, inode_t *n);
-    void (*destroy)(open_file_t *f);
+    void (*hold)(open_file_t *f);
+    void (*release)(open_file_t *f);
     log_formatter_t *formatter;
 };
 

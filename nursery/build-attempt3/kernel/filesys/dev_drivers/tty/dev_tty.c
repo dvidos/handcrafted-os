@@ -33,7 +33,7 @@ static error_t tty_driver_close(open_file_t *file) {
     const char *str = "(tty closing)\n";
     tty_write_specific_tty(tty, str, strlen(str));
 
-    open_files.destroy(file);
+    open_files.release(file);
     return OK;
 }
 

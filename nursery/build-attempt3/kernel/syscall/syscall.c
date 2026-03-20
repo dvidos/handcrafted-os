@@ -104,6 +104,15 @@ static int sys_readdir(int handle, void *dirent) {
 static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
 }
+static int sys_dup(int fd) {
+    return proc_dup(running_process(), fd);    
+}
+static int sys_dup2(int fd1, int fd2) { 
+    return proc_dup2(running_process(), fd1, fd2);
+}
+static int sys_pipe(int fds[]) {
+    return proc_pipe(running_process(), fds);
+}
 static int sys_fork() {
     return proc_fork(running_process());
 }
@@ -205,6 +214,16 @@ int isr_syscall(struct syscall_stack stack) {
             break;
         case SYS_RMDIR:  // arg1 = path
             // return_value = vfs_rmdir((char *)stack.passed.arg1);
+            break;
+        case SYS_DUP:
+            return_value = sys_dup(stack.passed.arg1);
+            break;
+        case SYS_DUP2:
+            return_value = sys_dup2(stack.passed.arg1, stack.passed.arg2);
+            break;
+        case SYS_PIPE:
+            // arg1 is an array of two integers ?!?
+            return_value = sys_pipe((int*)stack.passed.arg1);
             break;
         case SYS_GET_PID:   // returns pid
             return_value = proc_get_pid(running_process());

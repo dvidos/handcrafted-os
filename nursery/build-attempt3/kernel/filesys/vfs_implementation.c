@@ -249,7 +249,7 @@ error_t vfs_close(open_file_t *file) {
     int err = file->sb->driver->close(file);
     if (err) return err;
 
-    open_files.destroy(file);
+    open_files.release(file);
     return OK;
 }
 
@@ -349,7 +349,7 @@ error_t vfs_closedir(open_file_t *dir) {
     int err = dir->sb->driver->closedir(dir);
     if (err) return err;
 
-    open_files.destroy(dir);
+    open_files.release(dir);
     return OK;
 }
 
