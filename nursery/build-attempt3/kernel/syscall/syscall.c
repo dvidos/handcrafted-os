@@ -6,8 +6,6 @@
 #include "../drivers/timer.h"
 #include "../proc/process/process.h"
 #include "../proc/spawn.h"
-#include "../devices/tty.h"
-// #include "../filesys/vfs.h"
 #include "../memory/virtmem.h"
 
 #include "../include/uapi/syscall.h"
@@ -36,54 +34,39 @@ struct syscall_stack
 
 
 static int sys_puts(char *message) {
-    // we don't write a "\n" per se. we don't like to. there.
-    tty_write(message);
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_putchar(int c) {
-    char buff[2];
-    buff[0] = (char)c;
-    buff[1] = '\0';
-    tty_write(buff);
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_clear_screen() {
-    tty_clear();
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_where_xy(int *x, int *y) {
-    uint8_t row, col;
-    tty_get_cursor(&row, &col);
-    *x = col;
-    *y = row;
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_goto_xy(int x, int y) {
-    tty_set_cursor(y, x);
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_screen_dimensions(int *cols, int *rows) {
-    tty_get_dimensions(rows, cols);
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_get_screen_color() {
-    return tty_get_color();
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_set_screen_color(int color) {
-    tty_set_color(color);
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static int sys_getkey(key_event_t *event) {
-    tty_read_key(event);
-    return 0;
+    return ERR_NOT_SUPPORTED;
 }
 
 static void sys_log_entry(int level, uint8_t *buffer) {

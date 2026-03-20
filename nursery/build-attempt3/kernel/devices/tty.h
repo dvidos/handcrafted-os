@@ -13,16 +13,16 @@ int tty_get_devno(tty_t *tty);
 
 
 // called by processes
-void tty_read_key(key_event_t *event);
-void tty_write(const char *buffer);
-int  tty_get_color();
-void tty_set_color(int color);
-void tty_clear();
-void tty_get_cursor(uint8_t *row, uint8_t *col);
-void tty_set_cursor(uint8_t row, uint8_t col);
-void tty_set_title(const char *title);
-void tty_get_dimensions(int *rows, int *cols);
-void tty_printf(char *format, ...);
+void tty_read_key(tty_t *tty, key_event_t *event);
+void tty_write(tty_t *tty, const char *buffer);
+int  tty_get_color(tty_t *tty);
+void tty_set_color(tty_t *tty, int color);
+void tty_clear(tty_t *tty);
+void tty_get_cursor(tty_t *tty, uint8_t *row, uint8_t *col);
+void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col);
+void tty_set_title(tty_t *tty, const char *title);
+void tty_get_dimensions(tty_t *tty, int *rows, int *cols);
+void tty_printf(tty_t *tty, char *format, ...);
 
 
 

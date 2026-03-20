@@ -174,8 +174,7 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
     }
 }
 
-void tty_read_key(key_event_t *event) {
-    tty_t *tty = running_process()->tty;
+void tty_read_key(tty_t *tty, key_event_t *event) {
     if (tty == NULL)
         return;
     
@@ -194,15 +193,13 @@ void tty_read_key(key_event_t *event) {
     }
 }
 
-void tty_write(const char *buffer) {
-    tty_t *tty = running_process()->tty;
+void tty_write(tty_t *tty, const char *buffer) {
     if (tty != NULL)
         tty_write_specific_tty(tty, buffer, strlen(buffer));
 }
 
 
-// tty_printf() prints to the process tty
-void tty_printf(char *format, ...) {
+void tty_printf(tty_t *tty, char *format, ...) {
     char buffer[128];
 
     va_list args;
@@ -210,7 +207,7 @@ void tty_printf(char *format, ...) {
     vsprintfn(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    tty_write(buffer);
+    tty_write(tty, buffer);
 }
 
 void tty_write_specific_tty(tty_t *tty, const char *buffer, int length) {
@@ -237,7 +234,7 @@ int tty_read_specific_tty(tty_t *tty, char *buffer, int length) {
     int read = 0;
 
     if (tty->keys_buffer_len == 0) {
-        tty_read_key(&event);
+        tty_read_key(tty, &event);
         *buffer++ =  event.ascii;
         length--;
         read++;
@@ -245,7 +242,7 @@ int tty_read_specific_tty(tty_t *tty, char *buffer, int length) {
 
     // now collect any others, if they exist
     while (tty->keys_buffer_len > 0 && length > 0) {
-        tty_read_key(&event);
+        tty_read_key(tty, &event);
         *buffer++ =  event.ascii;
         length--;
         read++;
@@ -255,8 +252,7 @@ int tty_read_specific_tty(tty_t *tty, char *buffer, int length) {
     return read;
 }
 
-void tty_set_color(int color) {
-    tty_t *tty = running_process()->tty;
+void tty_set_color(tty_t *tty, int color) {
     if (tty == NULL)
         return;
     
@@ -266,16 +262,14 @@ void tty_set_color(int color) {
         screen_set_color(color);
 }
 
-int tty_get_color() {
-    tty_t *tty = running_process()->tty;
+int tty_get_color(tty_t *tty) {
     if (tty == NULL)
         return 0;
     
     return tty->color;
 }
 
-void tty_clear() {
-    tty_t *tty = running_process()->tty;
+void tty_clear(tty_t *tty) {
     if (tty == NULL)
         return;
 
@@ -291,8 +285,7 @@ void tty_clear() {
         draw_tty_buffer_to_screen(tty);
 }
 
-void tty_get_cursor(uint8_t *row, uint8_t *col) {
-    tty_t *tty = running_process()->tty;
+void tty_get_cursor(tty_t *tty, uint8_t *row, uint8_t *col) {
     if (tty == NULL)
         return;
     
@@ -302,8 +295,7 @@ void tty_get_cursor(uint8_t *row, uint8_t *col) {
         *col = tty->column;
 }
 
-void tty_set_cursor(uint8_t row, uint8_t col) {
-    tty_t *tty = running_process()->tty;
+void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col) {
     if (tty == NULL)
         return;
     
@@ -317,15 +309,14 @@ void tty_set_cursor(uint8_t row, uint8_t col) {
         );
 }
 
-void tty_get_dimensions(int *rows, int *cols) {
+void tty_get_dimensions(tty_t *tty, int *rows, int *cols) {
     if (rows != NULL)
         *rows = screen_rows() - tty_mgr_data.header_lines;
     if (cols != NULL)
         *cols = screen_cols();
 }
 
-void tty_set_title(const char *title) {
-    tty_t *tty = running_process()->tty;
+void tty_set_title(tty_t *tty, const char *title) {
     if (tty == NULL)
         return;
     

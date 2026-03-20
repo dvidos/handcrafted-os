@@ -126,10 +126,6 @@ struct process {
     // the msetcs uptime in the future, that we are to be woken up
     uint64_t wake_up_time;
 
-    // possibly, the process has an associated tty
-    // TODO: break this dependency, try to make process depending on abstraction only.
-    tty_t *tty;
-
     // exit code, to be used for parent process
     uint8_t exit_code;
 

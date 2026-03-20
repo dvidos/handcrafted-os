@@ -608,6 +608,9 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
     if (err) panic("failed allocating and mapping stack for kernel task");
 
     // there's little more to do here, isn't it...
+    // TODO: i think we did not setup return address..
+    // the stack should be mapped, maybe do it directly?
+    // proc->memory.execution.return_Address = function_to_call?
     proc->entry_point = function_to_call;
 
     *proc_ptr = proc;

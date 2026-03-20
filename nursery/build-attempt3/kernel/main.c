@@ -153,9 +153,10 @@ void kernel_main(boot_info_t* boot)
     fs_register_device("tty3", &tty_dev_driver, 3);
     fs_register_device("tty4", &tty_dev_driver, 4);
     fs_register_device("tty5", &tty_dev_driver, 5);
-    tty_t *log_tty = tty_manager_get_device(6);
-    tty_set_title_specific_tty(log_tty, "System log");
-    logger_add_appender(tty_log_appender, log_tty, LOG_LEVEL_INFO);
+    tty_set_title_specific_tty(tty_manager_get_device(4), "System Monitor");
+    tty_set_title_specific_tty(tty_manager_get_device(5), "VFS Monitor");
+    tty_set_title_specific_tty(tty_manager_get_device(6), "System log");
+    logger_add_appender(tty_log_appender, tty_manager_get_device(6), LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
     launch_initial_process();
@@ -169,10 +170,22 @@ void kernel_main(boot_info_t* boot)
 static void launch_initial_process() {
     
     process_t *proc;
-    error_t err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
-    if (err) panic("Cannot create init process: %s", strerror(err));
+    error_t err;
 
+    err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
+    if (err) panic("Cannot create init process: %s", strerror(err));
     log_info_fmt("init: ", proc, proc_log_formatter);
+    proc_start(proc);
+
+    // maybe we should convert these to Tasks or Threads
+    // there's only stack and EIP to set.
+    err = process_v2_create_for_kernel("sys monitor", (uintptr_t)process_monitor_main, PRIORITY_IDLE_TASK, &proc);
+    if (err) log_warn("Failed creating system monitor process: %s", strerror(err));
+    log_info_fmt("init: ", proc, proc_log_formatter);
+    proc_start(proc);
+
+    err = process_v2_create_for_kernel("vfs monitor", (uintptr_t)vfs_monitor_main, PRIORITY_IDLE_TASK, &proc);
+    if (err) log_warn("Failed creating vfs monitor process: %s", strerror(err));
     proc_start(proc);
 }
 

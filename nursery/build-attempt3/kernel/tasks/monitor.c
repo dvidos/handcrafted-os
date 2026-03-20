@@ -10,20 +10,19 @@
 #include "../drivers/timer.h"
 
 
-static void show_process(bool title, process_t *p, int *row) {
-    tty_set_cursor(*row, 0);
+static void show_process(tty_t *tty, bool title, process_t *p, int *row) {
+    // we should find the tty from the process?
+
+    tty_set_cursor(tty, *row, 0);
     if (title) {
-        tty_printf("  PID  PPID Pr Status     Block Rsn  TTY  PgDir Heap Stack Name");
+        tty_printf(tty, "  PID  PPID Pr Status     Block Rsn  TTY  PgDir Heap Stack Name");
         //      12345 12345 12 1234567890 1234567890 123 123456 1234  1234 12345678901234567890
         (*row)++;
     } else if (p != NULL) {
         char tty_dev[3+1];
-        if (p != NULL && p->tty != NULL)
-            sprintfn(tty_dev, sizeof(tty_dev), "%d", tty_get_devno(p->tty));
-        else
-            strcpy(tty_dev, "-");
+        strcpy(tty_dev, "-");
         
-        tty_printf("%5d %5d %2d %-10s %-10s %3s %6x %4d  %4d %s",
+        tty_printf(tty, "%5d %5d %2d %-10s %-10s %3s %6x %4d  %4d %s",
             p->pid,
             p->parent == NULL ? 0 : p->parent->pid,
             p->priority,
@@ -39,13 +38,14 @@ static void show_process(bool title, process_t *p, int *row) {
     }
 }
 
-void show_process_list(proc_list_t *list, int *row) {
+void show_process_list(tty_t *tty, proc_list_t *list, int *row) {
     for (process_t *p = list->head; p != NULL; p = p->list_next)
-        show_process(false, p, row);
+        show_process(tty, false, p, row);
 }
 
 void process_monitor_main() {
-    tty_set_title("Process Monitor");
+    tty_t *tty = tty_manager_get_device(4);
+    tty_set_title(tty, "Process Monitor");
 
     real_time_clock_info_t time;
     char *days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -73,7 +73,7 @@ void process_monitor_main() {
     */
 
     while (true) {
-        tty_clear();
+        tty_clear(tty);
 
         // Memory          Total     Free     Used Used        Clock  Abc, 12 Abc 1234, 00:11:22
         // Phys Pages   12345678 12345678 12345678 123%        Uptime 12d 12:23:23m
@@ -99,32 +99,32 @@ void process_monitor_main() {
         uint32_t heap_used = heap_total - heap_free;
         uint32_t heap_percent = (heap_used * 100) / heap_total;
 
-        tty_set_cursor(0, 0);
-        tty_printf("Memory          Total     Free     Used Used");
-        tty_set_cursor(1, 0);
+        tty_set_cursor(tty, 0, 0);
+        tty_printf(tty, "Memory          Total     Free     Used Used");
+        tty_set_cursor(tty, 1, 0);
         // printf("Phys Mem KB  %8d %8d %8d %3d%%", phys_mem.kb_total, phys_mem.kb_free, phys_mem.kb_used, phys_mem_kb_percent);
         // tty_set_cursor(2, 0);
         // printf("Phys Pages   %8d %8d %8d %3d%%", phys_mem.pages_total, phys_mem.pages_free, phys_mem.pages_used, phys_mem_pg_percent);
         // tty_set_cursor(3, 0);
         // printf("Kern Heap KB %8d %8d %8d %3d%%", heap_total, heap_free, heap_used, heap_percent);
 
-        tty_set_cursor(0, 50);
-        tty_printf("%3s, %2d %3s %04d, %02d:%02d:%02d",
+        tty_set_cursor(tty, 0, 50);
+        tty_printf(tty, "%3s, %2d %3s %04d, %02d:%02d:%02d",
             days[time.dow], time.days, months[time.months], time.years, 
             time.hours, time.minutes, time.seconds
         );
 
-        tty_set_cursor(1, 50);
-        tty_printf("Uptime %2dd %02dh %02dm %02ds", up_days, up_hours, up_mins, up_secs);
+        tty_set_cursor(tty, 1, 50);
+        tty_printf(tty, "Uptime %2dd %02dh %02dm %02ds", up_days, up_hours, up_mins, up_secs);
 
         // we shouldn't dive into multitasking internals, but how? 
         int row = 5;
-        show_process(true, NULL, &row);
-        show_process(false, running_process(), &row);
+        show_process(tty, true, NULL, &row);
+        show_process(tty, false, running_process(), &row);
         for (int i = 0; i < PROCESS_PRIORITY_LEVELS; i++)
-            show_process_list(&ready_lists[i], &row);
-        show_process_list(&blocked_list, &row);
-        show_process_list(&terminated_list, &row);
+            show_process_list(tty, &ready_lists[i], &row);
+        show_process_list(tty, &blocked_list, &row);
+        show_process_list(tty, &terminated_list, &row);
  
         proc_sleep(running_process(), 1500);
     }
@@ -132,44 +132,46 @@ void process_monitor_main() {
 
 
 void vfs_monitor_main() {
-    tty_set_title("VFS Monitor");
+    tty_t *tty = tty_manager_get_device(5);
+
+    tty_set_title(tty, "VFS Monitor");
 
     while (true) {
-        tty_clear();
+        tty_clear(tty);
         int row = 0;
 
-        tty_set_cursor(row++, 0);
-        tty_printf("---------- Block Devices ----------");
-        tty_set_cursor(row++, 0);
-        tty_printf("ID         BlkSz     Blocks  Name");
+        tty_set_cursor(tty, row++, 0);
+        tty_printf(tty, "---------- Block Devices ----------");
+        tty_set_cursor(tty, row++, 0);
+        tty_printf(tty, "ID         BlkSz     Blocks  Name");
         //     |1234567890 12345 1234567890  123456789012345678901234567890
         list_foreach(&block_devices_list, block_device_t, bdev) {
-            tty_set_cursor(row++, 0);
-            tty_printf("%10s %5lu %10lu %s", bdev->id, bdev->block_size, bdev->total_blocks, bdev->name);
+            tty_set_cursor(tty, row++, 0);
+            tty_printf(tty, "%10s %5lu %10lu %s", bdev->id, bdev->block_size, bdev->total_blocks, bdev->name);
         }
         row++;
 
 
-        tty_set_cursor(row++, 0);
-        tty_printf("---------- Char Devices ----------");
-        tty_set_cursor(row++, 0);
-        tty_printf("ID Name                          ");
+        tty_set_cursor(tty, row++, 0);
+        tty_printf(tty, "---------- Char Devices ----------");
+        tty_set_cursor(tty, row++, 0);
+        tty_printf(tty, "ID Name                          ");
         //     |1234567890 123456789012345678901234567890
         list_foreach(&char_devices_list, char_device_t, cdev) {
-            tty_set_cursor(row++, 0);
-            tty_printf("%10s %s", cdev->id, cdev->name);
+            tty_set_cursor(tty, row++, 0);
+            tty_printf(tty, "%10s %s", cdev->id, cdev->name);
         }
         row++;
 
-        tty_set_cursor(row++, 0);
-        tty_printf("---------- Mounted Filesystems ----------");
-        tty_set_cursor(row++, 0);
-        tty_printf("Host Dir     Root Dir    Flags");
+        tty_set_cursor(tty, row++, 0);
+        tty_printf(tty, "---------- Mounted Filesystems ----------");
+        tty_set_cursor(tty, row++, 0);
+        tty_printf(tty, "Host Dir     Root Dir    Flags");
         //     |
         mount_entry_t *mount_entry = mtab_entries_list_head;
         while (mount_entry != NULL) {
-            tty_set_cursor(row++, 0);
-            tty_printf("%8d   %8d    %8d",
+            tty_set_cursor(tty, row++, 0);
+            tty_printf(tty, "%8d   %8d    %8d",
                 mount_entry->host_dir.inode_num,
                 mount_entry->root_dir.inode_num,
                 mount_entry->flags
