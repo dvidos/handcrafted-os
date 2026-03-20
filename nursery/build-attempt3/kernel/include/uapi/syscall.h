@@ -11,18 +11,6 @@
 #define SYS_LOG_ENTRY         3  // log something in syslog. 
 #define SYS_LOG_HEX_DUMP      4  // log binary contents in syslog
 
-// pseudo-tty manipulation
-#define SYS_PUTS               11  // arg1 = string
-#define SYS_PUTCHAR            12  // arg1 = char
-#define SYS_CLEAR_SCREEN       13  // no args
-#define SYS_WHERE_XY           14  // returns x, y in hi/lo byte, zero based
-#define SYS_GOTO_XY            15  // arg1 = x, arg2 = y, zero based
-#define SYS_SCREEN_DIMENSIONS  16  // returns cols/rows in hi/lo byte
-#define SYS_GET_SCREEN_COLOR   17  // arg1 = color, returns old color
-#define SYS_SET_SCREEN_COLOR   18  // arg1 = color, returns old color
-#define SYS_GET_KEY_EVENT      19  // returns... a lot of info (we have 4 bytes)
-#define SYS_GET_MOUSE_EVENT    20  // returns... a lot of info (we have 4 bytes)
-
 // files manipulation
 #define SYS_OPEN             31  // arg1 = file path, returns handle or error<0
 #define SYS_READ             32  // arg1 = handle, arg2 = buffer, arg3 = len, returns len
@@ -41,6 +29,7 @@
 // process manipulation
 #define SYS_GET_CWD          51  // arg1 = buffer, arg2 = buffer size
 #define SYS_CHDIR            52  // arg1 = path
+
 #define SYS_GET_PID          53  // returns pid
 #define SYS_GET_PPID         54  // returns ppid
 #define SYS_FORK             55  // returns 0 in child, child PID in parent, neg error in parent

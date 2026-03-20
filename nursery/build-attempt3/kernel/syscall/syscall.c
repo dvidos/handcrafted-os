@@ -33,42 +33,6 @@ struct syscall_stack
 };
 
 
-static int sys_puts(char *message) {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_putchar(int c) {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_clear_screen() {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_where_xy(int *x, int *y) {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_goto_xy(int x, int y) {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_screen_dimensions(int *cols, int *rows) {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_get_screen_color() {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_set_screen_color(int color) {
-    return ERR_NOT_SUPPORTED;
-}
-
-static int sys_getkey(key_event_t *event) {
-    return ERR_NOT_SUPPORTED;
-}
-
 static void sys_log_entry(int level, uint8_t *buffer) {
     // syslog is a userland deamon, we need to drop this functionality.
     logger_append("USER", level, "%s", buffer);
@@ -199,36 +163,6 @@ int isr_syscall(struct syscall_stack stack) {
             break;
         case SYS_LOG_HEX_DUMP:
             sys_log_hex(stack.passed.arg1, (uint8_t *)stack.passed.arg2, (uint32_t)stack.passed.arg3, (uint32_t)stack.passed.arg4);
-            break;
-        case SYS_PUTS:   // arg1 = string
-            return_value = sys_puts((char *)stack.passed.arg1);
-            break;
-        case SYS_PUTCHAR:   // arg1 = char
-            return_value = sys_putchar(stack.passed.arg1);
-            break;
-        case SYS_CLEAR_SCREEN:   // no args
-            return_value = sys_clear_screen();
-            break;
-        case SYS_WHERE_XY:   // arg1 = *x, arg2 = *y
-            return_value = sys_where_xy((int *)stack.passed.arg1, (int *)stack.passed.arg2);
-            break;
-        case SYS_GOTO_XY:   // arg1 = x, arg2 = y, zero based
-            return_value = sys_goto_xy(stack.passed.arg1, stack.passed.arg2);
-            break;
-        case SYS_SCREEN_DIMENSIONS:   // arg1 = *cols, arg2 = *rows
-            return_value = sys_screen_dimensions((int *)stack.passed.arg1, (int *)stack.passed.arg2);
-            break;
-        case SYS_GET_SCREEN_COLOR:
-            return_value = sys_get_screen_color();
-            break;
-        case SYS_SET_SCREEN_COLOR:
-            return_value = sys_set_screen_color(stack.passed.arg1);
-            break;
-        case SYS_GET_KEY_EVENT:   // returns... a lot of info (we have 4 bytes)
-            return_value = sys_getkey((key_event_t *)stack.passed.arg1);
-            break;
-        case SYS_GET_MOUSE_EVENT:   // returns... a lot of info (we have 4 bytes)
-            return_value = ERR_NOT_SUPPORTED;
             break;
         case SYS_GET_CWD: // arg1 = buffer, arg2 = buffer len
             return_value = sys_get_cwd((char *)stack.passed.arg1, stack.passed.arg2);

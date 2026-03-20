@@ -1,9 +1,12 @@
 #include "process.h"
+#include "../../logger/logger.h"
+
+MODULE("PROC_FORK", LOG_LEVEL_TRACE);
 
 
 // clone, return child's PID on parent, zero on child.
 int proc_fork(process_t *proc) {
-    bool was_kernel = (proc->flags & PROC_FLAG_IS_USER_PROCESS);
+    log_trace("proc_fork(proc=%p)", proc);
 
     // need to duplicate stack and heap, memory pages, file handles,
     // then even copy the trap state (e.g. the actual EIP value)
@@ -27,8 +30,6 @@ int proc_fork(process_t *proc) {
         - finaly, when we have mapped and prepared all memory of the child,
           we copy the stack snapshot, file descriptors, 
     */
-
-    
 
     return ERR_NOT_IMPLEMENTED;
 }

@@ -11,10 +11,11 @@
     - minimal FS driver for open/read/write/close for console
     - ability to register a FS driver for a prefix (e.g. "ttyX")
     - implement the dup() call through syscall
+    --------------------------------------
     - plain fork(), through syscall, tested and verified
     - plain exec(), after setting up i don't know what
     - push arguments and environment to stack, on proc prep
-    - make a small echo program, to rpint its arguments, and test arguments
+    - make a small echo program, to print its arguments, and test arguments
 */
 
 
