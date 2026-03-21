@@ -2,6 +2,7 @@
 #include "../include/ctypes.h"
 #include "../include/uapi/errors.h"
 #include "../memory/physmem.h"
+#include "../klib/string.h"
 #include "../logger/logger.h"
 
 
@@ -39,6 +40,7 @@ typedef enum region_flags {
 } region_flags_t;
 
 
+#define MEM_REGION_NAME_SIZE  16
 /**
  * This structure to describe one single-purposed region in memory
  * An array of them define a memory map
@@ -47,18 +49,12 @@ typedef struct mem_region {
     uintptr_t address;     // virtual or physical, depends on context
     size_t size;           // size in bytes
     region_flags_t flags;  // purpose and permissions
+    char name[MEM_REGION_NAME_SIZE];
 } mem_region_t;
 
 static inline mem_region_t mem_region_empty() { return (mem_region_t){ .address = 0, .size = 0, .flags = 0 }; }
 static inline mem_region_t mem_region_of(uintptr_t address, size_t size, region_flags_t flags) { return (mem_region_t){ .address = address, .size = size, .flags = flags }; }
-
-static inline mem_region_t mem_region_kernel_code(uintptr_t address, size_t size)   { return (mem_region_t){ .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_READ_ONLY | REGION_USAGE_CODE }; }
-static inline mem_region_t mem_region_kernel_data(uintptr_t address, size_t size)   { return (mem_region_t){ .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE | REGION_USAGE_DATA }; }
-static inline mem_region_t mem_region_kernel_rodata(uintptr_t address, size_t size) { return (mem_region_t){ .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_READ_ONLY | REGION_USAGE_RODATA }; }
-static inline mem_region_t mem_region_kernel_bss(uintptr_t address, size_t size)    { return (mem_region_t){ .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE | REGION_USAGE_BSS }; }
-static inline mem_region_t mem_region_kernel_stack(uintptr_t address, size_t size)  { return (mem_region_t){ .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE | REGION_USAGE_STACK }; }
-static inline mem_region_t mem_region_kernel_heap(uintptr_t address, size_t size)   { return (mem_region_t){ .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE | REGION_USAGE_HEAP }; }
-static inline mem_region_t mem_region_kernel_other(uintptr_t address, size_t size, const char *name) { return (mem_region_t){ .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE }; }
+static inline mem_region_t mem_region_kernel_other(uintptr_t address, size_t size, const char *name) { mem_region_t mr = { .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE }; strncpy(mr.name, name, MEM_REGION_NAME_SIZE - 1); return mr; }
 
 static inline bool mem_region_is_empty(mem_region_t *reg) { if (reg == NULL) return true; return (reg->address == 0 && reg->size == 0 && reg->flags == 0); }
 const char *mem_region_usage_name(mem_region_t *reg);

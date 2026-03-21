@@ -1,4 +1,5 @@
 #include "process.h"
+#include "../../arch/gdt.h"
 #include "../procman/proclist.h"
 #include "../procman/scheduler.h"
 #include "../multitask.h"
@@ -113,7 +114,7 @@ static void _calculate_proc_stack(process_t *proc, size_t *stack_size, virt_addr
         size_t sz = 16 * KB;
         // put all kernel stacks near top of kernel, to allow for heap growth
         *stack_size = sz;
-        *stack_top = vmm_get_kernel_cutoff_address() - (sz * next_kernel_stack_no());
+        *stack_top = vmm_get_kernel_area_end() - (sz * next_kernel_stack_no());
     } else {
         // put user stack at a high enough address
         *stack_size = 16 * KB;
@@ -401,6 +402,23 @@ exit:
     return traceable(err);
 }
 
+static error_t _prepare_trap_frame_for_new_process(process_t *proc, trap_frame_t *tf, uint32_t elf_entry_point) {
+    memset(tf, 0, sizeof(trap_frame_t));
+
+    tf->eip = elf_entry_point;
+    tf->cs  = USER_CODE_SEGMENT;
+    tf->user_esp = proc->memory.stack.address + proc->memory.stack.size;
+    tf->ss  = USER_DATA_SEGMENT;
+    tf->eflags = 0x202;   // interrupts enabled, this is important
+
+    tf->ds = USER_DATA_SEGMENT;
+    tf->es = USER_DATA_SEGMENT;
+    tf->fs = USER_DATA_SEGMENT;
+    tf->gs = USER_DATA_SEGMENT;    
+
+    return OK;
+}
+
 static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_file_t *elf) {
     ASSERT(proc != NULL);
     ASSERT(elf != NULL);
@@ -430,24 +448,24 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
         err = _allocate_and_load_elf_segment_from_file(proc, elf, &segments_arr[i], page_buffer);
         if (err) goto exit;
     }
-
-    // put the entry point on stack. Stack MUST be initialized by now.
+    
     virt_addr_t elf_entry_point = 0;
     err = elf_get_entry_point(elf, &elf_entry_point);
     if (err) goto exit;
     log_debug("Elf entry point is 0x%08x", elf_entry_point);
+    
+    // put the entry point on stack. Stack MUST be initialized by now.
     ASSERT(proc->memory.execution.stack_pointer != 0);
 
-    // set the return address in a foreign physical page
-    // TODO: convert this to trap_frame_t
-    virt_addr_t return_address_vlocation = 
-        proc->memory.stack.address + proc->memory.stack.size -
-        sizeof(switched_stack_snapshot_t) + offsetof(switched_stack_snapshot_t, return_address);
-    phys_addr_t return_address_plocation = vmm_resolve(return_address_vlocation, proc->memory.page_dir);
-    phys_addr_t page_addr = return_address_plocation & 0xFFFFF000;
-    size_t offset_in_page = return_address_plocation & 0xFFF;
+    trap_frame_t tf;
+    _prepare_trap_frame_for_new_process(proc, &tf, elf_entry_point);
+
+    phys_addr_t tf_paddr = vmm_resolve(proc->memory.execution.trapframe->user_esp, proc->memory.page_dir);
+    phys_addr_t page_address = vmm_page_address(tf_paddr);
+    size_t page_offset = vmm_page_offset(tf_paddr);
+
     // note: if we have pushed env/args, we may be crossing page boundaries
-    vmm_physpg_write(page_addr, offset_in_page, &elf_entry_point, sizeof(uint32_t));
+    vmm_physpg_write(page_address, page_offset, &tf, sizeof(trap_frame_t));
 
     err = OK;
 

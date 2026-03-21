@@ -20,6 +20,9 @@ phys_addr_t mem_region_get_mappable_page_address() {
 // ------------------------------------------------------------
 
 const char *mem_region_usage_name(mem_region_t *reg) {
+    if (reg->name[0] != 0)
+        return reg->name;
+    
     if      ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_CODE)  return "code";
     else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_DATA)  return "data";
     else if ((reg->flags & REGION_USAGE_MASK) == REGION_USAGE_STACK) return "stack";

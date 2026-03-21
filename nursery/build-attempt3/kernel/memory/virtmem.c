@@ -1,3 +1,4 @@
+#include "../include/ctypes.h"
 #include "../include/macros.h"
 #include "../utils/assert.h"
 #include "../include/bits.h"
@@ -11,7 +12,7 @@
 #include "../klib/string.h"
 #include "../memory/mem_region.h"
 
-MODULE("VMM", LOG_LEVEL_INFO);
+MODULE("VMM", LOG_LEVEL_TRACE);
 
 /*
    Paging is mapping a virtual address to a physical one.
@@ -99,23 +100,20 @@ MODULE("VMM", LOG_LEVEL_INFO);
 static struct {
     bool paging_enabled;
     page_dir_t page_directory; 
-    phys_addr_t start_address;
-    phys_addr_t end_address;
-    phys_addr_t cutoff_address;
-    mem_map_t *kernel_phys_map;
+
+    // area reserved for kernel, identity mapped, usually 0..96MB
+    phys_addr_t reserved_area_start;
+    phys_addr_t reserved_area_end;
+    // for example PCI pages added on demand
+    mem_map_t extra_identity_mappings;
 
     // utility reserved addresses
     virt_addr_t workpg1_vaddr;
     virt_addr_t workpg2_vaddr;
     virt_addr_t workpg3_vaddr;
 
-    // and their currently mapped physical addresses
-    virt_addr_t workpg1_mapped_paddr;
-    virt_addr_t workpg2_mapped_paddr;
-    virt_addr_t workpg3_mapped_paddr;
-
     lock_t work_pages_lock;
-} kernel_info;
+} kinfo;
 
 
 
@@ -193,53 +191,57 @@ static void _unmap_page_primitive(virt_addr_t virtual_addr);
 
 
 // this work page is a reserve address that allows us to modify physical pages with temporary mapping
-static inline virt_addr_t vmm_workpg1() { return kernel_info.workpg1_vaddr; }
-static inline virt_addr_t vmm_workpg2() { return kernel_info.workpg2_vaddr; }
+static inline virt_addr_t vmm_workpg1() { return kinfo.workpg1_vaddr; }
+static inline virt_addr_t vmm_workpg2() { return kinfo.workpg2_vaddr; }
 static inline void vmm_workpg1_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg1(), phys_addr); }
 static inline void vmm_workpg2_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg2(), phys_addr); }
 static inline void vmm_workpg1_unmap() { _unmap_page_primitive(vmm_workpg1()); }
 static inline void vmm_workpg2_unmap() { _unmap_page_primitive(vmm_workpg2()); }
 
+static void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr);
+static void vmm_read_all_identity_addresses();
+
 // --------------------------------------------------------
 
-void vmm_initialize(phys_addr_t kernel_start_address, phys_addr_t kernel_end_address, phys_addr_t cutoff_address, phys_addr_t utility_pages_addr, size_t utility_pages_size, mem_map_t *kernel_phys_map) {
-    log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, cutoff=%d KB, uaddr=0x%x, usize=%d, kmap=0x%x)", kernel_start_address, kernel_end_address, cutoff_address / 1024, utility_pages_addr, utility_pages_size, kernel_phys_map);
+void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_reserved_area_end, phys_addr_t utility_pages_addr, size_t utility_pages_size) {
+    log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, uaddr=0x%x, usize=%d, kmap=0x%x)", kernel_reserved_area_start, kernel_reserved_area_end, utility_pages_addr, utility_pages_size);
 
-    ASSERT(kernel_end_address > kernel_start_address);
-    ASSERT(cutoff_address > kernel_end_address); // includes heap + stacks
+    ASSERT(kernel_reserved_area_end > kernel_reserved_area_start);
     ASSERT(utility_pages_addr > 0);
     ASSERT(vmm_round_down(utility_pages_size) / vmm_page_size() >= 4);
 
-    memset(&kernel_info, 0, sizeof(kernel_info));
+    memset(&kinfo, 0, sizeof(kinfo));
 
-    kernel_info.start_address = kernel_start_address;
-    kernel_info.end_address = kernel_end_address;
-    kernel_info.cutoff_address = cutoff_address;
-    kernel_info.page_directory = utility_pages_addr + 0 * vmm_page_size();;
-    kernel_info.workpg1_vaddr  = utility_pages_addr + 1 * vmm_page_size();
-    kernel_info.workpg2_vaddr  = utility_pages_addr + 2 * vmm_page_size();
-    kernel_info.workpg3_vaddr  = utility_pages_addr + 3 * vmm_page_size();
-    kernel_info.kernel_phys_map = kernel_phys_map;
+    kinfo.reserved_area_start = kernel_reserved_area_start;
+    kinfo.reserved_area_end = kernel_reserved_area_end;
+    kinfo.page_directory = utility_pages_addr + 0 * vmm_page_size();;
+    kinfo.workpg1_vaddr  = utility_pages_addr + 1 * vmm_page_size();
+    kinfo.workpg2_vaddr  = utility_pages_addr + 2 * vmm_page_size();
+    kinfo.workpg3_vaddr  = utility_pages_addr + 3 * vmm_page_size();
 
     // create a page directory for kernel.
-    vmm_create_kernel_page_directory_using_physical_pages(kernel_info.page_directory, kernel_info.cutoff_address);
+    vmm_create_kernel_page_directory_using_physical_pages(kinfo.page_directory, kinfo.reserved_area_start, kinfo.reserved_area_end);
     
-    // log_debug_hex((void *)kernel_info.page_directory, 16 * 4, 0);
-    // vmm_dump_page_directory(kernel_info.page_directory);
+    // log_debug_hex((void *)kinfo.page_directory, 16 * 4, 0);
+    vmm_dump_page_directory(kinfo.page_directory);
 
     // now enable paging (fingers crossed!)
-    vmm_set_page_directory_register(kernel_info.page_directory);
+    vmm_set_page_directory_register(kinfo.page_directory);
     vmm_enable_paging();
+
+
+    vmm_read_all_identity_addresses();
 }
 
-void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t kernel_cutoff) {
+static void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr) {
     // Identity map the kernel before paging is enabled.
     ASSERT(kernel_pd != 0);
-    ASSERT((kernel_cutoff & 0xFFF) == 0); // multiple of 4 KB
+    ASSERT(vmm_is_page_aligned(start_addr));
+    ASSERT(vmm_is_page_aligned(end_addr));
 
     memset((void *)kernel_pd, 0, vmm_page_size());
 
-    for (virt_addr_t addr = 0; addr < kernel_cutoff; addr += 4096) {
+    for (virt_addr_t addr = start_addr; addr < end_addr; addr += 4096) {
         // Determine page directory index
         int pd_index = (int)(addr >> 22); // bits 31-22
         int pt_index = (int)((addr >> 12) & 0x3FF); // bits 21-12
@@ -280,13 +282,10 @@ void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd,
     }
 }
 
-virt_addr_t vmm_get_kernel_cutoff_address() {
-    ASSERT(kernel_info.cutoff_address != 0);
-    // this will be identity mapped anyway
-    // used for task stacks, to allow kernel heap to grow
-    return kernel_info.cutoff_address;
+virt_addr_t vmm_get_kernel_area_end() {
+    ASSERT(kinfo.reserved_area_end != 0);
+    return kinfo.reserved_area_end;
 }
-
 
 phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     // For each virtual address, when we are dealing with 4K pages:
@@ -321,32 +320,49 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 }
 
 void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
+    log_trace("_map_page_primitive(virt=0x%x, phys=0x%x)", virtual_addr, physical_addr);
+
     // this function is expected operate on the work pages the kernel has.
     // it will not setup an new PTE, therefore it will not recurse.
     ASSERT(vmm_is_page_aligned(virtual_addr));
     ASSERT(vmm_is_page_aligned(physical_addr));
 
+    // this function uses the utility pages, to map various physical addresses
+    // this way, there will always be a Page Table entry, therefore we'll always be able to map
+    ASSERT(virtual_addr == kinfo.workpg1_vaddr || virtual_addr == kinfo.workpg2_vaddr || virtual_addr == kinfo.workpg3_vaddr);
+
     page_dir_t pd_address = vmm_get_current_page_dir();
     ASSERT(pd_address != 0);
+    log_trace("_map_page_primitive(), pd_address=0x%x", pd_address);
 
-    // entry for page table MUST be there, we are in the first 4 MB
+    // entry for page table MUST be there
     int idx = page_dir_index(virtual_addr);
+    log_trace("_map_page_primitive(), pd_index=%d", idx);
     uint32_t entry = ((uint32_t *)pd_address)[idx];
     ASSERT(entry_is_present(entry));
+    log_trace("_map_page_primitive(), pd_entry=0x%x", entry);
 
     // now, we may or may not have a value there.
     // no matter what was there, we will just rewrite it.
     phys_addr_t pt_address = (entry & 0xFFFFF000);
     ASSERT(pt_address != 0);
+    log_trace("_map_page_primitive(), pt_address=0x%x", pt_address);
     idx = page_table_index(virtual_addr);
+    log_trace("_map_page_primitive(), pt_index=%d", idx);
+log_trace("-p3b-");
     entry = make_pt_entry(physical_addr, false, false, false, false, false, true, true);
-    ((uint32_t *)pt_address)[idx] = entry;
+log_trace("-p3c-");
+    log_trace("_map_page_primitive(), writing value 0x%08x at index %d of PTE ", entry);
+    ((uint32_t *)pt_address)[idx] = entry; // <--- this gives page fault ?!?!?!?!?!
     
+log_trace("-p4-");
     // invalidate for CPU to recalculate
     vmm_invalidate_cached_address(virtual_addr);
 }
 
 void _unmap_page_primitive(virt_addr_t virtual_addr) {
+    log_trace("_unmap_page_primitive(virt=0x%x)", virtual_addr);
+
     // this function is expected operate on the work pages the kernel has.
     // it will not setup an new PTE, therefore it will not recurse.
     ASSERT(vmm_is_page_aligned(virtual_addr));
@@ -381,19 +397,20 @@ error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, 
 
     virt_addr_t page_table_paddr;
     if (entry_is_present(entry)) {
+log_trace("-a-");
         page_table_paddr = _get_entry_address(entry);
     } else {
+log_trace("-b-");
         page_table_paddr = pmm_allocate_physical_page();
         if (page_table_paddr == 0)
             return ERR_NO_MEMORY;
         
         // map/clear/unmap to initialize the PT
-        _map_page_primitive(vmm_workpg1(), page_table_paddr);
-        memset((void *)vmm_workpg1(), 0, vmm_page_size());
-        _unmap_page_primitive(vmm_workpg1());
-
+        log_trace("clearing the newly acquired phys page at 0x%x", page_table_paddr);
+        vmm_physpg_clear(page_table_paddr);
         
         // map/update/unmap, to add the new PT in the PD
+log_trace("-d-");
         _map_page_primitive(vmm_workpg1(), page_dir);
         uint32_t page_dir_value = make_pd_entry(page_table_paddr, false, false, user_accessible, true, true);
         ((uint32_t *)vmm_workpg1())[index] = page_dir_value;
@@ -401,10 +418,12 @@ error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, 
     }
 
     // map/update/unmap to set the entry in the PT
+log_trace("-f-");
     _map_page_primitive(vmm_workpg1(), page_table_paddr);
     index = page_table_index(virtual_addr);
     entry = make_pt_entry(physical_addr, false, false, false, false, user_accessible, write_enable, true);
     ((uint32_t *)vmm_workpg1())[index] = entry;
+log_trace("-g-");
     vmm_workpg1_unmap();
     
     return OK;
@@ -499,7 +518,7 @@ void vmm_enable_paging() {
         : "eax" // garbled registers
     );
 
-    kernel_info.paging_enabled = true;
+    kinfo.paging_enabled = true;
 }
 
 void vmm_disable_paging() {
@@ -517,8 +536,10 @@ void vmm_disable_paging() {
 
 
 page_dir_t vmm_get_kernel_page_directory() {
-    return kernel_info.page_directory;
+    return kinfo.page_directory;
 }
+
+static int page_faults = 0;
 
 // handles page faults. 
 // see https://wiki.osdev.org/Exceptions#Page_Fault
@@ -527,6 +548,11 @@ void vmm_page_fault_handler(uint32_t error_code) {
     bool page_present    = IS_BIT(error_code, 0);
     bool write_attempt   = IS_BIT(error_code, 1);
     bool supervisor_code = IS_BIT(error_code, 2);
+
+    page_faults++;
+    if (page_faults > 8)
+        panic("Too many page faults");
+    vmm_read_all_identity_addresses();
 
     uint32_t memory_address = 0;
     __asm__ __volatile__("mov %%cr2, %0" : "=g"(memory_address));
@@ -541,17 +567,20 @@ void vmm_page_fault_handler(uint32_t error_code) {
         memory_address,
         page_dir_address
     );
+    vmm_dump_page_directory(page_dir_address);
 
     // solution for now is to identity map this, just for fun
     // but, if we had a memory map (the mem_regions), we could identify who errored
     // e.g. stack underflow, or heap overflow, guard, mem-mapped file, etc
     
     error_t err = vmm_map_page_to_pd(vmm_round_down(memory_address), vmm_round_down(memory_address), true, true, page_dir_address);
+    if (err)
+        panic("Failed to identity map: %d - %s", err, strerror(err));
 }
 
 // allocates and creates a new page directory
 page_dir_t vmm_create_page_directory(bool map_kernel_space) {
-    ASSERT(kernel_info.paging_enabled); // we rely on this
+    ASSERT(kinfo.paging_enabled); // we rely on this
 
     page_dir_t page_dir = pmm_allocate_physical_page();
     if (page_dir == 0)
@@ -562,7 +591,7 @@ page_dir_t vmm_create_page_directory(bool map_kernel_space) {
 
     if (map_kernel_space) {
         log_debug("copying kernel PD contents to new page_directory");
-        vmm_physpg_copy(page_dir, kernel_info.page_directory);
+        vmm_physpg_copy(page_dir, kinfo.page_directory);
     }
 
     return page_dir;
@@ -614,7 +643,7 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address) {
                 continue;
 
             // we only free our extra pages, not the kernel ones.
-            if (phys_page_address >= kernel_info.start_address && phys_page_address <= kernel_info.end_address)
+            if (phys_page_address >= kinfo.reserved_area_start && phys_page_address < kinfo.reserved_area_end)
                 continue;
 
             pmm_free_physical_page((phys_addr_t)phys_page_address);
@@ -737,6 +766,18 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
     log_debug("Page directory at 0x%x end", page_dir_address);
 }
 
+static void vmm_read_all_identity_addresses() {
+    // try to read all the addresses in the kernel's space to see if they are readable.
+    log_info("reading all identity mapped addresses (0x%x - 0x%x)", kinfo.reserved_area_start, kinfo.reserved_area_end);
+    virt_addr_t va = kinfo.reserved_area_start;
+    int zeros = 0;
+    while (va < kinfo.reserved_area_end) {
+        if ((*(uint32_t *)va) == 0) // we don't care actually, we just want to read the address
+            zeros++;
+        va += vmm_page_size();
+    }
+    log_info("all identity mapped region was read (0x%x - 0x%x), found %d zeros", kinfo.reserved_area_start, kinfo.reserved_area_end, zeros);
+}
 
 
 
@@ -770,13 +811,13 @@ static vmm_page_ops_t _direct_page_ops = {
 
 vmm_page_ops_t *vmm_page_ops_for(page_dir_t page_dir) {
     page_dir_t curr = vmm_get_current_page_dir();
-    return (!kernel_info.paging_enabled || page_dir == curr) ? &_direct_page_ops : &_mapped_page_ops;
+    return (!kinfo.paging_enabled || page_dir == curr) ? &_direct_page_ops : &_mapped_page_ops;
 }
 
 // --------------------------------------------------------------
 
-void vmm_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    // mutex_acquire(&kernel_info.work_pages_lock);
+void vmm_physpg_read(phys_addr_t paddr, size_t offset, void *buffer, size_t size) {
+    // mutex_acquire(&kinfo.work_pages_lock);
 
     page_dir_t pd = vmm_get_current_page_dir();
     virt_addr_t pa = vmm_resolve(vmm_workpg1(), pd);
@@ -786,57 +827,57 @@ void vmm_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size
     size = min(size, vmm_page_size() - offset);
     memcpy(buffer, (void *)vmm_workpg1() + offset, size);
 
-    // mutex_release(&kernel_info.work_pages_lock);
+    // mutex_release(&kinfo.work_pages_lock);
 }
 
-void vmm_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    // mutex_acquire(&kernel_info.work_pages_lock);
+void vmm_physpg_write(phys_addr_t paddr, size_t offset, void *buffer, size_t size) {
+    // mutex_acquire(&kinfo.work_pages_lock);
 
     _map_page_primitive(vmm_workpg1(), paddr);
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
     memcpy((void *)vmm_workpg1() + offset, buffer, size);
 
-    // mutex_release(&kernel_info.work_pages_lock);
+    // mutex_release(&kinfo.work_pages_lock);
 }
 
-void vmm_physpg_clear(virt_addr_t paddr) {
-    // mutex_acquire(&kernel_info.work_pages_lock);
+void vmm_physpg_clear(phys_addr_t paddr) {
+    // mutex_acquire(&kinfo.work_pages_lock);
 
     _map_page_primitive(vmm_workpg1(), paddr);
     memset((void *)vmm_workpg1(), 0, vmm_page_size());
 
-    // mutex_release(&kernel_info.work_pages_lock);
+    // mutex_release(&kinfo.work_pages_lock);
 }
 
-uint32_t vmm_physpg_get_entry(virt_addr_t paddr, int index) {
-    // mutex_acquire(&kernel_info.work_pages_lock);
+uint32_t vmm_physpg_get_entry(phys_addr_t paddr, int index) {
+    // mutex_acquire(&kinfo.work_pages_lock);
 
     _map_page_primitive(vmm_workpg1(), paddr);
     index = clamp(index, 0, 1023);
     return ((uint32_t *)vmm_workpg1())[index];
 
-    // mutex_release(&kernel_info.work_pages_lock);
+    // mutex_release(&kinfo.work_pages_lock);
 }
 
-void vmm_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value) {
-    // mutex_acquire(&kernel_info.work_pages_lock);
+void vmm_physpg_set_entry(phys_addr_t paddr, int index, uint32_t value) {
+    // mutex_acquire(&kinfo.work_pages_lock);
 
     _map_page_primitive(vmm_workpg1(), paddr);
     index = clamp(index, 0, 1023);
     ((uint32_t *)vmm_workpg1())[index] = value;
 
-    // mutex_release(&kernel_info.work_pages_lock);
+    // mutex_release(&kinfo.work_pages_lock);
 }
 
-void vmm_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
-    // mutex_acquire(&kernel_info.work_pages_lock);
+void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
+    // mutex_acquire(&kinfo.work_pages_lock);
 
     _map_page_primitive(vmm_workpg1(), pdest);
     _map_page_primitive(vmm_workpg2(), psource);
     memcpy((void *)vmm_workpg1(), (void *)vmm_workpg2(), vmm_page_size());
 
-    // mutex_release(&kernel_info.work_pages_lock);
+    // mutex_release(&kinfo.work_pages_lock);
 }
 
 
@@ -873,3 +914,4 @@ void vmm_direct_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
 }
 
 // ------------------------------------------
+

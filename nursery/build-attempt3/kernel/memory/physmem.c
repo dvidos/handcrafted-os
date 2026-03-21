@@ -20,9 +20,10 @@ MODULE("PMM2", LOG_LEVEL_WARN);
 struct pmm_data_t {
     
     // we need to know the address of the 32 pages that contain the "used" bitmap
+    // 32K uint32_t long, or 32 pages of 4K each
     uint32_t total_pages;
     uint32_t free_pages;
-    uint32_t *bitmap; // 32K uint32_t long, or 32 pages of 4K each
+    uint32_t *bitmap; 
     uint32_t bitmap_uint_count;
     uint32_t next_allocation_page_hint;
     pmm_allocator_t allocator;
@@ -63,18 +64,27 @@ static inline void mark_page_free(uint32_t page_no) {
     }
 }
 
-void pmm_initialize(uint64_t highest_machine_address, phys_addr_t highest_kernel_address) {
+void pmm_initialize(uint64_t highest_machine_address, phys_addr_t bitmap_address, size_t bitmap_size_bytes) {
     pmm_data.allocator.allocate_physical_page = pmm_allocate_physical_page;
     pmm_data.allocator.free_physical_page = pmm_free_physical_page;
 
+    // this phys mem manager supports up to 4 GB of physical memory. 
+    if (highest_machine_address > 4 * GB)
+        highest_machine_address = 0xFFFFFFFF;
+
+    // 4GB of memory would give us 1M of pages, 32k integers of 32 bit, taking 128 KB bytes
+    if (bitmap_size_bytes < 128 * KB)
+        panic("pmm needs at least 128 KB for bitmap of 4GB");
+
     pmm_data.total_pages = (uint32_t)((highest_machine_address + 4095) / PAGE_SIZE);
-    pmm_data.bitmap = (uint32_t *)round_up_4k(highest_kernel_address + 1);
+    pmm_data.bitmap = (uint32_t *)bitmap_address;
     pmm_data.bitmap_uint_count = (pmm_data.total_pages + 31) / 32;
     pmm_data.next_allocation_page_hint = 0;
 
     // initially mark everything as unusable
     for (uint32_t i = 0; i < pmm_data.bitmap_uint_count; i++)
         pmm_data.bitmap[i] = 0xFFFFFFFF; // used, or unusable
+    
     pmm_data.free_pages = 0;
 }
 
@@ -274,11 +284,4 @@ void pmm_debug_bitmap_ranges() {
             (uint32_t)((end_addr - start_addr) / 1024),
             (uint32_t)((end_addr - start_addr) / (1024 * 1024))
         );
-}
-
-phys_addr_t pmm_get_top_identity_address() {
-    // we already put the bitmap after the top of the kernel.
-    // so, return the end of the bitmap, to identity map it.
-    // actually, we 
-    return (phys_addr_t)round_up_4k((uint32_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count * sizeof(uint32_t)));
 }

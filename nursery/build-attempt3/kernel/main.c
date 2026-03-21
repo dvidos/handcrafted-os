@@ -10,6 +10,7 @@
 #include "drivers/clock.h"
 #include "drivers/serial.h"
 #include "devices/tty.h"
+#include "memory/kmemmap.h"
 #include "memory/virtmem.h"
 #include "memory/kheap.h"
 #include "logger/logger.h"
@@ -62,15 +63,14 @@
 MODULE("MAIN", LOG_LEVEL_INFO);
 
 
-
 static void launch_initial_process();
 static void shell_launcher();
 static void initialize_physical_memory(boot_info_t *info);
 static void initialize_storage_and_file_systems();
 static void print_stage2_boot_info(boot_info_t *info);
 
+
 boot_info_t saved_multiboot_info;
-mem_map_t kernel_phys_mem_map;
 
 
 
@@ -124,11 +124,11 @@ void kernel_main(boot_info_t* boot)
     logger_add_appender(serial_log_appender, NULL, LOG_LEVEL_TRACE);
     
     log_info("Initializing Kernel Heap...");
-    init_kernel_heap((void *)KERNEL_HEAP_ADDRESS, KERNEL_HEAP_SIZE_KB * 1024);
+    init_kernel_heap((void *)kmm.heap.address, kmm.heap.size);
 
     log_info("Initializing virtual memory mapping...");
-    phys_addr_t max_used_address = pmm_get_top_identity_address();
-    vmm_initialize(0, max_used_address, 16 * MB, KERNEL_UTIL_PAGES_ADDRESS, KERNEL_UTIL_PAGES_SIZE_KB * 1024, &kernel_phys_mem_map);
+    vmm_initialize(kmm.reserved_start, kmm.reserved_end, kmm.mapping_pages.address, kmm.mapping_pages.size);
+    for(;;);
 
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -157,6 +157,9 @@ void kernel_main(boot_info_t* boot)
     tty_set_title_specific_tty(tty_manager_get_device(5), "VFS Monitor");
     tty_set_title_specific_tty(tty_manager_get_device(6), "System log");
     logger_add_appender(tty_log_appender, tty_manager_get_device(6), LOG_LEVEL_INFO);
+
+
+    log_warn("(freezing)"); for(;;);
 
     // create desired tasks here (init, logic, sh, etc)
     launch_initial_process();
@@ -203,59 +206,59 @@ extern char _segment_zero_data_end[];
 extern char _linker_end_address[];
 
 
-static void initialize_physical_memory(boot_info_t *info) {
-
+static void populate_kernel_memory_map(boot_info_t *info) {
     // find highest memory address of machine, cap at 4GB
-    uint64_t machine_max_memory_64 = 0;
+    kmm.machine_max_memory_address = 0;
     for (uint32_t i = 0; i < info->mem.count; i++) {
-        uint64_t entry_top64 = info->mem.entries[i].base + info->mem.entries[i].length;
-        if (entry_top64 > machine_max_memory_64)
-            machine_max_memory_64 = entry_top64;
+        uint64_t entry_top64 = info->mem.entries[i].base + info->mem.entries[i].length - 1;
+        if (entry_top64 > kmm.machine_max_memory_address)
+            kmm.machine_max_memory_address = entry_top64;
     }
 
-    // this variable must be static, we are well before initializing heap...
-    // notice that IVT, VGA, FB, don't _have_ to be identity matching, as long as any virtual address resolves to the correct physical one.
-    kernel_phys_mem_map = (mem_map_t){ .count = 0, .name = "Kernel physical memory map" };
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other(0, 4096, "ivt_bios"));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_code((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start)));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_rodata((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start)));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_data((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start)));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_bss((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start)));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_stack((phys_addr_t)_segment_zero_data_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end)));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_UTIL_PAGES_ADDRESS, (size_t)KERNEL_UTIL_PAGES_SIZE_KB * 1024, "util_page"));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other(640*1024, (1024-640)*1024, "low_mem"));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_other((phys_addr_t)KERNEL_RAMDISK_ADDRESS, (size_t)KERNEL_RAMDISK_SIZE_KB * 1024, "ramdisk"));
-    mem_map_add_region(&kernel_phys_mem_map, mem_region_kernel_heap((phys_addr_t)KERNEL_HEAP_ADDRESS, (size_t)KERNEL_HEAP_SIZE_KB * 1024));
-    log_info_fmt("", &kernel_phys_mem_map, mem_map_formatter);
+    kmm.reserved_start = 0;
+    kmm.reserved_end = 64 * MB; // arbitrary, between 8MB..128MB
+    
+    // this is our starting point, we no longer limited by real mode.
+    phys_addr_t addr = 1 * MB;
 
-    // where physical memory mapper can put its bitmap
-    uintptr_t kernel_top_address = mem_map_get_top_address(&kernel_phys_mem_map);
+    // we need a few pages for the kernel: 1x page dir, 2x for temp-map, 32x page tables, 32x extra page tables
+    kmm.mapping_pages = mem_region_kernel_other(addr, (1 + 2 + 32 + 32) * vmm_page_size(), "map_pages");
+    addr += kmm.mapping_pages.size;
 
-    log_info("Machine maximum memory address 0x%08x.%08x (%u KB, %u MB, %u GB)",
-        (uint32_t)(machine_max_memory_64 >> 32),
-        (uint32_t)(machine_max_memory_64 & 0xFFFFFFFF),
-        (uint32_t)(machine_max_memory_64 / 1024),
-        (uint32_t)(machine_max_memory_64 / (1024 * 1024)),
-        (uint32_t)(machine_max_memory_64 / (1024 * 1024 * 1024))
-    );
-    log_info("Kernel area topmost address 0x%08x", kernel_top_address);
+    // we need area for the pmm to store bitmap, 4GB --> 1M pages --> 132kb -> 32 pages
+    kmm.pmm_bitmap = mem_region_kernel_other(addr, 32 * vmm_page_size(), "pmm_bitmap");
+    addr += kmm.pmm_bitmap.size;
 
-    pmm_initialize(machine_max_memory_64, kernel_top_address);
+    // we need heap as well
+    kmm.heap = mem_region_kernel_other(addr, 8 * MB, "heap");
+    addr += kmm.heap.size;
+
+    // these are fixed
+    kmm.code = mem_region_kernel_other((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start), ".code");
+    kmm.rodata = mem_region_kernel_other((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start), ".rodata");
+    kmm.data = mem_region_kernel_other((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start), ".data");
+    kmm.bss = mem_region_kernel_other((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start), ".bss");
+    kmm.stack = mem_region_kernel_other((phys_addr_t)_segment_zero_data_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end), "stack");
+}
+
+static void initialize_physical_memory(boot_info_t *info) {
+
+    populate_kernel_memory_map(info);
+    kmm_log_info();
+
+    // now we can initialize
+    pmm_initialize(kmm.machine_max_memory_address, kmm.pmm_bitmap.address, kmm.pmm_bitmap.size);
     for (uint32_t i = 0; i < info->mem.count; i++) {
         e820_memory_entry *entry = &info->mem.entries[i];
         pmm_mark_region_available((phys_addr_t)entry->base, (size_t)entry->length);
     }
-    pmm_mark_region_reserved((phys_addr_t)0, (size_t)kernel_top_address);
+    pmm_mark_region_reserved(kmm.reserved_start, kmm.reserved_end - kmm.reserved_start);
     pmm_finish_initialization();
 
     log_info("Physical memory manager initialized. %u total pages, %u (%u MB or %u%%) reserved, %u (%u MB or %u%%) available",
-        pmm_total_pages(),
-        pmm_used_pages(),
-        (pmm_used_pages() * 4) / 1024,
-        pmm_total_pages() == 0 ? 0 : (pmm_used_pages() * 100) / pmm_total_pages(),
-        pmm_free_pages(),
-        (pmm_free_pages() * 4) / 1024,
-        pmm_total_pages() == 0 ? 0 : (pmm_free_pages() * 100) / pmm_total_pages()
+        pmm_total_pages(), 
+        pmm_used_pages(), (pmm_used_pages() * 4) / 1024, pmm_total_pages() == 0 ? 0 : (pmm_used_pages() * 100) / pmm_total_pages(),
+        pmm_free_pages(), (pmm_free_pages() * 4) / 1024, pmm_total_pages() == 0 ? 0 : (pmm_free_pages() * 100) / pmm_total_pages()
     );
 
     pmm_debug_bitmap_ranges();
@@ -298,12 +301,6 @@ static void initialize_storage_and_file_systems() {
     list_foreach(&block_devices_list, block_device_t, dev) {
         discover_and_register_legacy_partition_block_devices(dev);
         discover_and_register_uefi_partition_block_devices(dev);
-    }
-
-    // here, optionally add the ram disk
-    if (KERNEL_RAMDISK_SIZE_KB > 0) {
-        create_ram_block_device("rd", "Ram Disk", 512, KERNEL_RAMDISK_SIZE_KB * (1024 / 512), (char *)KERNEL_RAMDISK_ADDRESS, &dev);
-        list_append(&block_devices_list, dev);
     }
 
     // now that we finished...

@@ -17,7 +17,7 @@ typedef struct pmm_allocator_t {
 } pmm_allocator_t;
 
 
-void pmm_initialize(uint64_t highest_address, phys_addr_t kernel_end);
+void pmm_initialize(uint64_t highest_machine_address, phys_addr_t bitmap_address, size_t bitmap_size_bytes);
 void pmm_mark_region_available(phys_addr_t start, size_t length);
 void pmm_mark_region_reserved(phys_addr_t start, size_t length);
 void pmm_finish_initialization();
@@ -32,7 +32,6 @@ uint32_t pmm_free_pages();
 uint32_t pmm_used_pages();
 
 pmm_allocator_t pmm_get_pmm_allocator();
-phys_addr_t pmm_get_top_identity_address();
 void pmm_debug_bitmap_ranges();
 
 
