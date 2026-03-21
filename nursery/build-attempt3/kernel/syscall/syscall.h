@@ -2,6 +2,7 @@
 #define _SYSCALL_H
 
 #include "../include/ctypes.h"
+#include "../arch/idt.h"
 
 struct syscall_stack
 {
@@ -16,6 +17,7 @@ struct syscall_stack
     };
 };
 
-int isr_syscall(struct syscall_stack stack);
+// int isr_syscall(struct syscall_stack stack);
+int isr_syscall(registers_t *regs);
 
 #endif

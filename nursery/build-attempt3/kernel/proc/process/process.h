@@ -2,7 +2,6 @@
 #define _PROCESS_H
 
 #include "../include/ctypes.h"
-#include "../../arch/trapframe.h"
 #include "../utils/mutex.h"
 #include "../devices/tty.h"
 #include "../filesys/vfs_api.h"
@@ -108,12 +107,8 @@ struct process {
         union {
             uint32_t stack_pointer;                     // value of the stack pointer
             switched_stack_snapshot_t *stack_snapshot_at_esp;  // pointer to pushed data on the stack
+            registers_t *trapframe;   // points somewhere on kernel's stack (ideally)
         } execution;
-
-        struct {
-            uint32_t esp;
-            trapframe_t *trapframe; // points somewhere on kernel's stack (ideally)
-        } execution2;
 
     } memory;
 

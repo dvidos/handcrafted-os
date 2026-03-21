@@ -1,6 +1,5 @@
 #include "../include/bits.h"
 #include "../arch/cpu.h"
-#include "../arch/trapframe.h"
 #include "../include/uapi/errors.h"
 #include "../logger/logger.h"
 #include "../drivers/clock.h"
@@ -133,7 +132,8 @@ int sys_uptime(uint64_t *msecs) {
     return OK;
 }
 
-void isr_syscall(trapframe_t *trapframe_addr_on_stack) {
+
+void isr_syscall(registers_t *regs) {
     
     /* before getting to this function, the assembly isr handler
        has pushed CS, DS and SS into the stack, and will subsequently
@@ -147,12 +147,12 @@ void isr_syscall(trapframe_t *trapframe_addr_on_stack) {
 
     // it seems we are in the stack of the user process
     int return_value = 0;
-    uint32_t arg0 = trapframe_addr_on_stack->eax; // usuallys the sysno
-    uint32_t arg1 = trapframe_addr_on_stack->ebx;
-    uint32_t arg2 = trapframe_addr_on_stack->ecx;
-    uint32_t arg3 = trapframe_addr_on_stack->edx;
-    uint32_t arg4 = trapframe_addr_on_stack->esi;
-    uint32_t arg5 = trapframe_addr_on_stack->edi;
+    uint32_t arg0 = regs->eax; // usuallys the sysno
+    uint32_t arg1 = regs->ebx;
+    uint32_t arg2 = regs->ecx;
+    uint32_t arg3 = regs->edx;
+    uint32_t arg4 = regs->esi;
+    uint32_t arg5 = regs->edi;
 
     switch (arg0) {
         case SYS_ECHO_TEST:
@@ -274,5 +274,5 @@ void isr_syscall(trapframe_t *trapframe_addr_on_stack) {
     }
 
     // both positive and negative values tested and supported
-    trapframe_addr_on_stack->eax = return_value;
+    regs->eax = return_value;
 }

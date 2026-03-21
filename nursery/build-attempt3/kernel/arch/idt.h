@@ -1,10 +1,15 @@
 #ifndef _IDT_H
 #define _IDT_H
 
+
 // things pushed in the isr_stub we have in assembly
-// this is passed when isr_handler is called from our assembly stub
+// this is passed when interrupt_handler_c is called from our assembly stub
+// same for all interrupts, including the syscall one (0x80)
 typedef struct registers {
-   uint32_t ds;   // Data segment selector
+   uint32_t gs;
+   uint32_t fs;
+   uint32_t es;
+   uint32_t ds;
 
    uint32_t edi;
    uint32_t esi;
@@ -16,14 +21,14 @@ typedef struct registers {
    uint32_t eax; // Pushed by pusha.
    
    uint32_t int_no;
-   uint32_t err_code;    // Interrupt number and error code (if applicable)
+   uint32_t err_code;  // Interrupt number and error code (if applicable)
    
    uint32_t eip;
    uint32_t cs;
    uint32_t eflags;
    uint32_t user_esp;
    uint32_t ss; // Pushed by the processor automatically.
-} registers_t;
+} __attribute__((packed)) registers_t;
 
 
 

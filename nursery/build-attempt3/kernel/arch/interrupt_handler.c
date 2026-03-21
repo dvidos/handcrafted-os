@@ -27,7 +27,7 @@ static void log_registers(registers_t *regs) {
 }
 
 
-void isr_handler(registers_t *regs) {
+void interrupt_handler_c(registers_t *regs) {
     
     // don't forget we have mapped IRQs 0+ to 0x20+
     // to avoid the first 0x1F interrupts that are CPU faults in protected mode
@@ -73,6 +73,10 @@ void isr_handler(registers_t *regs) {
             // we could deduce from where this happens, kernel or process
             // then one could dissassemble the executable and look around the faulting address
             // i686-elf-objdump -d init | less
+            break;
+        case 128:
+            extern void isr_syscall(registers_t *regs);
+            isr_syscall(regs);
             break;
         default:
             log_error("Received interrupt %d (0x%x), error %d", regs->int_no, regs->int_no, regs->err_code);
