@@ -11,6 +11,8 @@ static inline uint32_t vmm_round_up(uint32_t address)          { return ((addres
 static inline uint32_t vmm_round_down(uint32_t address)        { return ((address                      ) / vmm_page_size()) * vmm_page_size(); }
 static inline uint32_t vmm_is_page_aligned(uint32_t address)   { return address == vmm_round_down(address); }
 static inline uint32_t vmm_pages_for_size(uint32_t size)       { return vmm_round_up(size) / vmm_page_size(); }
+static inline uint32_t vmm_page_address(uint32_t address)      { return address & 0xFFFFF000; }
+static inline uint32_t vmm_page_offset(uint32_t address)       { return address & 0x00000FFF; }
 
 
 // initialize virtual memory paging.
