@@ -133,7 +133,7 @@ int sys_uptime(uint64_t *msecs) {
 }
 
 
-void isr_syscall(registers_t *regs) {
+void isr_syscall(trap_frame_t *regs) {
     
     /* before getting to this function, the assembly isr handler
        has pushed CS, DS and SS into the stack, and will subsequently

@@ -106,8 +106,9 @@ struct process {
 
         union {
             uint32_t stack_pointer;                     // value of the stack pointer
+            // TODO: delete this, rely on trapframe.
             switched_stack_snapshot_t *stack_snapshot_at_esp;  // pointer to pushed data on the stack
-            registers_t *trapframe;   // points somewhere on kernel's stack (ideally)
+            trap_frame_t *trapframe;   // points somewhere on kernel's stack (ideally)
         } execution;
 
     } memory;

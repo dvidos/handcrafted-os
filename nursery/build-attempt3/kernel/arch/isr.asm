@@ -87,7 +87,7 @@ IRQ_ENTRY  128  ; i.e. 0x80, i.e. syscall
 ; It saves the processor state, sets up for kernel mode segments, 
 ; calls the C-level fault handler, and finally restores the stack frame.
 ; Caution, CPU state is stored as a C struct snapshot, keep them in sync
-; see registers_t structure in C
+; see trap_frame_t structure in C
 isr_common_body:
   pusha          ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
   push ds

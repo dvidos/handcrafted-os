@@ -155,7 +155,7 @@ void init_keyboard() {
     num_event_hooks = 0;
 }
 
-void keyboard_handler(registers_t* regs) {
+void keyboard_handler(trap_frame_t* regs) {
     (void)regs;
 
     uint8_t scancode = inb(0x60);

@@ -439,6 +439,7 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
     ASSERT(proc->memory.execution.stack_pointer != 0);
 
     // set the return address in a foreign physical page
+    // TODO: convert this to trap_frame_t
     virt_addr_t return_address_vlocation = 
         proc->memory.stack.address + proc->memory.stack.size -
         sizeof(switched_stack_snapshot_t) + offsetof(switched_stack_snapshot_t, return_address);

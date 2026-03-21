@@ -13,7 +13,7 @@
 MODULE("ISR", LOG_LEVEL_WARN);
 
 
-static void log_registers(registers_t *regs) {
+static void log_registers(trap_frame_t *regs) {
     log_error("Registers follow:\n" // we need the newline to align the registers left of log preambles
         "  EAX = 0x%08x    ESI = 0x%08x    EIP = 0x%08x\n"
         "  EBX = 0x%08x    EDI = 0x%08x    CS  = 0x%08x\n"
@@ -27,7 +27,7 @@ static void log_registers(registers_t *regs) {
 }
 
 
-void interrupt_handler_c(registers_t *regs) {
+void interrupt_handler_c(trap_frame_t *regs) {
     
     // don't forget we have mapped IRQs 0+ to 0x20+
     // to avoid the first 0x1F interrupts that are CPU faults in protected mode
@@ -74,8 +74,8 @@ void interrupt_handler_c(registers_t *regs) {
             // then one could dissassemble the executable and look around the faulting address
             // i686-elf-objdump -d init | less
             break;
-        case 128:
-            extern void isr_syscall(registers_t *regs);
+        case 0x80:
+            extern void isr_syscall(trap_frame_t *regs);
             isr_syscall(regs);
             break;
         default:
