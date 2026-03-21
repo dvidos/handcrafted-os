@@ -1,5 +1,6 @@
 #include "../include/bits.h"
 #include "../arch/cpu.h"
+#include "../arch/trapframe.h"
 #include "../include/uapi/errors.h"
 #include "../logger/logger.h"
 #include "../drivers/clock.h"
@@ -14,23 +15,9 @@
 
 MODULE("SYSCALL", LOG_LEVEL_WARN);
 
-#define STACK_GUARD_MAGIC_NUMBER   0x1BADCAFE
 
-
-// things pushed in the isr0x80 we have in assembly appear as arguments here
-// see isr0x80 in idt_low.asm for how things are pushed
-struct syscall_stack
-{
-    union {
-        struct {
-            uint32_t original_ds;  // ignore
-            uint32_t arg5, arg4, arg3, arg2, arg1, sysno;
-        } passed;
-        struct {
-            uint32_t dword[12];
-        } uniform;
-    };
-};
+// in this file we freely convert from u32 to pointers and vice versa
+_Static_assert(sizeof(uint32_t) == sizeof(void *));
 
 
 static void sys_log_entry(int level, uint8_t *buffer) {
@@ -146,84 +133,93 @@ int sys_uptime(uint64_t *msecs) {
     return OK;
 }
 
-int isr_syscall(struct syscall_stack stack) {
+void isr_syscall(trapframe_t *trapframe_addr_on_stack) {
+    
     /* before getting to this function, the assembly isr handler
        has pushed CS, DS and SS into the stack, and will subsequently
        pop the values from the stack. we had 
        cases where the SS value could be overwritten and this caused
        a General Protection Fault, as there was no such Segment Descriptor. 
        Therefore, we hope to catch any clobbed stack cases */
+    #define STACK_GUARD_MAGIC_NUMBER   0x1BADCAFE
     volatile int stack_guard = STACK_GUARD_MAGIC_NUMBER;
-    
+
+
     // it seems we are in the stack of the user process
     int return_value = 0;
+    uint32_t arg0 = trapframe_addr_on_stack->eax; // usuallys the sysno
+    uint32_t arg1 = trapframe_addr_on_stack->ebx;
+    uint32_t arg2 = trapframe_addr_on_stack->ecx;
+    uint32_t arg3 = trapframe_addr_on_stack->edx;
+    uint32_t arg4 = trapframe_addr_on_stack->esi;
+    uint32_t arg5 = trapframe_addr_on_stack->edi;
 
-    switch (stack.passed.sysno) {
+    switch (arg0) {
         case SYS_ECHO_TEST:
-            return_value = stack.passed.arg1;
+            return_value = arg1;
             break;
         case SYS_ADD_TEST:
-            return_value = stack.passed.arg1 + stack.passed.arg2 + stack.passed.arg3 +
-                stack.passed.arg4 + stack.passed.arg5;
+            return_value = arg1 + arg2 + arg3 +
+                arg4 + arg5;
             break;
 
         case SYS_LOG_ENTRY:
-            sys_log_entry(stack.passed.arg1, (uint8_t *)stack.passed.arg2);
+            sys_log_entry(arg1, (uint8_t *)arg2);
             break;
         case SYS_LOG_HEX_DUMP:
-            sys_log_hex(stack.passed.arg1, (uint8_t *)stack.passed.arg2, (uint32_t)stack.passed.arg3, (uint32_t)stack.passed.arg4);
+            sys_log_hex(arg1, (uint8_t *)arg2, (uint32_t)arg3, (uint32_t)arg4);
             break;
         case SYS_GET_CWD: // arg1 = buffer, arg2 = buffer len
-            return_value = sys_get_cwd((char *)stack.passed.arg1, stack.passed.arg2);
+            return_value = sys_get_cwd((char *)arg1, arg2);
             break;
         case SYS_CHDIR: // arg1 = path
-            return_value = sys_chdir((char *)stack.passed.arg1);
+            return_value = sys_chdir((char *)arg1);
             break;
         case SYS_OPEN:   // arg1 = file path, returns handle or error<0
-            return_value = sys_open((char *)stack.passed.arg1);
+            return_value = sys_open((char *)arg1);
             break;
         case SYS_READ:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
-            return_value = sys_read(stack.passed.arg1, (char *)stack.passed.arg2, stack.passed.arg3);
+            return_value = sys_read(arg1, (char *)arg2, arg3);
             break;
         case SYS_WRITE:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
-            return_value = sys_write(stack.passed.arg1, (char *)stack.passed.arg2, stack.passed.arg3);
+            return_value = sys_write(arg1, (char *)arg2, arg3);
             break;
         case SYS_SEEK:   // arg1 = handle, arg2 = offset, arg3 = origin, returns new position
-            return_value = sys_seek(stack.passed.arg1, stack.passed.arg2, stack.passed.arg3);
+            return_value = sys_seek(arg1, arg2, arg3);
             break;
         case SYS_CLOSE:   // arg1 = handle
-            return_value = sys_close(stack.passed.arg1);
+            return_value = sys_close(arg1);
             break;
         case SYS_OPEN_DIR:   // arg1 = dir path, return handle or error<0
-            return_value = sys_opendir((char *)stack.passed.arg1);
+            return_value = sys_opendir((char *)arg1);
             break;
         case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
-            // return_value = sys_readdir(stack.passed.arg1, (dirent_t *)stack.passed.arg2);
+            // return_value = sys_readdir(arg1, (dirent_t *)arg2);
             break;
         case SYS_CLOSE_DIR:   // arg1 = handle
-            return_value = sys_closedir(stack.passed.arg1);
+            return_value = sys_closedir(arg1);
             break;
         case SYS_TOUCH:   // arg1 = path
-            // return_value = vfs_touch((char *)stack.passed.arg1);
+            // return_value = vfs_touch((char *)arg1);
             break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
-            // return_value = vfs_unlink((char *)stack.passed.arg1);
+            // return_value = vfs_unlink((char *)arg1);
             break;
         case SYS_MKDIR:   // arg1 = path
-            // return_value = vfs_mkdir((char *)stack.passed.arg1);
+            // return_value = vfs_mkdir((char *)arg1);
             break;
         case SYS_RMDIR:  // arg1 = path
-            // return_value = vfs_rmdir((char *)stack.passed.arg1);
+            // return_value = vfs_rmdir((char *)arg1);
             break;
         case SYS_DUP:
-            return_value = sys_dup(stack.passed.arg1);
+            return_value = sys_dup(arg1);
             break;
         case SYS_DUP2:
-            return_value = sys_dup2(stack.passed.arg1, stack.passed.arg2);
+            return_value = sys_dup2(arg1, arg2);
             break;
         case SYS_PIPE:
             // arg1 is an array of two integers ?!?
-            return_value = sys_pipe((int*)stack.passed.arg1);
+            return_value = sys_pipe((int*)arg1);
             break;
         case SYS_GET_PID:   // returns pid
             return_value = proc_get_pid(running_process());
@@ -235,40 +231,40 @@ int isr_syscall(struct syscall_stack stack) {
             return_value = proc_fork(running_process());
             break;
         case SYS_EXEC:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
-            return_value = sys_exec((char *)stack.passed.arg1, (char **)stack.passed.arg2, (char **)stack.passed.arg3);
+            return_value = sys_exec((char *)arg1, (char **)arg2, (char **)arg3);
             break;
         case SYS_SPAWN:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
-            return_value = spawnve((char *)stack.passed.arg1, (char **)stack.passed.arg2, (char **)stack.passed.arg3);
+            return_value = spawnve((char *)arg1, (char **)arg2, (char **)arg3);
             break;
         case SYS_WAIT_CHILD:
-            return_value = sys_wait_child((int *)stack.passed.arg1);
+            return_value = sys_wait_child((int *)arg1);
             break;
         case SYS_YIELD:
             return_value = sys_yield();
             break;
         case SYS_SLEEP:   // arg1 = millisecs
-            return_value = sys_sleep((uint32_t)stack.passed.arg1);
+            return_value = sys_sleep((uint32_t)arg1);
             break;
         case SYS_EXIT:   // arg1 = exit code
-            return_value = sys_exit(stack.passed.arg1);
+            return_value = sys_exit(arg1);
             break;
         case SYS_SBRK:   // arg1 = signed desired diff, returns pointer to new area
-            return_value = (int)sys_sbrk(stack.passed.arg1);
+            return_value = (int)sys_sbrk(arg1);
             break;
         case SYS_GET_UPTIME:   // returns msecs since boot (32 bits = 49 days)
-            sys_uptime((uint64_t *)stack.passed.arg1);
+            sys_uptime((uint64_t *)arg1);
             break;
         case SYS_GET_CLOCK:   // arg1 = clocktime pointer
-            sys_get_clocktime((clocktime_t *)stack.passed.arg1);
+            sys_get_clocktime((clocktime_t *)arg1);
             break;
         default:
             log_warn("Received syscall interrupt!");
-            log_debug("  sysno = %d (eax)", stack.passed.sysno);
-            log_debug("  arg1  = %d (0x%08x) (ebx)", stack.passed.arg1, stack.passed.arg1);
-            log_debug("  arg2  = %d (0x%08x) (ecx)", stack.passed.arg2, stack.passed.arg2);
-            log_debug("  arg3  = %d (0x%08x) (edx)", stack.passed.arg3, stack.passed.arg3);
-            log_debug("  arg4  = %d (0x%08x) (esi)", stack.passed.arg4, stack.passed.arg4);
-            log_debug("  arg5  = %d (0x%08x) (edi)", stack.passed.arg5, stack.passed.arg5);
+            log_debug("  sysno = %d (eax)", arg0);
+            log_debug("  arg1  = %d (0x%08x) (ebx)", arg1, arg1);
+            log_debug("  arg2  = %d (0x%08x) (ecx)", arg2, arg2);
+            log_debug("  arg3  = %d (0x%08x) (edx)", arg3, arg3);
+            log_debug("  arg4  = %d (0x%08x) (esi)", arg4, arg4);
+            log_debug("  arg5  = %d (0x%08x) (edi)", arg5, arg5);
             break;
     }
     
@@ -278,5 +274,5 @@ int isr_syscall(struct syscall_stack stack) {
     }
 
     // both positive and negative values tested and supported
-    return return_value;
+    trapframe_addr_on_stack->eax = return_value;
 }

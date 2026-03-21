@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
     } else if (child_pid > 0) {
         printf("Hello from parent, child's pid is %d\n", child_pid);
     } else if (child_pid < 0) {
-        printf("Hello from parent, fork() returned error %d - %s\n", child_pid, strerror(child_pid));
+        printf("Hello from parent, fork() returned error %d\n", child_pid);
     }
 
     printf("init pausing...");

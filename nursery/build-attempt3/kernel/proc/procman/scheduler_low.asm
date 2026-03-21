@@ -75,7 +75,7 @@
 ;   5. pop the bunch of things in the opposite order.
 [global low_level_context_switch]
 low_level_context_switch:
-    ; this method expects two arguments:
+    ; this method expects three arguments from C:
     ;   1. a pointer to a location where to save the last ESP of this process
     ;   2. a pointer to a value to set ESP to, possibly returning to a different caller
     ;   3. a non-zero value to set CR3, if paging is desired
