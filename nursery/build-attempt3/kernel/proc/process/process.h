@@ -2,6 +2,7 @@
 #define _PROCESS_H
 
 #include "../include/ctypes.h"
+#include "../../arch/trapframe.h"
 #include "../utils/mutex.h"
 #include "../devices/tty.h"
 #include "../filesys/vfs_api.h"
@@ -51,6 +52,8 @@ typedef enum proc_priority {
  * or first entries is what will be popped first
  * the structure allows us to prepare new stack snapshot for starting new processes
  * see relevant assembly function
+ * 
+ * we want to unify this with the trapframe_t we have in arch
  */
 struct switched_stack_snapshot {
     // these registers explicitly pushed by our code
@@ -106,6 +109,12 @@ struct process {
             uint32_t stack_pointer;                     // value of the stack pointer
             switched_stack_snapshot_t *stack_snapshot_at_esp;  // pointer to pushed data on the stack
         } execution;
+
+        struct {
+            uint32_t esp;
+            trapframe_t *trapframe; // points somewhere on kernel's stack (ideally)
+        } execution2;
+
     } memory;
 
     uintptr_t entry_point; // where to jump after initializing this process

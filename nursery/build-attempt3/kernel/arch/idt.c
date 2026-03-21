@@ -200,7 +200,7 @@ void dump_registers(registers_t *regs) {
     log_debug("EDI     : %08x", regs->edi);
     log_debug("ESI     : %08x", regs->esi);
     log_debug("EBP     : %08x", regs->ebp);
-    log_debug("ESP     : %08x", regs->esp);
+    log_debug("ESP     : %08x", regs->esp_dummy);
     log_debug("EBX     : %08x", regs->ebx);
     log_debug("EDX     : %08x", regs->edx);
     log_debug("ECX     : %08x", regs->ecx);
@@ -209,6 +209,6 @@ void dump_registers(registers_t *regs) {
     log_debug("ERR_CODE: 0x%x", regs->err_code);
     log_debug("EIP     : %08x", regs->eip);
     log_debug("EFLAGS  : %08x", regs->eflags);
-    log_debug("USERRESP: %08x", regs->useresp);
+    log_debug("USER_ESP: %08x", regs->user_esp);
     log_debug("SS      : %08x", regs->ss);
 }

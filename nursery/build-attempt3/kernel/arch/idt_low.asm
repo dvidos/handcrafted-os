@@ -28,7 +28,9 @@ isr_common_stub:
    ; mov byte [gs:0xb8004], ']'
    ;   hlt
 
+   push esp         ; pass a pointer to the stack
    call isr_handler
+   add esp, 4
    
    pop eax        ; reload the original data segment descriptor
    mov ds, ax
