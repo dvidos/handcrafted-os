@@ -125,7 +125,9 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     format_mem_region(stream, "elf #3", &proc->memory.elf_sections[3]);
     format_mem_region(stream, "heap", &proc->memory.heap);
     
+    // i think this only works if scheduled out, not through SYSLOG...
     uint32_t esp_virt = proc->memory.execution.stack_pointer;
+    
     phys_addr_t esp_phys = vmm_resolve(esp_virt, proc->memory.page_dir);
     stream->printf(stream->context, "- Stack frame (ESP virt addr %x, phys %x)", esp_virt, esp_phys);
 

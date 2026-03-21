@@ -12,8 +12,7 @@
 #include "../../utils/assert.h"
 #include "../elf_reader.h"
 
-
-MODULE("PROC_CREATE", LOG_LEVEL_DEBUG);
+MODULE("PROC_CREATE", LOG_LEVEL_TRACE);
 
 
 static pid_t   next_pid();
@@ -611,6 +610,8 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
     // TODO: i think we did not setup return address..
     // the stack should be mapped, maybe do it directly?
     // proc->memory.execution.return_Address = function_to_call?
+    // GPT says we should have a small trampoline, where when the task returns, we just remove it from lists
+    // but, since this will tie into creating tasks/threads, i leave it for later.
     proc->entry_point = function_to_call;
 
     *proc_ptr = proc;
@@ -705,9 +706,11 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
     err = _duplicate_all_memory_regions_from_process(child, parent);
     if (err) goto failed;
 
+    child->memory.execution.stack_pointer = parent->memory.execution.stack_pointer;
+    // maybe we can influence the return value of the child here???
+
     // we'll need a few more things, but this is looking better
     ASSERT(child->memory.execution.stack_pointer != 0);
-    ASSERT(child->memory.execution.stack_snapshot_at_esp->return_address != 0);
 
     *proc_ptr = child;
     return OK;
@@ -743,6 +746,8 @@ void proc_destroy(process_t *proc) {
     
     if (proc->curr_dir_path != NULL)
         kfree(proc->curr_dir_path);
+
+    // let's release all file handles as well.
     
     // can't think of anything else to free
     kfree(proc);

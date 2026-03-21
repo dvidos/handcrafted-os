@@ -115,6 +115,16 @@ int main(int argc, char *argv[]) {
 
     execute_rc_file();
 
+    printf("Fork testing:\n");
+    int child_pid = fork();
+    if (child_pid == 0) {
+        printf("Hello from child\n");
+    } else if (child_pid > 0) {
+        printf("Hello from parent, child's pid is %d\n", child_pid);
+    } else if (child_pid < 0) {
+        printf("Hello from parent, fork() returned error %d - %s\n", child_pid, strerror(child_pid));
+    }
+
     printf("init pausing...");
     for(;;) { sleep(1000); }
 }

@@ -7,6 +7,7 @@ MODULE("PROC_FORK", LOG_LEVEL_TRACE);
 // clone, return child's PID on parent, zero on child.
 int proc_fork(process_t *proc) {
     log_trace("proc_fork(proc=%p)", proc);
+    log_debug_fmt("parent:", proc, proc_log_formatter);
 
     // need to duplicate stack and heap, memory pages, file handles,
     // then even copy the trap state (e.g. the actual EIP value)
@@ -31,5 +32,16 @@ int proc_fork(process_t *proc) {
           we copy the stack snapshot, file descriptors, 
     */
 
-    return ERR_NOT_IMPLEMENTED;
+    process_t *child;
+    error_t err = process_v2_create_for_fork(proc, &child);
+    if (err) return err;
+
+    log_debug_fmt("child:", child, proc_log_formatter);
+
+
+
+    proc_start(child);
+
+    // i guess this is the parent
+    return child->pid;
 }
