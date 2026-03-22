@@ -293,12 +293,13 @@ static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt
     if (err) return err;
 
     proc->memory.stack = reg;
-    proc->memory.execution.stack_pointer = stack_top - sizeof(switched_stack_snapshot_t);
+    proc->memory.execution.stack_pointer = stack_top;
 
     if (proc_is_user_proc(proc)) {
         // we're going to need kernel stack for syscalls and stuff
-        proc->memory.kernel_stack = kmalloc(4096);
-        if (proc->memory.kernel_stack == NULL)
+        proc->memory.kernel_stack_size = 4096;
+        proc->memory.kernel_stack_addr = kmalloc(proc->memory.kernel_stack_size);
+        if (proc->memory.kernel_stack_addr == NULL)
             return ERR_NO_MEMORY;
     }
     
@@ -464,16 +465,11 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
     
     // put the entry point on stack. Stack MUST be initialized by now.
     ASSERT(proc->memory.execution.stack_pointer != 0);
+    ASSERT(proc->memory.kernel_stack_addr != NULL);
 
-    trap_frame_t tf;
-    _prepare_trap_frame_for_new_process(proc, &tf, elf_entry_point);
-
-    phys_addr_t tf_paddr = vmm_resolve(proc->memory.execution.trapframe->user_esp, proc->memory.page_dir);
-    phys_addr_t page_address = vmm_page_address(tf_paddr);
-    size_t page_offset = vmm_page_offset(tf_paddr);
-
-    // note: if we have pushed env/args, we may be crossing page boundaries
-    vmm_physpg_write(page_address, page_offset, &tf, sizeof(trap_frame_t));
+    trap_frame_t *tf_on_kernel_stack = (trap_frame_t *)(proc->memory.kernel_stack_addr + proc->memory.kernel_stack_size - sizeof(trap_frame_t));
+    _prepare_trap_frame_for_new_process(proc, tf_on_kernel_stack, elf_entry_point);
+    proc->memory.execution.trapframe = tf_on_kernel_stack;
 
     err = OK;
 
@@ -764,9 +760,9 @@ void proc_destroy(process_t *proc) {
     if (proc->memory.page_dir != 0 && proc->memory.page_dir != vmm_get_kernel_page_directory())
         vmm_destroy_page_directory(proc->memory.page_dir);
 
-    if (proc->memory.kernel_stack != NULL) {
-        kfree(proc->memory.kernel_stack);
-        proc->memory.kernel_stack = NULL;
+    if (proc->memory.kernel_stack_addr != NULL) {
+        kfree(proc->memory.kernel_stack_addr);
+        proc->memory.kernel_stack_addr = NULL;
     }
 
     if (proc->user_proc.executable_path != NULL) {

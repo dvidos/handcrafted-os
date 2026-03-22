@@ -125,25 +125,29 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     format_mem_region(stream, "elf #3", &proc->memory.elf_sections[3]);
     format_mem_region(stream, "heap", &proc->memory.heap);
     
-    // i think this only works if scheduled out, not through SYSLOG...
     uint32_t esp_virt = proc->memory.execution.stack_pointer;
-    
     phys_addr_t esp_phys = vmm_resolve(esp_virt, proc->memory.page_dir);
     stream->printf(stream->context, "- Stack frame (ESP virt addr %x, phys %x)", esp_virt, esp_phys);
+    uint32_t esp_page = vmm_page_address(esp_phys);
+    size_t esp_offset = vmm_page_offset(esp_phys);
 
-    phys_addr_t page_addr = esp_phys & 0xFFFFF000;
-    size_t offset = esp_phys & 0xFFF;
-    switched_stack_snapshot_t snapshot = { 0 };
-    vmm_physpg_read(page_addr, offset, &snapshot, sizeof(switched_stack_snapshot_t));
+    trap_frame_t tf;
+    vmm_physpg_read(esp_page, esp_offset, &tf, sizeof(trap_frame_t));
+    log_debug_fmt("      ", &tf, trap_frame_log_formatter);
 
-    stream->printf(stream->context, "    EAX 0x%08x   EBX 0x%08x   ECX 0x%08x   EDX 0x%08x",
-        snapshot.eax, snapshot.ebx, snapshot.ecx, snapshot.edx);
-    stream->printf(stream->context, "    ESP 0x%08x   EBP 0x%08x   EDI 0x%08x   ESI 0x%08x",
-        proc->memory.execution.stack_pointer, snapshot.ebp, snapshot.edi, snapshot.esi);
-    stream->printf(stream->context, "    return address 0x%08x         flags 0x%08x",
-        snapshot.return_address, snapshot.eflags);
-
-    stream->printf(stream->context, "- Arguments");
-    stream->printf(stream->context, "- Environment");
+    // stream->printf(stream->context, "- Arguments");
+    // stream->printf(stream->context, "- Environment");
     stream->printf(stream->context, "- File descriptors");
+    bool handle_found = false;
+    for (int i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (proc->file_handles[i] == NULL)  
+            continue;
+        
+        // this prefix should be added to the existing one
+        char prefix[16];
+        sprintfn(prefix, sizeof(prefix), "  [%d] ", i);
+        log_debug_fmt(prefix, proc->file_handles[i], open_files.formatter);
+    }
+    if (!handle_found)
+        stream->printf(stream->context, "    (none found)");
 }

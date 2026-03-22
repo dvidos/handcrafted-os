@@ -45,30 +45,6 @@ typedef enum proc_priority {
 
 #define MAX_FILE_HANDLES     16
 
-/**
- * this is what's pushed when switching and is used to prepare the target return
- * first entries in the structure are what has been pushed last,
- * or first entries is what will be popped first
- * the structure allows us to prepare new stack snapshot for starting new processes
- * see relevant assembly function
- * 
- * we want to unify this with the trapframe_t we have in arch
- */
-struct switched_stack_snapshot {
-    // these registers explicitly pushed by our code
-    uint32_t edi;
-    uint32_t esi;
-    uint32_t ebp;
-    uint32_t ebx;
-    uint32_t edx;
-    uint32_t ecx;
-    uint32_t eax;
-    uint32_t eflags;
-    // this one is not pushed by our code, but by whoever calls our assembly method
-    uint32_t return_address; 
-} __attribute__((packed));
-typedef struct switched_stack_snapshot switched_stack_snapshot_t;
-
 // state of a process. corresponding lists exist
 enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 
@@ -104,13 +80,12 @@ struct process {
         mem_region_t elf_sections[MAX_PROCESS_ELF_SECTIONS]; // can be .text, .data, .rodata, .bss, etc.
         int elf_sections_count;
 
-        char *kernel_stack; // for when it makes syscall
+        char *kernel_stack_addr; // for when it makes syscall
+        uint32_t kernel_stack_size;
 
         union {
             uint32_t stack_pointer;                     // value of the stack pointer
-            // TODO: delete this, rely on trapframe.
-            switched_stack_snapshot_t *stack_snapshot_at_esp;  // pointer to pushed data on the stack
-            trap_frame_t *trapframe;   // points somewhere on kernel's stack (ideally)
+            trap_frame_t *trapframe;   // for spawn(), it points near top of kernel's stack
         } execution;
 
     } memory;

@@ -96,7 +96,7 @@ isr_common_body:
   push gs
 
   mov ax, 0x10  ; load the kernel data segment descriptor
-  mov ds, ax
+  mov ds, ax    ; code segment was already changed by cpu and int
   mov es, ax
   mov fs, ax
   mov gs, ax

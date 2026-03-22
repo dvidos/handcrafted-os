@@ -2,6 +2,7 @@
 #define _TRAP_FRAME_H
 
 #include "../include/ctypes.h"
+#include "../logger/logger.h"
 
 
 // things pushed in the isr_stub we have in assembly
@@ -40,6 +41,9 @@ typedef struct trap_frame {
    uint32_t ss;
 
 } __attribute__((packed)) trap_frame_t;
+
+
+void trap_frame_log_formatter(log_write_stream_t *stream, va_list args);
 
 
 

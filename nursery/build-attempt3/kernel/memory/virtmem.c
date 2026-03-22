@@ -14,7 +14,7 @@
 #include "../klib/string.h"
 #include "../memory/mem_region.h"
 
-MODULE("VMM", LOG_LEVEL_TRACE);
+MODULE("VMM", LOG_LEVEL_DEBUG);
 
 /*
    Paging is mapping a virtual address to a physical one.
