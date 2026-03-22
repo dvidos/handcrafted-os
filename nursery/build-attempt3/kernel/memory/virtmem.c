@@ -321,7 +321,7 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 
     // first resolve page directory.
     index = page_dir_index(virtual_addr);
-    entry = _get_table_entry(page_dir_addr, index);
+    entry = vmm_physpg_get_entry(page_dir_addr, index);
     if (!entry_is_present(entry))
         return 0;
     address = _get_entry_address(entry);
@@ -330,7 +330,7 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     
     // then resolve page table
     index = page_table_index(virtual_addr);
-    entry = _get_table_entry(address, index);
+    entry = vmm_physpg_get_entry(address, index);
     if (!entry_is_present(entry))
         return 0;
     address = _get_entry_address(entry);
@@ -413,7 +413,7 @@ error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, 
 
     // from the page directory, find or create the page table
     index = page_dir_index(virtual_addr);
-    entry = ((uint32_t *)page_dir)[index];
+    entry = vmm_physpg_get_entry(page_dir, index);
 
     virt_addr_t page_table_paddr;
     if (entry_is_present(entry)) {
@@ -424,22 +424,17 @@ error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, 
             return ERR_NO_MEMORY;
         
         // map/clear/unmap to initialize the PT
-        log_trace("clearing the newly acquired phys page at 0x%x", page_table_paddr);
         vmm_physpg_clear(page_table_paddr);
         
         // map/update/unmap, to add the new PT in the PD
-        _map_page_primitive(vmm_workpg1(), page_dir);
         uint32_t page_dir_value = make_pd_entry(page_table_paddr, false, false, user_accessible, true, true);
-        ((uint32_t *)vmm_workpg1())[index] = page_dir_value;
-        _unmap_page_primitive(vmm_workpg1());
+        vmm_physpg_set_entry(page_dir, index, page_dir_value);
     }
 
     // map/update/unmap to set the entry in the PT
-    _map_page_primitive(vmm_workpg1(), page_table_paddr);
     index = page_table_index(virtual_addr);
     entry = make_pt_entry(physical_addr, false, false, false, false, user_accessible, write_enable, true);
-    ((uint32_t *)vmm_workpg1())[index] = entry;
-    vmm_workpg1_unmap();
+    vmm_physpg_set_entry(page_table_paddr, index, entry);
     
     return OK;
 }
