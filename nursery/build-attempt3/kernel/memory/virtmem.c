@@ -12,7 +12,7 @@
 #include "../klib/string.h"
 #include "../memory/mem_region.h"
 
-MODULE("VMM", LOG_LEVEL_TRACE);
+MODULE("VMM", LOG_LEVEL_DEBUG);
 
 /*
    Paging is mapping a virtual address to a physical one.
@@ -104,18 +104,34 @@ static struct {
     // area reserved for kernel, identity mapped, usually 0..96MB
     phys_addr_t reserved_area_start;
     phys_addr_t reserved_area_end;
-    // for example PCI pages added on demand
-    mem_map_t extra_identity_mappings;
+    
+    mem_map_t extra_identity_mappings; // we'll see (for example PCI pages added on demand)
+
+    // area for mapping page table entryies and such
+    phys_addr_t mapping_pages_addr;
+    int mapping_pages_count;
+    int mapping_pages_allocated;
 
     // utility reserved addresses
-    virt_addr_t workpg1_vaddr;
-    virt_addr_t workpg2_vaddr;
-    virt_addr_t workpg3_vaddr;
+    virt_addr_t work_page1_addr;
+    virt_addr_t work_page2_addr;
+
 
     lock_t work_pages_lock;
+
 } kinfo;
 
+static phys_addr_t vmm_allocate_kernel_mapping_page() {
+    mutex_acquire(&kinfo.work_pages_lock);
+    if (kinfo.mapping_pages_allocated >= kinfo.mapping_pages_count)
+        panic("Cannot allocate any more mapping pages, exhausted all %d of them", kinfo.mapping_pages_count);
+    
+    phys_addr_t page = kinfo.mapping_pages_addr + kinfo.mapping_pages_allocated * vmm_page_size();
+    kinfo.mapping_pages_allocated++;
 
+    mutex_release(&kinfo.work_pages_lock);
+    return page;
+}
 
 
 static inline uint32_t make_pd_entry(uintptr_t address,
@@ -191,36 +207,41 @@ static void _unmap_page_primitive(virt_addr_t virtual_addr);
 
 
 // this work page is a reserve address that allows us to modify physical pages with temporary mapping
-static inline virt_addr_t vmm_workpg1() { return kinfo.workpg1_vaddr; }
-static inline virt_addr_t vmm_workpg2() { return kinfo.workpg2_vaddr; }
+static inline virt_addr_t vmm_workpg1() { return kinfo.work_page1_addr; }
+static inline virt_addr_t vmm_workpg2() { return kinfo.work_page2_addr; }
 static inline void vmm_workpg1_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg1(), phys_addr); }
 static inline void vmm_workpg2_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg2(), phys_addr); }
 static inline void vmm_workpg1_unmap() { _unmap_page_primitive(vmm_workpg1()); }
 static inline void vmm_workpg2_unmap() { _unmap_page_primitive(vmm_workpg2()); }
 
-static void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr);
+static void vmm_create_kernel_page_directory_using_mapping_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr);
 static void vmm_read_all_identity_addresses();
 
 // --------------------------------------------------------
 
 void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_reserved_area_end, phys_addr_t utility_pages_addr, size_t utility_pages_size) {
-    log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, uaddr=0x%x, usize=%d, kmap=0x%x)", kernel_reserved_area_start, kernel_reserved_area_end, utility_pages_addr, utility_pages_size);
+    log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, uaddr=0x%x, usize=%d)", kernel_reserved_area_start, kernel_reserved_area_end, utility_pages_addr, utility_pages_size);
 
     ASSERT(kernel_reserved_area_end > kernel_reserved_area_start);
     ASSERT(utility_pages_addr > 0);
+    ASSERT(vmm_is_page_aligned(utility_pages_size));
     ASSERT(vmm_round_down(utility_pages_size) / vmm_page_size() >= 4);
 
     memset(&kinfo, 0, sizeof(kinfo));
 
     kinfo.reserved_area_start = kernel_reserved_area_start;
     kinfo.reserved_area_end = kernel_reserved_area_end;
-    kinfo.page_directory = utility_pages_addr + 0 * vmm_page_size();;
-    kinfo.workpg1_vaddr  = utility_pages_addr + 1 * vmm_page_size();
-    kinfo.workpg2_vaddr  = utility_pages_addr + 2 * vmm_page_size();
-    kinfo.workpg3_vaddr  = utility_pages_addr + 3 * vmm_page_size();
+    kinfo.mapping_pages_addr = utility_pages_addr;
+    kinfo.mapping_pages_count = utility_pages_size / vmm_page_size();;
+
+    kinfo.page_directory = vmm_allocate_kernel_mapping_page();
+    kinfo.work_page1_addr = vmm_allocate_kernel_mapping_page();
+    kinfo.work_page2_addr = vmm_allocate_kernel_mapping_page();
+    log_debug("kernel page_dir=0x%x, work_page1=0x%x, work_page2=0x%x", kinfo.page_directory, kinfo.work_page1_addr, kinfo.work_page2_addr);
 
     // create a page directory for kernel.
-    vmm_create_kernel_page_directory_using_physical_pages(kinfo.page_directory, kinfo.reserved_area_start, kinfo.reserved_area_end);
+    vmm_create_kernel_page_directory_using_mapping_pages(kinfo.page_directory, kinfo.reserved_area_start, kinfo.reserved_area_end);
+    log_debug("after creating kernel page directory, %d mapping pages allocated of %d total", kinfo.mapping_pages_allocated, kinfo.mapping_pages_count);
     
     // log_debug_hex((void *)kinfo.page_directory, 16 * 4, 0);
     vmm_dump_page_directory(kinfo.page_directory);
@@ -228,12 +249,12 @@ void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_r
     // now enable paging (fingers crossed!)
     vmm_set_page_directory_register(kinfo.page_directory);
     vmm_enable_paging();
-
-
+    
+    // this will trigger page faults, if there is an issue
     vmm_read_all_identity_addresses();
 }
 
-static void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr) {
+static void vmm_create_kernel_page_directory_using_mapping_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr) {
     // Identity map the kernel before paging is enabled.
     ASSERT(kernel_pd != 0);
     ASSERT(vmm_is_page_aligned(start_addr));
@@ -252,7 +273,7 @@ static void vmm_create_kernel_page_directory_using_physical_pages(page_dir_t ker
         if (entry_is_present(pd_entry)) {
             page_table = _get_entry_address(pd_entry);
         } else {
-            page_table = pmm_allocate_physical_page();
+            page_table = vmm_allocate_kernel_mapping_page();
             if (!page_table) panic("Cannot allocate kernel page table");
             memset((void *)page_table, 0, vmm_page_size());
 
@@ -329,7 +350,7 @@ void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
 
     // this function uses the utility pages, to map various physical addresses
     // this way, there will always be a Page Table entry, therefore we'll always be able to map
-    ASSERT(virtual_addr == kinfo.workpg1_vaddr || virtual_addr == kinfo.workpg2_vaddr || virtual_addr == kinfo.workpg3_vaddr);
+    ASSERT(virtual_addr == kinfo.work_page1_addr || virtual_addr == kinfo.work_page2_addr);
 
     page_dir_t pd_address = vmm_get_current_page_dir();
     ASSERT(pd_address != 0);
@@ -349,13 +370,10 @@ void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
     log_trace("_map_page_primitive(), pt_address=0x%x", pt_address);
     idx = page_table_index(virtual_addr);
     log_trace("_map_page_primitive(), pt_index=%d", idx);
-log_trace("-p3b-");
     entry = make_pt_entry(physical_addr, false, false, false, false, false, true, true);
-log_trace("-p3c-");
     log_trace("_map_page_primitive(), writing value 0x%08x at index %d of PTE ", entry);
     ((uint32_t *)pt_address)[idx] = entry; // <--- this gives page fault ?!?!?!?!?!
     
-log_trace("-p4-");
     // invalidate for CPU to recalculate
     vmm_invalidate_cached_address(virtual_addr);
 }
@@ -397,10 +415,8 @@ error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, 
 
     virt_addr_t page_table_paddr;
     if (entry_is_present(entry)) {
-log_trace("-a-");
         page_table_paddr = _get_entry_address(entry);
     } else {
-log_trace("-b-");
         page_table_paddr = pmm_allocate_physical_page();
         if (page_table_paddr == 0)
             return ERR_NO_MEMORY;
@@ -410,7 +426,6 @@ log_trace("-b-");
         vmm_physpg_clear(page_table_paddr);
         
         // map/update/unmap, to add the new PT in the PD
-log_trace("-d-");
         _map_page_primitive(vmm_workpg1(), page_dir);
         uint32_t page_dir_value = make_pd_entry(page_table_paddr, false, false, user_accessible, true, true);
         ((uint32_t *)vmm_workpg1())[index] = page_dir_value;
@@ -418,12 +433,10 @@ log_trace("-d-");
     }
 
     // map/update/unmap to set the entry in the PT
-log_trace("-f-");
     _map_page_primitive(vmm_workpg1(), page_table_paddr);
     index = page_table_index(virtual_addr);
     entry = make_pt_entry(physical_addr, false, false, false, false, user_accessible, write_enable, true);
     ((uint32_t *)vmm_workpg1())[index] = entry;
-log_trace("-g-");
     vmm_workpg1_unmap();
     
     return OK;
@@ -763,12 +776,11 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
     }
 
     _dump_page_directory_aggregate(3, 0, 0);
-    log_debug("Page directory at 0x%x end", page_dir_address);
 }
 
 static void vmm_read_all_identity_addresses() {
     // try to read all the addresses in the kernel's space to see if they are readable.
-    log_info("reading all identity mapped addresses (0x%x - 0x%x)", kinfo.reserved_area_start, kinfo.reserved_area_end);
+    log_debug("reading all identity mapped addresses (0x%x - 0x%x)", kinfo.reserved_area_start, kinfo.reserved_area_end);
     virt_addr_t va = kinfo.reserved_area_start;
     int zeros = 0;
     while (va < kinfo.reserved_area_end) {
@@ -776,7 +788,7 @@ static void vmm_read_all_identity_addresses() {
             zeros++;
         va += vmm_page_size();
     }
-    log_info("all identity mapped region was read (0x%x - 0x%x), found %d zeros", kinfo.reserved_area_start, kinfo.reserved_area_end, zeros);
+    log_debug("all identity mapped region was read (0x%x - 0x%x), found %d zeros", kinfo.reserved_area_start, kinfo.reserved_area_end, zeros);
 }
 
 

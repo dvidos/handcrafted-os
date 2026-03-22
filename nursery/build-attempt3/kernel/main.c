@@ -128,7 +128,6 @@ void kernel_main(boot_info_t* boot)
 
     log_info("Initializing virtual memory mapping...");
     vmm_initialize(kmm.reserved_start, kmm.reserved_end, kmm.mapping_pages.address, kmm.mapping_pages.size);
-    for(;;);
 
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -143,6 +142,7 @@ void kernel_main(boot_info_t* boot)
 
     log_info("Initializing multi-tasking...");
     init_multitasking();
+    for(;;);
 
     log_info("Giving the console to TTY manager...");
     logger_remove_appender(screen_log_appender, NULL);
