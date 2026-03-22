@@ -142,7 +142,6 @@ void kernel_main(boot_info_t* boot)
 
     log_info("Initializing multi-tasking...");
     init_multitasking();
-    for(;;);
 
     log_info("Giving the console to TTY manager...");
     logger_remove_appender(screen_log_appender, NULL);
@@ -157,9 +156,6 @@ void kernel_main(boot_info_t* boot)
     tty_set_title_specific_tty(tty_manager_get_device(5), "VFS Monitor");
     tty_set_title_specific_tty(tty_manager_get_device(6), "System log");
     logger_add_appender(tty_log_appender, tty_manager_get_device(6), LOG_LEVEL_INFO);
-
-
-    log_warn("(freezing)"); for(;;);
 
     // create desired tasks here (init, logic, sh, etc)
     launch_initial_process();
@@ -180,16 +176,16 @@ static void launch_initial_process() {
     log_info_fmt("init: ", proc, proc_log_formatter);
     proc_start(proc);
 
-    // maybe we should convert these to Tasks or Threads
-    // there's only stack and EIP to set.
-    err = process_v2_create_for_kernel("sys monitor", (uintptr_t)process_monitor_main, PRIORITY_IDLE_TASK, &proc);
-    if (err) log_warn("Failed creating system monitor process: %s", strerror(err));
-    log_info_fmt("init: ", proc, proc_log_formatter);
-    proc_start(proc);
+    // // maybe we should convert these to Tasks or Threads
+    // // there's only stack and EIP to set.
+    // err = process_v2_create_for_kernel("sys monitor", (uintptr_t)process_monitor_main, PRIORITY_IDLE_TASK, &proc);
+    // if (err) log_warn("Failed creating system monitor process: %s", strerror(err));
+    // log_info_fmt("init: ", proc, proc_log_formatter);
+    // proc_start(proc);
 
-    err = process_v2_create_for_kernel("vfs monitor", (uintptr_t)vfs_monitor_main, PRIORITY_IDLE_TASK, &proc);
-    if (err) log_warn("Failed creating vfs monitor process: %s", strerror(err));
-    proc_start(proc);
+    // err = process_v2_create_for_kernel("vfs monitor", (uintptr_t)vfs_monitor_main, PRIORITY_IDLE_TASK, &proc);
+    // if (err) log_warn("Failed creating vfs monitor process: %s", strerror(err));
+    // proc_start(proc);
 }
 
 // these are defined in the linker.ld script

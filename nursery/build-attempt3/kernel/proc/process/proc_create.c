@@ -294,6 +294,14 @@ static error_t _allocate_and_map_stack_region(process_t *proc, size_t size, virt
 
     proc->memory.stack = reg;
     proc->memory.execution.stack_pointer = stack_top - sizeof(switched_stack_snapshot_t);
+
+    if (proc_is_user_proc(proc)) {
+        // we're going to need kernel stack for syscalls and stuff
+        proc->memory.kernel_stack = kmalloc(4096);
+        if (proc->memory.kernel_stack == NULL)
+            return ERR_NO_MEMORY;
+    }
+    
     return OK;
 }
 
@@ -756,18 +764,36 @@ void proc_destroy(process_t *proc) {
     if (proc->memory.page_dir != 0 && proc->memory.page_dir != vmm_get_kernel_page_directory())
         vmm_destroy_page_directory(proc->memory.page_dir);
 
-    if (proc->user_proc.executable_path != NULL)
+    if (proc->memory.kernel_stack != NULL) {
+        kfree(proc->memory.kernel_stack);
+        proc->memory.kernel_stack = NULL;
+    }
+
+    if (proc->user_proc.executable_path != NULL) {
         kfree(proc->user_proc.executable_path);
-    if (proc->user_proc.argv != NULL)
+        proc->user_proc.executable_path = NULL;
+    }
+    if (proc->user_proc.argv != NULL) {
         free_strvec(proc->user_proc.argv);
-    if (proc->user_proc.envp != NULL)
+        proc->user_proc.argv = NULL;
+    }
+    if (proc->user_proc.envp != NULL) {
         free_strvec(proc->user_proc.envp);
-    
-    if (proc->curr_dir_path != NULL)
+        proc->user_proc.envp = NULL;
+    }
+    if (proc->curr_dir_path != NULL) {
         kfree(proc->curr_dir_path);
+        proc->curr_dir_path = NULL;
+    }
 
     // let's release all file handles as well.
+    for (int i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (proc->file_handles[i] == NULL)
+            continue;
+        
+        open_files.release(proc->file_handles[i]);
+    }
     
-    // can't think of anything else to free
+    // can't think (atm) of anything else to free
     kfree(proc);
 }

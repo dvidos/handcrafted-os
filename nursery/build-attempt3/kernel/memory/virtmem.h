@@ -5,6 +5,7 @@
 #include "../memory/physmem.h"
 #include "../memory/mem_region.h"
 #include "../memory/mem_map.h"
+#include "../arch/trap_frame.h"
 
 static inline uint32_t vmm_page_size()                         { return PAGE_SIZE; }
 static inline uint32_t vmm_round_up(uint32_t address)          { return ((address + vmm_page_size() - 1) / vmm_page_size()) * vmm_page_size(); }
@@ -39,7 +40,7 @@ error_t vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, pag
 page_dir_t vmm_get_kernel_page_directory();
 
 // to be called upon page fault interrupt
-void vmm_page_fault_handler(uint32_t error_code);
+void vmm_page_fault_handler(trap_frame_t *tf);
 
 // get/set bit 31 of CR0 register
 void vmm_enable_paging();

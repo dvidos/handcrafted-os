@@ -2,8 +2,10 @@
 #include "../include/macros.h"
 #include "../utils/assert.h"
 #include "../include/bits.h"
+#include "../arch/gdt.h"
 #include "physmem.h"
 #include "virtmem.h"
+#include "kmemmap.h"
 #include "../utils/panic.h"
 #include "../utils/mutex.h"
 #include "../memory/kheap.h"
@@ -12,7 +14,7 @@
 #include "../klib/string.h"
 #include "../memory/mem_region.h"
 
-MODULE("VMM", LOG_LEVEL_DEBUG);
+MODULE("VMM", LOG_LEVEL_TRACE);
 
 /*
    Paging is mapping a virtual address to a physical one.
@@ -341,7 +343,7 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 }
 
 void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
-    log_trace("_map_page_primitive(virt=0x%x, phys=0x%x)", virtual_addr, physical_addr);
+    // log_trace("_map_page_primitive(virt=0x%x, phys=0x%x)", virtual_addr, physical_addr);
 
     // this function is expected operate on the work pages the kernel has.
     // it will not setup an new PTE, therefore it will not recurse.
@@ -354,24 +356,24 @@ void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
 
     page_dir_t pd_address = vmm_get_current_page_dir();
     ASSERT(pd_address != 0);
-    log_trace("_map_page_primitive(), pd_address=0x%x", pd_address);
+    // log_trace("_map_page_primitive(), pd_address=0x%x", pd_address);
 
     // entry for page table MUST be there
     int idx = page_dir_index(virtual_addr);
-    log_trace("_map_page_primitive(), pd_index=%d", idx);
+    // log_trace("_map_page_primitive(), pd_index=%d", idx);
     uint32_t entry = ((uint32_t *)pd_address)[idx];
     ASSERT(entry_is_present(entry));
-    log_trace("_map_page_primitive(), pd_entry=0x%x", entry);
+    // log_trace("_map_page_primitive(), pd_entry=0x%x", entry);
 
     // now, we may or may not have a value there.
     // no matter what was there, we will just rewrite it.
     phys_addr_t pt_address = (entry & 0xFFFFF000);
     ASSERT(pt_address != 0);
-    log_trace("_map_page_primitive(), pt_address=0x%x", pt_address);
+    // log_trace("_map_page_primitive(), pt_address=0x%x", pt_address);
     idx = page_table_index(virtual_addr);
-    log_trace("_map_page_primitive(), pt_index=%d", idx);
+    // log_trace("_map_page_primitive(), pt_index=%d", idx);
     entry = make_pt_entry(physical_addr, false, false, false, false, false, true, true);
-    log_trace("_map_page_primitive(), writing value 0x%08x at index %d of PTE ", entry);
+    // log_trace("_map_page_primitive(), writing value 0x%08x at index %d of PTE ", entry);
     ((uint32_t *)pt_address)[idx] = entry; // <--- this gives page fault ?!?!?!?!?!
     
     // invalidate for CPU to recalculate
@@ -379,7 +381,7 @@ void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
 }
 
 void _unmap_page_primitive(virt_addr_t virtual_addr) {
-    log_trace("_unmap_page_primitive(virt=0x%x)", virtual_addr);
+    // log_trace("_unmap_page_primitive(virt=0x%x)", virtual_addr);
 
     // this function is expected operate on the work pages the kernel has.
     // it will not setup an new PTE, therefore it will not recurse.
@@ -552,43 +554,60 @@ page_dir_t vmm_get_kernel_page_directory() {
     return kinfo.page_directory;
 }
 
-static int page_faults = 0;
+#define MAX_PAGE_FAULTS  5
+static int page_fault_num = 0;
 
 // handles page faults. 
 // see https://wiki.osdev.org/Exceptions#Page_Fault
-void vmm_page_fault_handler(uint32_t error_code) {
-    // CR2 contains the virtual address that caused the error.
-    bool page_present    = IS_BIT(error_code, 0);
-    bool write_attempt   = IS_BIT(error_code, 1);
-    bool supervisor_code = IS_BIT(error_code, 2);
+void vmm_page_fault_handler(trap_frame_t *tf) {
 
-    page_faults++;
-    if (page_faults > 8)
+    page_fault_num++;
+    if (page_fault_num > MAX_PAGE_FAULTS)
         panic("Too many page faults");
-    vmm_read_all_identity_addresses();
 
-    uint32_t memory_address = 0;
-    __asm__ __volatile__("mov %%cr2, %0" : "=g"(memory_address));
+    uint32_t error_code = tf->err_code;
+    uint32_t eip = tf->eip;
 
-    page_dir_t page_dir_address = 0;
-    __asm__ __volatile__("mov %%cr3, %0" : "=g"(page_dir_address));
+    uint32_t addr = 0;
+    __asm__ __volatile__("mov %%cr2, %0" : "=r"(addr));
 
-    log_warn("Page fault, %s %s page by %s process, at address 0x%x, page dir is 0x%x (will map to continue)",
-        write_attempt ? "writing on" : "reading a",
-        page_present ? "protected" : "missing",
-        supervisor_code ? "supervisor" : "user",
-        memory_address,
-        page_dir_address
-    );
-    vmm_dump_page_directory(page_dir_address);
+    page_dir_t cr3 = 0;
+    __asm__ __volatile__("mov %%cr3, %0" : "=r"(cr3));
+
+    char *mem_area = "";
+    if      (mem_region_contains_address(&kmm.code, addr))          mem_area = "kernel code";
+    else if (mem_region_contains_address(&kmm.data, addr))          mem_area = "kernel data";
+    else if (mem_region_contains_address(&kmm.rodata, addr))        mem_area = "kernel rodata";
+    else if (mem_region_contains_address(&kmm.bss, addr))           mem_area = "kernel bss";
+    else if (mem_region_contains_address(&kmm.stack, addr))         mem_area = "kernel stack";
+    else if (mem_region_contains_address(&kmm.mapping_pages, addr)) mem_area = "kernel mapping pages";
+    else if (mem_region_contains_address(&kmm.pmm_bitmap, addr))    mem_area = "kernel pmm bmp";
+    else if (mem_region_contains_address(&kmm.heap, addr))          mem_area = "kernel heap";
+    else if (addr >= kmm.reserved_start && addr < kmm.reserved_end) mem_area = "kernel reserved area";
+    else if (addr >= kmm.reserved_end)                              mem_area = "user memory space";
+
+    log_warn("Page Fault (#%d):", page_fault_num);
+    log_warn("   CS 0x%08x (0x%x is kernel, 0x%x is user)", tf->cs, KERNEL_CODE_SEGMENT, USER_CODE_SEGMENT);
+    log_warn("  EIP 0x%08x (addr2line -f -e ./kernel/kernel.elf 0x%x)", eip, eip);
+    log_warn("  CR3 0x%08x (0x%x is kernel)", cr3, kinfo.page_directory);
+    log_warn("  CR2 0x%08x address space: %s", addr, mem_area);
+    log_warn("  err 0x%08x", error_code);
+    log_warn("      - P: %s", IS_BIT(error_code, 0) ? "page protection" : "page missing");
+    log_warn("      - W: %s", IS_BIT(error_code, 1) ? "write attempt" : "read attempt");
+    log_warn("      - U: %s", IS_BIT(error_code, 1) ? "ring 3 (user)" : "ring 0-2 (supervisor)");
+
+    // vmm_dump_page_directory(cr3);
+    // vmm_read_all_identity_addresses();
 
     // solution for now is to identity map this, just for fun
     // but, if we had a memory map (the mem_regions), we could identify who errored
     // e.g. stack underflow, or heap overflow, guard, mem-mapped file, etc
-    
-    error_t err = vmm_map_page_to_pd(vmm_round_down(memory_address), vmm_round_down(memory_address), true, true, page_dir_address);
-    if (err)
-        panic("Failed to identity map: %d - %s", err, strerror(err));
+    if (addr >= kmm.reserved_start && addr < kmm.reserved_end) {
+        log_warn("this is kernel space, will attempt identity mapping");
+        error_t err = vmm_map_page_to_pd(vmm_round_down(addr), vmm_round_down(addr), true, true, cr3);
+        if (err)
+            panic("Failed to identity map: %d - %s", err, strerror(err));
+    }
 }
 
 // allocates and creates a new page directory
@@ -603,7 +622,7 @@ page_dir_t vmm_create_page_directory(bool map_kernel_space) {
     vmm_physpg_clear(page_dir);
 
     if (map_kernel_space) {
-        log_debug("copying kernel PD contents to new page_directory");
+        log_debug("copying kernel PDE entries to new page_directory");
         vmm_physpg_copy(page_dir, kinfo.page_directory);
     }
 

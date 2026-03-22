@@ -6,6 +6,7 @@
 #include "../memory/virtmem.h"
 #include "pic.h"
 #include "../logger/logger.h"
+#include "../utils/panic.h"
 #include "../include/bits.h"
 #include "../proc/multitask.h"
 
@@ -27,6 +28,8 @@ static void log_registers(trap_frame_t *regs) {
 }
 
 
+int erroneous_interrupts = 0;
+
 void interrupt_handler_c(trap_frame_t *regs) {
     
     // don't forget we have mapped IRQs 0+ to 0x20+
@@ -44,7 +47,7 @@ void interrupt_handler_c(trap_frame_t *regs) {
             break;
         case 0x0E:
             // Page Fault: https://wiki.osdev.org/Exceptions#Page_Fault
-            vmm_page_fault_handler(regs->err_code);
+            vmm_page_fault_handler(regs);
             break;
         case 0x0D:
             // General Protection Fault, see https://wiki.osdev.org/Exceptions#General_Protection_Fault
@@ -73,6 +76,8 @@ void interrupt_handler_c(trap_frame_t *regs) {
             // we could deduce from where this happens, kernel or process
             // then one could dissassemble the executable and look around the faulting address
             // i686-elf-objdump -d init | less
+            if (++erroneous_interrupts >= 3)
+                panic("Too many invalid opcode exceptions");
             break;
         case 0x80:
             extern void isr_syscall(trap_frame_t *regs);

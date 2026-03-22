@@ -104,6 +104,8 @@ struct process {
         mem_region_t elf_sections[MAX_PROCESS_ELF_SECTIONS]; // can be .text, .data, .rodata, .bss, etc.
         int elf_sections_count;
 
+        char *kernel_stack; // for when it makes syscall
+
         union {
             uint32_t stack_pointer;                     // value of the stack pointer
             // TODO: delete this, rely on trapframe.
