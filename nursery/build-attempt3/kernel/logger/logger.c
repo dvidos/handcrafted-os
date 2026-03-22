@@ -130,6 +130,7 @@ struct _log_stream_printf_context {
     const char *module_name;
     log_level_t level;
     const char *prompt;
+    log_write_stream_t *self;
 };
 
 static void _log_stream_printf(void *context, const char *format, ...) {
@@ -142,6 +143,26 @@ static void _log_stream_printf(void *context, const char *format, ...) {
     va_end(args);
 
     _append_all_appenders(ctx->module_name, ctx->level, ctx->prompt, message);
+}
+
+static void _log_stream_print_fmt(void *context, char *prefix, log_formatter_t *formatter, ...) {
+    struct _log_stream_printf_context *ctx = (struct _log_stream_printf_context *)context;
+
+    const char *original_prompt = ctx->prompt;
+    if (prefix != NULL && prefix[0] != 0) {
+        char composite_prompt[256] = {0};
+        strncat(composite_prompt, ctx->prompt, sizeof(composite_prompt) - 1);
+        strncat(composite_prompt, " ", sizeof(composite_prompt) - 1);
+        strncat(composite_prompt, prefix, sizeof(composite_prompt) - 1);
+        ctx->prompt = composite_prompt;
+    }
+
+    va_list args;
+    va_start(args, formatter);
+    formatter(ctx->self, args);
+    va_end(args);
+    
+    ctx->prompt = original_prompt;
 }
 
 void logger_append_using_formatter(const char *module_name, log_level_t level, const char *prompt, log_formatter_t *formatter, ...) {
@@ -161,9 +182,12 @@ void logger_append_using_formatter(const char *module_name, log_level_t level, c
     };
 
     log_write_stream_t stream = {
-        .printf = _log_stream_printf,
+        .printf    = _log_stream_printf,
+        .print_fmt = _log_stream_print_fmt,
         .context = &stream_context,
     };
+
+    stream_context.self = &stream;
 
     va_list args;
     va_start(args, formatter);

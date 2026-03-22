@@ -63,10 +63,6 @@ void timer_interrupt_handler(trap_frame_t *regs) {
     // if (milliseconds_since_boot % 1000 == 0)
     //     printk("(%u)", milliseconds_since_boot / 1000);
     
-    if (milliseconds_since_boot % 5000 == 0) {
-        log_debug_fmt("Timer TF", regs, trap_frame_log_formatter);
-    }
-
     ((void)regs);
 }
 

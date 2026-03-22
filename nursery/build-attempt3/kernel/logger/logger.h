@@ -30,12 +30,14 @@ void logger_remove_appender(log_appender_func *appender, void *context);
 
 // ----------------------------------------------
 
-typedef struct log_stream_writer {
-    void (*printf)(void *context, const char *fmt, ...);
-    void *context;
-} log_write_stream_t;
-
+typedef struct log_stream_writer log_write_stream_t;
 typedef void log_formatter_t(log_write_stream_t *stream, va_list args);
+
+struct log_stream_writer {
+    void (*printf)(void *context, const char *fmt, ...);
+    void (*print_fmt)(void *context, char *prefix, log_formatter_t *fmt, ...);
+    void *context;
+};
 
 // ----------------------------------------------
 

@@ -52,6 +52,24 @@ void strncpy(char *target, const char *source, size_t target_size) {
     *target = '\0';
 }
 
+char *strncat(char *dest, const char *src, size_t n)
+{
+    char *d = dest;
+
+    // move to end of dest
+    while (*d)
+        d++;
+
+    // copy up to n chars from src
+    while (n-- && *src)
+        *d++ = *src++;
+
+    // null terminate
+    *d = '\0';
+
+    return dest;
+}
+
 // caller is supposed to free the duplicate
 char *strdup(const char *str) {
     if (str == NULL)

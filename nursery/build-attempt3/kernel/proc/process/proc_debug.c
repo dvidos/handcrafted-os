@@ -127,13 +127,13 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     
     uint32_t esp_virt = proc->memory.execution.stack_pointer;
     phys_addr_t esp_phys = vmm_resolve(esp_virt, proc->memory.page_dir);
-    stream->printf(stream->context, "- Stack frame (ESP virt addr %x, phys %x)", esp_virt, esp_phys);
+    stream->printf(stream->context, "- Stack trap frame (ESP virt addr 0x%x, phys 0x%x)", esp_virt, esp_phys);
     uint32_t esp_page = vmm_page_address(esp_phys);
     size_t esp_offset = vmm_page_offset(esp_phys);
 
     trap_frame_t tf;
     vmm_physpg_read(esp_page, esp_offset, &tf, sizeof(trap_frame_t));
-    log_debug_fmt("      ", &tf, trap_frame_log_formatter);
+    stream->print_fmt(stream->context, "   ", trap_frame_log_formatter, &tf);
 
     // stream->printf(stream->context, "- Arguments");
     // stream->printf(stream->context, "- Environment");
