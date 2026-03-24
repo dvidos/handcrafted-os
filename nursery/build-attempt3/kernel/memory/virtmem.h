@@ -63,6 +63,8 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address);
 
 // logs the virtual to physical mapping that a page directory causes
 void vmm_dump_page_directory(virt_addr_t page_dir_address);
+void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args);
+
 
 // -------------------------------------
 

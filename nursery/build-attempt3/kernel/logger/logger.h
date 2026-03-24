@@ -61,6 +61,7 @@ typedef struct { const char *name; log_level_t level; } module_log_cfg_t;
 #define log_custom(level, ...)    do { if (_logger_global_minimum_log_level >= level           || __module_log_configuration__.level >= level)           logger_append(__module_log_configuration__.name, level,           __VA_ARGS__); } while (0)
 
 // provide a formatter, to format the value
+#define log_error_fmt(prompt, value, formatter)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_ERROR || __module_log_configuration__.level >= LOG_LEVEL_ERROR) logger_append_using_formatter(__module_log_configuration__.name, LOG_LEVEL_ERROR, prompt, formatter, value); } while (0)
 #define log_info_fmt(prompt, value, formatter)       do { if (_logger_global_minimum_log_level >= LOG_LEVEL_INFO  || __module_log_configuration__.level >= LOG_LEVEL_INFO)  logger_append_using_formatter(__module_log_configuration__.name, LOG_LEVEL_INFO,  prompt, formatter, value); } while (0)
 #define log_debug_fmt(prompt, value, formatter)      do { if (_logger_global_minimum_log_level >= LOG_LEVEL_DEBUG || __module_log_configuration__.level >= LOG_LEVEL_DEBUG) logger_append_using_formatter(__module_log_configuration__.name, LOG_LEVEL_DEBUG, prompt, formatter, value); } while (0)
 

@@ -1,11 +1,12 @@
 #include "../klib/string.h"
 #include "../logger/logger.h"
+#include "gdt.h"
 
 // Each define here is for a specific flag in the descriptor.
 // Refer to the intel documentation for a description of what each one does.
 // also https://wiki.osdev.org/GDT
 
-MODULE("GDT", LOG_LEVEL_WARN);
+MODULE("GDT", LOG_LEVEL_DEBUG);
 
 
 // access byte
@@ -18,6 +19,7 @@ MODULE("GDT", LOG_LEVEL_WARN);
 #define ACCESS_DATA_WRITABLE(x)    (((x) & 0x01) << 1) // for data segments, allow write or not
 #define ACCESS_CODE_READABLE(x)    (((x) & 0x01) << 1) // for code segments, allow read or not
 #define ACCESS_ACCESSED(x)         ((x) & 0x01)        // best left clear, CPU will set to 1 when accessed
+#define ACCESS_TYPE(x)             ((x) & 0x0F)
 
 // flags
 #define FLAGS_GRANULARITY(x)       (((x) & 0x01) << 3) // 0 for limit in bytes, 1 for limit in 4 kb blocks
@@ -44,14 +46,50 @@ struct gdt_descriptor64 {
     uint64_t offset;
 } __attribute__((packed));
 
-struct gdt_segment_descriptor32 descriptors[5];
-struct gdt_descriptor32 gdt;
+typedef struct tss_t {
+    uint32_t prev_tss;
+    uint32_t esp0;
+    uint32_t ss0;
 
+    uint32_t esp1;
+    uint32_t ss1;
+    uint32_t esp2;
+    uint32_t ss2;
+
+    uint32_t cr3;
+    uint32_t eip;
+    uint32_t eflags;
+    uint32_t eax, ecx, edx, ebx;
+    uint32_t esp, ebp, esi, edi;
+    uint32_t es, cs, ss, ds, fs, gs;
+    uint32_t ldt;
+    uint16_t trap;
+    uint16_t iomap_base;
+} __attribute__((packed)) tss_t;
+
+static struct gdt_segment_descriptor32 descriptors[6];
+static struct gdt_descriptor32 gdt;
+static tss_t tss  __attribute__((aligned(16))) ;
+uintptr_t tss_address;
 
 // this method defined in assembly
 extern void load_gdt_descriptor(uint32_t);
 
+static void init_tss()
+{
+    memset(&tss, 0, sizeof(tss_t));
 
+    tss.ss0 = KERNEL_DATA_SEGMENT;    // kernel data segment
+    tss.esp0 = 0;                     // will be set during context switch
+    tss.iomap_base = sizeof(tss_t);   // disables io bitmap
+
+    tss_address = (uintptr_t)&tss;
+}
+
+static void load_tss(uint16_t selector)
+{
+    __asm__ __volatile__("ltr %0" : : "r"(selector));
+}
 
 
 // +----------+----------------------+----------+----------+----------+----------+----------+----------+
@@ -118,12 +156,27 @@ void init_gdt() {
         ACCESS_PRESENT(1) | ACCESS_DESCRIPTOR_TYPE(1) | ACCESS_EXECUTABLE(0) | 
         ACCESS_DATA_WRITABLE(1) | ACCESS_PRIVILEGE(3),
         FLAGS_SIZE(1));
+    
+    // segment 0x28 (decimal 40) will be TSS (for stack switch between rings 0-3)
+    set_descriptor(5,
+        (uint32_t)&tss,
+        sizeof(struct tss_t) - 1,  // for TSS we do minus one
+        ACCESS_PRESENT(1) |
+        ACCESS_DESCRIPTOR_TYPE(0) |
+        ACCESS_PRIVILEGE(0) |
+        ACCESS_TYPE(0x9), // 32 bit available TSS
+        FLAGS_SIZE(1));
 
-    log_debug("Size of GDT segment descriptor: %d", sizeof(struct gdt_segment_descriptor32));  // 8
-    log_debug("Size of all descriptors: %d", sizeof(descriptors));                             // 24
-    log_debug("Size of GDT descriptor: %d", sizeof(struct gdt_descriptor32));                  // 6
-
+    log_debug("  size of GDT segment descriptor: %d", sizeof(struct gdt_segment_descriptor32));  // 8
+    log_debug("  size of all descriptors: %d", sizeof(descriptors));                             // 24
+    log_debug("  size of GDT descriptor: %d", sizeof(struct gdt_descriptor32));                  // 6
+    
     gdt.size = sizeof(descriptors);
     gdt.offset = (uint32_t)descriptors;
+    init_tss();
+    
     load_gdt_descriptor((uint32_t)&gdt);
+    load_tss(TSS_SELECTOR);
+
+    log_debug("  tss address: 0x%x", tss_address);
 }

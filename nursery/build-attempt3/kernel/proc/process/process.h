@@ -52,7 +52,7 @@ enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT };
 
 // flags of the process
-#define PROC_FLAG_IS_USER_PROCESS     0x01
+#define MAX_PROCESS_ELF_SECTIONS 4 // good enough even for dynamic executable
 
 
 
@@ -66,27 +66,23 @@ struct process {
     process_t *children_list; // list of children
     process_t *next_child;  // ptr to next sibling in the parent's list
     char *name;
-    uint8_t flags;
+    bool is_user;
     proc_priority_t priority;
-
-
+    
     struct memory {
-        page_dir_t page_dir;
-
-        mem_region_t stack;  // could have a guard page, for stack underflow
-        mem_region_t heap;   // could have a guard page, for heap overflow
-
-        #define MAX_PROCESS_ELF_SECTIONS 4 // good enough even for dynamic executable
+        page_dir_t page_dir;       // defines all the virtual memory mappings of the process
+        uint32_t tss_esp0_value;   // top of kernel stack, used in scheduler
+        
+        mem_region_t kernel_stack; // allocated from kernel heap
+        mem_region_t user_stack;   // could have a guard page, for stack underflow
+        mem_region_t user_heap;    // could have a guard page, for heap overflow
         mem_region_t elf_sections[MAX_PROCESS_ELF_SECTIONS]; // can be .text, .data, .rodata, .bss, etc.
-        int elf_sections_count;
 
-        char *kernel_stack_addr; // for when it makes syscall
-        uint32_t kernel_stack_size;
-
-        union {
-            uint32_t stack_pointer;                     // value of the stack pointer
-            trap_frame_t *trapframe;   // for spawn(), it points near top of kernel's stack
-        } execution;
+        // this is the ESP inside ring 0, when we are serving an interrupt (e.g. syscall or switching)
+        // if should point to the kernel stack.
+        // it is saved when switching out, and put on ESP when switching in.
+        // whenever this points (because of how we handle interrupts) there should be a trap_frame_t.
+        uint32_t saved_esp;
 
     } memory;
 
@@ -130,8 +126,11 @@ struct process {
 
 static inline pid_t proc_get_pid(process_t *proc) { return proc == NULL ? 0 : proc->pid; }
 static inline pid_t proc_get_ppid(process_t *proc) { return proc == NULL ? 0 : (proc->parent == NULL ? 0 : proc->parent->pid); }
-static inline pid_t proc_is_user_proc(process_t *proc) { return proc == NULL ? false : (proc->flags & PROC_FLAG_IS_USER_PROCESS) != 0; }
-static inline pid_t proc_is_kernel_proc(process_t *proc) { return proc == NULL ? false : (proc->flags & PROC_FLAG_IS_USER_PROCESS) == 0; }
+static inline pid_t proc_is_user_proc(process_t *proc) { return proc == NULL ? false : proc->is_user; }
+static inline pid_t proc_is_kernel_proc(process_t *proc) { return proc == NULL ? false : !proc->is_user; }
+static inline pid_t proc_count_elf_sections(process_t *proc) { int count = 0; for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) { if (!mem_region_is_empty(&proc->memory.elf_sections[i])) count++; }; return count; }
+
+
 
 
 // get the running process (converts volatile to steady pointer)
@@ -149,14 +148,13 @@ void proc_exit(process_t *proc, int exit_code);
 
 
 // proc_create.c
-process_t *create_process_v1(bool is_kernel, char *name, func_ptr entry_point, proc_priority_t priority, process_t *parent, tty_t *tty);
-void proc_destroy(process_t *proc);
 
 error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);
 error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr);
 error_t process_v2_replace_for_exec(process_t *proc, const char *file_path);
 error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr);
 
+void proc_destroy(process_t *proc);
 
 // cwd.c
 int proc_getcwd(process_t *proc, char *buffer, int size);

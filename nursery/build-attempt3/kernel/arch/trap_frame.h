@@ -23,7 +23,7 @@ typedef struct trap_frame {
    uint32_t edi;
    uint32_t esi;
    uint32_t ebp;
-   uint32_t esp_dummy;
+   uint32_t esp_dummy; // this is because of pusha, ignore
    uint32_t ebx;
    uint32_t edx;
    uint32_t ecx;
@@ -33,11 +33,12 @@ typedef struct trap_frame {
    uint32_t int_no;
    uint32_t err_code;  // Interrupt number and error code (if applicable)
    
-   // pushed by CPU before jumping to interrupt entry
+   // pushed by CPU before jumping to interrupt entry. this happens
+   // only when crossing from user (ring 3) to kernel (ring 0) more
    uint32_t eip;
    uint32_t cs;
    uint32_t eflags;
-   uint32_t user_esp;
+   uint32_t user_esp; // points inside user_stack, not a trapframe, when interrupt occured. only meaningful in user processes
    uint32_t ss;
 
 } __attribute__((packed)) trap_frame_t;

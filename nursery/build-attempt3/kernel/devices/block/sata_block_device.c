@@ -8,7 +8,7 @@
 #include "../devices.h"
 
 
-MODULE("SATA", LOG_LEVEL_WARN);
+MODULE("SATA", LOG_LEVEL_INFO);
 
 
 // based on https://wiki.osdev.org/AHCI
@@ -595,8 +595,8 @@ static struct block_device_ops sata_ops = {
 static error_t discover_and_register_serial_ata_storage_device(pci_device_t *pci_dev) {
     uint32_t base_mem_register = pci_dev->config.headers.h00.bar5;
 
-    // log_debug("base mem reg for sata is %x", base_mem_register);
-    // log_debug("interrupt pin %d, interrupt line %d", pci_dev->config.headers.h00.interrupt_pin, pci_dev->config.headers.h00.interrupt_line);
+    log_debug("base mem reg for sata is %x", base_mem_register);
+    log_debug("interrupt pin %d, interrupt line %d", pci_dev->config.headers.h00.interrupt_pin, pci_dev->config.headers.h00.interrupt_line);
     if (base_mem_register == 0)
         return OK;
 

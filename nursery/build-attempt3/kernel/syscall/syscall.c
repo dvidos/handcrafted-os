@@ -32,13 +32,13 @@ static virt_addr_t sys_sbrk(int difference) {
     process_t *p = running_process();
     if (!p) return 0;
     
-    virt_addr_t original_break = p->memory.heap.address + p->memory.heap.size;
+    virt_addr_t original_break = p->memory.user_heap.address + p->memory.user_heap.size;
 
     if (difference > 0) {
         difference = vmm_round_up(difference);
-        virt_addr_t new_break = p->memory.heap.address + p->memory.heap.size;
+        virt_addr_t new_break = p->memory.user_heap.address + p->memory.user_heap.size;
         vmm_allocate_memory_range(new_break, new_break + difference, p->memory.page_dir);
-        p->memory.heap.size += difference;
+        p->memory.user_heap.size += difference;
     }
 
     return original_break;
@@ -133,7 +133,7 @@ int sys_uptime(uint64_t *msecs) {
 }
 
 
-void isr_syscall(trap_frame_t *regs) {
+void isr_syscall(trap_frame_t *tf) {
     
     /* before getting to this function, the assembly isr handler
        has pushed CS, DS and SS into the stack, and will subsequently
@@ -147,12 +147,12 @@ void isr_syscall(trap_frame_t *regs) {
 
     // it seems we are in the stack of the user process
     int return_value = 0;
-    uint32_t arg0 = regs->eax; // usuallys the sysno
-    uint32_t arg1 = regs->ebx;
-    uint32_t arg2 = regs->ecx;
-    uint32_t arg3 = regs->edx;
-    uint32_t arg4 = regs->esi;
-    uint32_t arg5 = regs->edi;
+    uint32_t arg0 = tf->eax; // usuallys the sysno
+    uint32_t arg1 = tf->ebx;
+    uint32_t arg2 = tf->ecx;
+    uint32_t arg3 = tf->edx;
+    uint32_t arg4 = tf->esi;
+    uint32_t arg5 = tf->edi;
 
     switch (arg0) {
         case SYS_ECHO_TEST:
@@ -274,5 +274,5 @@ void isr_syscall(trap_frame_t *regs) {
     }
 
     // both positive and negative values tested and supported
-    regs->eax = return_value;
+    tf->eax = return_value;
 }

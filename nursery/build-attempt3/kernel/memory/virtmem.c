@@ -419,7 +419,13 @@ error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, 
     if (entry_is_present(entry)) {
         page_table_paddr = _get_entry_address(entry);
     } else {
-        page_table_paddr = pmm_allocate_physical_page();
+        // we need a new page for a page table. we need to acquire 
+        // using different means between user space and kernel.
+        if (page_dir == vmm_get_kernel_page_directory()) {
+            page_table_paddr = vmm_allocate_kernel_mapping_page();
+        } else {
+            page_table_paddr = pmm_allocate_physical_page();
+        }
         if (page_table_paddr == 0)
             return ERR_NO_MEMORY;
         
@@ -460,11 +466,6 @@ void vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir) {
 // map a range to itself
 error_t vmm_identity_map_range(virt_addr_t start_addr, virt_addr_t end_addr, page_dir_t page_dir_addr) {
     log_trace("vmm_identity_map_range(start=0x%x, end=0x%x, page_dir=0x%x)", start_addr, end_addr, page_dir_addr);
-
-    // we actually want to copy the contents of the kernel page directory into the new page directory.
-    // i.e. the pointers to the page directories.
-    // let's use the workpd and workpt to copy, 
-    // since we don't know if the actual physical pages are accessible through current PD
 
     for (virt_addr_t addr = start_addr; addr < end_addr; addr += vmm_page_size()) {
         error_t err = vmm_map_page_to_pd(addr, addr, false, true, page_dir_addr);
@@ -628,7 +629,9 @@ page_dir_t vmm_create_page_directory(bool map_kernel_space) {
 error_t vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end, page_dir_t page_dir_addr) {
     log_trace("vmm_allocate_memory_range(0x%p - 0x%p, PD=0x%p)", virt_addr_start, virt_addr_end, page_dir_addr);
 
-    // TODO: this should update the memory map of the kernel/process
+    // this is called by sbrk(), so user process
+    ASSERT(page_dir_addr != vmm_get_kernel_page_directory());
+
     for (virt_addr_t virt_addr = virt_addr_start; virt_addr < virt_addr_end; virt_addr += 4096) {
         virt_addr_t phys_page_addr = pmm_allocate_physical_page();
         if (phys_page_addr == 0)
@@ -792,6 +795,115 @@ void vmm_dump_page_directory(virt_addr_t page_dir_address) {
     _dump_page_directory_aggregate(3, 0, 0);
 }
 
+// ---------------------------------------------------------------------
+
+static void _pd_formatter_group_print(log_write_stream_t *stream, uint32_t virt_mem_group_start, uint32_t virt_mem_group_end, uint32_t phys_mem_group_start, uint32_t phys_mem_group_end) {
+
+    if (virt_mem_group_start == virt_mem_group_end) {
+        // single mapping
+        stream->printf(stream->context, "  Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
+            virt_mem_group_start >> 12, 
+            phys_mem_group_start >> 12,
+            virt_mem_group_start == phys_mem_group_start ? "(identity)" : ""
+        );
+    } else {
+        // group mapping
+        stream->printf(stream->context, "  Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
+            virt_mem_group_start >> 12, 
+            virt_mem_group_end   >> 12, 
+            phys_mem_group_start >> 12,
+            phys_mem_group_end   >> 12,
+            (virt_mem_group_end - virt_mem_group_start) / 1024,
+            virt_mem_group_start == phys_mem_group_start && virt_mem_group_end == phys_mem_group_end ? "(identity)" : ""
+        );
+    }
+}
+
+static void _pd_formatter_group_call(log_write_stream_t *stream, int call, uint32_t virt_addr, uint32_t phys_addr) {
+    static uint32_t virt_mem_group_start;
+    static uint32_t virt_mem_group_end;
+    static uint32_t phys_mem_group_start;
+    static uint32_t phys_mem_group_end;
+    static bool in_group;
+
+    if (call == 1) { // we are initializing
+        virt_mem_group_start = 0;
+        virt_mem_group_end = 0;
+        phys_mem_group_start = 0;
+        phys_mem_group_end = 0;
+        in_group = false;
+
+    } else if (call == 2) { // found a valid mapping
+        if (in_group) {
+            // see if we are just extending it, or there is a gap
+            if (virt_addr == virt_mem_group_end + 4096 && phys_addr == phys_mem_group_end + 4096
+            ) {
+                // same group, extend
+                virt_mem_group_end += 4096;
+                phys_mem_group_end += 4096;
+            } else {
+                // different group, print, restart
+                _pd_formatter_group_print(stream, virt_mem_group_start, virt_mem_group_end, phys_mem_group_start, phys_mem_group_end);
+                virt_mem_group_start = virt_addr;
+                virt_mem_group_end = virt_addr;
+                phys_mem_group_start = phys_addr;
+                phys_mem_group_end = phys_addr;
+            }
+        } else {
+            // we were not in a group, we can start one
+            virt_mem_group_start = virt_addr;
+            virt_mem_group_end = virt_addr;
+            phys_mem_group_start = phys_addr;
+            phys_mem_group_end = phys_addr;
+            in_group = true;
+        }
+    } else if (call == 3) { // finished with all pages
+        if (in_group) {
+            // show the last group
+            _pd_formatter_group_print(stream, virt_mem_group_start, virt_mem_group_end, phys_mem_group_start, phys_mem_group_end);
+        }
+    }
+}
+
+void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args) {
+    page_dir_t pd = va_arg(args, page_dir_t);
+
+    // this version needs mapping to work first
+    vmm_page_ops_t *ops = vmm_page_ops_for(pd);
+    stream->printf(stream->context, "Page directory at 0x%x mapping", pd);
+
+    uint32_t entry;
+    bool all_empty = true;
+
+    // free linked tables and pages 
+    _pd_formatter_group_call(stream, 1, 0, 0);
+    for (int pd_index = 0; pd_index < 1024; pd_index++) {
+        entry = ops->get_entry(pd, pd_index);
+        if (!entry_is_present(entry))
+            continue;
+        all_empty = false;
+        
+        uintptr_t page_table_address = _get_entry_address(entry);
+        if (page_table_address == 0)
+            continue;
+
+        // free any linked physical pages first
+        for (int pt_index = 0; pt_index < 1024; pt_index++) {
+            entry = ops->get_entry(page_table_address, pt_index);
+            if (!entry_is_present(entry))
+                continue;
+
+            uint32_t physical_address = (uint32_t)_get_entry_address(entry);
+            if (physical_address == 0)
+                continue;
+            
+            uint32_t virtual_address = SET_BIT_RANGE(pd_index, 31, 22) | SET_BIT_RANGE(pt_index, 21, 12);
+            _pd_formatter_group_call(stream, 2, virtual_address, physical_address);
+        }
+    }
+    _pd_formatter_group_call(stream, 3, 0, 0);
+}
+
 static void vmm_read_all_identity_addresses() {
     // try to read all the addresses in the kernel's space to see if they are readable.
     log_debug("reading all identity mapped addresses (0x%x - 0x%x)", kinfo.reserved_area_start, kinfo.reserved_area_end);
@@ -938,6 +1050,4 @@ void vmm_direct_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value) {
 void vmm_direct_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
     memcpy((void *)pdest, (void *)psource, vmm_page_size());
 }
-
-// ------------------------------------------
 

@@ -174,7 +174,6 @@ static void launch_initial_process() {
     err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
     log_info_fmt("init: ", proc, proc_log_formatter);
-    for(;;);
     proc_start(proc);
 
     // // maybe we should convert these to Tasks or Threads
@@ -289,7 +288,6 @@ static void initialize_storage_and_file_systems() {
     error_t err;
     int count;
     block_device_t *dev;
-
 
     // iterate over discovered PCI devs, instantiate & register devices
     discover_and_register_all_ata_block_devices(&pci_devices_list);

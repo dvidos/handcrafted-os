@@ -10,7 +10,7 @@
 #include "../klib/string.h"
 #include "../utils/panic.h"
 
-MODULE("MTASK", LOG_LEVEL_WARN);
+MODULE("MTASK", LOG_LEVEL_DEBUG);
 
 
 #define min(a, b)   ((a) < (b) ? (a) : (b))

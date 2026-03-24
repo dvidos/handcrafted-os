@@ -29,6 +29,51 @@
 %endmacro
 
 
+%macro PROCESS_SWITCHER_STUB 0   ; a macro for switching tasks, based on global variables
+    [extern proc_switch_needed]
+    [extern proc_switch_old_esp_ptr]
+    [extern proc_switch_new_cr3]
+    [extern proc_switch_new_tss_esp0]
+    [extern proc_switch_new_esp]
+    [extern proc_switch_tss_address]
+
+    ; based on five global variables:
+    ; - proc_switch_needed        int         whether we need to switch or not.
+    ; - proc_switch_old_esp_ptr   uint32_t    address where to save the current ESP
+    ; - proc_switch_new_esp       uint32_t    value of the new ESP to set
+    ; - proc_switch_new_cr3       uint32_t    value of the new page directory to set
+    ; - proc_switch_new_tss_esp0  uint32_t    value of the new tss.esp0 to set
+
+    ; Check if a process switch is requested and perform it
+    cmp byte [proc_switch_needed], 0
+    je proc_switch_not_needed
+
+    ; Save current ESP to the pointer
+    mov eax, [proc_switch_old_esp_ptr]    ; eax = pointer to old ESP
+    mov [eax], esp                        ; save current stack pointer
+
+    ; Switch to new CR3 (page directory)
+    mov eax, [proc_switch_new_cr3]
+    mov cr3, eax
+
+    ; Set new TSS.esp0
+    mov eax, [proc_switch_new_tss_esp0]
+    mov [proc_switch_tss_address + 4], eax
+
+    ; Switch to new ESP
+    mov esp, [proc_switch_new_esp]
+
+    ; Clear the flag
+    mov byte [proc_switch_needed], 0
+
+proc_switch_not_needed:
+%endmacro
+
+
+
+
+
+
 ; for a list of specific codes, see https://wiki.osdev.org/Exceptions
 ISR_ENTRY_WITHOUT_ERROR_CODE   0
 ISR_ENTRY_WITHOUT_ERROR_CODE   1
@@ -83,6 +128,7 @@ IRQ_ENTRY   47  ; secondary ATA channel
 IRQ_ENTRY  128  ; i.e. 0x80, i.e. syscall
 
 
+
 ; This is the 2nd part of interrupt handling, starting with the macros
 ; It saves the processor state, sets up for kernel mode segments, 
 ; calls the C-level fault handler, and finally restores the stack frame.
@@ -104,7 +150,10 @@ isr_common_body:
   push esp         ; pass a pointer to the stack
   call interrupt_handler_c
   add esp, 4       ; clean up passed arguments
-   
+
+  ; here, our stack contains a perfect trap_frame, which means we can check if we need to switch
+  PROCESS_SWITCHER_STUB
+
   pop gs
   pop fs
   pop es

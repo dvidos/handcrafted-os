@@ -17,7 +17,7 @@ static void dump_process(process_t *proc) {
         proc->pid,
         proc->parent == NULL ? 0 : proc->parent->pid,
         proc->name, 
-        proc->memory.execution.stack_pointer, 
+        proc->memory.saved_esp, 
         proc->entry_point,
         (char *)process_state_names[(int)proc->state],
         (char *)process_block_reason_names[proc->block_reason],
@@ -107,36 +107,33 @@ void dump_bytes(bool direct, uintptr_t address, int how_many) {
 void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     process_t *proc = va_arg(args, process_t *);
 
-    stream->printf(stream->context, "Process ptr=0x%x, pid=%d, ppipd=%d, name='%s', priority=%d, flags=0x%x", 
+    stream->printf(stream->context, "Process ptr=0x%x, pid=%d, ppipd=%d, name='%s', priority=%d, is_user=%d", 
         proc,
         proc_get_pid(proc),
         proc_get_ppid(proc),
         proc->name,
         proc->priority,
-        proc->flags
+        proc->is_user ? 1 : 0
     );
 
     stream->printf(stream->context, "- Memory: (proc_pd=0x%x, curr_pd=0x%x)", proc->memory.page_dir, vmm_get_current_page_dir());
     stream->printf(stream->context, "    Region       Address          To        Size    KB  Usr  Wrt  Usage");
-    format_mem_region(stream, "stack", &proc->memory.stack);
-    format_mem_region(stream, "elf #0", &proc->memory.elf_sections[0]);
-    format_mem_region(stream, "elf #1", &proc->memory.elf_sections[1]);
-    format_mem_region(stream, "elf #2", &proc->memory.elf_sections[2]);
-    format_mem_region(stream, "elf #3", &proc->memory.elf_sections[3]);
-    format_mem_region(stream, "heap", &proc->memory.heap);
+    format_mem_region(stream, "kstack", &proc->memory.kernel_stack);
+    format_mem_region(stream, "ustack", &proc->memory.user_stack);
+    format_mem_region(stream, "uheap", &proc->memory.user_heap);
+    if (!mem_region_is_empty(&proc->memory.elf_sections[0])) format_mem_region(stream, "elf #0", &proc->memory.elf_sections[0]);
+    if (!mem_region_is_empty(&proc->memory.elf_sections[1])) format_mem_region(stream, "elf #1", &proc->memory.elf_sections[1]);
+    if (!mem_region_is_empty(&proc->memory.elf_sections[2])) format_mem_region(stream, "elf #2", &proc->memory.elf_sections[2]);
+    if (!mem_region_is_empty(&proc->memory.elf_sections[3])) format_mem_region(stream, "elf #3", &proc->memory.elf_sections[3]);
     
-    uint32_t esp_virt = proc->memory.execution.stack_pointer;
-    phys_addr_t esp_phys = vmm_resolve(esp_virt, proc->memory.page_dir);
-    stream->printf(stream->context, "- Stack trap frame (ESP virt addr 0x%x, phys 0x%x)", esp_virt, esp_phys);
-    uint32_t esp_page = vmm_page_address(esp_phys);
-    size_t esp_offset = vmm_page_offset(esp_phys);
-
-    trap_frame_t tf;
-    vmm_physpg_read(esp_page, esp_offset, &tf, sizeof(trap_frame_t));
-    stream->print_fmt(stream->context, "   ", trap_frame_log_formatter, &tf);
+    // trapframe will always be in kernel_stack, therefore always identity mapped
+    trap_frame_t *tf = (trap_frame_t *)proc->memory.saved_esp;
+    stream->printf(stream->context, "- Trap frame (saved_esp=0x%08x, tss_esp0=0x%08x)", proc->memory.saved_esp, proc->memory.tss_esp0_value);
+    stream->print_fmt(stream->context, "   ", trap_frame_log_formatter, tf);
 
     // stream->printf(stream->context, "- Arguments");
     // stream->printf(stream->context, "- Environment");
+
     stream->printf(stream->context, "- File descriptors");
     bool handle_found = false;
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
@@ -150,4 +147,7 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     }
     if (!handle_found)
         stream->printf(stream->context, "    (none found)");
+
+    stream->printf(stream->context, "- Memory mapping");
+    stream->print_fmt(stream->context, "  ", vmm_pagedir_log_formatter, proc->memory.page_dir);
 }
