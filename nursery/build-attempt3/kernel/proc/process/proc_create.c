@@ -280,7 +280,7 @@ static error_t _allocate_and_map_user_stack_region(process_t *proc, size_t size,
     if (err) return err;
 
     proc->memory.user_stack = reg;
-    proc->memory.tss_esp0_value = stack_top;
+    proc->memory.tss_esp0_value = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size;
 
     return OK;
 }
@@ -627,7 +627,29 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
     // proc->memory.execution.return_Address = function_to_call?
     // GPT says we should have a small trampoline, where when the task returns, we just remove it from lists
     // but, since this will tie into creating tasks/threads, i leave it for later.
+
+    // ok, for things to work: on init
+    // - the trap_frame at the top of kernel stack
+    // - esp0 set to point at top of kernel stack
+    // - ESP should point at the trap_trame
+    // - inside trap frame:
+    //   - eflags to be set to 0x202, i.e. interrupts enabled
+    //   - CS and EIP should be set for both user and kernel tasks
+    //   - SS and ESP should be set for user tasks (CPU does not pop them if it stays in ring0)
+    //   - esp_dummy will be discarded, so don't care
+
+    // on switch / interrupt / syscall / fork etc:
+    // - the trap frame is passed to the interrupt handler, therefore we have it
+    // - user ESP is saved in the trapfrace, along with SS
+    // - setting EAX on trap frame will be the return value of fork
+
+
+    // TODO: this is useless, we should set the EIP on the trap frame...
     proc->entry_point = function_to_call;
+
+    ASSERT(proc->memory.kernel_stack.address != 0);
+    ASSERT(proc->memory.kernel_stack.size != 0);
+    ASSERT(proc->memory.tss_esp0_value != 0);
 
     *proc_ptr = proc;
     return OK;

@@ -27,14 +27,14 @@ typedef struct trap_frame {
    uint32_t ebx;
    uint32_t edx;
    uint32_t ecx;
-   uint32_t eax; // Pushed by pusha.
+   uint32_t eax; // Pushed by pushad.
    
    // pushed by our assembly macros
    uint32_t int_no;
    uint32_t err_code;  // Interrupt number and error code (if applicable)
    
-   // pushed by CPU before jumping to interrupt entry. this happens
-   // only when crossing from user (ring 3) to kernel (ring 0) more
+   // pushed by CPU before jumping to interrupt entry.
+   // eip, cs, flags pushed always. esp+ss crossing ring3 -> ring0
    uint32_t eip;
    uint32_t cs;
    uint32_t eflags;

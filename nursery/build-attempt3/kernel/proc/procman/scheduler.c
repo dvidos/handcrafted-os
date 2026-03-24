@@ -95,7 +95,12 @@ void schedule() {
 
     if (next == NULL)
         return; // nothing to switch to
-    
+    if (next->memory.page_dir == 0)
+        panic("Upcoming process #%d (%s) has no page directory set");
+    if (next->memory.tss_esp0_value == 0)
+        panic("Upcoming process #%d (%s) has no tss_esp0 set");
+
+        
     // if current task is running (as opposed to be blocked or sleeping), put back to the ready list
     process_t *previous = (process_t *)running_proc;
     if (previous->state == RUNNING) {
@@ -168,3 +173,14 @@ void schedule() {
     running_proc->cpu_ticks_last = timer_get_uptime_msecs();
 }
 
+
+// useful for call from assembly, "push ESP", call this, "add ESP,4"
+void debug_stack_contents(uint32_t esp_value) {
+    log_debug("Stack dump follows, esp_value=0x%x", esp_value);
+    log_debug_hex((void *)esp_value, 256, esp_value);
+}
+
+// useful for call from assembly, "push ESP", call this, "add ESP,4"
+void debug_one_dword(uint32_t value) {
+    log_debug("the value is 0x%x", value);
+}

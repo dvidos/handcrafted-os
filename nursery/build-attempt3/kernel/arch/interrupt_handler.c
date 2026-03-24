@@ -87,13 +87,3 @@ void interrupt_handler_c(trap_frame_t *tf) {
     pic_send_eoi(tf->int_no);
 }
 
-// useful for call from assembly, "push ESP", call this, "add ESP,4"
-void debug_stack_contents(uint32_t esp_value) {
-    log_debug("Stack dump follows, esp_value=0x%x", esp_value);
-    log_debug_hex((void *)esp_value, 256, esp_value);
-}
-
-// useful for call from assembly, "push ESP", call this, "add ESP,4"
-void debug_one_dword(uint32_t value) {
-    log_debug("the value is 0x%x", value);
-}

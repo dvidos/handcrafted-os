@@ -77,7 +77,7 @@ run-ide: os.img
 
 # lots of diagnostics about the CPU
 run-with-cpu-diags: os.img
-	$(EMU) -drive format=raw,file=os.img -m 4G -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown -D qemu.log
+	$(EMU) -drive format=raw,file=os.img -m 4G -serial stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown -D qemu.log
 
 clean: config.mk
 	make -C tools    clean

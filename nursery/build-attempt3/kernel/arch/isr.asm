@@ -52,13 +52,24 @@
     mov eax, [proc_switch_old_esp_ptr]    ; eax = pointer to old ESP
     mov [eax], esp                        ; save current stack pointer
 
+    ; Set new TSS.esp0
+    mov edx, [proc_switch_tss_address]    ; edx = 0x2C4B0
+    mov eax, [proc_switch_new_tss_esp0]   ; eax = 0x1954BD
+    mov [edx + 4], eax                    ; Write 0x1954BD to 0x2C4B4
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    [extern debug_one_dword]
+    push dword [0x2c4b4]
+    call debug_one_dword
+    add esp,4
+    push dword [proc_switch_new_tss_esp0]
+    call debug_one_dword
+    add esp,4
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     ; Switch to new CR3 (page directory)
     mov eax, [proc_switch_new_cr3]
     mov cr3, eax
-
-    ; Set new TSS.esp0
-    mov eax, [proc_switch_new_tss_esp0]
-    mov [proc_switch_tss_address + 4], eax
 
     ; Switch to new ESP
     mov esp, [proc_switch_new_esp]
@@ -135,7 +146,7 @@ IRQ_ENTRY  128  ; i.e. 0x80, i.e. syscall
 ; Caution, CPU state is stored as a C struct snapshot, keep them in sync
 ; see trap_frame_t structure in C
 isr_common_body:
-  pusha          ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
+  pushad         ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
   push ds
   push es
   push fs
@@ -147,7 +158,7 @@ isr_common_body:
   mov fs, ax
   mov gs, ax
 
-  push esp         ; pass a pointer to the stack
+  push esp         ; pass a pointer to the stack (to be used as a trapframe)
   call interrupt_handler_c
   add esp, 4       ; clean up passed arguments
 
@@ -158,7 +169,7 @@ isr_common_body:
   pop fs
   pop es
   pop ds
-  popa                     ; Pops edi,esi,ebp...
+  popad                    ; Pops edi,esi,ebp...
 
   add esp, 8     ; cleans up the pushed error code and pushed ISR number (see macros)
   sti

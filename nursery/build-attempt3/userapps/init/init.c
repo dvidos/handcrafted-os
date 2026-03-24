@@ -7,7 +7,7 @@
 
 
 /*
-    TODO: for init
+    TODO: for init & user land
     - minimal FS driver for open/read/write/close for console
     - ability to register a FS driver for a prefix (e.g. "ttyX")
     - implement the dup() call through syscall
