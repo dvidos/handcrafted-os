@@ -9,11 +9,7 @@ extern volatile bool     proc_switch_needed;
 extern volatile uint32_t proc_switch_old_esp_ptr;
 extern volatile uint32_t proc_switch_new_cr3;
 extern volatile uint32_t proc_switch_new_tss_esp0;
-extern volatile uint32_t irrelevant_var1;
-extern volatile uint32_t irrelevant_var2;
 extern volatile uint32_t proc_switch_new_esp;
-extern volatile uint32_t irrelevant_var3;
-extern volatile uint32_t irrelevant_var4;
 extern volatile uint32_t proc_switch_tss_address;
 
 

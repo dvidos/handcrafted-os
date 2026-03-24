@@ -20,11 +20,7 @@ volatile bool     proc_switch_needed;
 volatile uint32_t proc_switch_old_esp_ptr;
 volatile uint32_t proc_switch_new_cr3;
 volatile uint32_t proc_switch_new_tss_esp0;
-volatile uint32_t irrelevant_var1;
-volatile uint32_t irrelevant_var2;
 volatile uint32_t proc_switch_new_esp;
-volatile uint32_t irrelevant_var3;
-volatile uint32_t irrelevant_var4;
 volatile uint32_t proc_switch_tss_address;
 
 
@@ -150,10 +146,6 @@ void schedule() {
     proc_switch_new_tss_esp0 = (uint32_t)running_proc->memory.tss_esp0_value;
     proc_switch_new_esp      = (uint32_t)running_proc->memory.saved_esp;
     proc_switch_tss_address  = tss_address;
-    irrelevant_var1 = proc_switch_old_esp_ptr + 2;
-    irrelevant_var2 = proc_switch_old_esp_ptr + 3;
-    irrelevant_var3 = proc_switch_old_esp_ptr + 4;
-    irrelevant_var4 = proc_switch_old_esp_ptr + 5;
     log_debug("set switching vars: needed=%d, old_esp_ptr=0x%x, new_cr3=0x%x, new_tss_esp0=0x%x, new_esp=0x%x, tss_addr=0x%x",
         proc_switch_needed,
         proc_switch_old_esp_ptr,
@@ -162,13 +154,6 @@ void schedule() {
         proc_switch_new_esp,
         proc_switch_tss_address
     );
-    log_debug("set switching vars: var1=%x, var2=%x, var3=%x, var4=%x",
-        irrelevant_var1,
-        irrelevant_var2,
-        irrelevant_var3,
-        irrelevant_var4
-    );
-
 
     running_proc->cpu_ticks_last = timer_get_uptime_msecs();
 }

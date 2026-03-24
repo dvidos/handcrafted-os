@@ -58,13 +58,13 @@
     mov [edx + 4], eax                    ; Write 0x1954BD to 0x2C4B4
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    [extern debug_one_dword]
-    push dword [0x2c4b4]
-    call debug_one_dword
-    add esp,4
-    push dword [proc_switch_new_tss_esp0]
-    call debug_one_dword
-    add esp,4
+    ; [extern debug_one_dword]
+    ; push dword [0x2c4b4]
+    ; call debug_one_dword
+    ; add esp,4
+    ; push dword [proc_switch_new_tss_esp0]
+    ; call debug_one_dword
+    ; add esp,4
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     ; Switch to new CR3 (page directory)
