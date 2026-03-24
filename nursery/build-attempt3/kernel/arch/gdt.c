@@ -6,7 +6,7 @@
 // Refer to the intel documentation for a description of what each one does.
 // also https://wiki.osdev.org/GDT
 
-MODULE("GDT", LOG_LEVEL_DEBUG);
+MODULE("GDT", LOG_LEVEL_INFO);
 
 
 // access byte
@@ -170,11 +170,14 @@ void init_gdt() {
     log_debug("  size of GDT segment descriptor: %d", sizeof(struct gdt_segment_descriptor32));  // 8
     log_debug("  size of all descriptors: %d", sizeof(descriptors));                             // 24
     log_debug("  size of GDT descriptor: %d", sizeof(struct gdt_descriptor32));                  // 6
+    log_debug("  dump of GDT follows");
+    log_debug_hex((void *)descriptors, sizeof(descriptors), 0);
     
     gdt.size = sizeof(descriptors);
     gdt.offset = (uint32_t)descriptors;
     init_tss();
     
+
     load_gdt_descriptor((uint32_t)&gdt);
     load_tss(TSS_SELECTOR);
 

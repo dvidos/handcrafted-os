@@ -102,9 +102,11 @@ void schedule() {
         previous->state = READY;
         proclist_append(&ready_lists[previous->priority], previous);
     }
-    log_debug_fmt(proc_log_formatter, "previous:", previous);
-    log_debug_fmt(proc_log_formatter, "upcoming:", next);
-
+    
+    // log_debug_fmt(proc_log_formatter, "previous:", previous);
+    // log_debug_fmt(proc_log_formatter, "upcoming:", next);
+    // log_debug("Raw upcoming trapframe dump");
+    // log_debug_hex((void *)next->memory.saved_esp, sizeof(trap_frame_t), 0);
 
     // before switching, some house keeping
     previous->cpu_ticks_total += (timer_get_uptime_msecs() - previous->cpu_ticks_last);
