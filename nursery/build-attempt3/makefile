@@ -52,6 +52,8 @@ os.img: stage1 stage2 kernel tools rootfs
 	tools/make-os-img.sh
 
 run: run-sata
+#run: run-with-cpu-diags
+
 
 run-debugger: os.img
 	$(EMU) -s -S \
@@ -75,7 +77,7 @@ run-ide: os.img
 
 # lots of diagnostics about the CPU
 run-with-cpu-diags: os.img
-	$(EMU) -drive format=raw,file=os.img -m 4G -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown
+	$(EMU) -drive format=raw,file=os.img -m 4G -monitor stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown -D qemu.log
 
 clean: config.mk
 	make -C tools    clean

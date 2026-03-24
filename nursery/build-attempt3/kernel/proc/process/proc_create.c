@@ -280,6 +280,7 @@ static error_t _allocate_and_map_user_stack_region(process_t *proc, size_t size,
     if (err) return err;
 
     proc->memory.user_stack = reg;
+    proc->memory.tss_esp0_value = stack_top;
 
     return OK;
 }
@@ -403,15 +404,15 @@ static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, uint32_
 
     memset(tf, 0, sizeof(trap_frame_t));
     tf->eip = elf_entry_point;
-    tf->cs  = USER_CODE_SEGMENT;
+    tf->cs  = USER_CODE_SEGMENT | RING3_RPL;
     tf->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size; // this is where CPU will return in ring 3, after 'iret'
-    tf->ss  = USER_DATA_SEGMENT;
+    tf->ss  = USER_DATA_SEGMENT | RING3_RPL;
     tf->eflags = 0x202;   // interrupts enabled, this is important
 
-    tf->ds = USER_DATA_SEGMENT;
-    tf->es = USER_DATA_SEGMENT;
-    tf->fs = USER_DATA_SEGMENT;
-    tf->gs = USER_DATA_SEGMENT;
+    tf->ds = USER_DATA_SEGMENT | RING3_RPL;
+    tf->es = USER_DATA_SEGMENT | RING3_RPL;
+    tf->fs = USER_DATA_SEGMENT | RING3_RPL;
+    tf->gs = USER_DATA_SEGMENT | RING3_RPL;
 
     return OK;
 }

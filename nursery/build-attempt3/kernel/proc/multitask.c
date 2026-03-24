@@ -32,6 +32,8 @@ void init_multitasking() {
     process_t *idle;
     error_t err = process_v2_create_for_kernel("idle", 0, PRIORITY_IDLE_TASK, &idle);
     if (err) panic("Error creating the idle task: %s", strerror(err));
+    // TODO: must correct addresses for kernel tasks as well, e.g. esp0 must be kernel_stack top.
+    log_debug_fmt(proc_log_formatter, "idle task:", idle);
 
     // set to running in order to swap it
     running_proc = idle;
