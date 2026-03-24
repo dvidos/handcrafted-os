@@ -102,8 +102,8 @@ void schedule() {
         previous->state = READY;
         proclist_append(&ready_lists[previous->priority], previous);
     }
-    log_debug_fmt("previous:", previous, proc_log_formatter);
-    log_debug_fmt("upcoming:", next, proc_log_formatter);
+    log_debug_fmt(proc_log_formatter, "previous:", previous);
+    log_debug_fmt(proc_log_formatter, "upcoming:", next);
 
 
     // before switching, some house keeping

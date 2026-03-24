@@ -50,7 +50,7 @@ void interrupt_handler_c(trap_frame_t *tf) {
                 entry
             );
             log_error("Trap frame follows:");
-            log_error_fmt("  ", tf, trap_frame_log_formatter);
+            log_error_fmt(trap_frame_log_formatter, "  ", tf);
             // based on EIP (e.g. it was at 0x115A34, therefore kernel text segment)
             // to find out which function had the offending instruction, i did
             // $ `nm -n src/kernel/kernel.bin`
@@ -63,7 +63,7 @@ void interrupt_handler_c(trap_frame_t *tf) {
         case 0x6:
             log_error("Received interrupt %d: Invalid Opcode Exception: The CPU tried to execute an instruction that is not valid", tf->int_no);
             log_error("Trap frame follows:");
-            log_error_fmt("  ", tf, trap_frame_log_formatter);
+            log_error_fmt(trap_frame_log_formatter, "  ", tf);
             // we could deduce from where this happens, kernel or process
             // then one could dissassemble the executable and look around the faulting address
             // i686-elf-objdump -d init | less
@@ -77,7 +77,7 @@ void interrupt_handler_c(trap_frame_t *tf) {
         default:
             log_error("Received interrupt %d (0x%x), error %d", tf->int_no, tf->int_no, tf->err_code);
             log_error("Trap frame follows:");
-            log_error_fmt("  ", tf, trap_frame_log_formatter);
+            log_error_fmt(trap_frame_log_formatter, "  ", tf);
             if (++erroneous_interrupts >= 3)
                 panic("Too many erroneous interrupts");
     }

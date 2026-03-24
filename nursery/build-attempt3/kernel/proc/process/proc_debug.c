@@ -77,7 +77,7 @@ const char *proc_get_block_reason_name(enum block_reasons reason) {
 
 static void format_mem_region(log_write_stream_t *stream, char *name, mem_region_t *reg) {
     // |  12345678  0x12345678  0x12345678  1234567890  1234  XXX  XXX  code
-    stream->printf(stream->context, "    %-8s  0x%08x  0x%08x  %10d  %4d  %-3s  %-3s  %s",
+    stream->printf(stream, "    %-8s  0x%08x  0x%08x  %10d  %4d  %-3s  %-3s  %s",
         name, 
         reg->address,
         reg->address + reg->size,
@@ -107,7 +107,7 @@ void dump_bytes(bool direct, uintptr_t address, int how_many) {
 void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     process_t *proc = va_arg(args, process_t *);
 
-    stream->printf(stream->context, "Process ptr=0x%x, pid=%d, ppipd=%d, name='%s', priority=%d, is_user=%d", 
+    stream->printf(stream, "Process ptr=0x%x, pid=%d, ppipd=%d, name='%s', priority=%d, is_user=%d", 
         proc,
         proc_get_pid(proc),
         proc_get_ppid(proc),
@@ -116,8 +116,8 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
         proc->is_user ? 1 : 0
     );
 
-    stream->printf(stream->context, "- Memory: (proc_pd=0x%x, curr_pd=0x%x)", proc->memory.page_dir, vmm_get_current_page_dir());
-    stream->printf(stream->context, "    Region       Address          To        Size    KB  Usr  Wrt  Usage");
+    stream->printf(stream, "- Memory: (proc_pd=0x%x, curr_pd=0x%x)", proc->memory.page_dir, vmm_get_current_page_dir());
+    stream->printf(stream, "    Region       Address          To        Size    KB  Usr  Wrt  Usage");
     format_mem_region(stream, "kstack", &proc->memory.kernel_stack);
     format_mem_region(stream, "ustack", &proc->memory.user_stack);
     format_mem_region(stream, "uheap", &proc->memory.user_heap);
@@ -128,13 +128,13 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     
     // trapframe will always be in kernel_stack, therefore always identity mapped
     trap_frame_t *tf = (trap_frame_t *)proc->memory.saved_esp;
-    stream->printf(stream->context, "- Trap frame (saved_esp=0x%08x, tss_esp0=0x%08x)", proc->memory.saved_esp, proc->memory.tss_esp0_value);
-    stream->print_fmt(stream->context, "   ", trap_frame_log_formatter, tf);
+    stream->printf(stream, "- Trap frame (saved_esp=0x%08x, tss_esp0=0x%08x)", proc->memory.saved_esp, proc->memory.tss_esp0_value);
+    stream->print_fmt(stream, "   ", trap_frame_log_formatter, tf);
 
     // stream->printf(stream->context, "- Arguments");
     // stream->printf(stream->context, "- Environment");
 
-    stream->printf(stream->context, "- File descriptors");
+    stream->printf(stream, "- File descriptors");
     bool handle_found = false;
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
         if (proc->file_handles[i] == NULL)  
@@ -143,11 +143,11 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
         // this prefix should be added to the existing one
         char prefix[16];
         sprintfn(prefix, sizeof(prefix), "  [%d] ", i);
-        log_debug_fmt(prefix, proc->file_handles[i], open_files.formatter);
+        log_debug_fmt(open_files.formatter, prefix, proc->file_handles[i]);
     }
     if (!handle_found)
-        stream->printf(stream->context, "    (none found)");
+        stream->printf(stream, "    (none found)");
 
-    stream->printf(stream->context, "- Memory mapping");
-    stream->print_fmt(stream->context, "  ", vmm_pagedir_log_formatter, proc->memory.page_dir);
+    stream->printf(stream, "- Memory mapping");
+    stream->print_fmt(stream, "  ", vmm_pagedir_log_formatter, proc->memory.page_dir);
 }

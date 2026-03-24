@@ -130,11 +130,10 @@ struct _log_stream_printf_context {
     const char *module_name;
     log_level_t level;
     const char *prompt;
-    log_write_stream_t *self;
 };
 
-static void _log_stream_printf(void *context, const char *format, ...) {
-    struct _log_stream_printf_context *ctx = (struct _log_stream_printf_context *)context;
+static void _log_stream_printf(log_write_stream_t *stream, const char *format, ...) {
+    struct _log_stream_printf_context *ctx = (struct _log_stream_printf_context *)stream->context;
 
     va_list args;
     char message[256];
@@ -145,8 +144,8 @@ static void _log_stream_printf(void *context, const char *format, ...) {
     _append_all_appenders(ctx->module_name, ctx->level, ctx->prompt, message);
 }
 
-static void _log_stream_print_fmt(void *context, char *prefix, log_formatter_t *formatter, ...) {
-    struct _log_stream_printf_context *ctx = (struct _log_stream_printf_context *)context;
+static void _log_stream_print_fmt(log_write_stream_t *stream, char *prefix, log_formatter_t *formatter, ...) {
+    struct _log_stream_printf_context *ctx = (struct _log_stream_printf_context *)stream->context;
 
     const char *original_prompt = ctx->prompt;
     if (prefix != NULL && prefix[0] != 0) {
@@ -159,7 +158,7 @@ static void _log_stream_print_fmt(void *context, char *prefix, log_formatter_t *
 
     va_list args;
     va_start(args, formatter);
-    formatter(ctx->self, args);
+    formatter(stream, args);
     va_end(args);
     
     ctx->prompt = original_prompt;
@@ -186,8 +185,6 @@ void logger_append_using_formatter(const char *module_name, log_level_t level, c
         .print_fmt = _log_stream_print_fmt,
         .context = &stream_context,
     };
-
-    stream_context.self = &stream;
 
     va_list args;
     va_start(args, formatter);

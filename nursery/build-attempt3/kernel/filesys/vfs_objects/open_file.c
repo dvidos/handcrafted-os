@@ -41,7 +41,7 @@ static void _open_file_release(open_file_t *f) {
 
 static void _open_file_log_formatter(log_write_stream_t *stream, va_list args) {
     open_file_t *f = va_arg(args, open_file_t *);
-    stream->printf(stream->context, "inode.no=%llu, inode.size=%llu, offset=%llu, size=%llu",
+    stream->printf(stream, "inode.no=%llu, inode.size=%llu, offset=%llu, size=%llu",
         f->inode.inode_num,
         f->inode.size,
         f->offset,

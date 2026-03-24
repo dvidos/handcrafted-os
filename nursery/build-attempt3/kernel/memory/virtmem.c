@@ -801,14 +801,14 @@ static void _pd_formatter_group_print(log_write_stream_t *stream, uint32_t virt_
 
     if (virt_mem_group_start == virt_mem_group_end) {
         // single mapping
-        stream->printf(stream->context, "  Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
+        stream->printf(stream, "  Virt 0x%05xxxx             --> Phys 0x%05xxxx           %s", 
             virt_mem_group_start >> 12, 
             phys_mem_group_start >> 12,
             virt_mem_group_start == phys_mem_group_start ? "(identity)" : ""
         );
     } else {
         // group mapping
-        stream->printf(stream->context, "  Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
+        stream->printf(stream, "  Virt 0x%05xxxx..0x%05xxxx --> Phys 0x%05xxxx..0x%05xxxx  %d KB  %s", 
             virt_mem_group_start >> 12, 
             virt_mem_group_end   >> 12, 
             phys_mem_group_start >> 12,
@@ -870,7 +870,7 @@ void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args) {
 
     // this version needs mapping to work first
     vmm_page_ops_t *ops = vmm_page_ops_for(pd);
-    stream->printf(stream->context, "Page directory at 0x%x mapping", pd);
+    stream->printf(stream, "Page directory at 0x%x mapping", pd);
 
     uint32_t entry;
     bool all_empty = true;

@@ -49,7 +49,7 @@ void mem_region_formatter(log_write_stream_t *stream, va_list args) {
     char flags[64];
     
     mem_region_describe_flags(reg, flags);
-    stream->printf(stream->context, "addr=0x%x, size=%x/%uKB, flags=%-16s, usage=%s",
+    stream->printf(stream, "addr=0x%x, size=%x/%uKB, flags=%-16s, usage=%s",
         reg->address,
         reg->size,
         reg->size / 1024,

@@ -645,7 +645,7 @@ error_t elf_get_program_headers_info(open_file_t *file, elf_loadable_segment_t *
 void elf_segment_formatter(log_write_stream_t *stream, va_list args) {
     elf_loadable_segment_t *seg = va_arg(args, elf_loadable_segment_t *);
 
-    stream->printf(stream->context, "file_off=%x, file_sz=%u, mem_addr=%x, mem_sz=%u, wrt=%d, exe=%d",
+    stream->printf(stream, "file_off=%x, file_sz=%u, mem_addr=%x, mem_sz=%u, wrt=%d, exe=%d",
         seg->offset_in_file,
         seg->size_in_file,
         seg->address_in_mem,

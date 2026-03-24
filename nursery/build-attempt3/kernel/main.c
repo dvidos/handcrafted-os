@@ -173,14 +173,14 @@ static void launch_initial_process() {
 
     err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
-    log_info_fmt("init: ", proc, proc_log_formatter);
+    log_info_fmt(proc_log_formatter, "init: ", proc);
     proc_start(proc);
 
     // // maybe we should convert these to Tasks or Threads
     // // there's only stack and EIP to set.
     // err = process_v2_create_for_kernel("sys monitor", (uintptr_t)process_monitor_main, PRIORITY_IDLE_TASK, &proc);
     // if (err) log_warn("Failed creating system monitor process: %s", strerror(err));
-    // log_info_fmt("init: ", proc, proc_log_formatter);
+    // log_info_fmt("init: ", proc_log_formatter, proc);
     // proc_start(proc);
 
     // err = process_v2_create_for_kernel("vfs monitor", (uintptr_t)vfs_monitor_main, PRIORITY_IDLE_TASK, &proc);

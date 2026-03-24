@@ -439,7 +439,7 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
 
     err = elf_get_program_headers_info(elf, segments_arr, headers);
     if (err) goto exit;
-    for (int i = 0; i < headers; i++) log_debug_fmt("segment from elf:", &segments_arr[i], elf_segment_formatter);
+    for (int i = 0; i < headers; i++) log_debug_fmt(elf_segment_formatter, "segment from elf:", &segments_arr[i]);
 
     for (int i = 0; i < headers; i++) {
         err = _allocate_and_load_elf_segment_from_file(proc, elf, &segments_arr[i], page_buffer);

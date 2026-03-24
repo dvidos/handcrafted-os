@@ -33,7 +33,7 @@ struct gdt_segment_descriptor32 {
     uint8_t  access;
     uint8_t  limit_high_4bits: 4;
     uint8_t  flags: 4;
-    uint8_t  base_4th_byte: 1;
+    uint8_t  base_4th_byte;
 } __attribute__((packed));
 
 struct gdt_descriptor32 {
@@ -165,7 +165,7 @@ void init_gdt() {
         ACCESS_DESCRIPTOR_TYPE(0) |
         ACCESS_PRIVILEGE(0) |
         ACCESS_TYPE(0x9), // 32 bit available TSS
-        FLAGS_SIZE(1));
+        0);
 
     log_debug("  size of GDT segment descriptor: %d", sizeof(struct gdt_segment_descriptor32));  // 8
     log_debug("  size of all descriptors: %d", sizeof(descriptors));                             // 24

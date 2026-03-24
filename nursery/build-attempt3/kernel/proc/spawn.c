@@ -17,7 +17,7 @@ int spawnve(char *path, char *argv[], char *envp[]) {
     process_t *proc;
     error_t err = process_v2_create_for_spawn(NULL, path, PRIORITY_USER_PROGRAM, &proc);
     if (err) return err;
-    log_debug_fmt("creat2(): ", proc, proc_log_formatter);
+    log_debug_fmt(proc_log_formatter, "creat2(): ", proc);
 
     proc_start(proc);
     return proc_get_pid(proc);
