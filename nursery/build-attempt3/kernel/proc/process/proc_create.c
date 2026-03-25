@@ -197,6 +197,7 @@ static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir) 
 
     bool user = (reg->flags & REGION_USER_ACCESSIBLE) != 0;
     bool writable = (reg->flags & REGION_WRITE_ENABLE) != 0;
+    log_debug("_region_allocate_and_map, vaddr=0x%x, user=%d, write=%d", reg->address, (int)user, (int)writable);
     for (int page = 0; page < num_pages; page++) {
         err = vmm_map_page_to_pd(reg->address + page * vmm_page_size(), pages_arr[page], user, writable, page_dir);
         if (err) {
@@ -617,9 +618,11 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
 
     size_t stack_size = 0;
     virt_addr_t stack_top = 0;
-    _calculate_proc_user_stack(proc, &stack_size, &stack_top);
-    err = _allocate_and_map_user_stack_region(proc, stack_size, stack_top);
-    if (err) panic("failed allocating and mapping stack for kernel task");
+    // kernel tasks have only the kernel stack, so not user stack...
+    
+    // _calculate_proc_user_stack(proc, &stack_size, &stack_top);
+    // err = _allocate_and_map_user_stack_region(proc, stack_size, stack_top);
+    // if (err) panic("failed allocating and mapping stack for kernel task");
 
     // there's little more to do here, isn't it...
     // TODO: i think we did not setup return address..
@@ -672,7 +675,6 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
 
     new_pd = vmm_create_page_directory(true);
     if (new_pd == 0) { err = ERR_NO_MEMORY; goto failed; }
-    vmm_dump_page_directory(new_pd);
     
     err = _create_base_process_v2(true, new_pd, parent, priority, file_path, &proc);
     if (err) goto failed;

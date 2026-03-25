@@ -148,6 +148,6 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     if (!handle_found)
         stream->printf(stream, "    (none found)");
 
-    stream->printf(stream, "- Memory mapping");
-    stream->print_fmt(stream, "  ", vmm_pagedir_log_formatter, proc->memory.page_dir);
+    stream->printf(stream, "- Memory mapping (pd=0x%08x)", proc->memory.page_dir);
+    stream->print_fmt(stream, "   ", vmm_pagedir_log_formatter, proc->memory.page_dir);
 }

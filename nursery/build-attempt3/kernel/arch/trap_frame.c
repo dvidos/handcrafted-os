@@ -3,6 +3,9 @@
 #include "../logger/logger.h"
 
 static const char *segment_name(uint32_t seg) {
+    // remove RPL 3, if present (2 first bits)
+    seg &= ~0x3;
+
     if (seg == KERNEL_CODE_SEGMENT || seg == KERNEL_DATA_SEGMENT)
         return "(kernel)";
     else if (seg == USER_CODE_SEGMENT || seg == USER_DATA_SEGMENT)

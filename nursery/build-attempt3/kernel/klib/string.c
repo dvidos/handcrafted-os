@@ -182,7 +182,7 @@ void ltoa(long num, char *buffer, int base) {
     int pos = 0;
     while (num > 0) {
         int remainder = num % base;
-        buffer[pos++] = (remainder >= 10) ? ('A' + (remainder - 10)) : ('0' + remainder);
+        buffer[pos++] = (remainder >= 10) ? ('a' + (remainder - 10)) : ('0' + remainder);
         num = num / base;
     }
     if (negative) {
@@ -203,7 +203,7 @@ void ultoa(unsigned long num, char *buffer, int base) {
     int pos = 0;
     while (num > 0) {
         int remainder = num % base;
-        buffer[pos++] = (remainder >= 10) ? ('A' + (remainder - 10)) : ('0' + remainder);
+        buffer[pos++] = (remainder >= 10) ? ('a' + (remainder - 10)) : ('0' + remainder);
         num = num / base;
     }
     buffer[pos] = '\0';
@@ -221,7 +221,7 @@ void u64toa(uint64_t num, char *buffer, int base) {
     int pos = 0;
     while (num > 0) {
         int remainder = num % base;
-        buffer[pos++] = (remainder >= 10) ? ('A' + (remainder - 10)) : ('0' + remainder);
+        buffer[pos++] = (remainder >= 10) ? ('a' + (remainder - 10)) : ('0' + remainder);
         num = num / base;
     }
     buffer[pos] = '\0';
