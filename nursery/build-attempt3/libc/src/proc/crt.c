@@ -51,7 +51,9 @@ void _start() {
     syslog_debug("__start() from PID %d", getpid());
 
     extern void __init_heap();
+    syslog_debug("initializing heap", getpid());
     __init_heap();
+    syslog_debug("done initializing heap", getpid());
 
     extern void __init_env(char **envp);
     // __init_env(envp);

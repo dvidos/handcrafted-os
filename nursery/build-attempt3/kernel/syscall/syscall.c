@@ -37,7 +37,7 @@ static virt_addr_t sys_sbrk(int difference) {
     if (difference > 0) {
         difference = vmm_round_up(difference);
         virt_addr_t new_break = p->memory.user_heap.address + p->memory.user_heap.size;
-        vmm_allocate_memory_range(new_break, new_break + difference, p->memory.page_dir);
+        vmm_allocate_memory_range_this_pd(new_break, new_break + difference);
         p->memory.user_heap.size += difference;
     }
 

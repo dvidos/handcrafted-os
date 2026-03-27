@@ -8,7 +8,7 @@
 #include "../../utils/panic.h"
 #include "../../logger/logger.h"
 
-MODULE("SCHED", LOG_LEVEL_DEBUG);
+MODULE("SCHED", LOG_LEVEL_INFO);
 
 // for postponing scheduling
 static volatile int switching_postpone_depth = 0;
@@ -146,14 +146,7 @@ void schedule() {
     proc_switch_new_tss_esp0 = (uint32_t)running_proc->memory.tss_esp0_value;
     proc_switch_new_esp      = (uint32_t)running_proc->memory.saved_esp;
     proc_switch_tss_address  = tss_address;
-    log_debug("set switching vars: needed=%d, old_esp_ptr=0x%x, new_cr3=0x%x, new_tss_esp0=0x%x, new_esp=0x%x, tss_addr=0x%x",
-        proc_switch_needed,
-        proc_switch_old_esp_ptr,
-        proc_switch_new_cr3,
-        proc_switch_new_tss_esp0,
-        proc_switch_new_esp,
-        proc_switch_tss_address
-    );
+    log_debug("switching vars: needed=%d, old_esp_ptr=0x%x, new_cr3=0x%x, new_tss_esp0=0x%x, new_esp=0x%x, tss_addr=0x%x", proc_switch_needed, proc_switch_old_esp_ptr, proc_switch_new_cr3, proc_switch_new_tss_esp0, proc_switch_new_esp, proc_switch_tss_address);
 
     running_proc->cpu_ticks_last = timer_get_uptime_msecs();
 }

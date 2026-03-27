@@ -26,9 +26,12 @@ virt_addr_t vmm_get_kernel_area_end();
 virt_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr);
 
 
-// map / unmap pages to current or given page directory
-error_t vmm_map_page_to_pd(virt_addr_t virtual_addr, phys_addr_t physical_addr, bool user_accessible, bool write_enable, page_dir_t page_dir);
-void    vmm_unmap_page_from_pd(virt_addr_t virtual_addr, page_dir_t page_dir);
+// mapping window for current PD, temp mapping pages for foreign PDs
+error_t vmm_map_page_to_current_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, bool user_accessible, bool write_enable);
+error_t vmm_map_page_to_other_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, bool user_accessible, bool write_enable, page_dir_t page_dir);
+void    vmm_unmap_page_from_current_pd(virt_addr_t virtual_addr);
+void    vmm_unmap_page_from_other_pd(virt_addr_t virtual_addr, page_dir_t page_dir);
+
 
 // invalidate TLB cache
 void vmm_invalidate_cached_address(virt_addr_t virtual_addr);
@@ -56,7 +59,7 @@ page_dir_t vmm_get_current_page_dir();
 page_dir_t vmm_create_page_directory(bool map_kernel_space);
 
 // allocates pages and maps them to the virtual addresses requested (end_addr exclusive)
-error_t vmm_allocate_memory_range(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end, page_dir_t page_dir_addr);
+error_t vmm_allocate_memory_range_this_pd(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end);
 
 // frees any pointed pages, page tables, and the page directory itself
 void vmm_destroy_page_directory(page_dir_t page_dir_address);

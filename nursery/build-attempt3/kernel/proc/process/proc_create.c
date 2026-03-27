@@ -199,10 +199,10 @@ static error_t _region_allocate_and_map(mem_region_t *reg, page_dir_t page_dir) 
     bool writable = (reg->flags & REGION_WRITE_ENABLE) != 0;
     log_debug("_region_allocate_and_map, vaddr=0x%x, user=%d, write=%d", reg->address, (int)user, (int)writable);
     for (int page = 0; page < num_pages; page++) {
-        err = vmm_map_page_to_pd(reg->address + page * vmm_page_size(), pages_arr[page], user, writable, page_dir);
+        err = vmm_map_page_to_other_pd(reg->address + page * vmm_page_size(), pages_arr[page], user, writable, page_dir);
         if (err) {
             log_warn("error while mapping page %d/%d, will unmap all and release physical pages", page, num_pages);
-            while (--page >= 0) vmm_unmap_page_from_pd(reg->address + page * vmm_page_size(), page_dir);
+            while (--page >= 0) vmm_unmap_page_from_other_pd(reg->address + page * vmm_page_size(), page_dir);
             _release_lot_of_physical_pages_atomically(pages_arr, num_pages);
             return err;
         }
@@ -224,7 +224,7 @@ static void _region_unmap_and_release(mem_region_t *reg, page_dir_t page_dir) {
     for (int page = 0; page < num_pages; page++) {
         phys_addr_t paddr = vmm_resolve(vaddr, page_dir);
 
-        vmm_unmap_page_from_pd(vaddr, page_dir);
+        vmm_unmap_page_from_other_pd(vaddr, page_dir);
         if (paddr != 0)
             pmm_free_physical_page(paddr);
         
