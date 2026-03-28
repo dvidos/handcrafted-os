@@ -228,7 +228,7 @@ void isr_syscall(trap_frame_t *tf) {
             return_value = proc_get_ppid(running_process());
             break;
         case SYS_FORK:   // returns 0 in child, child PID in parent, neg error in parent
-            return_value = proc_fork(running_process());
+            return_value = sys_fork();
             break;
         case SYS_EXEC:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
             return_value = sys_exec((char *)arg1, (char **)arg2, (char **)arg3);

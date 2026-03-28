@@ -37,7 +37,7 @@ static error_t _load_elf_segment_page_from_file(process_t *proc, open_file_t *el
 static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg, char *page_buffer);
 static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_file_t *elf);
 
-static error_t _duplicate_memory_region_if_needed(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd);
+static error_t _duplicate_memory_region(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd);
 static error_t _allocate_and_initialize_all_regions_for_elf(process_t *proc, open_file_t *elf);
 static error_t _duplicate_all_memory_regions_from_process(process_t *dest, process_t *src);
 static error_t _unmap_and_release_all_regions_of_process(process_t *proc);
@@ -464,16 +464,13 @@ exit:
     return traceable(err);
 }
 
-static error_t _duplicate_memory_region_if_needed(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd) {
+static error_t _duplicate_memory_region(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd) {
     ASSERT(dest_reg != NULL);
     ASSERT(dest_pd != 0);
-    log_trace("_duplicate_memory_region_if_needed(dest_reg=%p, dest_pd=%x, src_reg=%p, src_pd=%x)", dest_reg, dest_pd, src_reg, src_pd);
+    log_trace("_duplicate_memory_region(dest_reg=%p, dest_pd=%x, src_reg=%p, src_pd=%x)", dest_reg, dest_pd, src_reg, src_pd);
 
     error_t err = OK;
     bool region_allocated = false;
-
-    if (mem_region_is_empty(src_reg))
-        return OK;
 
     *dest_reg = *src_reg; // copy values
 
@@ -525,15 +522,18 @@ static error_t _duplicate_all_memory_regions_from_process(process_t *dest, proce
 
     error_t err = OK;
 
-    err = _duplicate_memory_region_if_needed(&dest->memory.user_stack, dest->memory.page_dir, &src->memory.user_stack, src->memory.page_dir);
+    err = _duplicate_memory_region(&dest->memory.user_stack, dest->memory.page_dir, &src->memory.user_stack, src->memory.page_dir);
     if (err) goto exit;
 
     for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) {
-        err = _duplicate_memory_region_if_needed(&dest->memory.elf_sections[i], dest->memory.page_dir, &src->memory.elf_sections[i], src->memory.page_dir);
+        if (mem_region_is_empty(&src->memory.elf_sections[i]))
+            continue;
+        
+        err = _duplicate_memory_region(&dest->memory.elf_sections[i], dest->memory.page_dir, &src->memory.elf_sections[i], src->memory.page_dir);
         if (err) goto exit;
     }
     
-    err = _duplicate_memory_region_if_needed(&dest->memory.user_heap, dest->memory.page_dir, &src->memory.user_heap, src->memory.page_dir);
+    err = _duplicate_memory_region(&dest->memory.user_heap, dest->memory.page_dir, &src->memory.user_heap, src->memory.page_dir);
     if (err) goto exit;
 
 exit:

@@ -39,7 +39,7 @@ void fatal(char *msg) {
 }
 
 
-void open_tty() {
+void open_stdinout() {
     // opening console so all children will have these file descriptors open
     int h = open("/dev/tty0");
     if (h < 0) fatal("Failed opening tty0");
@@ -110,21 +110,27 @@ int execute_rc_file() {
 }
 
 int main(int argc, char *argv[]) {
-    open_tty();
+    open_stdinout();
     printf("init running...\n");
 
     execute_rc_file();
 
-    // printf("Fork testing:\n");
-    // int child_pid = fork();
-    // if (child_pid == 0) {
-    //     printf("Hello from child\n");
-    // } else if (child_pid > 0) {
-    //     printf("Hello from parent, child's pid is %d\n", child_pid);
-    // } else if (child_pid < 0) {
-    //     printf("Hello from parent, fork() returned error %d\n", child_pid);
-    // }
+    printf("Fork testing:\n");
+    int child_pid = fork();
+    if (child_pid == 0) {
+        printf("Hello from child\n");
+    } else if (child_pid > 0) {
+        printf("Hello from parent, child's pid is %d\n", child_pid);
+    } else if (child_pid < 0) {
+        printf("Hello from parent, fork() returned error %d\n", child_pid);
+    }
 
     printf("init pausing...");
-    for(;;) { sleep(1000); }
+    syslog_info("init logging info");
+    for(;;) {
+        sleep(700);
+        printf("tick\n");
+        sleep(700);
+        syslog_info("tock");
+    }
 }

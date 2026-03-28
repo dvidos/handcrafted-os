@@ -225,11 +225,16 @@ static inline uint32_t    vmm_workpg1_get_entry(int idx, uint32_t entry) { retur
 static void vmm_create_kernel_page_directory_using_mapping_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr);
 static void vmm_read_all_identity_addresses();
 
-
 // recursive mapping window - for all PDs, acting on current PD
 void    rmw_setup_page_dir(phys_addr_t page_dir);
 error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writable);
 void    rmw_unmap_page(virt_addr_t vaddr);
+static inline virt_addr_t rmw_pd_address();
+static inline virt_addr_t rmw_pt_address(int index);
+static inline uint32_t    rmw_get_pd_entry(int index)                  { ASSERT(index >= 0 && index < 1024); return ((uint32_t *)rmw_pd_address())[index]; }
+static inline void        rmw_set_pd_entry(int index, uint32_t value)  { ASSERT(index >= 0 && index < 1024); ((uint32_t *)rmw_pd_address())[index] = value; }
+static inline uint32_t    rmw_get_pt_entry(int pd_index, int pt_index)                 { ASSERT(pd_index >= 0 && pd_index < 1024); ASSERT(pt_index >= 0 && pt_index < 1024); return ((uint32_t *)rmw_pt_address(pd_index))[pt_index];  }
+static inline void        rmw_set_pt_entry(int pd_index, int pt_index, uint32_t value) { ASSERT(pd_index >= 0 && pd_index < 1024); ASSERT(pt_index >= 0 && pt_index < 1024); ((uint32_t *)rmw_pt_address(pd_index))[pt_index] = value; } 
 
 
 // --------------------------------------------------------
@@ -354,38 +359,26 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
 void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
     // log_trace("_map_page_primitive(virt=0x%x, phys=0x%x)", virtual_addr, physical_addr);
 
-
     // this function is expected operate on the work pages the kernel has.
     // it will not setup an new PTE, therefore it will not recurse.
-    // it also works if the pages are mapped in current pd???
+    // it also modifies PT entries of the current PD, therefore expects RMW to work
+    // it uses the utility pages, to map various physical addresses
+    
+    ASSERT(kinfo.paging_enabled);
     ASSERT(vmm_is_page_aligned(virtual_addr));
     ASSERT(vmm_is_page_aligned(physical_addr));
-
-    // this function uses the utility pages, to map various physical addresses
-    // this way, there will always be a Page Table entry, therefore we'll always be able to map
     ASSERT(virtual_addr == kinfo.work_page1_addr || virtual_addr == kinfo.work_page2_addr);
 
-    page_dir_t pd_address = vmm_get_current_page_dir();
-    ASSERT(pd_address != 0);
-    // log_trace("_map_page_primitive(), pd_address=0x%x", pd_address);
-
-    // entry for page table MUST be there
-    int idx = page_dir_index(virtual_addr);
-    // log_trace("_map_page_primitive(), pd=0x%x pd_index=%d", pd_address, idx);
-    uint32_t entry = ((uint32_t *)pd_address)[idx];
+    // entry for page table MUST be there (setup by kernel)
+    int pd_index = page_dir_index(virtual_addr);
+    uint32_t entry = rmw_get_pd_entry(pd_index);
     ASSERT(entry_is_present(entry));
-    // log_trace("_map_page_primitive(), pd_entry=0x%x", entry);
 
     // now, we may or may not have a value there.
     // no matter what was there, we will just rewrite it.
-    phys_addr_t pt_address = (entry & 0xFFFFF000);
-    ASSERT(pt_address != 0);
-    // log_trace("_map_page_primitive(), pt_address=0x%x", pt_address);
-    idx = page_table_index(virtual_addr);
-    // log_trace("_map_page_primitive(), pt_index=%d", idx);
+    int pt_index = page_table_index(virtual_addr);
     entry = pt_entry_of(physical_addr, false, true, true);
-    // log_trace("_map_page_primitive(), writing value 0x%08x at index %d of PTE ", entry);
-    ((uint32_t *)pt_address)[idx] = entry;
+    rmw_set_pt_entry(pd_index, pt_index, entry);
     
     // invalidate for CPU to recalculate
     vmm_invalidate_cached_address(virtual_addr);
@@ -394,23 +387,21 @@ void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
 void _unmap_page_primitive(virt_addr_t virtual_addr) {
     // log_trace("_unmap_page_primitive(virt=0x%x)", virtual_addr);
 
-    // this function is expected operate on the work pages the kernel has.
-    // it will not setup an new PTE, therefore it will not recurse.
+    ASSERT(kinfo.paging_enabled);
     ASSERT(vmm_is_page_aligned(virtual_addr));
-    page_dir_t pd_address = vmm_get_current_page_dir();
-    ASSERT(pd_address != 0);
+    ASSERT(virtual_addr == kinfo.work_page1_addr || virtual_addr == kinfo.work_page2_addr);
 
-    // entry for page table MUST be there, we are in the first 4 MB
-    int idx = page_dir_index(virtual_addr);
-    uint32_t entry = ((uint32_t *)pd_address)[idx];
+    // entry for page table MUST be there (setup by kernel)
+    int pd_index = page_dir_index(virtual_addr);
+    uint32_t entry = rmw_get_pd_entry(pd_index);
     ASSERT(entry_is_present(entry));
 
-    // now, we may or may not have a value there.
-    // no matter what was there, we will just rewrite it.
-    phys_addr_t pt_address = (entry & 0xFFFFF000);
-    ASSERT(pt_address != 0);
-    idx = page_table_index(virtual_addr);
-    ((uint32_t *)pt_address)[idx] = 0;
+    int pt_index = page_table_index(virtual_addr);
+    entry = rmw_get_pt_entry(pd_index, pt_index);
+    ASSERT(entry_is_present(entry));
+
+    // now clear it
+    rmw_set_pt_entry(pd_index, pt_index, 0);
     
     // invalidate for CPU to recalculate
     vmm_invalidate_cached_address(virtual_addr);
@@ -773,28 +764,81 @@ static void _pd_formatter_got_mapping(log_write_stream_t *stream, struct _pd_gro
     _pd_formatter_group_extend(g);
 }
 
-void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args) {
-    page_dir_t pd = va_arg(args, page_dir_t);
-    struct _pd_group grp;
-    ASSERT(pd != 0);
+static int _pd_formatter_mapped_pt_index;
 
-    vmm_page_ops_t *ops = vmm_page_ops_for(pd);
+static inline uint32_t _pd_formatter_get_accessible_pd_address(bool is_current_pd, uint32_t requested_pd) {
+    if (!kinfo.paging_enabled) {
+        // since paging not enable, direct access to pointer
+        return requested_pd;
+    } else if (is_current_pd) {
+        // the current PD can always be seen in the Recursive Mapping Window
+        return rmw_pd_address();
+    } else {
+        // a foreign PD will be mapped on work page 1, to be seen there
+        vmm_workpg1_map_to(requested_pd);
+        _pd_formatter_mapped_pt_index = -1;
+        return vmm_workpg1();
+    }
+}
+
+static inline uint32_t _pd_formatter_get_accessible_pt_address(bool is_current_pd, uint32_t accessible_pd, int pt_index) {
+    ASSERT(accessible_pd != 0);
+    ASSERT(pt_index >= 0 && pt_index < 1024);
+
+
+    if (!kinfo.paging_enabled) {
+        // we support direct pointer access
+        uint32_t pd_value = ((uint32_t *)accessible_pd)[pt_index];
+        return entry_get_address(pd_value);
+    } else if (is_current_pd) {
+        // the current PTs can always be seen in the Recursive Mapping Window
+        return rmw_pt_address(pt_index);
+    } else {
+        // we need to map this to work page2
+        if (pt_index != _pd_formatter_mapped_pt_index) {
+            uint32_t pd_value = ((uint32_t *)accessible_pd)[pt_index];
+            uint32_t pt_addr = entry_get_address(pd_value);
+            vmm_workpg2_map_to(pt_addr);
+            _pd_formatter_mapped_pt_index = pt_index;
+        }
+        return vmm_workpg2();
+    }
+}
+
+void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args) { 
+    page_dir_t requested_pd = va_arg(args, page_dir_t);
+    struct _pd_group grp;
+    ASSERT(requested_pd != 0);
+
+    log_info("pd_formatter, curr_pd=0x%x, target=0x%x", vmm_get_current_page_dir(), requested_pd);
+
+    // if this is the same PD, we can use wmr functions.
+    // if it's is different, we should use physpg functions
+    // but physpg functions work only on kernel PD ???
+    // and then, first time we print, paging is not enabled !!!!!!!!!!
+
+    // another way is to set a page address every time.
+    // - before paging: the physical address
+    // - mapping: the mapping address
+    // - rmw: the address of the 0xFFC000000+(n*4KB)
+
+    bool is_current_pd = kinfo.paging_enabled && (requested_pd == vmm_get_current_page_dir());
+    uint32_t accessible_pd = _pd_formatter_get_accessible_pd_address(is_current_pd, requested_pd);
+
 
     _pd_formatter_group_print(stream, NULL, false); // header
     _pd_formatter_group_init(&grp, 0, 0, false, false, false, false);
     for (int pd_index = 0; pd_index < 1024; pd_index++) {
-        uint32_t pd_entry = ops->get_entry(pd, pd_index);
+        uint32_t pd_entry = ((uint32_t *)accessible_pd)[pd_index];
         if (!entry_is_present(pd_entry))
             continue;
         
         bool pd_wrt = entry_is_writable(pd_entry);
         bool pd_usr = entry_is_user_accessible(pd_entry);
-        uintptr_t pt_address = entry_get_address(pd_entry);
-        if (pt_address == 0)
-            continue;
+        uint32_t accessible_pt = _pd_formatter_get_accessible_pt_address(is_current_pd, accessible_pd, pd_index);
 
         for (int pt_index = 0; pt_index < 1024; pt_index++) {
-            uint32_t pt_entry = ops->get_entry(pt_address, pt_index);
+            uint32_t pt_entry = ((uint32_t *)accessible_pt)[pt_index];
             if (!entry_is_present(pt_entry))
                 continue;
             
@@ -820,41 +864,6 @@ static void vmm_read_all_identity_addresses() {
         va += vmm_page_size();
     }
     log_debug("all identity mapped region was read (0x%x - 0x%x), found %d zeros", kinfo.reserved_area_start, kinfo.reserved_area_end, zeros);
-}
-
-
-
-// -------------------------------------------------------------------
-
-/*
-In order to operate on physical pages when they are not mapped
-(e.g. when preparing a new page directory)
-vmm needs to temporarily map them in known virtual address
-Keeping track of what is mapped avoids double mapping time
-Unmapping can be avoided as an optimization, used only when needed.
-*/
-
-
-static vmm_page_ops_t _mapped_page_ops = {
-    .read      = vmm_physpg_read,
-    .write     = vmm_physpg_write,
-    .clear     = vmm_physpg_clear,
-    .get_entry = vmm_physpg_get_entry,
-    .set_entry = vmm_physpg_set_entry,
-    .copy      = vmm_physpg_copy,
-};
-static vmm_page_ops_t _direct_page_ops = {
-    .read      = vmm_direct_physpg_read,
-    .write     = vmm_direct_physpg_write,
-    .clear     = vmm_direct_physpg_clear,
-    .get_entry = vmm_direct_physpg_get_entry,
-    .set_entry = vmm_direct_physpg_set_entry,
-    .copy      = vmm_direct_physpg_copy,
-};
-
-vmm_page_ops_t *vmm_page_ops_for(page_dir_t page_dir) {
-    page_dir_t curr = vmm_get_current_page_dir();
-    return (!kinfo.paging_enabled || page_dir == curr) ? &_direct_page_ops : &_mapped_page_ops;
 }
 
 // --------------------------------------------------------------
@@ -923,39 +932,6 @@ void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
     // mutex_release(&kinfo.work_pages_lock);
 }
 
-
-// --------------------------------------------
-
-void vmm_direct_physpg_read(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    offset = min(offset, vmm_page_size());
-    size = min(size, vmm_page_size() - offset);
-    memcpy(buffer, (void *)(paddr + offset), size);
-}
-
-void vmm_direct_physpg_write(virt_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    offset = min(offset, vmm_page_size());
-    size = min(size, vmm_page_size() - offset);
-    memcpy((void *)(paddr + offset), buffer, size);
-}
-
-void vmm_direct_physpg_clear(virt_addr_t paddr) {
-    memset((void *)paddr, 0, vmm_page_size());
-}
-
-uint32_t vmm_direct_physpg_get_entry(virt_addr_t paddr, int index) {
-    index = clamp(index, 0, 1023);
-    return ((uint32_t *)paddr)[index];
-}
-
-void vmm_direct_physpg_set_entry(virt_addr_t paddr, int index, uint32_t value) {
-    index = clamp(index, 0, 1023);
-    ((uint32_t *)paddr)[index] = value;
-}
-
-void vmm_direct_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
-    memcpy((void *)pdest, (void *)psource, vmm_page_size());
-}
-
 // --------------------------------------------------------------
 
 // RMW = Recursive Mapping Window, the top 4MB of virtual memory
@@ -965,10 +941,6 @@ void vmm_direct_physpg_copy(virt_addr_t pdest, virt_addr_t psource) {
 static inline virt_addr_t rmw_base_address()        { return 0xFFC00000; } // 4GB - 4MB
 static inline virt_addr_t rmw_pd_address()          { return 0xFFFFF000; } // 4GB - 4KB (very last page)
 static inline virt_addr_t rmw_pt_address(int index) { ASSERT(index >= 0 && index < 1024); return (rmw_base_address() + index * 4096); }
-static inline uint32_t    rmw_get_pd_entry(int index)                  { ASSERT(index >= 0 && index < 1024); return ((uint32_t *)rmw_pd_address())[index]; }
-static inline void        rmw_set_pd_entry(int index, uint32_t value)  { ASSERT(index >= 0 && index < 1024); ((uint32_t *)rmw_pd_address())[index] = value; }
-static inline uint32_t    rmw_get_pt_entry(int pd_index, int pt_index, uint32_t value) { ASSERT(pd_index >= 0 && pd_index < 1024); ASSERT(pt_index >= 0 && pt_index < 1024); return ((uint32_t *)rmw_pt_address(pd_index))[pt_index];  }
-static inline void        rmw_set_pt_entry(int pd_index, int pt_index, uint32_t value) { ASSERT(pd_index >= 0 && pd_index < 1024); ASSERT(pt_index >= 0 && pt_index < 1024); ((uint32_t *)rmw_pt_address(pd_index))[pt_index] = value; } 
 
 
 void rmw_setup_page_dir(phys_addr_t page_dir) {
@@ -1032,3 +1004,6 @@ void rmw_unmap_page(virt_addr_t vaddr) {
     // force CPU to see this address
     vmm_invalidate_cached_address(vaddr);
 }
+
+// ----------------------------------------------
+

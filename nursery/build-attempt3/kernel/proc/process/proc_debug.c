@@ -135,17 +135,17 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     // stream->printf(stream->context, "- Environment");
 
     stream->printf(stream, "- File descriptors");
-    bool handle_found = false;
+    bool one_found = false;
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
         if (proc->file_handles[i] == NULL)  
             continue;
         
-        // this prefix should be added to the existing one
         char prefix[16];
-        sprintfn(prefix, sizeof(prefix), "  [%d] ", i);
-        log_debug_fmt(open_files.formatter, prefix, proc->file_handles[i]);
+        sprintfn(prefix, sizeof(prefix), "    [%d]", i);
+        stream->print_fmt(stream, prefix, open_files.formatter, proc->file_handles[i]);
+        one_found = true;
     }
-    if (!handle_found)
+    if (!one_found)
         stream->printf(stream, "    (none found)");
 
     stream->printf(stream, "- Memory mapping (pd=0x%08x)", proc->memory.page_dir);
