@@ -13,8 +13,6 @@
 #include "../logger/logger.h"
 #include "../include/uapi/errors.h"
 #include "../klib/strvec.h"
-// #include "../filesys/mount_deprecated.h"
-// #include "../filesys/vfs.h"
 
 MODULE("PROC", LOG_LEVEL_WARN);
 
