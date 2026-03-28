@@ -41,6 +41,7 @@ struct kinfo {
     // utility reserved addresses
     virt_addr_t work_page1_addr;
     virt_addr_t work_page2_addr;
+    virt_addr_t diags_page_addr; // to be used only by logger.
 
 
     lock_t work_pages_lock;
@@ -138,14 +139,3 @@ error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writa
 void    rmw_unmap_page(virt_addr_t vaddr);
 
 
-
-
-// this work page is a reserve address that allows us to modify physical pages with temporary mapping
-static inline virt_addr_t vmm_workpg1() { return kinfo.work_page1_addr; }
-static inline virt_addr_t vmm_workpg2() { return kinfo.work_page2_addr; }
-static inline void        vmm_workpg1_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg1(), phys_addr); }
-static inline void        vmm_workpg2_map_to(phys_addr_t phys_addr) { _map_page_primitive(vmm_workpg2(), phys_addr); }
-static inline void        vmm_workpg1_unmap() { _unmap_page_primitive(vmm_workpg1()); }
-static inline void        vmm_workpg2_unmap() { _unmap_page_primitive(vmm_workpg2()); }
-static inline void        vmm_workpg1_set_entry(int idx, uint32_t entry) { ((uint32_t *)vmm_workpg1())[idx] = entry; }
-static inline uint32_t    vmm_workpg1_get_entry(int idx, uint32_t entry) { return ((uint32_t *)vmm_workpg1())[idx]; }

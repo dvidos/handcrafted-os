@@ -68,32 +68,16 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address);
 void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args);
 
 
-// -------------------------------------
 
-typedef struct vmm_page_ops {
-    void     (*read)(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
-    void     (*write)(virt_addr_t paddr, size_t offset, void *buffer, size_t size);
-    void     (*clear)(virt_addr_t paddr);
-    uint32_t (*get_entry)(virt_addr_t paddr, int index);
-    void     (*set_entry)(virt_addr_t paddr, int index, uint32_t value);
-    void     (*copy)(virt_addr_t pdest, virt_addr_t psource);
-} vmm_page_ops_t;
-
-vmm_page_ops_t *vmm_page_ops_for(page_dir_t page_dir);
-
+// vmm_low.c: these use internal work pages and are thread safe
+void     vmm_physpg_clear(phys_addr_t paddr);
 void     vmm_physpg_read(phys_addr_t paddr, size_t offset, void *buffer, size_t size);
 void     vmm_physpg_write(phys_addr_t paddr, size_t offset, void *buffer, size_t size);
-void     vmm_physpg_clear(phys_addr_t paddr);
 uint32_t vmm_physpg_get_entry(phys_addr_t paddr, int index);
 void     vmm_physpg_set_entry(phys_addr_t paddr, int index, uint32_t value);
 void     vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource);
-
-void     vmm_direct_physpg_read(phys_addr_t paddr, size_t offset, void *buffer, size_t size);
-void     vmm_direct_physpg_write(phys_addr_t paddr, size_t offset, void *buffer, size_t size);
-void     vmm_direct_physpg_clear(phys_addr_t paddr);
-uint32_t vmm_direct_physpg_get_entry(phys_addr_t paddr, int index);
-void     vmm_direct_physpg_set_entry(phys_addr_t paddr, int index, uint32_t value);
-void     vmm_direct_physpg_copy(phys_addr_t pdest, virt_addr_t psource);
+void*    vmm_physpg_temp_map(phys_addr_t paddr);
+void     vmm_physpg_temp_unmap();
 
 
 
