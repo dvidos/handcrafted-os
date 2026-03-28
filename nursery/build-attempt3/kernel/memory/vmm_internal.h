@@ -116,9 +116,29 @@ static inline uint32_t _virt_addr_to_physical_page_offset(virt_addr_t virtual_ad
     return ((uint32_t)virtual_address) & 0xFFF;
 }
 
-// these two are immensely important.
+
+
+// ------ vmm_lower.c --------
+
+// these two are the cornerstone for building higher levels
 void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr);
 void _unmap_page_primitive(virt_addr_t virtual_addr);
+
+// RMW = Recursive Mapping Window, the top 4MB of virtual memory. 
+// we enable this by mapping EVERY page directory we create to 0xFFC00000
+// it allows us to manipulate mapping transparently, in EVERY page directory.
+static inline virt_addr_t rmw_base_address()                                           { return 0xFFC00000; } // 4GB - 4MB
+static inline virt_addr_t rmw_pd_address()                                             { return 0xFFFFF000; } // 4GB - 4KB (very last page)
+static inline virt_addr_t rmw_pt_address(int index)                                    { ASSERT(index >= 0 && index < 1024); return (rmw_base_address() + index * 4096); }
+static inline uint32_t    rmw_get_pd_entry(int index)                                  { ASSERT(index >= 0 && index < 1024); return ((uint32_t *)rmw_pd_address())[index]; }
+static inline void        rmw_set_pd_entry(int index, uint32_t value)                  { ASSERT(index >= 0 && index < 1024); ((uint32_t *)rmw_pd_address())[index] = value; }
+static inline uint32_t    rmw_get_pt_entry(int pd_index, int pt_index)                 { ASSERT(pd_index >= 0 && pd_index < 1024); ASSERT(pt_index >= 0 && pt_index < 1024); return ((uint32_t *)rmw_pt_address(pd_index))[pt_index]; }
+static inline void        rmw_set_pt_entry(int pd_index, int pt_index, uint32_t value) { ASSERT(pd_index >= 0 && pd_index < 1024); ASSERT(pt_index >= 0 && pt_index < 1024); ((uint32_t *)rmw_pt_address(pd_index))[pt_index] = value; } 
+error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writable);
+void    rmw_unmap_page(virt_addr_t vaddr);
+
+
+
 
 // this work page is a reserve address that allows us to modify physical pages with temporary mapping
 static inline virt_addr_t vmm_workpg1() { return kinfo.work_page1_addr; }
@@ -129,18 +149,3 @@ static inline void        vmm_workpg1_unmap() { _unmap_page_primitive(vmm_workpg
 static inline void        vmm_workpg2_unmap() { _unmap_page_primitive(vmm_workpg2()); }
 static inline void        vmm_workpg1_set_entry(int idx, uint32_t entry) { ((uint32_t *)vmm_workpg1())[idx] = entry; }
 static inline uint32_t    vmm_workpg1_get_entry(int idx, uint32_t entry) { return ((uint32_t *)vmm_workpg1())[idx]; }
-
-static void vmm_create_kernel_page_directory_using_mapping_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr);
-
-
-// recursive mapping window - for all PDs, acting on current PD
-void        rmw_setup_page_dir(phys_addr_t page_dir);
-error_t     rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writable);
-void        rmw_unmap_page(virt_addr_t vaddr);
-virt_addr_t rmw_pd_address();
-virt_addr_t rmw_pt_address(int index);
-uint32_t    rmw_get_pd_entry(int index);
-void        rmw_set_pd_entry(int index, uint32_t value);
-uint32_t    rmw_get_pt_entry(int pd_index, int pt_index);
-void        rmw_set_pt_entry(int pd_index, int pt_index, uint32_t value);
-

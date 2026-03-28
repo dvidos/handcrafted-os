@@ -18,8 +18,10 @@
 
 struct kinfo kinfo;
 
+static void vmm_create_kernel_page_directory_using_mapping_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr);
 
 
+// -------------------------------------------------------------
 
 
 static phys_addr_t vmm_allocate_kernel_mapping_page() {
@@ -148,56 +150,6 @@ phys_addr_t vmm_resolve(virt_addr_t virtual_addr, page_dir_t page_dir_addr) {
     return (address + offset);
 }
 
-void _map_page_primitive(virt_addr_t virtual_addr, phys_addr_t physical_addr) {
-    // log_trace("_map_page_primitive(virt=0x%x, phys=0x%x)", virtual_addr, physical_addr);
-
-    // this function is expected operate on the work pages the kernel has.
-    // it will not setup an new PTE, therefore it will not recurse.
-    // it also modifies PT entries of the current PD, therefore expects RMW to work
-    // it uses the utility pages, to map various physical addresses
-    
-    ASSERT(kinfo.paging_enabled);
-    ASSERT(vmm_is_page_aligned(virtual_addr));
-    ASSERT(vmm_is_page_aligned(physical_addr));
-    ASSERT(virtual_addr == kinfo.work_page1_addr || virtual_addr == kinfo.work_page2_addr);
-
-    // entry for page table MUST be there (setup by kernel)
-    int pd_index = page_dir_index(virtual_addr);
-    uint32_t entry = rmw_get_pd_entry(pd_index);
-    ASSERT(entry_is_present(entry));
-
-    // now, we may or may not have a value there.
-    // no matter what was there, we will just rewrite it.
-    int pt_index = page_table_index(virtual_addr);
-    entry = pt_entry_of(physical_addr, false, true, true);
-    rmw_set_pt_entry(pd_index, pt_index, entry);
-    
-    // invalidate for CPU to recalculate
-    vmm_invalidate_cached_address(virtual_addr);
-}
-
-void _unmap_page_primitive(virt_addr_t virtual_addr) {
-    // log_trace("_unmap_page_primitive(virt=0x%x)", virtual_addr);
-
-    ASSERT(kinfo.paging_enabled);
-    ASSERT(vmm_is_page_aligned(virtual_addr));
-    ASSERT(virtual_addr == kinfo.work_page1_addr || virtual_addr == kinfo.work_page2_addr);
-
-    // entry for page table MUST be there (setup by kernel)
-    int pd_index = page_dir_index(virtual_addr);
-    uint32_t entry = rmw_get_pd_entry(pd_index);
-    ASSERT(entry_is_present(entry));
-
-    int pt_index = page_table_index(virtual_addr);
-    entry = rmw_get_pt_entry(pd_index, pt_index);
-    ASSERT(entry_is_present(entry));
-
-    // now clear it
-    rmw_set_pt_entry(pd_index, pt_index, 0);
-    
-    // invalidate for CPU to recalculate
-    vmm_invalidate_cached_address(virtual_addr);
-}
 
 error_t vmm_map_page_to_current_pd(virt_addr_t virtual_addr, virt_addr_t physical_addr, bool user_accessible, bool write_enable) {
     return rmw_map_page(virtual_addr, physical_addr, user_accessible, write_enable);
@@ -433,98 +385,6 @@ void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
 }
 
 // --------------------------------------------------------------
-
-// RMW = Recursive Mapping Window, the top 4MB of virtual memory
-// we enable this by mapping EVERY page directory to 0xFFC00000
-// it allows us to manipulate mapping transparently, in EVERY page directory.
-
-virt_addr_t rmw_base_address()        { return 0xFFC00000; } // 4GB - 4MB
-virt_addr_t rmw_pd_address()          { return 0xFFFFF000; } // 4GB - 4KB (very last page)
-virt_addr_t rmw_pt_address(int index) { ASSERT(index >= 0 && index < 1024); return (rmw_base_address() + index * 4096); }
-
-uint32_t rmw_get_pd_entry(int index) {
-    ASSERT(index >= 0 && index < 1024);
-    return ((uint32_t *)rmw_pd_address())[index];
-}
-
-void rmw_set_pd_entry(int index, uint32_t value) {
-    ASSERT(index >= 0 && index < 1024);
-    ((uint32_t *)rmw_pd_address())[index] = value;
-}
-
-uint32_t rmw_get_pt_entry(int pd_index, int pt_index) {
-    ASSERT(pd_index >= 0 && pd_index < 1024);
-    ASSERT(pt_index >= 0 && pt_index < 1024);
-    return ((uint32_t *)rmw_pt_address(pd_index))[pt_index];
-}
-
-void rmw_set_pt_entry(int pd_index, int pt_index, uint32_t value) {
-    ASSERT(pd_index >= 0 && pd_index < 1024);
-    ASSERT(pt_index >= 0 && pt_index < 1024);
-    ((uint32_t *)rmw_pt_address(pd_index))[pt_index] = value;
-} 
-
-void rmw_setup_page_dir(phys_addr_t page_dir) {
-    // every PD points to itself at index 1023, this means that:
-    // at virtual address 0xFFFFF000 one can read the PD contents
-    // at virtual address 0xFFC00000 + n*4K one can read the PT pages
-
-    if (!kinfo.paging_enabled) {
-        // we do it via physical access (pointer)
-        ((uint32_t *)page_dir)[1023] = pd_entry_of(page_dir, false, true, true);
-    } else {
-        // we need the infrastructure of a temp address to map
-        // set non-mapped page through the mapping pages
-        vmm_workpg1_map_to(page_dir);
-        vmm_workpg1_set_entry(1023, page_dir);
-        vmm_workpg1_unmap();
-    }
-}
-
-error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writable) {
-    // these work for the "current" CR3 only, as long as it's setup recursively
-
-    int pd_idx = page_dir_index(vaddr);
-    uint32_t pd_entry = rmw_get_pd_entry(pd_idx);
-
-    if (!entry_is_present(pd_entry)) {
-        // allocate new, attach etc
-        phys_addr_t new_pt_paddr = pmm_allocate_physical_page();
-        if (new_pt_paddr == 0) return ERR_NO_MEMORY;
-
-        pd_entry = pd_entry_of(new_pt_paddr, user, writable, true);
-        rmw_set_pd_entry(pd_idx, pd_entry);
-
-        // invalidate the TLB for the RMW window, so the CPU sees the new PT
-        vmm_invalidate_cached_address(rmw_pt_address(pd_idx));        
-    }
-
-    int pt_idx = page_table_index(vaddr);
-    rmw_set_pt_entry(pd_idx, pt_idx, pt_entry_of(paddr, user, writable, true));
-
-    // force CPU to see this address
-    vmm_invalidate_cached_address(vaddr);
-
-    return OK;
-}
-
-void rmw_unmap_page(virt_addr_t vaddr) {
-    // these work for the "current" CR3 only, as long as it's setup recursively
-
-    int pd_idx = page_dir_index(vaddr);
-    uint32_t pd_entry = rmw_get_pd_entry(pd_idx);
-
-    if (!entry_is_present(pd_entry)) {
-        log_error("unmap page attempt at 0x%x, but no PT found", vaddr);
-        return;
-    }
-
-    int pt_idx = page_table_index(vaddr);
-    rmw_set_pt_entry(pd_idx, pt_idx, 0);
-
-    // force CPU to see this address
-    vmm_invalidate_cached_address(vaddr);
-}
 
 // ----------------------------------------------
 
