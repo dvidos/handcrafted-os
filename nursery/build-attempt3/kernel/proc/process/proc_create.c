@@ -13,7 +13,7 @@
 #include "../../utils/assert.h"
 #include "../elf_reader.h"
 
-MODULE("PROC_CREATE", LOG_LEVEL_DEBUG);
+MODULE("PROC_CREATE", LOG_LEVEL_INFO);
 
 
 static pid_t   next_pid();

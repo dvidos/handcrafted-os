@@ -2,6 +2,38 @@
 
 
 
+#define BREADCRUMB_MAX 16
+
+typedef struct {
+    const char* func;
+    uint32_t phys;
+    uint32_t slot; // 1 for pg1, 2 for pg2, 3 for diags
+} breadcrumb_t;
+
+static breadcrumb_t trace_buffer[BREADCRUMB_MAX];
+static int trace_ptr = 0;
+
+void trace_map(const char* fn, uint32_t phys, uint32_t slot) {
+    if (trace_ptr < BREADCRUMB_MAX) {
+        trace_buffer[trace_ptr++] = (breadcrumb_t){ .func = fn, .phys = phys, .slot = slot };
+    }
+}
+
+void trace_unmap(uint32_t slot) {
+    if (trace_ptr > 0) {
+        // In a perfect world, we'd verify trace_buffer[trace_ptr-1].slot == slot
+        trace_ptr--;
+    }
+}
+
+void trace_dump() {
+    log_error("--- Synchronous Map Trace ---");
+    for (int i = 0; i < trace_ptr; i++) {
+        log_error("[%d] %s: Slot %d -> 0x%08x", 
+                       i, trace_buffer[i].func, trace_buffer[i].slot, trace_buffer[i].phys);
+    }
+    trace_ptr = 0; // Reset after dump
+}
 
 
 // ---------------------------------------------------------------------
@@ -18,8 +50,10 @@ static void *_low_mount_internal(virt_addr_t v_window, phys_addr_t p_target) {
     ASSERT(vmm_is_page_aligned(p_target));
     ASSERT(v_window == kinfo.work_page1_addr || v_window == kinfo.work_page2_addr);
 
-    // if (v_window == kinfo.work_page1_addr && pg1_used) panic("Re-entrance in _low_mount() for page 1");
-    // if (v_window == kinfo.work_page2_addr && pg2_used) panic("Re-entrance in _low_mount() for page 2");
+    if (v_window == kinfo.work_page1_addr) trace_map(__func__, p_target, 1);
+    if (v_window == kinfo.work_page2_addr) trace_map(__func__, p_target, 2);
+    if (v_window == kinfo.work_page1_addr && pg1_used) { trace_dump(); panic("stopping due to re-entrance"); }
+    if (v_window == kinfo.work_page2_addr && pg2_used) { trace_dump(); panic("stopping due to re-entrance"); }
 
     int pd_idx = page_dir_index(v_window);
     int pt_idx = page_table_index(v_window);
@@ -48,6 +82,8 @@ static void *_low_unmount_internal(virt_addr_t v_window) {
 
     if (v_window == kinfo.work_page1_addr) pg1_used = false;
     if (v_window == kinfo.work_page2_addr) pg2_used = false;
+    if (v_window == kinfo.work_page1_addr) trace_unmap(1);
+    if (v_window == kinfo.work_page2_addr) trace_unmap(2);
 
     return (void *)v_window;
 }
@@ -111,8 +147,11 @@ void vmm_physpg_set_entry(phys_addr_t paddr, int index, uint32_t value) {
 void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
     pushcli();
 
-    memcpy(_low_mount_internal(kinfo.work_page1_addr, pdest), _low_mount_internal(kinfo.work_page2_addr, psource), vmm_page_size());
+    void *vdest = _low_mount_internal(kinfo.work_page1_addr, pdest);
+    void *vsource = _low_mount_internal(kinfo.work_page2_addr, psource);
+    memcpy(vdest, vsource, vmm_page_size());
     _low_unmount_internal(kinfo.work_page1_addr);
+    _low_unmount_internal(kinfo.work_page2_addr);
 
     popcli();
 }
@@ -121,6 +160,8 @@ void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
 
 error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writable) {
     // these work for the "current" CR3 only, as long as it's setup recursively
+    pushcli();
+    error_t err = OK;
 
     int pd_idx = page_dir_index(vaddr);
     uint32_t pd_entry = rmw_get_pd_entry(pd_idx);
@@ -128,7 +169,7 @@ error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writa
     if (!entry_is_present(pd_entry)) {
         // allocate new, attach etc
         phys_addr_t new_pt_paddr = pmm_allocate_physical_page();
-        if (new_pt_paddr == 0) return ERR_NO_MEMORY;
+        if (new_pt_paddr == 0) { err = ERR_NO_MEMORY; goto exit; }
 
         pd_entry = pd_entry_of(new_pt_paddr, user, writable, true);
         rmw_set_pd_entry(pd_idx, pd_entry);
@@ -143,25 +184,26 @@ error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writa
     // force CPU to see this address
     vmm_invalidate_cached_address(vaddr);
 
+exit:
+    popcli();
     return OK;
 }
 
 void rmw_unmap_page(virt_addr_t vaddr) {
     // these work for the "current" CR3 only, as long as it's setup recursively
+    pushcli();
 
     int pd_idx = page_dir_index(vaddr);
     uint32_t pd_entry = rmw_get_pd_entry(pd_idx);
+    if (entry_is_present(pd_entry)) {
+        int pt_idx = page_table_index(vaddr);
+        rmw_set_pt_entry(pd_idx, pt_idx, 0);
 
-    if (!entry_is_present(pd_entry)) {
-        log_error("unmap page attempt at 0x%x, but no PT found", vaddr);
-        return;
+        // force CPU to see this address
+        vmm_invalidate_cached_address(vaddr);
     }
 
-    int pt_idx = page_table_index(vaddr);
-    rmw_set_pt_entry(pd_idx, pt_idx, 0);
-
-    // force CPU to see this address
-    vmm_invalidate_cached_address(vaddr);
+    popcli();
 }
 
 // ---------------------------------

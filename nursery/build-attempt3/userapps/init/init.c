@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
         printf("(pid=%d) Hello from parent, fork() returned error %d\n", getpid(), child_pid);
     }
 
-    syslog_info("init pausing");
+    syslog_info("init (pid=%d) pausing", getpid());
     for(;;) {
         sleep(100);
     }

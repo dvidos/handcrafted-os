@@ -173,7 +173,7 @@ static void launch_initial_process() {
 
     err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
-    log_info_fmt(proc_log_formatter, "init: ", proc);
+    log_debug_fmt(proc_log_formatter, "init: ", proc);
     proc_start(proc);
 
     // // maybe we should convert these to Tasks or Threads
