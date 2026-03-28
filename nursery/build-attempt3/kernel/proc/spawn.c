@@ -5,7 +5,7 @@
 #include "../klib/strvec.h"
 #include "../devices/tty.h"
 #include "elf_reader.h"
-#include "../memory/virtmem.h"
+#include "../memory/vmm.h"
 #include "../memory/kheap.h"
 #include "../klib/strerror.h"
 

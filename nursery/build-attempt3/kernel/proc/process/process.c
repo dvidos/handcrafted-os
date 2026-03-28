@@ -9,7 +9,7 @@
 #include "../procman/scheduler.h"
 #include "../multitask.h"
 #include "../memory/kheap.h"
-#include "../memory/virtmem.h"
+#include "../memory/vmm.h"
 #include "../logger/logger.h"
 #include "../include/uapi/errors.h"
 #include "../klib/strvec.h"

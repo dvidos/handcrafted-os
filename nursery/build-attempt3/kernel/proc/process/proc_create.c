@@ -7,7 +7,7 @@
 #include "../../include/macros.h"
 #include "../../logger/logger.h"
 #include "../../memory/kheap.h"
-#include "../../memory/virtmem.h"
+#include "../../memory/vmm.h"
 #include "../../klib/string.h"
 #include "../../klib/strvec.h"
 #include "../../utils/assert.h"

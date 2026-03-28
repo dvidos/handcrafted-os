@@ -11,7 +11,7 @@
 #include "drivers/serial.h"
 #include "devices/tty.h"
 #include "memory/kmemmap.h"
-#include "memory/virtmem.h"
+#include "memory/vmm.h"
 #include "memory/kheap.h"
 #include "logger/logger.h"
 #include "logger/mem_log.h"

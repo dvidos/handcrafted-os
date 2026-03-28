@@ -1,7 +1,7 @@
 #include <uapi/errors.h>
 #include "../logger/logger.h"
 #include "../filesys/vfs_api.h"
-#include "../memory/virtmem.h"
+#include "../memory/vmm.h"
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 #include "../proc/process/process.h"

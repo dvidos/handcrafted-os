@@ -1,6 +1,6 @@
 #include "mem_region.h"
 #include "../klib/string.h"
-#include "../memory/virtmem.h"
+#include "../memory/vmm.h"
 #include "../memory/physmem.h"
 #include "../logger/logger.h"
 #include "../include/va_list.h"

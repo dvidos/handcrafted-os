@@ -3,7 +3,7 @@
 #include "../drivers/timer.h"
 #include "../drivers/kbd_drv.h"
 #include "../drivers/clock.h"
-#include "../memory/virtmem.h"
+#include "../memory/vmm.h"
 #include "pic.h"
 #include "../logger/logger.h"
 #include "../utils/panic.h"

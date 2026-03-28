@@ -2,7 +2,7 @@
 #include "../../utils/panic.h"
 #include "../../klib/string.h"
 #include "../../memory/physmem.h"
-#include "../../memory/virtmem.h"
+#include "../../memory/vmm.h"
 #include "../../memory/kheap.h"
 #include "../../logger/logger.h"
 #include "../devices.h"

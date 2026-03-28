@@ -6,7 +6,7 @@
 #include "../devices/tty.h"
 #include "../filesys/vfs_api.h"
 #include "../filesys/fs_drivers/fs_driver.h"
-#include "../../memory/virtmem.h"
+#include "../../memory/vmm.h"
 
 /**
  * Virtual memory map of a process (if user process, not kernel task)
