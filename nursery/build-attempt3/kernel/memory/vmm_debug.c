@@ -1,19 +1,3 @@
-#include "../include/ctypes.h"
-#include "../include/macros.h"
-#include "../utils/assert.h"
-#include "../include/bits.h"
-#include "../arch/gdt.h"
-#include "physmem.h"
-#include "vmm.h"
-#include "kmemmap.h"
-#include "../utils/panic.h"
-#include "../utils/mutex.h"
-#include "../memory/kheap.h"
-#include "../logger/logger.h"
-#include "../arch/cpu.h"
-#include "../klib/string.h"
-#include "../memory/mem_region.h"
-
 #include "vmm_internal.h"
 
 
