@@ -76,8 +76,6 @@ void     vmm_physpg_write(phys_addr_t paddr, size_t offset, void *buffer, size_t
 uint32_t vmm_physpg_get_entry(phys_addr_t paddr, int index);
 void     vmm_physpg_set_entry(phys_addr_t paddr, int index, uint32_t value);
 void     vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource);
-void*    vmm_physpg_temp_map(phys_addr_t paddr);
-void     vmm_physpg_temp_unmap();
 
 
 

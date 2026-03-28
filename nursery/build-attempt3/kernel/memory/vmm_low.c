@@ -57,68 +57,65 @@ static void *_low_unmount_internal(virt_addr_t v_window) {
 // PUBLIC: The Thread-Safe Accessors (this hides pg1/pg2 from rest of kernel)
 
 void vmm_physpg_clear(phys_addr_t paddr) {
-    // mutex_acquire(&kinfo.work_pages_lock);
+    pushcli();
+
     memset(_low_mount_internal(kinfo.work_page1_addr, paddr), 0, vmm_page_size());
-    // mutex_release(&kinfo.work_pages_lock);
+    _low_unmount_internal(kinfo.work_page1_addr);
+    
+    popcli();
 }
 
 void vmm_physpg_read(phys_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    // mutex_acquire(&kinfo.work_pages_lock);
+    pushcli();
 
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
     memcpy(buffer, _low_mount_internal(kinfo.work_page1_addr, paddr) + offset, size);
+    _low_unmount_internal(kinfo.work_page1_addr);
 
-    // mutex_release(&kinfo.work_pages_lock);
+    popcli();
 }
 
 void vmm_physpg_write(phys_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    // mutex_acquire(&kinfo.work_pages_lock);
+    pushcli();
 
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
     memcpy(_low_mount_internal(kinfo.work_page1_addr, paddr) + offset, buffer, size);
+    _low_unmount_internal(kinfo.work_page1_addr);
 
-    // mutex_release(&kinfo.work_pages_lock);
+    popcli();
 }
 
 uint32_t vmm_physpg_get_entry(phys_addr_t paddr, int index) {
-    // mutex_acquire(&kinfo.work_pages_lock);
+    pushcli();
 
     index = clamp(index, 0, 1023);
-    return ((uint32_t *)_low_mount_internal(kinfo.work_page1_addr, paddr))[index];
+    uint32_t entry = ((uint32_t *)_low_mount_internal(kinfo.work_page1_addr, paddr))[index];
+    _low_unmount_internal(kinfo.work_page1_addr);
 
-    // mutex_release(&kinfo.work_pages_lock);
+    popcli();
+    return entry;
 }
 
 void vmm_physpg_set_entry(phys_addr_t paddr, int index, uint32_t value) {
-    // mutex_acquire(&kinfo.work_pages_lock);
+    pushcli();
 
     index = clamp(index, 0, 1023);
     ((uint32_t *)_low_mount_internal(kinfo.work_page1_addr, paddr))[index] = value;
+    _low_unmount_internal(kinfo.work_page1_addr);
 
-    // mutex_release(&kinfo.work_pages_lock);
+    popcli();
 }
 
 void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
-    // mutex_acquire(&kinfo.work_pages_lock);
+    pushcli();
+
     memcpy(_low_mount_internal(kinfo.work_page1_addr, pdest), _low_mount_internal(kinfo.work_page2_addr, psource), vmm_page_size());
-    // mutex_release(&kinfo.work_pages_lock);
-}
-
-void *vmm_physpg_temp_map(phys_addr_t paddr) {
-    // mutex_acquire(&kinfo.work_pages_lock);
-    _low_mount_internal(kinfo.work_page1_addr, paddr);
-    // release in unmap
-    return (void *)kinfo.work_page1_addr;
-}
-
-void vmm_physpg_temp_unmap() {
-    // lock in map
     _low_unmount_internal(kinfo.work_page1_addr);
-    // mutex_release(&kinfo.work_pages_lock);
-}
 
+    popcli();
+}
 
 // --------------------------------------------------------------
 
