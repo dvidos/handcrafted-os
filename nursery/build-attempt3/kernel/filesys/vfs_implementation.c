@@ -265,7 +265,7 @@ ssize_t vfs_read(open_file_t *file, void *buf, size_t len) {
 }
 
 ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
-    log_trace("vfs_write(file=%ld, len=%d)", file->inode.inode_num, len);
+    log_trace("vfs_write(file=%p, buff=%p, len=%d)", file, buf, len);
     ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;

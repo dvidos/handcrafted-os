@@ -38,9 +38,11 @@ int proc_fork(process_t *proc) {
     if (err) return err;
 
     log_debug_fmt(proc_log_formatter, "child:", child);
-    for(;;);
 
+    // return zero in child
+    ((trap_frame_t *)child->memory.saved_esp)->eax = 0;
 
+    // enqueue child to start when appropriate
     proc_start(child);
 
     // i guess this is the parent

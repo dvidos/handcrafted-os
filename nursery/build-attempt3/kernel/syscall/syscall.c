@@ -94,7 +94,7 @@ static int sys_dup(int fd) {
     return proc_dup(running_process(), fd);    
 }
 static int sys_dup2(int fd1, int fd2) { 
-    return proc_dup2(running_process(), fd1, fd2);
+    return proc_dup2(running_process(), fd1, running_process(), fd2);
 }
 static int sys_pipe(int fds[]) {
     return proc_pipe(running_process(), fds);

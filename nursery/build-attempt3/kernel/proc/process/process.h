@@ -184,7 +184,7 @@ int proc_readdir(process_t *proc, int handle, vfs_dirent_t *entry);
 int proc_closedir(process_t *proc, int handle);
 
 int proc_dup(process_t *proc, int fd);
-int proc_dup2(process_t *proc, int fd1, int fd2) ;
+int proc_dup2(process_t *source_proc, int source_fd, process_t *target_proc, int target_fd);
 int proc_pipe(process_t *proc, int fds[]);
 
 

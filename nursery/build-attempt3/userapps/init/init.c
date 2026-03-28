@@ -118,19 +118,15 @@ int main(int argc, char *argv[]) {
     printf("Fork testing:\n");
     int child_pid = fork();
     if (child_pid == 0) {
-        printf("Hello from child\n");
+        printf("(pid=%d) Hello from child\n", getpid());
     } else if (child_pid > 0) {
-        printf("Hello from parent, child's pid is %d\n", child_pid);
+        printf("(pid=%d) Hello from parent, child's pid is %d\n", getpid(), child_pid);
     } else if (child_pid < 0) {
-        printf("Hello from parent, fork() returned error %d\n", child_pid);
+        printf("(pid=%d) Hello from parent, fork() returned error %d\n", getpid(), child_pid);
     }
 
-    printf("init pausing...");
-    syslog_info("init logging info");
+    syslog_info("init pausing");
     for(;;) {
-        sleep(700);
-        printf("tick\n");
-        sleep(700);
-        syslog_info("tock");
+        sleep(100);
     }
 }

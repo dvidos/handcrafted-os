@@ -746,10 +746,16 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
     if (err) goto failed;
 
     child->memory.saved_esp = parent->memory.saved_esp;
-    // maybe we can influence the return value of the child here???
+
+    for (int i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (parent->file_handles[i] == NULL)
+            continue;
+        proc_dup2(parent, i, child, i);
+    }
 
     // we'll need a few more things, but this is looking better
     ASSERT(child->memory.saved_esp != 0);
+    ASSERT(((trap_frame_t *)child->memory.saved_esp)->eip != 0);
 
     *proc_ptr = child;
     return OK;

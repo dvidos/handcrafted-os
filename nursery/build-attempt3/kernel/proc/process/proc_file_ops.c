@@ -3,7 +3,7 @@
 #include "../../logger/logger.h"
 
 
-MODULE("PROC_FILE", LOG_LEVEL_WARN);
+MODULE("PROC_FILE", LOG_LEVEL_INFO);
 
 
 static bool is_valid_handle(process_t *proc, int handle) {
@@ -74,10 +74,13 @@ int proc_read(process_t *proc, int handle, char *buffer, int length) {
 }
 
 int proc_write(process_t *proc, int handle, char *buffer, int length) {
+    log_trace("proc_write(proc=0x%x, hndl=%d, buff=0x%p, len=%d)", proc, handle, buffer, length);
+
     if (!is_valid_handle(proc, handle)) {
         log_warn("error proc pid %d, gave bad handle %d on write()", proc->pid, handle);
         return ERR_BAD_ARGUMENT;
     }
+
     return vfs_write(proc->file_handles[handle], buffer, length);
 }
 
@@ -153,21 +156,20 @@ int proc_dup(process_t *proc, int fd) {
     return handle;
 }
 
-int proc_dup2(process_t *proc, int fd1, int fd2) { 
+int proc_dup2(process_t *source_proc, int source_fd, process_t *target_proc, int target_fd) { 
 
     // if exists, release / close it.
-    if (is_valid_handle(proc, fd2))
-        release_file_handle(proc, fd2);
+    if (is_valid_handle(target_proc, target_fd))
+        release_file_handle(target_proc, target_fd);
 
     // then duplicate into it
-    int handle = allocate_file_handle(proc, proc->file_handles[fd1], fd2);
+    int target_handle = allocate_file_handle(target_proc, source_proc->file_handles[source_fd], target_fd);
+    if (target_handle < 0) return (error_t)target_handle;
 
-    if (is_valid_handle(proc, fd2)) {
-        // more than one owner
-        open_files.hold(proc->file_handles[handle]); 
-    }
+    // more than one owner
+    open_files.hold(target_proc->file_handles[target_handle]); 
 
-    return handle;
+    return target_handle;
 }
 
 int proc_pipe(process_t *proc, int fds[]) {
