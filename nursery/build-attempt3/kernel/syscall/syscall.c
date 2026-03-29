@@ -105,7 +105,7 @@ static int sys_exec(char *path, char **argv, char **envp) {
     return proc_execve(running_process(), path, argv, envp);
 }
 static int sys_spawn(char *path, char **argv, char **envp) {
-    return proc_spawnve(path, argv, envp);
+    return proc_spawnve(running_process(), path, argv, envp);
 }
 static int sys_wait_child(int *exit_code) {
     return proc_wait_child(running_process(), exit_code);

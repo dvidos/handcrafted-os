@@ -540,6 +540,19 @@ exit:
     return traceable(err);
 }
 
+static error_t _inherit_file_descriptors_from_parent(process_t *child, process_t *parent) {
+    if (parent == NULL)
+        return OK;
+
+    for (int i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (parent->file_handles[i] == NULL)
+            continue;
+        proc_dup2(parent, i, child, i);
+    }
+
+    return OK;
+}
+
 static error_t _unmap_and_release_all_regions_of_process(process_t *proc) {
     ASSERT(proc != NULL);
     log_trace("_unmap_and_release_all_regions_of_process(proc=%p)", proc);
@@ -665,7 +678,7 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
 
     error_t err = OK;
     open_file_t *elf = NULL;
-    process_t *proc = NULL;
+    process_t *child = NULL;
     page_dir_t new_pd = 0;
 
     err = vfs_open(file_path, 0, &elf);
@@ -676,21 +689,25 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     new_pd = vmm_create_page_directory(true);
     if (new_pd == 0) { err = ERR_NO_MEMORY; goto failed; }
     
-    err = _create_base_process_v2(true, new_pd, parent, priority, file_path, &proc);
+    err = _create_base_process_v2(true, new_pd, parent, priority, file_path, &child);
     if (err) goto failed;
     new_pd = 0; // from now on, the process shall destroy the PD
     
-    err = _allocate_and_initialize_all_regions_for_elf(proc, elf);
+    err = _allocate_and_initialize_all_regions_for_elf(child, elf);
     if (err) goto failed;
 
     vfs_close(elf);
-    *proc_ptr = proc;
+
+    err = _inherit_file_descriptors_from_parent(child, parent);
+    if (err) goto failed;
+
+    *proc_ptr = child;
     return OK;
 
 failed:
     if (new_pd) vmm_destroy_page_directory(new_pd);
     if (elf) vfs_close(elf);
-    if (proc) proc_destroy(proc);
+    if (child) proc_destroy(child);
     return traceable(err);
 }
 
@@ -747,11 +764,8 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
 
     child->memory.saved_esp = parent->memory.saved_esp;
 
-    for (int i = 0; i < MAX_FILE_HANDLES; i++) {
-        if (parent->file_handles[i] == NULL)
-            continue;
-        proc_dup2(parent, i, child, i);
-    }
+    err = _inherit_file_descriptors_from_parent(child, parent);
+    if (err) goto failed;
 
     // we'll need a few more things, but this is looking better
     ASSERT(child->memory.saved_esp != 0);

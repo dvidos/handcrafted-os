@@ -266,8 +266,6 @@ int main(int argc, char *argv[]) {
         cmd_list_init(init_commands);
     }
     
-    syslog_warn("spawn() currently does not support inheriting FDs... this may break");
-    
     // Initial spawning of commands
     cmd_list_node_t *current = init_commands->head;
     while (current != NULL) {

@@ -167,8 +167,8 @@ int proc_fork(process_t *proc); // clone, return child's PID on parent, zero on 
 int proc_execve(process_t *proc, const char *path, char *const argv[], char *const envp[]);
 
 // spawn.c
-int proc_spawnve(char *path, char *argv[], char *envp[]);
-int proc_spawn(char *path);
+int proc_spawnve(process_t *parent, char *path, char *argv[], char *envp[]);
+int proc_spawn(process_t *parent, char *path);
 
 
 
