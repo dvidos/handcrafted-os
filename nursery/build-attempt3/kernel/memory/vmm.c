@@ -193,7 +193,7 @@ void vmm_unmap_page_from_other_pd(virt_addr_t virtual_addr, page_dir_t page_dir)
 
     // from the page directory, find or create the page table
     int index = page_dir_index(virtual_addr);
-    uint32_t entry = ((uint32_t *)page_dir)[index];
+    uint32_t entry = vmm_physpg_get_entry(page_dir, index);
     if (!entry_is_present(entry))
         return;
 

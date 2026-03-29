@@ -5,7 +5,6 @@
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
 #include "../proc/process/process.h"
-#include "../proc/spawn.h"
 #include "../memory/vmm.h"
 
 #include "../include/uapi/syscall.h"
@@ -106,7 +105,7 @@ static int sys_exec(char *path, char **argv, char **envp) {
     return proc_execve(running_process(), path, argv, envp);
 }
 static int sys_spawn(char *path, char **argv, char **envp) {
-    return spawnve(path, argv, envp);
+    return proc_spawnve(path, argv, envp);
 }
 static int sys_wait_child(int *exit_code) {
     return proc_wait_child(running_process(), exit_code);
@@ -234,7 +233,7 @@ void isr_syscall(trap_frame_t *tf) {
             return_value = sys_exec((char *)arg1, (char **)arg2, (char **)arg3);
             break;
         case SYS_SPAWN:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
-            return_value = spawnve((char *)arg1, (char **)arg2, (char **)arg3);
+            return_value = sys_spawn((char *)arg1, (char **)arg2, (char **)arg3);
             break;
         case SYS_WAIT_CHILD:
             return_value = sys_wait_child((int *)arg1);

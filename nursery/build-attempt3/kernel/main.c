@@ -38,7 +38,6 @@
 #include "proc/semaphore.h"
 #include "proc/multitask.h"
 #include "proc/process/process.h"
-#include "proc/spawn.h"
 
 #include "tasks/monitor.h"
 #include "../stage2/boot_info.h" // bootinfo pointer is passed from 2nd stage

@@ -166,6 +166,12 @@ int proc_fork(process_t *proc); // clone, return child's PID on parent, zero on 
 // exec.c
 int proc_execve(process_t *proc, const char *path, char *const argv[], char *const envp[]);
 
+// spawn.c
+int proc_spawnve(char *path, char *argv[], char *envp[]);
+int proc_spawn(char *path);
+
+
+
 // blocking.c
 void proc_sleep(process_t *proc, int milliseconds);  // sleep self for some milliseconds
 void proc_block(process_t *proc, int reason, void *channel); // blocks task, someone else must unblock it
