@@ -2,7 +2,7 @@
 
 
 // len of str1 that consists of char in str2
-int strspn(char *str1, char *str2) {
+int strspn(char *str1, const char *str2) {
     if (str1 == NULL)
         return 0;
     
@@ -19,7 +19,7 @@ int strspn(char *str1, char *str2) {
 }
 
 // len of str1 that consists of char NOT in str2
-int strcspn(char *str1, char *str2) {
+int strcspn(char *str1, const char *str2) {
     if (str1 == NULL)
         return 0;
     
@@ -36,7 +36,7 @@ int strcspn(char *str1, char *str2) {
 }
 
 // find first char in str1 that matches any char in str2
-char *strpbrk(char *str1, char *str2) {
+char *strpbrk(char *str1, const char *str2) {
     if (str1 == NULL)
         return NULL;
 

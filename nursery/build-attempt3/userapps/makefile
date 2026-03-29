@@ -1,7 +1,7 @@
 include ../config.mk
 
 ROOTFS := ../build/rootfs
-SUBDIRS := edit init shell
+SUBDIRS := edit init shell echo
 
 
 # mark directories as phony to always build

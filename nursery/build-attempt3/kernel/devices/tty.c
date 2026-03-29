@@ -8,7 +8,7 @@
 #include "../klib/string.h"
 #include "../utils/mutex.h"
 
-MODULE("TTY", LOG_LEVEL_WARN);
+MODULE("TTY", LOG_LEVEL_DEBUG);
 
 // this device is given or allocated by a task
 // and the task can interact with the screen
@@ -224,6 +224,9 @@ void tty_write_specific_tty(tty_t *tty, const char *buffer, int length) {
     if (tty == tty_mgr_data.active_tty) {
         draw_tty_buffer_to_screen(tty);
     }
+
+    // if (tty->dev_no == 0)
+    //     log_debug("(tty%d) write: %s", tty->dev_no, buffer);
 }
 
 int tty_read_specific_tty(tty_t *tty, char *buffer, int length) {

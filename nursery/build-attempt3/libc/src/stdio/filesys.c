@@ -67,3 +67,10 @@ int unlink(char *path) {
     return syscall(SYS_UNLINK, (int)path, 0, 0, 0, 0);
 }
 
+int dup(int handle) {
+    return syscall(SYS_DUP, handle, 0, 0, 0, 0);
+}
+
+int dup2(int handle1, int handle2) {
+    return syscall(SYS_DUP2, handle1, handle2, 0, 0, 0);
+}

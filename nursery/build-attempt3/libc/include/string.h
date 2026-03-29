@@ -14,9 +14,10 @@ size_t strlen(const char*);
 void strcpy(char *target, const char *source);
 void strcat(char *target, char *src);
 int strcmp(const char *a, const char *b);
-char *strchr(char *str, char c);
+char *strchr(const char *str, char c);
 char *strstr(char *haystack, char *needle);
 char *strtok(char *str, char *delimiters);
+char *strtok_r(char *str, const char *delim, char **saveptr);
 void strncpy(char *target, char *source, size_t target_size);
 
 // caller is supposed to free the duplicate
@@ -24,13 +25,13 @@ char *strdup(const char *str);
 
 
 // len of str1 that consists of char in str2
-int strspn(char *str1, char *str2);
+int strspn(char *str1, const char *str2);
 
 // len of str1 that consists of char NOT in str2
-int strcspn(char *str1, char *str2);
+int strcspn(char *str1, const char *str2);
 
 // find first char in str1 that matches any char in str2
-char *strpbrk(char *str1, char *str2);
+char *strpbrk(char *str1, const char *str2);
 
 
 // reverses a string in place

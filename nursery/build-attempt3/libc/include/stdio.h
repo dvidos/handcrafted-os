@@ -128,5 +128,9 @@ int unlink(char *path);
 int mkdir(char *path);
 int rmdir(char *path);
 
+int dup(int handle);
+int dup2(int handle1, int handle2);
+
+
 
 #endif
