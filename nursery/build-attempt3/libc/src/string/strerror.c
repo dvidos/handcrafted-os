@@ -1,5 +1,7 @@
 #include <errors.h>
 
+
+
 char *strerror(int err) {
     // avoiding an array to avoid reordering every time.
     switch (err) {

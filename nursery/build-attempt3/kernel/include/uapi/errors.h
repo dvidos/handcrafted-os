@@ -45,6 +45,7 @@ typedef enum error_t {
     ERR_NO_MEMORY            = -32,
     ERR_IO_ERROR             = -33,
     ERR_BAD_FILE             = -34,
+    ERR_NO_CHILDREN          = -35,
     
     // ATA controller
     ERR_IDE_DEVICE_FAULT             = -41,

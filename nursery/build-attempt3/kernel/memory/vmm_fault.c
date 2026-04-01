@@ -1,7 +1,7 @@
 #include "vmm_internal.h"
 
 
-#define MAX_PAGE_FAULTS  5
+#define MAX_PAGE_FAULTS  3
 static int page_fault_num = 0;
 
 // handles page faults. 

@@ -6,7 +6,7 @@
 #include "../../logger/logger.h"
 
 
-MODULE("PROC_BLCK", LOG_LEVEL_WARN);
+MODULE("PROC_BLCK", LOG_LEVEL_TRACE);
 
 
 // a task can ask to sleep for some time
@@ -63,33 +63,3 @@ void proc_unblock(process_t *proc) {
     unlock_scheduler();
 }
 
-// wait for any child to exit, returns child's PID
-int proc_wait_child(process_t *proc, int *exit_code) {
-    lock_scheduler();
-
-    log_trace("proc_wait_child() called, from process %s[%d]", proc->name, proc->pid);
-
-    if (!proc_has_children(proc)) {
-        log_error("Process has no children, exiting!");
-        unlock_scheduler();
-        return ERR_NOT_SUPPORTED;
-    }
-
-    log_trace("proc_wait_child(): process %s[%d] will sleep, waiting for children", proc->name, proc->pid);
-
-    // then block us, let the exit() call wake us up.
-    proc->state = BLOCKED;
-    proc->block_reason = WAIT_CHILD_EXIT;
-    proc->block_channel = NULL;
-    proclist_append(&blocked_list, proc);
-
-    schedule(); // allow someone else to run
-    unlock_scheduler();
-
-    // in theory we'll be here when exit() will unlock us...
-    // maybe the "running_proc" var already has our pointer, so we could hook some exit data there...
-    proc = running_process();
-    log_debug("proc_wait_child(): after scheduler scheduled, running_process points to %s[%d] (should be the original parent)", proc->name, proc->pid);
-    *exit_code = proc->terminated_child_exit_code;
-    return proc->terminated_child_pid;
-}

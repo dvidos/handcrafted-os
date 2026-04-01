@@ -48,12 +48,10 @@ void _start() {
     // Or, we make the proc_creation smarter and to it there.
 
     extern int getpid();
-    syslog_debug("__start() from PID %d", getpid());
+    syslog_trace("__start() running on PID %d", getpid());
 
     extern void __init_heap();
-    syslog_debug("initializing heap", getpid());
     __init_heap();
-    syslog_debug("done initializing heap", getpid());
 
     extern void __init_env(char **envp);
     // __init_env(envp);

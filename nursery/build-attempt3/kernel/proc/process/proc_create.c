@@ -18,8 +18,6 @@ MODULE("PROC_CREATE", LOG_LEVEL_INFO);
 
 static pid_t   next_pid();
 static int     next_kernel_stack_no();
-static void    proc_add_child(process_t *parent, process_t *child);
-static void    proc_remove_child(process_t *parent, process_t *child);
 
 static void _calculate_proc_user_stack(process_t *proc, size_t *stack_size, virt_addr_t *stack_top);
 static void _calculate_proc_user_heap(process_t *proc, size_t *heap_size, virt_addr_t *heap_bottom);
@@ -70,39 +68,6 @@ static int next_kernel_stack_no() {
 }
 
 // ----------------------------------------------------------
-
-static void proc_add_child(process_t *parent, process_t *child) {
-    ASSERT(parent != NULL);
-    ASSERT(child != NULL);
-
-    if (parent->children_list == NULL) {
-        parent->children_list = child;
-    } else {
-        process_t *p = parent->children_list;
-        while (p->next_child != NULL)
-            p = p->next_child;
-        p->next_child = child;
-    }
-    child->next_child = NULL;
-}
-
-static void proc_remove_child(process_t *parent, process_t *child) {
-    ASSERT(parent != NULL);
-    ASSERT(child != NULL);
-
-    if (parent->children_list == child) {
-        parent->children_list = child->next_child;
-    } else {
-        process_t *p = parent->children_list;
-        while (p->next_child != NULL && p->next_child != child)
-            p = p->next_child;
-        if (p->next_child != NULL)
-            p->next_child = p->next_child->next_child;
-    }
-    child->next_child = NULL;
-}
-
-// ----------------------------------------------------------------
 
 static void _calculate_proc_user_stack(process_t *proc, size_t *stack_size, virt_addr_t *stack_top) {
     ASSERT(proc != NULL);
@@ -418,6 +383,32 @@ static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, uint32_
     return OK;
 }
 
+static error_t _prepare_trap_frame_for_new_kernel_process(process_t *proc, uintptr_t function_to_call) {
+
+    // this function for user processes
+    ASSERT(proc_is_kernel_proc(proc));
+    ASSERT(proc->memory.kernel_stack.address != 0);
+    ASSERT(proc->memory.kernel_stack.size != 0);
+
+    // trap frame is located on the kernel_stack, not the user_stack
+    proc->memory.saved_esp = (proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(trap_frame_t));
+    trap_frame_t *tf = (trap_frame_t *)proc->memory.saved_esp;
+
+    memset(tf, 0, sizeof(trap_frame_t));
+    tf->eip = function_to_call;
+    tf->cs  = KERNEL_CODE_SEGMENT;
+    tf->user_esp = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size; // this is where CPU will return to, after 'iret'
+    tf->ss  = KERNEL_DATA_SEGMENT;
+    tf->eflags = 0x202;   // interrupts enabled, this is important
+
+    tf->ds = KERNEL_DATA_SEGMENT;
+    tf->es = KERNEL_DATA_SEGMENT;
+    tf->fs = KERNEL_DATA_SEGMENT;
+    tf->gs = KERNEL_DATA_SEGMENT;
+
+    return OK;
+}
+
 static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_file_t *elf) {
     ASSERT(proc != NULL);
     ASSERT(elf != NULL);
@@ -541,13 +532,17 @@ exit:
 }
 
 static error_t _inherit_file_descriptors_from_parent(process_t *child, process_t *parent) {
-    if (parent == NULL)
-        return OK;
-
-    for (int i = 0; i < MAX_FILE_HANDLES; i++) {
-        if (parent->file_handles[i] == NULL)
-            continue;
-        proc_dup2(parent, i, child, i);
+    if (parent == NULL) {
+        // open default ones for the very first process
+        proc_open(child, "/dev/tty0");
+        proc_dup2(child, 0, child, 1);
+        proc_dup2(child, 0, child, 2);
+    } else {
+        for (int i = 0; i < MAX_FILE_HANDLES; i++) {
+            if (parent->file_handles[i] == NULL)
+                continue;
+            proc_dup2(parent, i, child, i);
+        }
     }
 
     return OK;
@@ -629,44 +624,15 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
     error_t err = _create_base_process_v2(false, vmm_get_kernel_page_directory(), NULL, priority, name, &proc);
     if (err) return err;
 
-    size_t stack_size = 0;
-    virt_addr_t stack_top = 0;
-    // kernel tasks have only the kernel stack, so not user stack...
-    
-    // _calculate_proc_user_stack(proc, &stack_size, &stack_top);
-    // err = _allocate_and_map_user_stack_region(proc, stack_size, stack_top);
-    // if (err) panic("failed allocating and mapping stack for kernel task");
-
-    // there's little more to do here, isn't it...
-    // TODO: i think we did not setup return address..
-    // the stack should be mapped, maybe do it directly?
-    // proc->memory.execution.return_Address = function_to_call?
-    // GPT says we should have a small trampoline, where when the task returns, we just remove it from lists
-    // but, since this will tie into creating tasks/threads, i leave it for later.
-
-    // ok, for things to work: on init
-    // - the trap_frame at the top of kernel stack
-    // - esp0 set to point at top of kernel stack
-    // - ESP should point at the trap_trame
-    // - inside trap frame:
-    //   - eflags to be set to 0x202, i.e. interrupts enabled
-    //   - CS and EIP should be set for both user and kernel tasks
-    //   - SS and ESP should be set for user tasks (CPU does not pop them if it stays in ring0)
-    //   - esp_dummy will be discarded, so don't care
-
-    // on switch / interrupt / syscall / fork etc:
-    // - the trap frame is passed to the interrupt handler, therefore we have it
-    // - user ESP is saved in the trapfrace, along with SS
-    // - setting EAX on trap frame will be the return value of fork
-
-
-    // TODO: this is useless, we should set the EIP on the trap frame...
-    proc->entry_point = function_to_call;
-
     ASSERT(proc->memory.kernel_stack.address != 0);
     ASSERT(proc->memory.kernel_stack.size != 0);
+    ASSERT(proc->memory.saved_esp != 0);
     ASSERT(proc->memory.tss_esp0_value != 0);
 
+    err = _prepare_trap_frame_for_new_kernel_process(proc, function_to_call);
+    if (err) return err;
+
+    // log_debug_fmt(proc_log_formatter, "process_v2_create_for_kernel(): ", proc);
     *proc_ptr = proc;
     return OK;
 }
@@ -691,7 +657,7 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     
     err = _create_base_process_v2(true, new_pd, parent, priority, file_path, &child);
     if (err) goto failed;
-    new_pd = 0; // from now on, the process shall destroy the PD
+    new_pd = 0; // from now on, proc_destroy() shall destroy the PD, not us
     
     err = _allocate_and_initialize_all_regions_for_elf(child, elf);
     if (err) goto failed;
@@ -779,8 +745,6 @@ failed:
     if (child) proc_destroy(child);
     return traceable(err);
 }
-
-
 
 // after a process has terminated, clean up resources
 void proc_destroy(process_t *proc) {

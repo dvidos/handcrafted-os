@@ -2,13 +2,14 @@
 #include "proclist.h"
 #include "../multitask.h"
 #include "../process/process.h"
+#include "../../utils/assert.h"
 #include "../../drivers/timer.h"
 #include "../../arch/cpu.h"
 #include "../../arch/gdt.h"
 #include "../../utils/panic.h"
 #include "../../logger/logger.h"
 
-MODULE("SCHED", LOG_LEVEL_INFO);
+MODULE("SCHED", LOG_LEVEL_TRACE);
 
 // for postponing scheduling
 static volatile int switching_postpone_depth = 0;
@@ -54,7 +55,6 @@ void lock_scheduler() {
     switching_postpone_depth++;
 }
 
-
 void unlock_scheduler() {
     switching_postpone_depth--;
     if (switching_postpone_depth == 0) {
@@ -69,86 +69,70 @@ void unlock_scheduler() {
 }
 
 
+static process_t *find_next_runnable_process() {
+    // extract high priority tasks first
+    for (int priority = 0; priority < PROCESS_PRIORITY_LEVELS; priority++) {
+        process_t *next = proclist_dequeue(&ready_lists[priority]);
+        if (next != NULL)
+            return next;
+    }
+    return NULL;
+}
+
 // caller is responsible for locking interrupts before calling us
-void schedule() { 
+void schedule() {
 
     // allow locking of switching, to allow multiple tasks to be unlbocked
     if (switching_postpone_depth > 0) {
         task_switching_pending = true;
         return;
     }
-
     if (task_switching_pending)
         panic("In scheduler, while there's already a task switching pending");
+    
+    process_t *next = find_next_runnable_process();
+    if (next == NULL && running_proc->state != RUNNING)
+        panic("no ready processes found, running process not running either");
 
-    // extract high priority tasks first
-    process_t *next = NULL;
-    for (int priority = 0; priority < PROCESS_PRIORITY_LEVELS; priority++) {
-        next = proclist_dequeue(&ready_lists[priority]);
-        if (next != NULL)
-            break;
+    if (next == NULL) {
+        // log_trace("no ready processes found, staying with %s[%d]", running_proc->name, running_proc->pid);
+        reset_switching_time();
+        return;
     }
 
-    if (next == NULL)
-        return; // nothing to switch to
-    if (next->memory.page_dir == 0)
-        panic("Upcoming process #%d (%s) has no page directory set");
-    if (next->memory.tss_esp0_value == 0)
-        panic("Upcoming process #%d (%s) has no tss_esp0 set");
-
-        
+    ASSERT(next->state == READY);
+    ASSERT(next->memory.page_dir != 0);
+    ASSERT(next->memory.tss_esp0_value != 0);
+    
     // if current task is running (as opposed to be blocked or sleeping), put back to the ready list
     process_t *previous = (process_t *)running_proc;
     if (previous->state == RUNNING) {
         previous->state = READY;
         proclist_append(&ready_lists[previous->priority], previous);
     }
+    running_proc = next;
+    running_proc->state = RUNNING;
+    reset_switching_time();
     
     // log_debug_fmt(proc_log_formatter, "previous:", previous);
     // log_debug_fmt(proc_log_formatter, "upcoming:", next);
     // log_debug("Raw upcoming trapframe dump");
     // log_debug_hex((void *)next->memory.saved_esp, sizeof(trap_frame_t), 0);
 
-    // before switching, some house keeping
-    previous->cpu_ticks_total += (timer_get_uptime_msecs() - previous->cpu_ticks_last);
+    // NOTE: we are NOT SWITCHING TASKS here!
+    // they are switched whenever we return from C back to the assembly isr handler!
+    // so, unless we RETURN there, nothing will switch, and interrupts will stay disabled!
 
-    running_proc = next;
-    running_proc->state = RUNNING;
-    reset_switching_time();
-
-    log_trace("scheduler(): switching \"%s\" --> \"%s\", page dir 0x%p", previous->name, next->name, next->memory.page_dir);
-
-    /**
-     * -------------------------------------------------------------------
-     * completely unintiutive, but immensely important:
-     * before and after this call, we are in a different stack frame.
-     * the values of all arguments and local variables are different!!!!!
-     * for example, after the switch, the "old" becomes whatever was used 
-     * to switch out the thing we are going to switch in!!!!
-     * so, be careful what the expectations are before and after calling this method.
-     * 
-     * The Lions book, section 8.9 says that the "swtch()" method (what is one does)
-     * does not access any local variables, only global and static ones.
-     * Such approach could avoid painful maintenance in the future.
-     * -------------------------------------------------------------------
-     */
-    // low_level_context_switch(
-    //     &previous->memory.saved_esp,
-    //     (uint32_t *)&running_proc->memory.saved_esp,
-    //     (uint32_t)running_proc->memory.page_dir,
-    //     running_proc->memory.tss_esp0_value
-    // );
-
-    // instead of switching, we just update the global variables.
     proc_switch_needed       = true;
     proc_switch_old_esp_ptr  = (uint32_t)&previous->memory.saved_esp;
     proc_switch_new_cr3      = (uint32_t)running_proc->memory.page_dir;
     proc_switch_new_tss_esp0 = (uint32_t)running_proc->memory.tss_esp0_value;
     proc_switch_new_esp      = (uint32_t)running_proc->memory.saved_esp;
     proc_switch_tss_address  = tss_address;
-    log_debug("switching vars: needed=%d, old_esp_ptr=0x%x, new_cr3=0x%x, new_tss_esp0=0x%x, new_esp=0x%x, tss_addr=0x%x", proc_switch_needed, proc_switch_old_esp_ptr, proc_switch_new_cr3, proc_switch_new_tss_esp0, proc_switch_new_esp, proc_switch_tss_address);
-
-    running_proc->cpu_ticks_last = timer_get_uptime_msecs();
+    
+    log_trace("scheduler(): ISR assmebly shall switch from %s[%d] --> %s[%d]", previous->name, previous->pid, next->name, next->pid);
+    //log_debug("switching vars: needed=%d, old_esp_ptr=0x%x, new_cr3=0x%x, new_tss_esp0=0x%x, new_esp=0x%x, tss_addr=0x%x", proc_switch_needed, proc_switch_old_esp_ptr, proc_switch_new_cr3, proc_switch_new_tss_esp0, proc_switch_new_esp, proc_switch_tss_address);
+    // log_debug("scheduler(): ISR assmebly shall switch from ESP 0x%x to ESP 0x%x, from CR3 0x%x to CR3 0x%x", previous->memory.saved_esp, running_proc->memory.saved_esp, previous->memory.page_dir, next->memory.page_dir);
 }
 
 

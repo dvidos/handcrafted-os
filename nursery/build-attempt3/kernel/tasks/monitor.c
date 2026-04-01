@@ -124,7 +124,6 @@ void process_monitor_main() {
         for (int i = 0; i < PROCESS_PRIORITY_LEVELS; i++)
             show_process_list(tty, &ready_lists[i], &row);
         show_process_list(tty, &blocked_list, &row);
-        show_process_list(tty, &terminated_list, &row);
  
         proc_sleep(running_process(), 1500);
     }

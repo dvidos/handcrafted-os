@@ -1,3 +1,4 @@
+#include "../../utils/assert.h"
 #include "../drivers/screen.h"
 #include "../klib/string.h"
 #include "../utils/mutex.h"
@@ -13,8 +14,10 @@
 #include "../logger/logger.h"
 #include "../include/uapi/errors.h"
 #include "../klib/strvec.h"
+#include "../klib/cpu_tools.h"
 
-MODULE("PROC", LOG_LEVEL_WARN);
+
+MODULE("PROC", LOG_LEVEL_TRACE);
 
 
  /*
@@ -70,6 +73,7 @@ MODULE("PROC", LOG_LEVEL_WARN);
 
 // starts a process, by putting it on the ready list.
 void proc_start(process_t *process) {
+    log_trace("proc_start(process=%p [pid=%d])", process, process == NULL ? -1 : process->pid);
 
     // if we have not started multitasking yet... not much
     if (!multitasking_enabled()) {
@@ -78,6 +82,8 @@ void proc_start(process_t *process) {
     }
 
     lock_scheduler();
+
+
     proclist_append(&ready_lists[process->priority], process);
 
     // if running task is lower priority (e.g. idle task), preempt it
@@ -90,6 +96,8 @@ void proc_start(process_t *process) {
 
 // this is how someone can unblock a process by reason
 void unblock_process_that(enum block_reasons block_reason, void *block_channel) {
+    log_trace("unblock_process_that(block_reason=%d (%s), channel=%p)", block_reason, str_block_reason(block_reason), block_channel);
+
     if (blocked_list.head == NULL)
         return;
     lock_scheduler();
@@ -116,85 +124,84 @@ void unblock_process_that(enum block_reasons block_reason, void *block_channel) 
     unlock_scheduler();
 }
 
-
-
-
-
 bool proc_has_children(process_t *parent) {
-    log_debug("Checking if proc %s[%d] has children", parent->name, parent->pid);
-    bool has_children = false;
-    lock_scheduler();
+    return parent->children_list != NULL;
+}
 
-    // first check the running process
-    if (running_process()->parent == parent) {
-        log_debug("The running process (%d) is a parent of %d", running_process()->pid, parent->pid);
-        has_children = true;
-        goto exit;
+void proc_add_child(process_t *parent, process_t *child) {
+    ASSERT(parent != NULL);
+    ASSERT(child != NULL);
+
+    log_info("Adding proc[%d] as child of proc[%d]", child->pid, parent->pid);
+
+    if (parent->children_list == NULL) {
+        parent->children_list = child;
+    } else {
+        process_t *p = parent->children_list;
+        while (p->next_child != NULL)
+            p = p->next_child;
+        p->next_child = child;
     }
+    child->next_child = NULL;
 
-    // look at the ready queues
-    for (int priority = 0; priority < PROCESS_PRIORITY_LEVELS; priority++) {
-        process_t *p = ready_lists[priority].head;
-        while (p != NULL) {
-            log_debug("Checking priority %d, proc %s[%d]", priority, p->name, p->pid);
-            if (p->parent == parent) {
-                log_debug("Found pid %d as a child of pid %d", p->pid, parent->pid);
-                has_children = true;
-                goto exit;
-            }
-            p = p->list_next;
-        }
+    child->parent = parent;
+}
+
+void proc_remove_child(process_t *parent, process_t *child) {
+    ASSERT(parent != NULL);
+    ASSERT(child != NULL);
+
+    if (parent->children_list == child) {
+        parent->children_list = child->next_child;
+    } else {
+        process_t *p = parent->children_list;
+        while (p->next_child != NULL && p->next_child != child)
+            p = p->next_child;
+        if (p->next_child != NULL)
+            p->next_child = p->next_child->next_child;
     }
+    child->next_child = NULL;
 
-    // look at block queue
-    process_t *p = blocked_list.head;
-    while (p != NULL) {
-        log_debug("Checking proc %s[%d]", p->name, p->pid);
-        if (p->parent == parent) {
-            log_debug("Found pid %d as a child of pid %d", p->pid, parent->pid);
-            has_children = true;
-            goto exit;
-        }
-        p = p->list_next;
-    }
-
-exit:
-    unlock_scheduler();
-    return has_children;
+    child->parent = NULL;
 }
 
 
 // voluntarily give up the CPU to another task
 void proc_yield(process_t *proc) {
-    if (proc != running_proc)
-        return;
-    log_trace("process %s is yielding", proc->name);
+    log_trace("proc_yield(proc=%p [pid=%d])", proc, proc == NULL ? -1 : proc->pid);
+
     lock_scheduler();
-    schedule(); // allow someone else to run
+    if (proc == running_proc) {
+        schedule();
+    }
     unlock_scheduler();
 }
 
 
-// a task can ask to be terminated
-void proc_exit(process_t *proc, int exit_code) {
-    lock_scheduler();
+#define CASE(x)   case x: return #x
+static char unknown_str_buffer[32];
 
-    proc->state = TERMINATED;
-    proc->exit_code = exit_code;
-    proclist_append(&terminated_list, proc);
-    log_trace("Process %s[%d] exited, exit code %d", proc->name, proc->pid, exit_code);
-
-    // possibly wake up parent process
-    process_t *parent = proc->parent;
-    if (parent != NULL && parent->state == BLOCKED && parent->block_reason == WAIT_CHILD_EXIT) {
-        log_trace("Will unblock parent process %s[%d]", parent->name, parent->pid);
-        parent->terminated_child_pid = proc->pid;
-        parent->terminated_child_exit_code = exit_code;
-        log_debug("Added pid %d and exit code %d to parent", proc->pid, exit_code);
-        proc_unblock(parent);
+const char *str_process_state(enum process_state state) {
+    switch (state) {
+        CASE(READY);
+        CASE(RUNNING);
+        CASE(BLOCKED);
+        CASE(TERMINATED);
     }
 
-    // whether we unblocked parent or not, somebody else should run
-    schedule();
-    unlock_scheduler();
+    sprintfn(unknown_str_buffer, sizeof(unknown_str_buffer), "(unknown process state: %u)", state);
+    return unknown_str_buffer;
+}
+
+const char *str_block_reason(enum block_reasons reason) {
+    switch (reason) {
+        CASE(NONE);
+        CASE(SLEEPING);
+        CASE(SEMAPHORE);
+        CASE(WAIT_USER_INPUT);
+        CASE(WAIT_CHILD_EXIT);
+    }
+
+    sprintfn(unknown_str_buffer, sizeof(unknown_str_buffer), "(unknown block reason: %u)", reason);
+    return unknown_str_buffer;
 }

@@ -29,6 +29,7 @@ void syslog_hex_dump(int level, void *address, uint32_t length, uint32_t startin
 int getpid();
 int getppid();
 
+int yield();
 int sleep(unsigned int milliseconds);
 void exit(int exit_code);
 

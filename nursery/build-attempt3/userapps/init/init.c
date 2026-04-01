@@ -180,14 +180,6 @@ void fatal(char *msg) {
     for(;;);
 }
 
-void open_std_streams() {
-    // opening console so all children will have these file descriptors open
-    int h = open("/dev/tty0");
-    if (h != 0) fatal("Failed opening tty0 as handle zero");
-    dup2(h, 1);
-    dup2(h, 2);
-}
-
 char *load_initrc_file() {
     int h = open("/etc/initrc");
     if (h < 0) return NULL;
@@ -252,9 +244,7 @@ pid_t spawn_command(cmd_entry_t *cmd) {
     return pid;
 }
 
-
 int main(int argc, char *argv[]) {
-    open_std_streams();
     syslog_info("init running...");
 
     cmd_list_t *init_commands = load_and_parse_initrc_commands();
@@ -275,11 +265,18 @@ int main(int argc, char *argv[]) {
 
     // Main event loop for process management
     while (true) {
-        sleep(100); // Sleep for a short period to avoid busy-waiting
 
         // Check for exited children
         int status;
+        syslog_info("init calling wait()");
         pid_t exited_pid = wait(&status);
+        syslog_info("init calling wait() returned");
+
+        if (exited_pid < 0) {
+            syslog_debug("wait() --> %d, will sleep and wait for reparented children in the future", exited_pid);
+            sleep(3000);
+            continue;
+        }
 
         if (exited_pid > 0) {
             syslog_info("Child with pid %d exited with status %d", exited_pid, status);
@@ -299,11 +296,10 @@ int main(int argc, char *argv[]) {
                 node = node->next;
             }
         }
-        // If wait returns 0, no child has exited (or it's a non-blocking wait that I'm not using here)
-        // If wait returns -1, an error occurred (e.g., no children left)
     }
 
     // This part should ideally never be reached in an init process
+    syslog_critical("init is terminating unexpectedly");
     cmd_list_destroy(init_commands);
     free(init_commands);
     return 0;

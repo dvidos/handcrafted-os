@@ -49,10 +49,13 @@ typedef enum proc_priority {
 enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 
 // reasons a process can be blocked
-enum block_reasons { SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT };
+enum block_reasons { NONE, SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT };
 
 // flags of the process
 #define MAX_PROCESS_ELF_SECTIONS 4 // good enough even for dynamic executable
+
+const char *str_process_state(enum process_state state);
+const char *str_block_reason(enum block_reasons reason);
 
 
 
@@ -86,14 +89,6 @@ struct process {
 
     } memory;
 
-    uintptr_t entry_point; // where to jump after initializing this process
-    
-    // used in switching, two views of the same piece of information
-
-    // for housekeeping, not good if runtimes < 1 msecs...
-    uint64_t cpu_ticks_total;
-    uint64_t cpu_ticks_last;
-
     // should mirror where the process is: running_proc variable, ready_list, block_list, terminated_list.
     enum process_state state;
 
@@ -107,7 +102,7 @@ struct process {
     // exit code, to be used for parent process
     uint8_t exit_code;
 
-    // if parent calls the proc_wait_child() function, these two help populate the data
+    // if parent calls the proc_wait() function, these two help populate the data
     pid_t terminated_child_pid;
     int   terminated_child_exit_code;
 
@@ -142,18 +137,22 @@ void unblock_process_that(enum block_reasons block_reason, void *block_channel);
 void proc_start(process_t *proc);
 void proc_yield(process_t *proc);  // voluntarily give up the CPU to another task
 bool proc_has_children(process_t *parent);
-void proc_exit(process_t *proc, int exit_code); 
-
-
+void proc_add_child(process_t *parent, process_t *child);
+void proc_remove_child(process_t *parent, process_t *child);
 
 
 // proc_create.c
-
 error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);
 error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr);
 error_t process_v2_replace_for_exec(process_t *proc, const char *file_path);
 error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr);
 
+
+// proc_terminate.c
+process_t *proc_get_reparenting_proc();
+void       proc_set_reparenting_proc(process_t *proc);
+void proc_exit(process_t *proc, int exit_code); 
+int  proc_wait(process_t *proc, int *exit_code); // returns error or exited PID
 void proc_destroy(process_t *proc);
 
 // cwd.c
@@ -176,7 +175,6 @@ int proc_spawn(process_t *parent, char *path);
 void proc_sleep(process_t *proc, int milliseconds);  // sleep self for some milliseconds
 void proc_block(process_t *proc, int reason, void *channel); // blocks task, someone else must unblock it
 void proc_unblock(process_t *proc);
-int  proc_wait_child(process_t *proc, int *exit_code); // returns error or exited PID
 
 // file_ops.c
 int proc_open(process_t *proc, char *name);

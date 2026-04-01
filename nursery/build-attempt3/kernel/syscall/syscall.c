@@ -5,6 +5,7 @@
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
 #include "../proc/process/process.h"
+#include "../klib/string.h"
 #include "../memory/vmm.h"
 
 #include "../include/uapi/syscall.h"
@@ -18,12 +19,15 @@ MODULE("SYSCALL", LOG_LEVEL_WARN);
 _Static_assert(sizeof(uint32_t) == sizeof(void *));
 
 
-static void sys_log_entry(int level, uint8_t *buffer) {
+static void sys_log_entry(process_t *proc, int level, uint8_t *buffer) {
+    char prefix[16];
+    sprintfn(prefix, sizeof(prefix), "USER PID=%d", proc->pid);
+
     // syslog is a userland deamon, we need to drop this functionality.
-    logger_append("USER", level, "%s", buffer);
+    logger_append(prefix, level, "%s", buffer);
 }
 
-static void sys_log_hex(int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
+static void sys_log_hex(process_t *proc, int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
     log_debug_hex(address, length, starting_num);
 }
 
@@ -43,7 +47,6 @@ static virt_addr_t sys_sbrk(int difference) {
     return original_break;
 }
 static int sys_exit(int exit_code) {
-    // current process exiting, preserve exit code, wake up waiting parents
     proc_exit(running_process(), exit_code);
     return 0;
 }
@@ -108,7 +111,7 @@ static int sys_spawn(char *path, char **argv, char **envp) {
     return proc_spawnve(running_process(), path, argv, envp);
 }
 static int sys_wait_child(int *exit_code) {
-    return proc_wait_child(running_process(), exit_code);
+    return proc_wait(running_process(), exit_code);
 }
 static int sys_get_clocktime(clocktime_t *ct) {
 
@@ -163,10 +166,10 @@ void isr_syscall(trap_frame_t *tf) {
             break;
 
         case SYS_LOG_ENTRY:
-            sys_log_entry(arg1, (uint8_t *)arg2);
+            sys_log_entry(running_process(), arg1, (uint8_t *)arg2);
             break;
         case SYS_LOG_HEX_DUMP:
-            sys_log_hex(arg1, (uint8_t *)arg2, (uint32_t)arg3, (uint32_t)arg4);
+            sys_log_hex(running_process(), arg1, (uint8_t *)arg2, (uint32_t)arg3, (uint32_t)arg4);
             break;
         case SYS_GET_CWD: // arg1 = buffer, arg2 = buffer len
             return_value = sys_get_cwd((char *)arg1, arg2);

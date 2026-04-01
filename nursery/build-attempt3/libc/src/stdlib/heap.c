@@ -3,7 +3,6 @@
 #include <syscall.h>
 
 
-
 #define MEM_MAGIC       0xAAA // something that fits in 12 bits
 
 
@@ -79,7 +78,7 @@ void __init_heap() {
     heap.list_head = head;
     heap.list_tail = tail;
 
-    syslog_debug("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
+    // syslog_debug("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
 }
 
 // request to expand or shrink the heap by an amount
@@ -149,13 +148,13 @@ void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
     char *ptr = (char *)curr + sizeof(memory_block_t);
     memset(ptr, 0, curr->size); // contrary to traditional unix, we clear our memory
 
-    syslog_trace("malloc(%u = %s) -> 0x%p, at %s:%d", size, explanation, ptr, file, line);
+    // syslog_trace("malloc(%u = %s) -> 0x%p, at %s:%d", size, explanation, ptr, file, line);
     return ptr;
 }
 
 
 void free(void *ptr) {
-    syslog_trace("free(0x%p)", ptr);
+    // syslog_trace("free(0x%p)", ptr);
 
     memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
     memory_block_t *next = block->next;

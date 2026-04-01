@@ -3,7 +3,7 @@
 
 #define CASE(x)   case x: return #x
 
-static char unknown_error_buffer[32];
+static char unknown_str_buffer[32];
 
 const char *strerror(error_t err) {
     
@@ -43,6 +43,7 @@ const char *strerror(error_t err) {
         CASE(ERR_NO_MEMORY);
         CASE(ERR_IO_ERROR);
         CASE(ERR_BAD_FILE);
+        CASE(ERR_NO_CHILDREN);
         CASE(ERR_IDE_DEVICE_FAULT);
         CASE(ERR_IDE_STATUS_ERROR);
         CASE(ERR_IDE_NO_DATA_REQ);
@@ -60,6 +61,6 @@ const char *strerror(error_t err) {
         CASE(ERR_SATA_TASK_FILE_ERROR);
     }
 
-    sprintfn(unknown_error_buffer, sizeof(unknown_error_buffer), "(unknown error_t: %u)", err);
-    return unknown_error_buffer;
+    sprintfn(unknown_str_buffer, sizeof(unknown_str_buffer), "(unknown error_t: %u)", err);
+    return unknown_str_buffer;
 }

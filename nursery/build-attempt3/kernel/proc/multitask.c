@@ -8,6 +8,7 @@
 #include "../memory/kheap.h"
 #include "../memory/vmm.h"
 #include "../klib/string.h"
+#include "../klib/cpu_tools.h"
 #include "../utils/panic.h"
 
 MODULE("MULTITASK", LOG_LEVEL_INFO);
@@ -22,6 +23,14 @@ uint64_t next_wake_up_time = 0;
 
 
 
+void idle_task() {
+    // this is the idle task. this task must not sleep or block, it will not collect terminated tasks.
+    // it is the most lazy task in the world...
+    while (true) {
+        asm("hlt");
+    }
+}
+
 void init_multitasking() {
     // we should not neglect the original task that has been running since boot
     // this is what we will switch "from" into whatever other task we want to spawn.
@@ -30,17 +39,13 @@ void init_multitasking() {
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
     process_t *idle;
-    error_t err = process_v2_create_for_kernel("idle", 0, PRIORITY_IDLE_TASK, &idle);
+    error_t err = process_v2_create_for_kernel("idle", (uintptr_t)idle_task, PRIORITY_IDLE_TASK, &idle);
     if (err) panic("Error creating the idle task: %s", strerror(err));
-    // TODO: must correct addresses for kernel tasks as well, e.g. esp0 must be kernel_stack top.
-    log_debug_fmt(proc_log_formatter, "idle task:", idle);
+    // log_debug_fmt(proc_log_formatter, "idle task:", idle);
 
-    // set to running in order to swap it
+    // set to running in order to swap it out
     running_proc = idle;
     running_proc->state = RUNNING;
-
-    // idle task is by definition the lowest priority
-    proclist_append(&ready_lists[idle->priority], idle);
 }
 
 // reports whether multitasking has started
@@ -52,6 +57,8 @@ bool multitasking_enabled() {
 void start_multitasking() {
     log_debug("Starting multitasking");
 
+    // dump_process_table();
+
     // flag to our interrupt handler that we can start scheduling
     // after a while, the timer will switch us out and will switch something else in.
     process_switching_enabled = true;
@@ -59,19 +66,7 @@ void start_multitasking() {
     // this to enable the scheduled to switch tasks in a while
     next_switching_time = timer_get_uptime_msecs() + DEFAULT_TASK_TIMESLICE_MSECS;
 
-    // we shall become the idle task.
-    // this task must not sleep or block
-    while (true) {
-        // maybe not ideal for an idle task, 
-        // but maybe we can use it for some housekeeping
-        while (terminated_list.head != NULL) {
-            process_t *proc = proclist_dequeue(&terminated_list);
-            log_trace("idle task cleaning up terminated process %s", proc->name);
-            proc_destroy(proc);
-        }
-        
-        asm("hlt");
-    }
+    idle_task();
 }
 
 
@@ -147,3 +142,4 @@ void multitasking_timer_ticked() {
     }
     unlock_scheduler();
 }
+

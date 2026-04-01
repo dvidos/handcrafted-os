@@ -267,12 +267,16 @@ error_t vmm_allocate_memory_range_this_pd(virt_addr_t virt_addr_start, virt_addr
 // frees any pointed pages, page tables, and the page directory itself
 void vmm_destroy_page_directory(page_dir_t page_dir_address) {
     log_trace("vmm_destroy_page_directory(0x%x)", page_dir_address);
+
+    log_warn("vmm_destroy_page_directory() returning for now... leaking memory");
+    return;
     pushcli();
 
     // free linked tables and pages 
     uint32_t entry;
     for (int pd_index = 0; pd_index < 1024; pd_index++) {
-        entry = _get_table_entry(page_dir_address, pd_index);
+        // entry = _get_table_entry(page_dir_address, pd_index);
+        entry = vmm_physpg_get_entry(page_dir_address, pd_index);
         if (!entry_is_present(entry))
             continue;
         
@@ -282,7 +286,8 @@ void vmm_destroy_page_directory(page_dir_t page_dir_address) {
 
         // free any linked physical pages first
         for (int pt_index = 0; pt_index < 1024; pt_index++) {
-            entry = _get_table_entry(page_table_address, pt_index);
+            // entry = _get_table_entry(page_table_address, pt_index);
+            entry = vmm_physpg_get_entry(page_table_address, pd_index);
             if (!entry_is_present(entry))
                 continue;
 

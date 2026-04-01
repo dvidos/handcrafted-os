@@ -16,7 +16,7 @@ typedef struct proc_list proc_list_t;
 #define PROCESS_PRIORITY_LEVELS   8
 
 // how many msecs to allow each process. Something between 5 and 100
-#define DEFAULT_TASK_TIMESLICE_MSECS   30
+#define DEFAULT_TASK_TIMESLICE_MSECS   200
 
 
 // this is global, to avoid local variables in the scheduler
@@ -27,9 +27,6 @@ extern proc_list_t ready_lists[PROCESS_PRIORITY_LEVELS];
 
 // list of blocked processes, see block_reason and channel
 extern proc_list_t blocked_list;
-
-// terminated processes, to be removed by the idle task later
-extern proc_list_t terminated_list;
 
 
 
