@@ -9,7 +9,7 @@
 #include "../../utils/panic.h"
 #include "../../logger/logger.h"
 
-MODULE("SCHED", LOG_LEVEL_TRACE);
+MODULE("SCHED", LOG_LEVEL_DEBUG);
 
 // for postponing scheduling
 static volatile int switching_postpone_depth = 0;

@@ -8,7 +8,7 @@
 #include "../klib/string.h"
 #include "../utils/mutex.h"
 
-MODULE("TTY", LOG_LEVEL_DEBUG);
+MODULE("TTY", LOG_LEVEL_INFO);
 
 // this device is given or allocated by a task
 // and the task can interact with the screen

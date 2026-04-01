@@ -6,7 +6,7 @@
 #include "../../logger/logger.h"
 
 
-MODULE("PROC_BLCK", LOG_LEVEL_TRACE);
+MODULE("PROC_BLCK", LOG_LEVEL_DEBUG);
 
 
 // a task can ask to sleep for some time
@@ -47,13 +47,16 @@ void proc_block(process_t *proc, int reason, void *channel) {
 void proc_unblock(process_t *proc) {
     if (proc->state != BLOCKED)
         return;
+
     lock_scheduler();
+
     proclist_remove(&blocked_list, proc);
     proc->state = READY;
     proc->block_reason = 0;
     proc->block_channel = NULL;
     proclist_prepend(&ready_lists[proc->priority], proc);
-    log_trace("process %s unblocked and added to ready list", proc->name);
+    
+    log_trace("process %s[%d] unblocked and added to ready list", proc->name, proc->pid);
 
     // if the running process has a lower priority than the new task,
     // let's preempt it, as we are higher priority, 

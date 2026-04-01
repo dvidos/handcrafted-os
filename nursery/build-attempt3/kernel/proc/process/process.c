@@ -17,7 +17,7 @@
 #include "../klib/cpu_tools.h"
 
 
-MODULE("PROC", LOG_LEVEL_TRACE);
+MODULE("PROC", LOG_LEVEL_DEBUG);
 
 
  /*
@@ -131,8 +131,6 @@ bool proc_has_children(process_t *parent) {
 void proc_add_child(process_t *parent, process_t *child) {
     ASSERT(parent != NULL);
     ASSERT(child != NULL);
-
-    log_info("Adding proc[%d] as child of proc[%d]", child->pid, parent->pid);
 
     if (parent->children_list == NULL) {
         parent->children_list = child;

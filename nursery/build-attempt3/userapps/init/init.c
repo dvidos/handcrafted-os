@@ -268,10 +268,7 @@ int main(int argc, char *argv[]) {
 
         // Check for exited children
         int status;
-        syslog_info("init calling wait()");
         pid_t exited_pid = wait(&status);
-        syslog_info("init calling wait() returned");
-
         if (exited_pid < 0) {
             syslog_debug("wait() --> %d, will sleep and wait for reparented children in the future", exited_pid);
             sleep(3000);
