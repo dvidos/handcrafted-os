@@ -1,5 +1,4 @@
-#ifndef _ERRORS_H
-#define _ERRORS_H
+#pragma once
 
 
 // typical unix / linux philosophy, given that it's easy for a function to return an int.
@@ -46,6 +45,7 @@ typedef enum error_t {
     ERR_IO_ERROR             = -33,
     ERR_BAD_FILE             = -34,
     ERR_NO_CHILDREN          = -35,
+    ERR_AGAIN                = -36,
     
     // ATA controller
     ERR_IDE_DEVICE_FAULT             = -41,
@@ -70,5 +70,3 @@ typedef enum error_t {
 } error_t;
 
 
-
-#endif

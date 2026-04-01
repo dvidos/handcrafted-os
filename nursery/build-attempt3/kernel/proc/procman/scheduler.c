@@ -26,47 +26,6 @@ volatile uint32_t proc_switch_tss_address;
 
 
 
-/**
- * this method, written in assembly, performs a task switch
- * it takes two pointers to a uint32_t value
- * - first, it pushes a lot of registers on the stack, 
- * - then saves the ESP into the location pointed by the first argument.
- * - then it takes the value pointed by the second argument and sets ESP
- * - then it pops registers in the reverse order.
- * it will return to the caller whose ESP was saved as the second argument
- * 
- * if both pointers point to the same address, no apparent change will happen
- *
- * After the call, the old_esp value will point to the bottom of the saved stack
- * The stack_snapshot structure maps fields to what should be there in memory
- * if we make a stack_snapshot pointer to point to that value, we can see what's pushed
- * If we prepare such a structure, we can create a new task to switch to.
- * The way things are pushed and the stack_snapshot struct must be kept in sync
- */
-extern void low_level_context_switch(uint32_t *old_esp_ptr, uint32_t *new_esp_ptr, uint32_t page_directory_address, uint32_t proc_stack_top);
-
-
-// global variables used in assembly. checked after interrupt handling and make switch if needed.
-
-
-
-void lock_scheduler() {
-    pushcli();
-    switching_postpone_depth++;
-}
-
-void unlock_scheduler() {
-    switching_postpone_depth--;
-    if (switching_postpone_depth == 0) {
-        // if there was a need to switch, while postponed,
-        // do it before we enable interrupts again
-        if (task_switching_pending) {
-            task_switching_pending = false;
-            schedule();
-        }
-    }
-    popcli();
-}
 
 
 static process_t *find_next_runnable_process() {
@@ -80,7 +39,7 @@ static process_t *find_next_runnable_process() {
 }
 
 // caller is responsible for locking interrupts before calling us
-void schedule() {
+void prepare_switch_to_another_process() {
 
     // allow locking of switching, to allow multiple tasks to be unlbocked
     if (switching_postpone_depth > 0) {

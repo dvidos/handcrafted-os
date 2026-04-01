@@ -17,7 +17,6 @@ semaphore_t *create_semaphore(int limit) {
 }
 
 void acquire_semaphore(semaphore_t *semaphore) {
-    lock_scheduler();
 
     if (semaphore->count < semaphore->limit) {
         semaphore->count++;
@@ -29,12 +28,9 @@ void acquire_semaphore(semaphore_t *semaphore) {
         semaphore->waiting_processes++;
         proc_block(running_process(), SEMAPHORE, semaphore);
     }
-
-    unlock_scheduler();
 }
 
 void release_semaphore(semaphore_t *semaphore) {
-    lock_scheduler();
 
     // TODO: stop this depending on processes, use a callback pattern
 
@@ -67,8 +63,6 @@ void release_semaphore(semaphore_t *semaphore) {
         log_trace("semaphore released by process %s", running_process()->name);
         semaphore->count--;
     }
-
-    unlock_scheduler();
 }
 
 mutex_t *create_mutex() {

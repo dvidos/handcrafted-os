@@ -44,6 +44,7 @@ const char *strerror(error_t err) {
         CASE(ERR_IO_ERROR);
         CASE(ERR_BAD_FILE);
         CASE(ERR_NO_CHILDREN);
+        CASE(ERR_AGAIN);
         CASE(ERR_IDE_DEVICE_FAULT);
         CASE(ERR_IDE_STATUS_ERROR);
         CASE(ERR_IDE_NO_DATA_REQ);

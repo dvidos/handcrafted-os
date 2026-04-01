@@ -33,7 +33,6 @@ static void reparent_children(process_t *source, process_t *dest) {
         proc_add_child(dest, child);
         child = original_next;
     }
-
 }
 
 
@@ -41,7 +40,6 @@ static void reparent_children(process_t *source, process_t *dest) {
 void proc_exit(process_t *proc, int exit_code) {
     log_trace("proc_exit(proc=%p [pid=%d], exit_code=%d)", proc, proc == NULL ? -1 : proc->pid, exit_code);
 
-    lock_scheduler();
 
     // if this process has children (terminated or running), these will be reparented to pid=1, /bin/init
     ASSERT(reparenting_proc != NULL);
@@ -55,57 +53,36 @@ void proc_exit(process_t *proc, int exit_code) {
     // it will stay in its parent's children list, for wait()
 
     // possibly wake up parent process  
-    if (proc->parent != NULL && proc->parent->state == BLOCKED && proc->parent->block_reason == WAIT_CHILD_EXIT)
+    if (proc->parent != NULL && proc->parent->state == BLOCKED && proc->parent->block_reason == WAIT_CHILD_EXIT) {
         proc_unblock(proc->parent);
+        ((trap_frame_t *)proc->parent->memory.saved_esp)->eax = ERR_AGAIN;
+    }
 
     // whether we unblocked parent or not, somebody else should run
-    schedule();
-    unlock_scheduler();
+    prepare_switch_to_another_process();
 }
-
-/*
-    Ok, the plan is:
-    - we follow the pattern we use for keyboard input.
-
-    when parent asks for wait()
-    - if there are no children at all, return error
-    - if there are already dead chldren, extract and return, no switching.
-    - if all children are alive, block till one dies. 
-        (after unblocked, there will magically be a dead child in its children)
-
-    when a process calls exit()
-    - if it has any children, reparent them to init[1]
-    - mark as dead, maybe release code+data memory, but not process
-    - if parent is blocked on waiting for dead child, wake them up
-*/
 
 
 // wait for any child to exit, returns child's PID
 int proc_wait(process_t *proc, int *exit_code) {
     log_trace("proc_wait(process=%s[%d])", proc->name, proc->pid);
 
-    lock_scheduler();
-
-    // log_debug("top of wait() loop, dumping processes");
-    // dump_process_table();
-
-    // if no children, there is no point.
-    if (!proc_has_children(proc)) {
-        unlock_scheduler();
+    // if no children, there is no point
+    if (!proc_has_children(proc))
         return ERR_NO_CHILDREN;
-    }
     
     // if process has children that are already terminated (zombies), 
     // pick one, get the exit code, and now we can completely cleanup the process struct.
     for (process_t *child = proc->children_list; child != NULL; child = child->next_child) {
         if (child->state != TERMINATED)
             continue;
+
         log_trace("proc_wait(): %s[%d] found terminated child %s[%d] with exit code %d", proc->name, proc->pid, child->name, child->pid, child->exit_code);
         *exit_code = child->exit_code;
         int pid = child->pid;
+
         proc_remove_child(proc, child);
         proc_destroy(child);
-        unlock_scheduler();
         return pid;
     }
 
@@ -116,7 +93,8 @@ int proc_wait(process_t *proc, int *exit_code) {
     proc->block_channel = NULL;
     proclist_append(&blocked_list, proc);
 
-    schedule();
-    unlock_scheduler();
-    return 0;
+    prepare_switch_to_another_process();
+    
+    // signal to libc to call again, to collect the child.
+    return ERR_AGAIN;  
 }

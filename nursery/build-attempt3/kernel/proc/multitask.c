@@ -74,7 +74,6 @@ void start_multitasking() {
 static void wake_sleeping_tasks() {
     if (blocked_list.head == NULL)
         return;
-    lock_scheduler();
 
     // move everything to a temp list, then deal with one task at a time
     // tasks are either put back into the sleeping list, or in the ready list.
@@ -103,8 +102,6 @@ static void wake_sleeping_tasks() {
         }
         proc = proclist_dequeue(&temp_list);
     }
-    
-    unlock_scheduler();
 }
 
 
@@ -130,7 +127,6 @@ void multitasking_timer_ticked() {
     if (!process_switching_enabled)
         return;
     
-    lock_scheduler();
     uint64_t uptime_msecs = timer_get_uptime_msecs();
     if (next_wake_up_time > 0 && uptime_msecs >= next_wake_up_time) {
         wake_sleeping_tasks();
@@ -138,8 +134,7 @@ void multitasking_timer_ticked() {
     if (next_switching_time > 0 && uptime_msecs >= next_switching_time) {
         // i think that to be able to switch during IRQ, our first switching must be 
         // done through IRQ, meaning, all the new task stacks should return to the IRQ handler.
-        schedule();
+        prepare_switch_to_another_process();
     }
-    unlock_scheduler();
 }
 
