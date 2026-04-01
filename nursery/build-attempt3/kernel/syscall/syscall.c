@@ -21,10 +21,10 @@ _Static_assert(sizeof(uint32_t) == sizeof(void *));
 
 static void sys_log_entry(process_t *proc, int level, uint8_t *buffer) {
     char prefix[16];
-    sprintfn(prefix, sizeof(prefix), "USER PID=%d", proc->pid);
+    sprintfn(prefix, sizeof(prefix), "SYSLOG", proc->pid);
 
     // syslog is a userland deamon, we need to drop this functionality.
-    logger_append(prefix, level, "%s", buffer);
+    logger_append(prefix, level, "%s[%d]  %s", proc->name, proc->pid, buffer);
 }
 
 static void sys_log_hex(process_t *proc, int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
