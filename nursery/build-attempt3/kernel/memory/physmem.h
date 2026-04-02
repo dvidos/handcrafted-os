@@ -27,6 +27,10 @@ void pmm_free_physical_page(phys_addr_t addr);
 phys_addr_t pmm_allocate_consecutive_pages(size_t total_bytes);
 void pmm_free_consecutive_pages(phys_addr_t address, size_t total_bytes);
 
+bool pmm_is_page_used(phys_addr_t addr);
+bool pmm_is_page_free(phys_addr_t addr);
+
+
 uint32_t pmm_total_pages();
 uint32_t pmm_free_pages();
 uint32_t pmm_used_pages();

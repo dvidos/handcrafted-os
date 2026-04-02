@@ -19,7 +19,7 @@
 struct kinfo kinfo;
 
 static void vmm_create_kernel_page_directory_using_mapping_pages(page_dir_t kernel_pd, virt_addr_t start_addr, virt_addr_t end_addr);
-
+static bool vmm_address_owned_by_kernel(virt_addr_t vaddr);
 
 // -------------------------------------------------------------
 
@@ -119,6 +119,16 @@ virt_addr_t vmm_get_kernel_area_end() {
     return kinfo.reserved_area_end;
 }
 
+static bool vmm_address_owned_by_kernel(virt_addr_t vaddr) {
+    if (vaddr >= kinfo.reserved_area_start && vaddr < kinfo.reserved_area_end)
+        return true;
+    if (mem_map_contains_address(&kinfo.extra_identity_mappings, vaddr))
+        return true;
+
+    return false;
+}
+
+
 phys_addr_t vmm_resolve(virt_addr_t vaddr, page_dir_t page_dir_addr) {
     // For each virtual address, when we are dealing with 4K pages:
     //     10 bits 31-22 dictate the page directory entry (we find the table)
@@ -205,14 +215,19 @@ void vmm_unmap_page_from_other_pd(virt_addr_t virtual_addr, page_dir_t page_dir)
 
 
 // map a range to itself
-error_t vmm_identity_map_range(virt_addr_t start_addr, virt_addr_t end_addr, page_dir_t page_dir_addr) {
-    log_trace("vmm_identity_map_range(start=0x%x, end=0x%x, page_dir=0x%x)", start_addr, end_addr, page_dir_addr);
+error_t vmm_map_mem_io(virt_addr_t start_addr, size_t size, page_dir_t page_dir_addr) {
+    log_trace("vmm_map_mem_io(start=0x%x, size=%d, page_dir=0x%x)", start_addr, size, page_dir_addr);
 
+    size = vmm_round_up(size);
+    virt_addr_t end_addr = start_addr + size;
     for (virt_addr_t addr = start_addr; addr < end_addr; addr += vmm_page_size()) {
         error_t err = vmm_map_page_to_other_pd(addr, addr, false, true, page_dir_addr);
         if (err) return err;
     }
 
+    // this is for a device, so mark accordingly
+    log_info("vmm_map_mem_io(start=0x%x, size=%d, page_dir=0x%x)", start_addr, size, page_dir_addr);
+    mem_map_add_region(&kinfo.extra_identity_mappings, mem_region_of(start_addr, size, REGION_WRITE_ENABLE));
     return OK;
 }
 
@@ -223,20 +238,18 @@ page_dir_t vmm_get_kernel_page_directory() {
 }
 
 // allocates and creates a new page directory
-page_dir_t vmm_create_page_directory(bool map_kernel_space) {
+page_dir_t vmm_create_user_page_directory() {
     ASSERT(kinfo.paging_enabled); // we rely on this
 
     page_dir_t page_dir = pmm_allocate_physical_page();
     if (page_dir == 0)
         return 0;
 
-    log_trace("vmm_create_page_directory(), new PD 0x%x", page_dir);
+    log_trace("vmm_create_user_page_directory(), new PD 0x%x", page_dir);
     vmm_physpg_clear(page_dir);
 
-    if (map_kernel_space) {
-        log_debug("copying kernel PDE entries to new page_directory");
-        vmm_physpg_copy(page_dir, kinfo.page_directory);
-    }
+    log_trace("copying kernel PDE entries to new page_directory");
+    vmm_physpg_copy(page_dir, kinfo.page_directory);
 
     // map page directory to last 4MB of physical memory, so it can be accessed anytime
     vmm_physpg_set_entry(page_dir, 1023, pd_entry_of(page_dir, true, false, true));
@@ -265,48 +278,62 @@ error_t vmm_allocate_memory_range_this_pd(virt_addr_t virt_addr_start, virt_addr
 }
 
 // frees any pointed pages, page tables, and the page directory itself
-void vmm_destroy_page_directory(page_dir_t page_dir_address) {
-    log_trace("vmm_destroy_page_directory(0x%x)", page_dir_address);
-
-    log_warn("vmm_destroy_page_directory() returning for now... leaking memory");
-    return;
+void vmm_destroy_user_page_directory(page_dir_t page_dir_address) {
+    log_trace("vmm_destroy_user_page_directory(0x%x)", page_dir_address);
     pushcli();
+
+
+    log_info("kernel extra mappings");
+    log_info_fmt(mem_map_formatter, "kmapping", &kinfo.extra_identity_mappings);
+    log_info("Pd to be destroyed");
+    log_info_fmt(vmm_pagedir_log_formatter, "pd destr", page_dir_address);
+
+    if (!pmm_is_page_used(page_dir_address)) {
+        log_error("vmm_destroy(): pd is not allocated on pmm");
+    }
 
     // free linked tables and pages 
     uint32_t entry;
     for (int pd_index = 0; pd_index < 1024; pd_index++) {
-        // entry = _get_table_entry(page_dir_address, pd_index);
         entry = vmm_physpg_get_entry(page_dir_address, pd_index);
-        if (!entry_is_present(entry))
+        if (!entry_is_present(entry) || !entry_is_user_accessible(entry))
             continue;
         
         uintptr_t page_table_address = entry_get_address(entry);
-        if (page_table_address == 0)
+        if (page_table_address == 0 || vmm_address_owned_by_kernel(page_table_address))
             continue;
 
         // free any linked physical pages first
         for (int pt_index = 0; pt_index < 1024; pt_index++) {
             // entry = _get_table_entry(page_table_address, pt_index);
-            entry = vmm_physpg_get_entry(page_table_address, pd_index);
-            if (!entry_is_present(entry))
+            entry = vmm_physpg_get_entry(page_table_address, pt_index);
+            if (!entry_is_present(entry) || !entry_is_user_accessible(entry))
                 continue;
 
             phys_addr_t phys_page_address = entry_get_address(entry);
-            if (phys_page_address == 0)
+            if (phys_page_address == 0 || vmm_address_owned_by_kernel(phys_page_address))
                 continue;
 
-            // we only free our extra pages, not the kernel ones.
-            if (phys_page_address >= kinfo.reserved_area_start && phys_page_address < kinfo.reserved_area_end)
+            if (!pmm_is_page_used(phys_page_address)) {
+                log_warn("vmm_destroy(): final page at 0x%08x is not allocated on pmm", phys_page_address);
                 continue;
-
+            }
             pmm_free_physical_page((phys_addr_t)phys_page_address);
         }
-
+        
+        if (!pmm_is_page_used(page_table_address)) {
+            log_warn("vmm_destroy(): PT page at 0x%08x is not allocated on pmm", page_table_address);
+            continue;
+        }
         pmm_free_physical_page((phys_addr_t)page_table_address);
     }
 
     // we can now free the page directory itself
-    pmm_free_physical_page((phys_addr_t)page_dir_address);
+    if (pmm_is_page_used(page_dir_address))
+        pmm_free_physical_page((phys_addr_t)page_dir_address);
+    else
+        log_warn("vmm_destroy(): PD at 0x%08x is not allocated on pmm", page_dir_address);
+
     popcli();
 }
 

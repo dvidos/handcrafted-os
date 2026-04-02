@@ -37,7 +37,7 @@ void    vmm_unmap_page_from_other_pd(virt_addr_t virtual_addr, page_dir_t page_d
 void vmm_invalidate_cached_address(virt_addr_t virtual_addr);
 
 // identity map a whole range of addresses
-error_t vmm_identity_map_range(phys_addr_t start_addr, phys_addr_t end_addr, page_dir_t page_dir_addr);
+error_t vmm_map_mem_io(phys_addr_t start_addr, size_t length, page_dir_t page_dir_addr);
 
 // return the page direcrory address for the kernel
 page_dir_t vmm_get_kernel_page_directory();
@@ -56,13 +56,13 @@ page_dir_t vmm_get_current_page_dir();
 
 
 // allocates and creates a new page directory
-page_dir_t vmm_create_page_directory(bool map_kernel_space);
+page_dir_t vmm_create_user_page_directory();
 
 // allocates pages and maps them to the virtual addresses requested (end_addr exclusive)
 error_t vmm_allocate_memory_range_this_pd(virt_addr_t virt_addr_start, virt_addr_t virt_addr_end);
 
 // frees any pointed pages, page tables, and the page directory itself
-void vmm_destroy_page_directory(page_dir_t page_dir_address);
+void vmm_destroy_user_page_directory(page_dir_t page_dir_address);
 
 // logs the virtual to physical mapping that a page directory causes
 void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args);

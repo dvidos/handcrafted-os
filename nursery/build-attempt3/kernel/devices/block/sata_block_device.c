@@ -532,7 +532,7 @@ static void rebase_port(HBA_PORT *port) {
     if (!port_memory_addr)
         panic("Cannot allocate 12K for SATA drive");
     // map the memory so we can access it
-    vmm_identity_map_range(port_memory_addr, port_memory_addr + port_memory_size - 1, vmm_get_current_page_dir());
+    vmm_map_mem_io(port_memory_addr, port_memory_size, vmm_get_kernel_page_directory());
     memset((void *)port_memory_addr, 0, port_memory_size);
 
     // for some reason, these are not exactly the sizes, they are somewhat smaller...
@@ -603,7 +603,7 @@ static error_t discover_and_register_serial_ata_storage_device(pci_device_t *pci
     // we must be able to "see" this memory
     uint32_t abar_phys = pci_dev->config.headers.h00.bar5 & ~0xF; // clear flags
     size_t abar_size = 4096; // enough for HBA_MEM (often 4K–8K)
-    vmm_identity_map_range(abar_phys, abar_phys + abar_size - 1, vmm_get_kernel_page_directory());
+    vmm_map_mem_io(abar_phys, abar_size, vmm_get_kernel_page_directory());
 
     HBA_MEM *memory = (HBA_MEM *)base_mem_register;
     for (int port_no = 0; port_no < 32; port_no++) {

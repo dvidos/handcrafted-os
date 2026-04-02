@@ -163,6 +163,19 @@ phys_addr_t pmm_allocate_physical_page() {
     return addr;
 }
 
+bool pmm_is_page_used(phys_addr_t addr) { 
+    if (addr != round_down_4k(addr))
+        panic("Checking physical address not aligned to 4k (0x%x)", addr);
+    uint32_t page_no = page_no_for_address(addr);
+    if (page_no >= pmm_data.total_pages)
+        panic("Freeing page outside of total pages (page_no=%u)", page_no);
+    return is_page_used(page_no);
+}
+
+bool pmm_is_page_free(phys_addr_t addr) { 
+    return !pmm_is_page_used(addr);
+}
+
 void pmm_free_physical_page(phys_addr_t addr) { 
     if (addr != round_down_4k(addr))
         panic("Freeing physical address not aligned to 4k (0x%x)", addr);
@@ -170,7 +183,7 @@ void pmm_free_physical_page(phys_addr_t addr) {
     if (page_no >= pmm_data.total_pages)
         panic("Freeing page outside of total pages (page_no=%u)", page_no);
     if (!is_page_used(page_no))
-        panic("Attempt to free a non-allocated page (page_no=%u)", page_no);
+        panic("Attempt to free a non-allocated page (page_no=%u, addr=0x%08x)", page_no, addr);
     if (addr >= (phys_addr_t)pmm_data.bitmap && addr < (phys_addr_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count))
         panic("Attempt to free page in the used pages bitmap");
     

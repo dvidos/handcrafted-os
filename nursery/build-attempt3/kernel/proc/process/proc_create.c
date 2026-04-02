@@ -652,7 +652,7 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     err = elf_verify_executable(elf); // verify early for better recovery
     if (err) goto failed;
 
-    new_pd = vmm_create_page_directory(true);
+    new_pd = vmm_create_user_page_directory();
     if (new_pd == 0) { err = ERR_NO_MEMORY; goto failed; }
     
     err = _create_base_process_v2(true, new_pd, parent, priority, file_path, &child);
@@ -671,7 +671,7 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     return OK;
 
 failed:
-    if (new_pd) vmm_destroy_page_directory(new_pd);
+    if (new_pd) vmm_destroy_user_page_directory(new_pd);
     if (elf) vfs_close(elf);
     if (child) proc_destroy(child);
     return traceable(err);
@@ -719,7 +719,7 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
     process_t *child = NULL;
     page_dir_t pd = 0;
 
-    pd = vmm_create_page_directory(true);
+    pd = vmm_create_user_page_directory();
     
     err = _create_base_process_v2(true, pd, parent, parent->priority, parent->name, &child);
     if (err) goto failed;
@@ -741,7 +741,7 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
     return OK;
 
 failed:
-    if (pd) vmm_destroy_page_directory(pd);
+    if (pd) vmm_destroy_user_page_directory(pd);
     if (child) proc_destroy(child);
     return traceable(err);
 }
@@ -758,7 +758,7 @@ void proc_destroy(process_t *proc) {
     _unmap_and_release_all_regions_of_process(proc);
 
     if (proc->memory.page_dir != 0 && proc->memory.page_dir != vmm_get_kernel_page_directory())
-        vmm_destroy_page_directory(proc->memory.page_dir);
+        vmm_destroy_user_page_directory(proc->memory.page_dir);
 
     if (proc->memory.kernel_stack.address != 0) {
         kfree((void *)proc->memory.kernel_stack.address);
