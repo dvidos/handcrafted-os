@@ -282,11 +282,10 @@ void vmm_destroy_user_page_directory(page_dir_t page_dir_address) {
     log_trace("vmm_destroy_user_page_directory(0x%x)", page_dir_address);
     pushcli();
 
-
-    log_info("kernel extra mappings");
-    log_info_fmt(mem_map_formatter, "kmapping", &kinfo.extra_identity_mappings);
-    log_info("Pd to be destroyed");
-    log_info_fmt(vmm_pagedir_log_formatter, "pd destr", page_dir_address);
+    // log_info("kernel extra mappings");
+    // log_info_fmt(mem_map_formatter, "kmapping", &kinfo.extra_identity_mappings);
+    // log_info("Pd to be destroyed");
+    // log_info_fmt(vmm_pagedir_log_formatter, "pd destr", page_dir_address);
 
     if (!pmm_is_page_used(page_dir_address)) {
         log_error("vmm_destroy(): pd is not allocated on pmm");
@@ -302,6 +301,8 @@ void vmm_destroy_user_page_directory(page_dir_t page_dir_address) {
         uintptr_t page_table_address = entry_get_address(entry);
         if (page_table_address == 0 || vmm_address_owned_by_kernel(page_table_address))
             continue;
+        if (page_table_address == page_dir_address)
+            continue; // this is the recursive mapping
 
         // free any linked physical pages first
         for (int pt_index = 0; pt_index < 1024; pt_index++) {
