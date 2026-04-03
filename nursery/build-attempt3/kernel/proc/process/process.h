@@ -143,8 +143,8 @@ void proc_remove_child(process_t *parent, process_t *child);
 
 // proc_create.c
 error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);
-error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr);
-error_t process_v2_replace_for_exec(process_t *proc, const char *file_path);
+error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, process_t **proc_ptr);
+error_t process_v2_replace_for_exec(process_t *proc, const char *file_path, char **argv, char **envp);
 error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr);
 
 
@@ -163,7 +163,7 @@ int proc_chdir(process_t *proc, const char *path);
 int proc_fork(process_t *proc); // clone, return child's PID on parent, zero on child
 
 // exec.c
-int proc_execve(process_t *proc, const char *path, char *const argv[], char *const envp[]);
+int proc_execve(process_t *proc, const char *path, char *argv[], char *envp[]);
 
 // spawn.c
 int proc_spawnve(process_t *parent, char *path, char *argv[], char *envp[]);

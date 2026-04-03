@@ -169,8 +169,11 @@ static void launch_initial_process() {
     
     process_t *proc;
     error_t err;
+    char *argv[] = { NULL };
+    char *envp[] = { NULL };
 
-    err = process_v2_create_for_spawn(NULL, "/bin/init", PRIORITY_USER_PROGRAM, &proc);
+    // ideally init path should be settable by kernel cmd line
+    err = process_v2_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
     log_debug_fmt(proc_log_formatter, "init: ", proc);
     proc_set_reparenting_proc(proc);

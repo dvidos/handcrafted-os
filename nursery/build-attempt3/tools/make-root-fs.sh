@@ -29,6 +29,7 @@ cat > $R/etc/initrc <<EOF
 # /bin/shell
 # ... etc
 /bin/echo Testing testing, one, two, three
+
 EOF
 
 cp ./libc/libc.a $R/usr/lib

@@ -12,7 +12,7 @@ CFLAGS = -std=gnu99 -ffreestanding   \
 	-O2 -g -I./include
 
 LIBC=libc.a
-SOURCE_FILES = \
+C_FILES = \
 	$(wildcard src/*.c) \
 	$(wildcard src/arch/*.c) \
 	$(wildcard src/stdio/*.c) \
@@ -24,19 +24,23 @@ SOURCE_FILES = \
 	$(wildcard src/sys/*.c) \
 	$(wildcard src/data_structs/try_2/*.c)
 
-OBJ_FILES = $(SOURCE_FILES:.c=.o)
-DEP_FILES = $(OBJ_FILES:.o=.d)
+ASM_FILES = $(wildcard src/proc/*.asm)
+
+OBJ_FILES = $(ASM_FILES:.asm=.o) $(C_FILES:.c=.o) 
+DEP_FILES = $(C_FILES:.c=.d)
 
 HEADER_FILES = $(wildcard include/*.h)
-
 
 all: $(LIBC)
 
 $(LIBC): $(OBJ_FILES)
 	$(AR) rcs $@ $(OBJ_FILES)
 
-.c.o:
+%.o: %.c
 	$(CC) -MD -c $< -o $@ $(CFLAGS)
+
+%.o: %.asm
+	nasm -f elf $< -o $@
 
 tests: $(LIBC)
 	# compile and run tests, against the library

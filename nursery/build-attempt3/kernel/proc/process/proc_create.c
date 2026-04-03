@@ -229,6 +229,7 @@ static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd,
     return traceable(err);
 }
 
+
 static error_t _allocate_and_map_user_stack_region(process_t *proc, size_t size, virt_addr_t stack_top) {
     ASSERT(proc != NULL);
     ASSERT(size > 0);
@@ -358,14 +359,22 @@ exit:
     return traceable(err);
 }
 
-static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, uint32_t elf_entry_point) {
+static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, open_file_t *elf, char **argv, char **envp) {
+    error_t err;
 
     // this function for user processes
     ASSERT(proc_is_user_proc(proc));
     ASSERT(proc->memory.kernel_stack.address != 0);
     ASSERT(proc->memory.kernel_stack.size != 0);
+    ASSERT(proc->memory.user_stack.address != 0);
+    ASSERT(proc->memory.user_stack.size != 0);
 
-    // trap frame is located on the kernel_stack, not the user_stack
+    virt_addr_t elf_entry_point = 0;
+    err = elf_get_entry_point(elf, &elf_entry_point);
+    if (err) return err;
+    log_debug("Elf entry point is 0x%08x", elf_entry_point);
+    
+    // trap frame is located on the KERNEL stack, not the user_stack
     trap_frame_t *tf = (trap_frame_t *)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(trap_frame_t));
 
     memset(tf, 0, sizeof(trap_frame_t));
@@ -373,13 +382,74 @@ static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, uint32_
     tf->cs  = USER_CODE_SEGMENT | RING3_RPL;
     tf->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size; // this is where CPU will return in ring 3, after 'iret'
     tf->ss  = USER_DATA_SEGMENT | RING3_RPL;
-    tf->eflags = 0x202;   // interrupts enabled, this is important
+    tf->eflags = 0x202;   // interrupts enabled
 
     tf->ds = USER_DATA_SEGMENT | RING3_RPL;
     tf->es = USER_DATA_SEGMENT | RING3_RPL;
     tf->fs = USER_DATA_SEGMENT | RING3_RPL;
     tf->gs = USER_DATA_SEGMENT | RING3_RPL;
 
+
+    // arguments and environment are set on the USER stack, as if passed into _start()
+    uint32_t user_stack_top = proc->memory.user_stack.address + proc->memory.user_stack.size;
+    int strings_size = 0;
+    int argc = 0;
+    int envc = 0;
+
+    for (int i = 0; argv[i] != NULL; i++) {
+        strings_size += strlen(argv[i]) + 1;
+        argc++;
+    }
+    for (int i = 0; envp[i] != NULL; i++) {
+        strings_size += strlen(envp[i]) + 1;
+        envc++;
+    }
+    uint32_t stack_used = round_up((4 + argc + 1 + envc + 1) * sizeof(uint32_t) + strings_size, 16);
+    if (stack_used > vmm_page_size()) {
+        log_error("cannot fit args and environment strings in a single page (argc=%d, envc=%d, strings_size=%d)", argc, envc, strings_size);
+        return ERR_OVERFLOWN;
+    }
+
+    // allocate a buffer for easy copying
+    char *buff = kmalloc(vmm_page_size());
+    memset(buff, 0, vmm_page_size());
+    uint32_t *stack = (uint32_t *)(buff + vmm_page_size() - stack_used);
+    char *strings_ptr = ((char *)stack) + ((4 + argc + 1 + envc + 1)) * sizeof(uint32_t);
+    int si = 0;
+
+    stack[si++] = 0; // return address, but _start() will never return anywhere
+    stack[si++] = argc; 
+    stack[si++] = user_stack_top - stack_used +  4             * sizeof(uint32_t); // argv pointer table address
+    stack[si++] = user_stack_top - stack_used + (4 + argc + 1) * sizeof(uint32_t); // envp pointer table address
+
+    // write the actual string table and pointers to them at the same time
+    for (int i = 0; argv[i] != NULL; i++) {
+        stack[si++] = user_stack_top - stack_used + ((uint32_t)strings_ptr - (uint32_t)stack);
+        strcpy(strings_ptr, argv[i]);
+        strings_ptr += strlen(argv[i]) + 1;
+    }
+    stack[si++] = 0; // final null pointer
+    for (int i = 0; envp[i] != NULL; i++) {
+        stack[si++] = user_stack_top - stack_used + ((uint32_t)strings_ptr - (uint32_t)stack);
+        strcpy(strings_ptr, envp[i]);
+        strings_ptr += strlen(envp[i]) + 1;
+    }
+    stack[si++] = 0; // final null pointer
+
+    log_debug("prepared user stack follows, starting from return address");
+    log_debug_hex(buff + vmm_page_size() - stack_used, stack_used, (uintptr_t)(user_stack_top - stack_used));
+        
+    // transfer buffer to final user stack
+    ASSERT(proc->memory.user_stack.size >= vmm_page_size());
+    // we need the physical page of the stack, not to the virtual one.
+    uint32_t stack_last_page_virt_addr = proc->memory.user_stack.address + proc->memory.user_stack.size - vmm_page_size();
+    uint32_t stack_last_page_phys_addr = vmm_resolve(stack_last_page_virt_addr, proc->memory.page_dir);
+    vmm_physpg_write(stack_last_page_phys_addr, 0, buff, vmm_page_size());
+    // log_debug("Stack last page virtual address: 0x%08x, physical address: 0x%08x", stack_last_page_virt_addr, stack_last_page_phys_addr);
+    kfree(buff);
+    tf->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size - stack_used;
+    // log_debug("Setting user ESP to 0x%08x", tf->user_esp);
+    log_debug_fmt(proc_log_formatter, "prepped", proc);
     return OK;
 }
 
@@ -439,14 +509,6 @@ static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_f
         if (err) goto exit;
     }
     
-    virt_addr_t elf_entry_point = 0;
-    err = elf_get_entry_point(elf, &elf_entry_point);
-    if (err) goto exit;
-    log_debug("Elf entry point is 0x%08x", elf_entry_point);
-    
-    // prepare a trap frame for introducing the task
-    _prepare_trap_frame_for_new_user_process(proc, elf_entry_point);
-
     err = OK;
 
 exit:
@@ -454,6 +516,7 @@ exit:
     if (segments_arr != NULL) kfree(segments_arr);
     return traceable(err);
 }
+
 
 static error_t _duplicate_memory_region(mem_region_t *dest_reg, page_dir_t dest_pd, mem_region_t *src_reg, page_dir_t src_pd) {
     ASSERT(dest_reg != NULL);
@@ -617,6 +680,7 @@ failed:
     return traceable(err);
 }
 
+
 error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr) {
     log_trace("process_v2_create_for_kernel(name=%s)", name);
 
@@ -637,7 +701,7 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
     return OK;
 }
 
-error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, proc_priority_t priority, process_t **proc_ptr) {
+error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, process_t **proc_ptr) {
     ASSERT(file_path != 0); 
     ASSERT(proc_ptr != 0);
     log_trace("process_v2_create_for_spawn(parent=%p, file='%s')", parent, file_path);
@@ -662,6 +726,9 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, pr
     err = _allocate_and_initialize_all_regions_for_elf(child, elf);
     if (err) goto failed;
 
+    err = _prepare_trap_frame_for_new_user_process(child, elf, argv, envp);
+    if (err) goto failed;
+
     vfs_close(elf);
 
     err = _inherit_file_descriptors_from_parent(child, parent);
@@ -677,7 +744,7 @@ failed:
     return traceable(err);
 }
 
-error_t process_v2_replace_for_exec(process_t *proc, const char *file_path) {
+error_t process_v2_replace_for_exec(process_t *proc, const char *file_path, char **argv, char **envp) {
     ASSERT(proc != NULL);
     ASSERT(file_path != NULL);
     log_trace("process_v2_replace_for_exec(proc=%p, file='%s')", proc, file_path);
@@ -696,6 +763,9 @@ error_t process_v2_replace_for_exec(process_t *proc, const char *file_path) {
 
     // then initialize new ones all over again
     err = _allocate_and_initialize_all_regions_for_elf(proc, elf);
+    if (err) goto failed;
+
+    err = _prepare_trap_frame_for_new_user_process(proc, elf, argv, envp);
     if (err) goto failed;
 
     vfs_close(elf);
