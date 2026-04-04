@@ -20,6 +20,7 @@ void free(void *ptr);
 void abort(void);
 void exit(int status);
 char *getenv(const char *name);
+int putenv (char *string); // data will used as is, not copied
 int system(const char *command);
 
 // String conversion

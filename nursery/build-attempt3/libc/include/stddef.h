@@ -6,12 +6,12 @@
 // NULL is a common macro for a null pointer constant.
 // It can be defined as 0, 0L, or (void*)0. (void*)0 is generally preferred in C.
 #ifndef NULL
-#ifdef __cplusplus
-#define NULL 0
-#else
 #define NULL ((void*)0)
 #endif
-#endif
+
+// These are commonly defined in stddef.h
+typedef unsigned long size_t;
+typedef long ptrdiff_t;
 
 // offsetof macro: Calculates the offset of a member within a structure.
 // This is a common implementation, though compiler intrinsics may be used.
