@@ -1,79 +1,47 @@
 #ifndef _STDLIB_H
 #define _STDLIB_H
 
-#include <ctypes.h>
+#include <stddef.h> // For NULL, size_t
 
+// --- Macros ---
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
+#define RAND_MAX 32767 // Minimum guaranteed value for RAND_MAX
 
-// these should mirror kernel's ones
-#define SYSLOG_NONE      0
-#define SYSLOG_CRITICAL  1
-#define SYSLOG_ERROR     2
-#define SYSLOG_WARNING   3
-#define SYSLOG_INFO      4
-#define SYSLOG_DEBUG     5
-#define SYSLOG_TRACE     6
+// --- Function Prototypes (based on usage analysis) ---
 
-#define syslog_critical(...)            syslog(SYSLOG_CRITICAL, __VA_ARGS__)
-#define syslog_error(...)               syslog(SYSLOG_ERROR, __VA_ARGS__)
-#define syslog_warn(...)                syslog(SYSLOG_WARNING, __VA_ARGS__)
-#define syslog_info(...)                syslog(SYSLOG_INFO, __VA_ARGS__)
-#define syslog_debug(...)               syslog(SYSLOG_DEBUG, __VA_ARGS__)
-#define syslog_trace(...)               syslog(SYSLOG_TRACE, __VA_ARGS__)
-#define syslog_hex_debug(addr, len, start)   syslog_hex_dump(SYSLOG_DEBUG, addr, len, start)
-
-void syslog(int level, char *, ...);
-void syslog_hex_dump(int level, void *address, uint32_t length, uint32_t starting_num);
-
-
-
-int getpid();
-int getppid();
-
-int yield();
-int sleep(unsigned int milliseconds);
-void exit(int exit_code);
-
-// on child it returns zero, on parent, the child's PID
-int fork();
-
-// wait for any child. positive returned value is the PID
-int wait(int *exit_status);
-
-// execute a file. never returns
-int exec(char *path, char **argv, char **envp);
-
-// execute the file in a child process
-int spawn(char *path, char **argv, char **envp);
-
-
-
-// environ value may change after setenv()
-extern char **environ;
-void setenv(char *varname, char *value);
-char *getenv(char *varname);
-void unsetenv(char *varname);
-
-
-
-#define DEBUG_HEAP_OPS  1
-#ifdef DEBUG_HEAP_OPS
-    #define malloc(size)          __malloc(size, #size, __FILE__, __LINE__)
-    #define heap_verify()         __heap_verify(__FILE__, __LINE__)
-    void __heap_verify(char *file, int line);
-#else
-    #define malloc(size)          __malloc(size, NULL, NULL, 0)
-    #define heap_verify()         ((void)0)
-#endif
-
-void *__malloc(size_t size, char *expl, char *file, uint16_t line);
+// Memory management
+void *malloc(size_t size);
+void *calloc(size_t nmemb, size_t size);
+void *realloc(void *ptr, size_t size);
 void free(void *ptr);
-void *sbrk(int size_diff);
-uint32_t heap_total_size();
-uint32_t heap_free_size();
-void heap_dump();
 
+// Process control
+void abort(void);
+void exit(int status);
+char *getenv(const char *name);
+int system(const char *command);
 
+// String conversion
+int atoi(const char *str);
+long atol(const char *str);
+long long atoll(const char *str);
+long strtol(const char *str, char **endptr, int base);
+long long strtoll(const char *str, char **endptr, int base);
+unsigned long strtoul(const char *str, char **endptr, int base);
+unsigned long long strtoull(const char *str, char **endptr, int base);
 
+// Random numbers
+int rand(void);
+void srand(unsigned int seed);
 
+// Integer arithmetic
+int abs(int j);
+long labs(long j);
+long long llabs(long long j);
 
-#endif
+// Searching and sorting
+void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));
+void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));
+
+#endif // _STDLIB_H

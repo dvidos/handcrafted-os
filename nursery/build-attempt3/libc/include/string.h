@@ -1,72 +1,38 @@
 #ifndef _STRING_H
 #define _STRING_H
 
-#include <ctypes.h>
-#include <va_list.h>
+#include <stddef.h> // For size_t, NULL
 
+// --- Function Prototypes (based on usage analysis) ---
 
-int memcmp(const void*, const void*, size_t);
-void* memcpy(void* restrict destination, const void* restrict source, size_t size);
-void* memmove(void* destination, const void* source, size_t size);
-void* memset(void*, int, size_t);
+// Copying
+char *strcpy(char *dest, const char *src);
+char *strncpy(char *dest, const char *src, size_t n);
+size_t strlcpy(char *dst, const char *src, size_t dsize); // BSD extension
 
-size_t strlen(const char*);
-void strcpy(char *target, const char *source);
-void strcat(char *target, char *src);
-int strcmp(const char *a, const char *b);
-char *strchr(const char *str, char c);
-char *strstr(char *haystack, char *needle);
-char *strtok(char *str, char *delimiters);
-char *strtok_r(char *str, const char *delim, char **saveptr);
-void strncpy(char *target, char *source, size_t target_size);
+// Concatenation
+char *strcat(char *dest, const char *src);
+char *strncat(char *dest, const char *src, size_t n);
+size_t strlcat(char *dst, const char *src, size_t dsize); // BSD extension
 
-// caller is supposed to free the duplicate
-char *strdup(const char *str);
+// Comparison
+int strcmp(const char *s1, const char *s2);
+int strncmp(const char *s1, const char *s2, size_t n);
+int memcmp(const void *s1, const void *s2, size_t n);
 
+// Searching
+size_t strlen(const char *s);
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
+char *strstr(const char *haystack, const char *needle);
 
-// len of str1 that consists of char in str2
-int strspn(char *str1, const char *str2);
+// Memory manipulation
+void *memcpy(void *dest, const void *src, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
+void *memset(void *s, int c, size_t n);
 
-// len of str1 that consists of char NOT in str2
-int strcspn(char *str1, const char *str2);
+// Miscellaneous
+char *strerror(int errnum);
+char *strdup(const char *s); // POSIX extension
 
-// find first char in str1 that matches any char in str2
-char *strpbrk(char *str1, const char *str2);
-
-
-// reverses a string in place
-void reverse(char *buffer, int len);
-
-int tolower(int c);
-int toupper(int c);
-
-
-
-int atoi(char *str);
-unsigned int atoui(char *str);
-void ltoa(long num, char *buffer, int base);
-void ultoa(unsigned long num, char *buffer, int base);
-
-
-// always includes zero terminator
-void sprintfn(char *buffer, int buffsize, const char *format, ...);
-
-// always includes zero terminator
-void vsprintfn(char *buffer, int buffsize, const char *format, va_list args);
-
-
-
-
-// copies from offset onwards to buffer, advances offset. ignores leading and trainling slashes
-// returns bytes extracted
-int get_next_path_part(char *path, int *offset, char *buffer);
-
-// returns how many parts in the path. leading and trailing '/' are ignored
-int count_path_parts(char *path);
-
-// gets the path part of index n (zero based)
-// returns length of part copied - 0 if part not found
-int get_n_index_path_part(char *path, int n, char *buffer);
-
-
-#endif
+#endif // _STRING_H

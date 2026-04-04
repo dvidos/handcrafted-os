@@ -7,6 +7,14 @@ At high level, the steps will be:
 * ~~Make and put the tiniest executables, into the image~~
 * ~~Then bring in libc, on top of syscalls, make unit tests~~
 * Then bring in the basic programs from : init, shell, edit, etc.
+* Port sash to work as shell
+  * May need to implement pipe() for pipes
+  * May need to implement shared memory IPC for pipes (also usable in Graphics Server)
+  * May need to implement flags O_CREATE and O_WRITE etc.
+  * May need to implement chattr, chmod, chown, chgrp
+* Move from nursery to root, move root to graveyard
+* Create a filter in userapps for single-file programs, make appropriate makefile
+  * Create true, false, cat, and all those small things we need
 
 
 _(we are now in parity with existing kernel, move to project root)_
@@ -25,3 +33,23 @@ Then the following efforts are possible
 * If graphics + network, port a small browser, e.g. `NetSurf`
 * Make the system self-sustained, compile kernel et all with bmake and tcc, tools for selection at boot.
 
+Target set of commands:
+
+* ls, cp, mv, mkdir, rmdir, touch
+* echo, grep, cat
+* clear, stty
+* make
+* true, false
+* ps, free, top, etc
+* tar, hexdump
+* kill, reboot (through init)
+* man (!!!)
+
+
+In the future, possible library with:
+
+* Primitives: strings, numbers, booleans, blobs.
+* Containers: hashtables, maps, lists, queues, tries, trees, etc.
+* Predicates & functional approach
+* Parsing/formatting json, yaml
+* Key/Value store engine

@@ -16,7 +16,7 @@ typedef struct proc_list proc_list_t;
 #define PROCESS_PRIORITY_LEVELS   8
 
 // how many msecs to allow each process. Something between 5 and 100
-#define DEFAULT_TASK_TIMESLICE_MSECS   200
+#define DEFAULT_TASK_TIMESLICE_MSECS   50
 
 
 // this is global, to avoid local variables in the scheduler
