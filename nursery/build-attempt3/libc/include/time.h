@@ -17,12 +17,26 @@ struct tm {
     int tm_isdst; // Daylight Savings Time flag
 };
 
+// --- Structure for high-resolution time (seconds and nanoseconds) ---
+struct timespec {
+    time_t tv_sec;  // Seconds
+    long   tv_nsec; // Nanoseconds
+};
+
+// --- Type for clock IDs ---
+typedef int clockid_t;
+
 // --- Function Prototypes (based on usage analysis) ---
 
 // Time manipulation
 time_t time(time_t *timer);
 double difftime(time_t time1, time_t time0);
 time_t mktime(struct tm *timeptr);
+
+// High-resolution time
+int clock_getres(clockid_t clk_id, struct timespec *res);
+int clock_gettime(clockid_t clk_id, struct timespec *tp);
+int nanosleep(const struct timespec *req, struct timespec *rem);
 
 // Time conversion
 char *asctime(const struct tm *timeptr);

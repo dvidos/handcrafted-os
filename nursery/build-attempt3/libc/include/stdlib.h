@@ -14,6 +14,11 @@ typedef struct {
     long rem;  // remainder
 } ldiv_t;
 
+typedef struct {
+    long long quot; // quotient
+    long long rem;  // remainder
+} lldiv_t;
+
 // --- Macros ---
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
@@ -26,12 +31,15 @@ void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);
 void free(void *ptr);
+void *aligned_alloc(size_t alignment, size_t size); // C11
 
 // Process control
 void abort(void);
 void exit(int status);
 char *getenv(const char *name);
 int putenv (char *string); // data will used as is, not copied
+int setenv(const char *name, const char *value, int overwrite);
+int unsetenv(const char *name);
 int system(const char *command);
 
 // String conversion
@@ -44,6 +52,7 @@ long strtol(const char *str, char **endptr, int base);
 long long strtoll(const char *str, char **endptr, int base);
 unsigned long strtoul(const char *str, char **endptr, int base);
 unsigned long long strtoull(const char *str, char **endptr, int base);
+char *realpath(const char *path, char *resolved_path);
 
 // Random numbers
 int rand(void);
@@ -55,6 +64,7 @@ long labs(long j);
 long long llabs(long long j);
 div_t div(int numer, int denom);
 ldiv_t ldiv(long numer, long denom);
+lldiv_t lldiv(long long numer, long long denom);
 
 // Searching and sorting
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));

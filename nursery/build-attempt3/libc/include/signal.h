@@ -65,9 +65,8 @@ __sighandler_t signal(int signum, __sighandler_t handler);
 int raise(int signum);
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 int kill(pid_t pid, int sig); // Used by bmake
-
-// --- Additional functions found in usage, typically from unistd.h or sys/signal.h ---
-// int sigprocmask(int how, const sigset_t *set, sigset_t *oldset); // Used in bmake's sigaction.c but not explicitly grepped for.
-// int sigsuspend(const sigset_t *mask); // Used in bmake's sigaction.c but not explicitly grepped for.
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+int sigsuspend(const sigset_t *mask);
+int sigpending(sigset_t *set);
 
 #endif // _SIGNAL_H

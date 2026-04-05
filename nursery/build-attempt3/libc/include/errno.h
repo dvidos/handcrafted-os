@@ -5,6 +5,9 @@
 // on error and is not cleared on success.
 extern int errno;
 
+// For thread-safe access to errno
+extern int *__errno_location(void);
+
 // --- Common POSIX Error Codes ---
 #define EPERM        1  /* Operation not permitted */
 #define ENOENT       2  /* No such file or directory */
@@ -40,5 +43,9 @@ extern int errno;
 #define EPIPE       32  /* Broken pipe */
 #define EDOM        33  /* Math argument out of domain of func */
 #define ERANGE      34  /* Math result not representable */
+#define ENOSYS      38  /* Function not implemented */
+#define ELOOP       40  /* Too many symbolic links encountered */
+#define ENOTSOCK    80  /* Socket operation on non-socket */
+#define EPROTO      81  /* Protocol error */
 
 #endif // _ERRNO_H

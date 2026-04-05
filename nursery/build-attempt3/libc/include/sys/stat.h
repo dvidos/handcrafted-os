@@ -59,6 +59,11 @@ struct stat {
 int stat(const char *pathname, struct stat *buf);
 int fstat(int fd, struct stat *buf);
 int lstat(const char *pathname, struct stat *buf);
-int fchown(int fd, uid_t owner, gid_t group); // From usage analysis
+int chmod(const char *pathname, mode_t mode);
+int fchmod(int fd, mode_t mode);
+int fchown(int fd, uid_t owner, gid_t group);
+int mkdir(const char *pathname, mode_t mode);
+int mkfifo(const char *pathname, mode_t mode);
+mode_t umask(mode_t mask);
 
 #endif // _SYS_STAT_H
