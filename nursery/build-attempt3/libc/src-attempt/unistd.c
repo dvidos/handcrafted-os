@@ -1,9 +1,11 @@
-#include <utime.h>
+#include <unistd.h>
 #include <stddef.h> // For size_t, NULL
 #include <stdbool.h> // For bool
 
-int utime(const char *filename, const struct utimbuf *times) {
+
+
+
+void sync(void) {
     // TODO: Implement this function
-    return 0;
 }
 

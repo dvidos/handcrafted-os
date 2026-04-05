@@ -24,56 +24,23 @@ CFLAGS += $(CPPFLAGS)
 VPATH = $(TOPSRC)
 -LTCC = $(TOP)/$(LIBTCC)
 
-ifdef CONFIG_WIN32
- CFG = -win
- ifneq ($(CONFIG_static),yes)
-  LIBTCC = libtcc$(DLLSUF)
-  LIBTCCDEF = libtcc.def
- endif
- ifneq ($(CONFIG_debug),yes)
-  LDFLAGS += -s
- endif
- NATIVE_TARGET = $(ARCH)-win$(if $(findstring arm,$(ARCH)),ce,32)
-else
- CFG = -unx
- LIBS+=-lm
- ifneq ($(CONFIG_ldl),no)
+CFG = -unx
+LIBS+=-lm
+ifneq ($(CONFIG_ldl),no)
   LIBS+=-ldl
- endif
- ifneq ($(CONFIG_pthread),no)
+endif
+ifneq ($(CONFIG_pthread),no)
   LIBS+=-lpthread
- endif
- # make libtcc as static or dynamic library?
- ifeq ($(CONFIG_static),no)
+endif
+# make libtcc as static or dynamic library?
+ifeq ($(CONFIG_static),no)
   LIBTCC=libtcc$(DLLSUF)
   export LD_LIBRARY_PATH := $(CURDIR)/$(TOP)
   ifneq ($(CONFIG_rpath),no)
-    ifndef CONFIG_OSX
-      LINK_LIBTCC += -Wl,-rpath,"$(libdir)"
-    else
-      # macOS doesn't support env-vars libdir out of the box - which we need for
-      # `make test' when libtcc.dylib is used (configure --disable-static), so
-      # we bake a relative path into the binary. $libdir is used after install.
-      LINK_LIBTCC += -Wl,-rpath,"@executable_path/$(TOP)" -Wl,-rpath,"$(libdir)"
-      # -current/compatibility_version must not contain letters.
-      MACOS_DYLIB_VERSION := $(firstword $(subst rc, ,$(VERSION)))
-      DYLIBVER += -current_version $(MACOS_DYLIB_VERSION)
-      DYLIBVER += -compatibility_version $(MACOS_DYLIB_VERSION)
-    endif
+    LINK_LIBTCC += -Wl,-rpath,"$(libdir)"
   endif
- endif
- NATIVE_TARGET = $(ARCH)
- ifdef CONFIG_OSX
-  NATIVE_TARGET = $(ARCH)-osx
-  ifneq ($(CC_NAME),tcc)
-    LDFLAGS += -flat_namespace
-    ifneq (1,$(shell expr $(GCC_MAJOR) ">=" 15))
-      LDFLAGS += -undefined warning # depreciated in clang >= 15.0
-    endif
-  endif
-  export MACOSX_DEPLOYMENT_TARGET := 10.6
- endif
 endif
+NATIVE_TARGET = $(ARCH)
 
 # run local version of tcc with local libraries and includes
 TCCFLAGS-unx = -B$(TOP) -I$(TOPSRC)/include -I$(TOPSRC) -I$(TOP)

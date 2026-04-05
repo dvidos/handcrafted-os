@@ -23,10 +23,13 @@ int close(int fd);
 int dup2(int oldfd, int newfd);
 int link(const char *oldpath, const char *newpath);
 off_t lseek(int fd, off_t offset, int whence);
+ssize_t read(int fd, void *buf, size_t count);
+int mkdir(const char *pathname);
 int rmdir(const char *pathname);
 int unlink(const char *pathname);
 int symlink(const char *oldpath, const char *newpath);
 int ftruncate(int fd, off_t length);
+ssize_t write(int fd, const void *buf, size_t count);
 
 // Process management
 pid_t fork(void);

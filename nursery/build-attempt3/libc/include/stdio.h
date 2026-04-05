@@ -55,6 +55,10 @@ int fseek(FILE *stream, off_t offset, int whence);
 long ftell(FILE *stream);
 void rewind(FILE *stream);
 
+// Buffer control
+void setbuf(FILE *stream, char *buf);
+int setvbuf(FILE *stream, char *buf, int mode, size_t size);
+
 // Error-handling functions
 int feof(FILE *stream);
 int ferror(FILE *stream);
@@ -64,5 +68,6 @@ void perror(const char *s);
 // File manipulation
 int remove(const char *filename);
 int rename(const char *oldname, const char *newname);
+
 
 #endif // _STDIO_H

@@ -54,8 +54,10 @@ int isxdigit(int c) {
 }
 
 int tolower(int c) {
-    // TODO: Implement this function
-    return 0;
+    if (isupper(c)) {
+        return c - 'A' + 'a';
+    }
+    return c;
 }
 
 int toupper(int c) {

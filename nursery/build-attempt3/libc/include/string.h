@@ -34,5 +34,6 @@ void *memset(void *s, int c, size_t n);
 // Miscellaneous
 char *strerror(int errnum);
 char *strdup(const char *s); // POSIX extension
+size_t strxfrm(char *dest, const char *src, size_t n);
 
 #endif // _STRING_H

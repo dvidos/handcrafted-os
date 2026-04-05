@@ -3,6 +3,17 @@
 
 #include <stddef.h> // For NULL, size_t
 
+// --- Type Definitions ---
+typedef struct {
+    int quot; // quotient
+    int rem;  // remainder
+} div_t;
+
+typedef struct {
+    long quot; // quotient
+    long rem;  // remainder
+} ldiv_t;
+
 // --- Macros ---
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
@@ -24,6 +35,8 @@ int putenv (char *string); // data will used as is, not copied
 int system(const char *command);
 
 // String conversion
+double atof(const char *str);
+double strtod(const char *str, char **endptr);
 int atoi(const char *str);
 long atol(const char *str);
 long long atoll(const char *str);
@@ -40,6 +53,8 @@ void srand(unsigned int seed);
 int abs(int j);
 long labs(long j);
 long long llabs(long long j);
+div_t div(int numer, int denom);
+ldiv_t ldiv(long numer, long denom);
 
 // Searching and sorting
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));

@@ -1,6 +1,5 @@
-#include <string.h>
-#include <stddef.h> // For size_t, NULL
-#include <stdbool.h> // For bool
+#include "libc_internal.h"
+
 
 char *strcpy(char *dest, const char *src) {
     // TODO: Implement this function
@@ -42,11 +41,6 @@ int strncmp(const char *s1, const char *s2, size_t n) {
     return 0;
 }
 
-int memcmp(const void *s1, const void *s2, size_t n) {
-    // TODO: Implement this function
-    return 0;
-}
-
 size_t strlen(const char *s) {
     // TODO: Implement this function
     return 0;
@@ -67,28 +61,38 @@ char *strstr(const char *haystack, const char *needle) {
     return NULL;
 }
 
-void *memcpy(void *dest, const void *src, size_t n) {
-    // TODO: Implement this function
-    return NULL;
-}
-
-void *memmove(void *dest, const void *src, size_t n) {
-    // TODO: Implement this function
-    return NULL;
-}
-
-void *memset(void *s, int c, size_t n) {
-    // TODO: Implement this function
-    return NULL;
-}
-
-char *strerror(int errnum) {
-    // TODO: Implement this function
-    return NULL;
-}
-
 char *strdup(const char *s) {
     // TODO: Implement this function
     return NULL;
+}
+
+size_t strcspn(const char *s, const char *reject) {
+    // TODO: Implement this function
+    return 0;
+}
+
+char *strpbrk(const char *s, const char *accept) {
+    // TODO: Implement this function
+    return NULL;
+}
+
+size_t strspn(const char *s, const char *accept) {
+    // TODO: Implement this function
+    return 0;
+}
+
+char *strtok(char *s, const char *delim) {
+    // TODO: Implement this function
+    return NULL;
+}
+
+char *strtok_r(char *s, const char *delim, char **saveptr) {
+    // TODO: Implement this function
+    return NULL;
+}
+
+size_t strxfrm(char *dest, const char *src, size_t n) {
+    // TODO: Implement this function
+    return 0;
 }
 

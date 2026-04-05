@@ -27,5 +27,6 @@ typedef unsigned long   ino_t;      // Inode number
 typedef unsigned int    mode_t;     // File mode (permissions and type)
 typedef long            off_t;      // File offset
 typedef long            ssize_t;    // Signed size_t, used for byte counts or errors
+typedef unsigned int    nlink_t;
 
 #endif // _SYS_TYPES_H
