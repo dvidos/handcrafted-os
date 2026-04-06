@@ -1,6 +1,7 @@
 #ifndef _LIBC_INTERNAL_H
 #define _LIBC_INTERNAL_H
 
+
 #include "../include/sys/stat.h"
 #include "../include/sys/time.h"
 #include "../include/sys/types.h"
@@ -34,6 +35,8 @@
 int syscall(int sysno, int arg1, int arg2, int arg3, int arg4, int arg5);
 
 
+// syslog macros and stuff
+#include "../include/hcos/syslog.h"
 
 
 

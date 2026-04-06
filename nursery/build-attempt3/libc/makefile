@@ -14,26 +14,27 @@ CFLAGS = -std=gnu99 -ffreestanding   \
 LIBC=libc.a
 C_FILES = \
 	$(wildcard src/*.c) \
+	$(wildcard src/assert/*.c) \
+	$(wildcard src/ctype/*.c) \
+	$(wildcard src/dirent/*.c) \
+	$(wildcard src/errno/*.c) \
+	$(wildcard src/fcntl/*.c) \
+	$(wildcard src/hcos/*.c) \
+	$(wildcard src/math/*.c) \
+	$(wildcard src/setjmp/*.c) \
+	$(wildcard src/signal/*.c) \
 	$(wildcard src/stdio/*.c) \
 	$(wildcard src/stdlib/*.c) \
-	$(wildcard src/time/*.c) \
+	$(wildcard src/string/*.c) \
 	$(wildcard src/sys/*.c) \
 	$(wildcard src/sys/stat/*.c) \
 	$(wildcard src/sys/wait/*.c) \
-	$(wildcard src/string/*.c) \
-	$(wildcard src/errno/*.c) \
-	$(wildcard src/assert/*.c) \
-	$(wildcard src/utime/*.c) \
-	$(wildcard src/math/*.c) \
-	$(wildcard src/ctype/*.c) \
-	$(wildcard src/dirent/*.c) \
-	$(wildcard src/fcntl/*.c) \
-	$(wildcard src/signal/*.c) \
+	$(wildcard src/time/*.c) \
 	$(wildcard src/unistd/*.c) \
-	$(wildcard src/setjmp/*.c)
+	$(wildcard src/utime/*.c)
 
 
-ASM_FILES = $(wildcard src/proc/*.asm)
+ASM_FILES = $(wildcard src/hcos/*.asm)
 
 OBJ_FILES = $(ASM_FILES:.asm=.o) $(C_FILES:.c=.o) 
 DEP_FILES = $(C_FILES:.c=.d)
