@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Checks if a character is alphanumeric.

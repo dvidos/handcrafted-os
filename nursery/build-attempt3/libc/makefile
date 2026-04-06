@@ -14,15 +14,24 @@ CFLAGS = -std=gnu99 -ffreestanding   \
 LIBC=libc.a
 C_FILES = \
 	$(wildcard src/*.c) \
-	$(wildcard src/arch/*.c) \
 	$(wildcard src/stdio/*.c) \
 	$(wildcard src/stdlib/*.c) \
-	$(wildcard src/proc/*.c) \
-	$(wildcard src/string/*.c) \
-	$(wildcard src/readline/*.c) \
-	$(wildcard src/metrics/*.c) \
+	$(wildcard src/time/*.c) \
 	$(wildcard src/sys/*.c) \
-	$(wildcard src/data_structs/try_2/*.c)
+	$(wildcard src/sys/stat/*.c) \
+	$(wildcard src/sys/wait/*.c) \
+	$(wildcard src/string/*.c) \
+	$(wildcard src/errno/*.c) \
+	$(wildcard src/assert/*.c) \
+	$(wildcard src/utime/*.c) \
+	$(wildcard src/math/*.c) \
+	$(wildcard src/ctype/*.c) \
+	$(wildcard src/dirent/*.c) \
+	$(wildcard src/fcntl/*.c) \
+	$(wildcard src/signal/*.c) \
+	$(wildcard src/unistd/*.c) \
+	$(wildcard src/setjmp/*.c)
+
 
 ASM_FILES = $(wildcard src/proc/*.asm)
 

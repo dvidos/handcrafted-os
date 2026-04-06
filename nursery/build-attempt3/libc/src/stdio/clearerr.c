@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Clears the end-of-file and error indicators for a stream.

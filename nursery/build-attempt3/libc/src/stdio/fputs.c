@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Writes a string to a specified stream.
@@ -15,11 +15,11 @@
  * through `s` and writes each character using the stream's underlying
  * `fputc` mechanism or directly to its buffer.
  */
-int fputs(const char *s, FILE *stream) {
-    // TODO: Implement fputs for your operating system.
-    // This involves writing the string to the specified stream.
-    (void)s;      // Suppress unused parameter warning
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return EOF;
-}
+// int fputs(const char *s, FILE *stream) {
+//     // TODO: Implement fputs for your operating system.
+//     // This involves writing the string to the specified stream.
+//     (void)s;      // Suppress unused parameter warning
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return EOF;
+// }

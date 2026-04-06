@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Sends a signal to a process or a group of processes.

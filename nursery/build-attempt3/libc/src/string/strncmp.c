@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Compares two strings up to a specified number of characters.

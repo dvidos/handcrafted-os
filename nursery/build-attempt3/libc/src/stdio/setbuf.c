@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Sets the buffering for a stream to unbuffered or full-buffered.

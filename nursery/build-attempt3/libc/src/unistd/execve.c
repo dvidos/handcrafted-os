@@ -1,5 +1,4 @@
-#include "libc_internal.h"
-#include <errno.h> // For errno
+#include "../libc_internal.h"
 
 /**
  * @brief Executes a file, replacing the current process image, with specified environment.

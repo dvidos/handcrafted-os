@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Associates a stream with an existing file descriptor.
@@ -19,11 +19,11 @@
  * 3. Setting up buffering based on `mode`.
  * 4. Ensuring `mode` matches the access permissions of `fd`.
  */
-FILE *fdopen(int fd, const char *mode) {
-    // TODO: Implement fdopen for your operating system.
-    // This involves creating a FILE stream from an existing file descriptor.
-    (void)fd;   // Suppress unused parameter warning
-    (void)mode; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// FILE *fdopen(int fd, const char *mode) {
+//     // TODO: Implement fdopen for your operating system.
+//     // This involves creating a FILE stream from an existing file descriptor.
+//     (void)fd;   // Suppress unused parameter warning
+//     (void)mode; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

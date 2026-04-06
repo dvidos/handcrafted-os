@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Prints formatted output to a specified stream using a `va_list` argument.
@@ -17,12 +17,12 @@
  * formatting, and writing to the specified `stream`. Other `*fprintf` functions often
  * wrap around this function.
  */
-int vfprintf(FILE *stream, const char *format, va_list ap) {
-    // TODO: Implement vfprintf for your operating system.
-    // This is the core variadic printf function writing to a specific stream.
-    (void)stream; // Suppress unused parameter warning
-    (void)format; // Suppress unused parameter warning
-    (void)ap;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int vfprintf(FILE *stream, const char *format, va_list ap) {
+//     // TODO: Implement vfprintf for your operating system.
+//     // This is the core variadic printf function writing to a specific stream.
+//     (void)stream; // Suppress unused parameter warning
+//     (void)format; // Suppress unused parameter warning
+//     (void)ap;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

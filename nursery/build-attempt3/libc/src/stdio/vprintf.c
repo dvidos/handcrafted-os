@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Prints formatted output to `stdout` using a `va_list` argument.
@@ -16,11 +16,11 @@
  * formatting, and writing to `stdout`. Other `*printf` functions often
  * wrap around this function.
  */
-int vprintf(const char *format, va_list ap) {
-    // TODO: Implement vprintf for your operating system.
-    // This is the core variadic printf function writing to stdout.
-    (void)format; // Suppress unused parameter warning
-    (void)ap;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int vprintf(const char *format, va_list ap) {
+//     // TODO: Implement vprintf for your operating system.
+//     // This is the core variadic printf function writing to stdout.
+//     (void)format; // Suppress unused parameter warning
+//     (void)ap;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

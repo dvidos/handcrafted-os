@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 #include <stdio.h>  // For snprintf
 #include <string.h> // For internal string manipulation
 #include <errno.h>  // For errno

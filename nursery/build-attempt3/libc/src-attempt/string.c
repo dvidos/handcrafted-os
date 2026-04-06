@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 
 char *strcpy(char *dest, const char *src) {

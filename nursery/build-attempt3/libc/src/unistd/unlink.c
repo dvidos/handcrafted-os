@@ -1,5 +1,4 @@
-#include "libc_internal.h"
-#include <errno.h> // For errno
+#include "../libc_internal.h"
 
 /**
  * @brief Deletes a name and possibly the file it refers to.

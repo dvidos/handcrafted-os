@@ -1,5 +1,4 @@
-#include "libc_internal.h"
-#include <errno.h> // For errno
+#include "../libc_internal.h"
 
 /**
  * @brief Converts a broken-down time into a calendar time.

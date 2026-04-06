@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 #include <ctype.h> // For isspace
 #include <math.h>  // For huge_val
 

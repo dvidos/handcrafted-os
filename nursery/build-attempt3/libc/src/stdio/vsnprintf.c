@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Prints formatted output to a string with a specified size limit, using a `va_list` argument.
@@ -19,13 +19,13 @@
  * formatting, and writing safely to the character array `str` with bounds checking.
  * Other `*snprintf` functions often wrap around this function.
  */
-int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
-    // TODO: Implement vsnprintf for your operating system.
-    // This is the core variadic printf function writing safely to a character array.
-    (void)str;    // Suppress unused parameter warning
-    (void)size;   // Suppress unused parameter warning
-    (void)format; // Suppress unused parameter warning
-    (void)ap;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
+//     // TODO: Implement vsnprintf for your operating system.
+//     // This is the core variadic printf function writing safely to a character array.
+//     (void)str;    // Suppress unused parameter warning
+//     (void)size;   // Suppress unused parameter warning
+//     (void)format; // Suppress unused parameter warning
+//     (void)ap;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

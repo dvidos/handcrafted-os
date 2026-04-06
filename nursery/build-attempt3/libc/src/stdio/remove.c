@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Deletes a file.
@@ -14,10 +14,10 @@
  * This function typically maps to the `unlink()` system call.
  * Error conditions include permission denied, file not found, or busy.
  */
-int remove(const char *filename) {
-    // TODO: Implement remove for your operating system.
-    // This typically involves a system call like unlink.
-    (void)filename; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int remove(const char *filename) {
+//     // TODO: Implement remove for your operating system.
+//     // This typically involves a system call like unlink.
+//     (void)filename; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Reads a character from `stdin`.
@@ -12,9 +12,9 @@
  * This is a basic character input function. It typically uses `fgetc` internally
  * or directly interacts with `stdin`'s buffer.
  */
-int getchar(void) {
-    // TODO: Implement getchar for your operating system.
-    // This involves reading a single character from stdin.
-    errno = ENOSYS; // Function not implemented
-    return EOF;
-}
+// int getchar(void) {
+//     // TODO: Implement getchar for your operating system.
+//     // This involves reading a single character from stdin.
+//     errno = ENOSYS; // Function not implemented
+//     return EOF;
+// }

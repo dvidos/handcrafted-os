@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 #include <string.h> // For strtod
 #include <errno.h>  // For errno
 

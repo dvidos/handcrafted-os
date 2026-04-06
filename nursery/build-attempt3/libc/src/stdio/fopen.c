@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Opens a file and associates a stream with it.
@@ -19,11 +19,11 @@
  * 3. Initializing the `FILE` structure, including setting up buffering based on `mode`.
  * 4. Handling various `mode` options for read/write/append/binary and error states.
  */
-FILE *fopen(const char *filename, const char *mode) {
-    // TODO: Implement fopen for your operating system.
-    // This involves opening a file, allocating and initializing a FILE structure.
-    (void)filename; // Suppress unused parameter warning
-    (void)mode;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// FILE *fopen(const char *filename, const char *mode) {
+//     // TODO: Implement fopen for your operating system.
+//     // This involves opening a file, allocating and initializing a FILE structure.
+//     (void)filename; // Suppress unused parameter warning
+//     (void)mode;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

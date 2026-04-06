@@ -1,4 +1,6 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
+
+int errno;
 
 /**
  * @brief Returns a pointer to the thread-local `errno` variable.

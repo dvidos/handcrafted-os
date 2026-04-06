@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 #include <stdlib.h> // For malloc
 #include <string.h> // For strlen, strcpy
 

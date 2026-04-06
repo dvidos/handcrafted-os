@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 /**
  * @brief Checks if a character is a whitespace character.
@@ -11,5 +11,5 @@
  * @return Non-zero if `c` is a whitespace character, 0 otherwise.
  */
 int isspace(int c) {
-    return (c == ' ' || (c >= '	' && c <= ''));
+    return (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f');
 }

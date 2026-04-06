@@ -1,4 +1,4 @@
-#include "libc_internal.h"
+#include "../libc_internal.h"
 
 
 int memcmp(const void *s1, const void *s2, size_t n) {
