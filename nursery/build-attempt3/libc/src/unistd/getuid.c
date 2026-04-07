@@ -11,9 +11,9 @@
  * This function typically maps to a system call (e.g., `getuid` on Linux).
  * The kernel tracks the user IDs associated with each process for permissions and accountability.
  */
-uid_t getuid(void) {
-    // TODO: Implement getuid for your operating system.
-    // This typically involves a system call.
-    errno = ENOSYS; // Function not implemented
-    return (uid_t)-1;
-}
+// uid_t getuid(void) {
+//     // TODO: Implement getuid for your operating system.
+//     // This typically involves a system call.
+//     errno = ENOSYS; // Function not implemented
+//     return (uid_t)-1;
+// }

@@ -18,11 +18,11 @@
  * within that block, and storing a pointer to the original `malloc`-ed block
  * just before the aligned address so that `free` can correctly deallocate it.
  */
-void *aligned_alloc(size_t alignment, size_t size) {
-    // TODO: Implement aligned_alloc for your operating system.
-    // This requires careful memory management to ensure alignment.
-    (void)alignment; // Suppress unused parameter warning
-    (void)size;      // Suppress unused parameter warning
-    errno = ENOSYS;  // Function not implemented
-    return NULL;
-}
+// void *aligned_alloc(size_t alignment, size_t size) {
+//     // TODO: Implement aligned_alloc for your operating system.
+//     // This requires careful memory management to ensure alignment.
+//     (void)alignment; // Suppress unused parameter warning
+//     (void)size;      // Suppress unused parameter warning
+//     errno = ENOSYS;  // Function not implemented
+//     return NULL;
+// }

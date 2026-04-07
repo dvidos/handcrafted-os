@@ -16,11 +16,11 @@
  * It's important to handle cases where the parent directory does not exist
  * or if permissions are insufficient.
  */
-int mkdir(const char *pathname, mode_t mode) {
-    // TODO: Implement mkdir for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    (void)mode;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int mkdir(const char *pathname, mode_t mode) {
+//     // TODO: Implement mkdir for your operating system.
+//     // This typically involves a system call.
+//     (void)pathname; // Suppress unused parameter warning
+//     (void)mode;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

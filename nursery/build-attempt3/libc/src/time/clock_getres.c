@@ -15,11 +15,11 @@
  * This function typically maps to a system call (e.g., `clock_getres` on Linux).
  * It queries the operating system for the smallest time unit measurable by the clock.
  */
-int clock_getres(clockid_t clk_id, struct timespec *res) {
-    // TODO: Implement clock_getres for your operating system.
-    // This typically involves a system call.
-    (void)clk_id; // Suppress unused parameter warning
-    (void)res;    // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int clock_getres(clockid_t clk_id, struct timespec *res) {
+//     // TODO: Implement clock_getres for your operating system.
+//     // This typically involves a system call.
+//     (void)clk_id; // Suppress unused parameter warning
+//     (void)res;    // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

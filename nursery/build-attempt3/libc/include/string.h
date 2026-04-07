@@ -28,6 +28,8 @@ char *strrchr(const char *s, int c);
 char *strpbrk(const char *s, const char *accept);
 size_t strcspn(const char *s, const char *reject);
 char *strstr(const char *haystack, const char *needle);
+char *strtok(char *str, const char *delim);
+char *strtok_r(char *str, const char *delim, char **saveptr);
 
 // Memory manipulation
 void *memcpy(void *dest, const void *src, size_t n);

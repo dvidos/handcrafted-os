@@ -11,9 +11,9 @@
  * This function typically maps to a system call (e.g., `getgid` on Linux).
  * The kernel tracks the group IDs associated with each process for permissions.
  */
-gid_t getgid(void) {
-    // TODO: Implement getgid for your operating system.
-    // This typically involves a system call.
-    errno = ENOSYS; // Function not implemented
-    return (gid_t)-1;
-}
+// gid_t getgid(void) {
+//     // TODO: Implement getgid for your operating system.
+//     // This typically involves a system call.
+//     errno = ENOSYS; // Function not implemented
+//     return (gid_t)-1;
+// }

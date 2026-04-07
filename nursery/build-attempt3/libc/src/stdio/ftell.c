@@ -16,10 +16,10 @@
  * on the stream's underlying file descriptor. It must also account for any
  * buffered data that has been read but not yet consumed by the user.
  */
-long ftell(FILE *stream) {
-    // TODO: Implement ftell for your operating system.
-    // This involves querying the underlying file descriptor's position and accounting for buffers.
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1L;
-}
+// long ftell(FILE *stream) {
+//     // TODO: Implement ftell for your operating system.
+//     // This involves querying the underlying file descriptor's position and accounting for buffers.
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1L;
+// }

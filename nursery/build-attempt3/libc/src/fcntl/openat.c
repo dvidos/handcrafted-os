@@ -17,22 +17,22 @@
  * This function typically translates into a system call that supports `*at` semantics.
  * It's a key part of modern POSIX file I/O for robustness and security.
  */
-int openat(int dirfd, const char *pathname, int flags, ...) {
-    // TODO: Implement openat for your operating system.
-    // This typically involves a system call with AT_... flags.
-    (void)dirfd;    // Suppress unused parameter warning
-    (void)pathname; // Suppress unused parameter warning
-    (void)flags;    // Suppress unused parameter warning
+// int openat(int dirfd, const char *pathname, int flags, ...) {
+//     // TODO: Implement openat for your operating system.
+//     // This typically involves a system call with AT_... flags.
+//     (void)dirfd;    // Suppress unused parameter warning
+//     (void)pathname; // Suppress unused parameter warning
+//     (void)flags;    // Suppress unused parameter warning
 
-    // Handle variadic arguments for mode if O_CREAT is set
-    // va_list args;
-    // va_start(args, flags);
-    // mode_t mode = 0;
-    // if (flags & O_CREAT) {
-    //     mode = va_arg(args, mode_t);
-    // }
-    // va_end(args);
+//     // Handle variadic arguments for mode if O_CREAT is set
+//     // va_list args;
+//     // va_start(args, flags);
+//     // mode_t mode = 0;
+//     // if (flags & O_CREAT) {
+//     //     mode = va_arg(args, mode_t);
+//     // }
+//     // va_end(args);
 
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

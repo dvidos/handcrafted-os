@@ -13,9 +13,9 @@
  * similar algorithm. It relies on a seed value, which can be set by `srand`.
  * The state of the random number generator is global and not thread-safe.
  */
-int rand(void) {
-    // TODO: Implement rand for your operating system.
-    // This requires a pseudo-random number generation algorithm.
-    errno = ENOSYS; // Function not implemented
-    return 0;
-}
+// int rand(void) {
+//     // TODO: Implement rand for your operating system.
+//     // This requires a pseudo-random number generation algorithm.
+//     errno = ENOSYS; // Function not implemented
+//     return 0;
+// }

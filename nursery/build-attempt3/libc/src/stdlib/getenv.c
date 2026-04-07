@@ -15,10 +15,10 @@
  * maintained by the operating system or the C runtime. It involves iterating
  * through an array of strings (e.g., `environ` global variable) and parsing them.
  */
-char *getenv(const char *name) {
-    // TODO: Implement getenv for your operating system.
-    // This involves searching the environment list.
-    (void)name; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// char *getenv(const char *name) {
+//     // TODO: Implement getenv for your operating system.
+//     // This involves searching the environment list.
+//     (void)name; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

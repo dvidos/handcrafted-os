@@ -15,11 +15,11 @@
  * This function typically maps to a system call (e.g., `setpgid` on Linux).
  * It's part of session and job control mechanisms in POSIX systems.
  */
-int setpgid(pid_t pid, pid_t pgid) {
-    // TODO: Implement setpgid for your operating system.
-    // This typically involves a system call.
-    (void)pid;  // Suppress unused parameter warning
-    (void)pgid; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int setpgid(pid_t pid, pid_t pgid) {
+//     // TODO: Implement setpgid for your operating system.
+//     // This typically involves a system call.
+//     (void)pid;  // Suppress unused parameter warning
+//     (void)pgid; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

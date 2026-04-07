@@ -14,11 +14,11 @@
  * This function typically maps to a system call (e.g., `link` on Linux).
  * It creates a "hard link," meaning multiple directory entries refer to the same inode.
  */
-int link(const char *oldpath, const char *newpath) {
-    // TODO: Implement link for your operating system.
-    // This typically involves a system call.
-    (void)oldpath; // Suppress unused parameter warning
-    (void)newpath; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int link(const char *oldpath, const char *newpath) {
+//     // TODO: Implement link for your operating system.
+//     // This typically involves a system call.
+//     (void)oldpath; // Suppress unused parameter warning
+//     (void)newpath; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

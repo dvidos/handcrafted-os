@@ -14,10 +14,10 @@
  * This function typically maps to a system call (e.g., `fsync` on Linux).
  * It's crucial for ensuring data persistence, especially after critical writes.
  */
-int fsync(int fd) {
-    // TODO: Implement fsync for your operating system.
-    // This typically involves a system call.
-    (void)fd; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fsync(int fd) {
+//     // TODO: Implement fsync for your operating system.
+//     // This typically involves a system call.
+//     (void)fd; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

@@ -19,12 +19,12 @@
  * underlying file descriptor. It also needs to handle the stream's internal
  * buffers, potentially discarding buffered input or flushing buffered output.
  */
-int fseek(FILE *stream, off_t offset, int whence) {
-    // TODO: Implement fseek for your operating system.
-    // This involves seeking the underlying file descriptor and managing stream buffers.
-    (void)stream; // Suppress unused parameter warning
-    (void)offset; // Suppress unused parameter warning
-    (void)whence; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fseek(FILE *stream, off_t offset, int whence) {
+//     // TODO: Implement fseek for your operating system.
+//     // This involves seeking the underlying file descriptor and managing stream buffers.
+//     (void)stream; // Suppress unused parameter warning
+//     (void)offset; // Suppress unused parameter warning
+//     (void)whence; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

@@ -17,11 +17,11 @@
  * the new executable into the current process's address space, sets up its
  * initial state, and begins execution. It does not create a new process.
  */
-int execv(const char *path, char *const argv[]) {
-    // TODO: Implement execv for your operating system.
-    // This typically involves a system call.
-    (void)path; // Suppress unused parameter warning
-    (void)argv; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int execv(const char *path, char *const argv[]) {
+//     // TODO: Implement execv for your operating system.
+//     // This typically involves a system call.
+//     (void)path; // Suppress unused parameter warning
+//     (void)argv; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

@@ -15,10 +15,10 @@
  * a static buffer. Its implementation is complex, similar to `gmtime`, but
  * it also needs to account for the local timezone settings and daylight saving time.
  */
-struct tm *localtime(const time_t *timer) {
-    // TODO: Implement localtime for your operating system.
-    // This is a complex time conversion function, accounting for timezone.
-    (void)timer; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// struct tm *localtime(const time_t *timer) {
+//     // TODO: Implement localtime for your operating system.
+//     // This is a complex time conversion function, accounting for timezone.
+//     (void)timer; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

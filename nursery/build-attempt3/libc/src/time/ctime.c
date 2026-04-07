@@ -19,10 +19,10 @@
  * This function is not reentrant or thread-safe as it returns a pointer to
  * a static buffer. Its implementation typically calls `localtime` and then `asctime`.
  */
-char *ctime(const time_t *timer) {
-    // TODO: Implement ctime for your operating system.
-    // This involves converting time_t to a human-readable string.
-    (void)timer; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// char *ctime(const time_t *timer) {
+//     // TODO: Implement ctime for your operating system.
+//     // This involves converting time_t to a human-readable string.
+//     (void)timer; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

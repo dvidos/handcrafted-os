@@ -19,11 +19,11 @@
  * 3. Freeing the old memory block.
  * 4. Special handling for `ptr == NULL` (behaves like `malloc`) and `size == 0` (behaves like `free`).
  */
-void *realloc(void *ptr, size_t size) {
-    // TODO: Implement realloc for your operating system.
-    // This is a complex memory management function.
-    (void)ptr;  // Suppress unused parameter warning
-    (void)size; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// void *realloc(void *ptr, size_t size) {
+//     // TODO: Implement realloc for your operating system.
+//     // This is a complex memory management function.
+//     (void)ptr;  // Suppress unused parameter warning
+//     (void)size; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

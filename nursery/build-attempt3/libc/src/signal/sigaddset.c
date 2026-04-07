@@ -14,10 +14,10 @@
  * It's crucial to ensure `signum` is a valid signal number and within the bounds
  * supported by the `sigset_t` bit array.
  */
-int sigaddset(sigset_t *set, int signum) {
-    // TODO: Implement sigaddset for your operating system.
-    (void)set;    // Suppress unused parameter warning
-    (void)signum; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int sigaddset(sigset_t *set, int signum) {
+//     // TODO: Implement sigaddset for your operating system.
+//     (void)set;    // Suppress unused parameter warning
+//     (void)signum; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

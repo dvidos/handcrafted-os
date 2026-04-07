@@ -16,10 +16,10 @@
  * the atomically changing of the mask and suspending the process. When a signal
  * is caught, the original signal mask is restored.
  */
-int sigsuspend(const sigset_t *mask) {
-    // TODO: Implement sigsuspend for your operating system.
-    // This typically involves a system call.
-    (void)mask; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int sigsuspend(const sigset_t *mask) {
+//     // TODO: Implement sigsuspend for your operating system.
+//     // This typically involves a system call.
+//     (void)mask; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

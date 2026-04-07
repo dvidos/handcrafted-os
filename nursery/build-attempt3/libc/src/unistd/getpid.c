@@ -11,9 +11,9 @@
  * This function typically maps to a system call (e.g., `getpid` on Linux).
  * The kernel assigns and tracks PIDs for all processes.
  */
-pid_t getpid(void) {
-    // TODO: Implement getpid for your operating system.
-    // This typically involves a system call.
-    errno = ENOSYS; // Function not implemented
-    return (pid_t)-1;
-}
+// pid_t getpid(void) {
+//     // TODO: Implement getpid for your operating system.
+//     // This typically involves a system call.
+//     errno = ENOSYS; // Function not implemented
+//     return (pid_t)-1;
+// }

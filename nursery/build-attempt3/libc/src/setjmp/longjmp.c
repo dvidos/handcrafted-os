@@ -19,12 +19,12 @@
  *    to `val` (or 1 if `val` was 0).
  * This function does not return in the conventional sense; it transfers control.
  */
-void longjmp(jmp_buf env, int val) {
-    // TODO: Implement longjmp for your operating system and architecture.
-    // This is highly platform-specific and often requires assembly.
-    (void)env; // Suppress unused parameter warning
-    (void)val; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented - longjmp does not return
-    // An infinite loop or system halt might be appropriate if it cannot transfer control.
-    while (1) {}
-}
+// void longjmp(jmp_buf env, int val) {
+//     // TODO: Implement longjmp for your operating system and architecture.
+//     // This is highly platform-specific and often requires assembly.
+//     (void)env; // Suppress unused parameter warning
+//     (void)val; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented - longjmp does not return
+//     // An infinite loop or system halt might be appropriate if it cannot transfer control.
+//     while (1) {}
+// }

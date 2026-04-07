@@ -13,10 +13,10 @@
  * This is a basic character output function. It typically uses `fputc`
  * internally or directly interacts with `stdout`'s buffer.
  */
-int putchar(int c) {
-    // TODO: Implement putchar for your operating system.
-    // This involves writing a single character to stdout.
-    (void)c; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return EOF;
-}
+// int putchar(int c) {
+//     // TODO: Implement putchar for your operating system.
+//     // This involves writing a single character to stdout.
+//     (void)c; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return EOF;
+// }

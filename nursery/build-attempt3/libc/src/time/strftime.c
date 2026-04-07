@@ -24,13 +24,13 @@
  * 3. Convert and format these values into strings.
  * 4. Write to the `s` buffer, respecting `maxsize`.
  */
-size_t strftime(char *s, size_t maxsize, const char *format, const struct tm *timeptr) {
-    // TODO: Implement strftime for your operating system.
-    // This is a complex time formatting function.
-    (void)s;       // Suppress unused parameter warning
-    (void)maxsize; // Suppress unused parameter warning
-    (void)format;  // Suppress unused parameter warning
-    (void)timeptr; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return 0;
-}
+// size_t strftime(char *s, size_t maxsize, const char *format, const struct tm *timeptr) {
+//     // TODO: Implement strftime for your operating system.
+//     // This is a complex time formatting function.
+//     (void)s;       // Suppress unused parameter warning
+//     (void)maxsize; // Suppress unused parameter warning
+//     (void)format;  // Suppress unused parameter warning
+//     (void)timeptr; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return 0;
+// }

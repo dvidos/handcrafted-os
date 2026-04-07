@@ -14,8 +14,8 @@
  * @implNote
  * This is a simple wrapper. It usually calls `strtod` and discards the `endptr` argument.
  */
-double atof(const char *str) {
-    // TODO: Implement atof for your operating system.
-    // This is a wrapper around strtod.
-    return strtod(str, NULL);
-}
+// double atof(const char *str) {
+//     // TODO: Implement atof for your operating system.
+//     // This is a wrapper around strtod.
+//     return strtod(str, NULL);
+// }

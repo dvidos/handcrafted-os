@@ -17,10 +17,10 @@
  *    based on the normalized `struct tm` fields.
  * 3. Accounting for leap years and possibly daylight saving time.
  */
-time_t mktime(struct tm *timeptr) {
-    // TODO: Implement mktime for your operating system.
-    // This is a complex time conversion function.
-    (void)timeptr; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return (time_t)-1;
-}
+// time_t mktime(struct tm *timeptr) {
+//     // TODO: Implement mktime for your operating system.
+//     // This is a complex time conversion function.
+//     (void)timeptr; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return (time_t)-1;
+// }

@@ -19,11 +19,11 @@
  * It often modifies the signal mask temporarily and is not restartable.
  * In a modern system, it might be implemented as a wrapper around `sigaction`.
  */
-__sighandler_t signal(int signum, __sighandler_t handler) {
-    // TODO: Implement signal for your operating system.
-    // This typically involves a system call or a wrapper around sigaction.
-    (void)signum; // Suppress unused parameter warning
-    (void)handler; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return SIG_ERR;
-}
+// __sighandler_t signal(int signum, __sighandler_t handler) {
+//     // TODO: Implement signal for your operating system.
+//     // This typically involves a system call or a wrapper around sigaction.
+//     (void)signum; // Suppress unused parameter warning
+//     (void)handler; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return SIG_ERR;
+// }

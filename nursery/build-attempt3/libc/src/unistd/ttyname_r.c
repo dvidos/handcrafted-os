@@ -18,11 +18,11 @@
  * kernel-internal mechanism) to retrieve the terminal device name.
  * It's important to respect `buflen` to prevent buffer overflows.
  */
-int ttyname_r(int fd, char *buf, size_t buflen) {
-    // TODO: Implement ttyname_r for your operating system.
-    // This typically involves a system call and careful buffer handling.
-    (void)fd;     // Suppress unused parameter warning
-    (void)buf;    // Suppress unused parameter warning
-    (void)buflen; // Suppress unused parameter warning
-    return ENOSYS; // Function not implemented - this function returns error number directly
-}
+// int ttyname_r(int fd, char *buf, size_t buflen) {
+//     // TODO: Implement ttyname_r for your operating system.
+//     // This typically involves a system call and careful buffer handling.
+//     (void)fd;     // Suppress unused parameter warning
+//     (void)buf;    // Suppress unused parameter warning
+//     (void)buflen; // Suppress unused parameter warning
+//     return ENOSYS; // Function not implemented - this function returns error number directly
+// }

@@ -11,9 +11,9 @@
  * This function typically maps to a system call (e.g., `getppid` on Linux).
  * The kernel tracks the parent-child relationships between processes.
  */
-pid_t getppid(void) {
-    // TODO: Implement getppid for your operating system.
-    // This typically involves a system call.
-    errno = ENOSYS; // Function not implemented
-    return (pid_t)-1;
-}
+// pid_t getppid(void) {
+//     // TODO: Implement getppid for your operating system.
+//     // This typically involves a system call.
+//     errno = ENOSYS; // Function not implemented
+//     return (pid_t)-1;
+// }

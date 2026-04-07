@@ -10,6 +10,6 @@
  * @param time0 The second time_t value.
  * @return The difference in seconds as a `double`.
  */
-double difftime(time_t time1, time_t time0) {
-    return (double)(time1 - time0);
-}
+// double difftime(time_t time1, time_t time0) {
+//     return (double)(time1 - time0);
+// }

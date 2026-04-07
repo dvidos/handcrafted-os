@@ -14,11 +14,11 @@
  * This function typically maps to a system call (e.g., `clock_gettime` on Linux).
  * It queries the operating system for the current value of a specific system clock.
  */
-int clock_gettime(clockid_t clk_id, struct timespec *tp) {
-    // TODO: Implement clock_gettime for your operating system.
-    // This typically involves a system call.
-    (void)clk_id; // Suppress unused parameter warning
-    (void)tp;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int clock_gettime(clockid_t clk_id, struct timespec *tp) {
+//     // TODO: Implement clock_gettime for your operating system.
+//     // This typically involves a system call.
+//     (void)clk_id; // Suppress unused parameter warning
+//     (void)tp;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

@@ -15,11 +15,11 @@
  * This function typically maps to a system call (e.g., `truncate` on Linux).
  * It's used to change the size of regular files.
  */
-int truncate(const char *path, off_t length) {
-    // TODO: Implement truncate for your operating system.
-    // This typically involves a system call.
-    (void)path;   // Suppress unused parameter warning
-    (void)length; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int truncate(const char *path, off_t length) {
+//     // TODO: Implement truncate for your operating system.
+//     // This typically involves a system call.
+//     (void)path;   // Suppress unused parameter warning
+//     (void)length; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

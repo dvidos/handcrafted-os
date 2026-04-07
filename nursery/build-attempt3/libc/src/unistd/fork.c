@@ -16,9 +16,9 @@
  * a new process control block, copies the parent's memory space (or uses
  * copy-on-write), and sets up the new process's context.
  */
-pid_t fork(void) {
-    // TODO: Implement fork for your operating system.
-    // This typically involves a system call.
-    errno = ENOSYS; // Function not implemented
-    return (pid_t)-1;
-}
+// pid_t fork(void) {
+//     // TODO: Implement fork for your operating system.
+//     // This typically involves a system call.
+//     errno = ENOSYS; // Function not implemented
+//     return (pid_t)-1;
+// }

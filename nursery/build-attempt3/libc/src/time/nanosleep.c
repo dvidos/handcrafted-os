@@ -17,11 +17,11 @@
  * It requires interaction with the kernel's scheduler to pause the thread for
  * the specified duration.
  */
-int nanosleep(const struct timespec *req, struct timespec *rem) {
-    // TODO: Implement nanosleep for your operating system.
-    // This typically involves a system call.
-    (void)req; // Suppress unused parameter warning
-    (void)rem; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int nanosleep(const struct timespec *req, struct timespec *rem) {
+//     // TODO: Implement nanosleep for your operating system.
+//     // This typically involves a system call.
+//     (void)req; // Suppress unused parameter warning
+//     (void)rem; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

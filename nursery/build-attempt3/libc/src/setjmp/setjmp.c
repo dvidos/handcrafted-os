@@ -20,10 +20,10 @@
  * 2. Return 0.
  * The exact set of registers and the layout of `jmp_buf` are architecture-specific.
  */
-int setjmp(jmp_buf env) {
-    // TODO: Implement setjmp for your operating system and architecture.
-    // This is highly platform-specific and often requires assembly.
-    (void)env; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return 0; // Or whatever default is appropriate before longjmp has been called
-}
+// int setjmp(jmp_buf env) {
+//     // TODO: Implement setjmp for your operating system and architecture.
+//     // This is highly platform-specific and often requires assembly.
+//     (void)env; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return 0; // Or whatever default is appropriate before longjmp has been called
+// }

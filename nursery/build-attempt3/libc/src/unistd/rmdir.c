@@ -12,10 +12,10 @@
  * This function typically maps to a system call (e.g., `rmdir` on Linux).
  * It will fail if the directory is not empty or if permissions are insufficient.
  */
-int rmdir(const char *pathname) {
-    // TODO: Implement rmdir for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int rmdir(const char *pathname) {
+//     // TODO: Implement rmdir for your operating system.
+//     // This typically involves a system call.
+//     (void)pathname; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

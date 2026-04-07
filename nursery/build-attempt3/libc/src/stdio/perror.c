@@ -15,9 +15,9 @@
  * and `strerror` to format and output the message. It's useful for debugging
  * and user-friendly error reporting.
  */
-void perror(const char *s) {
-    // TODO: Implement perror for your operating system.
-    // This involves printing a user-provided string and the system error message to stderr.
-    (void)s; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented - this function does not return a value
-}
+// void perror(const char *s) {
+//     // TODO: Implement perror for your operating system.
+//     // This involves printing a user-provided string and the system error message to stderr.
+//     (void)s; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented - this function does not return a value
+// }

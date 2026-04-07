@@ -14,11 +14,11 @@
  * This function typically maps to a system call that queries the kernel
  * about the process's permissions on the given file path.
  */
-int access(const char *pathname, int mode) {
-    // TODO: Implement access for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    (void)mode;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int access(const char *pathname, int mode) {
+//     // TODO: Implement access for your operating system.
+//     // This typically involves a system call.
+//     (void)pathname; // Suppress unused parameter warning
+//     (void)mode;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

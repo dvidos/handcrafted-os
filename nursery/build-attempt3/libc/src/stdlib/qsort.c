@@ -21,12 +21,12 @@
  * 2. Using `memcpy` and pointer arithmetic to move elements.
  * 3. Recursion or an iterative approach with a stack.
  */
-void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
-    // TODO: Implement qsort for your operating system.
-    // This is a complex generic sorting algorithm.
-    (void)base;   // Suppress unused parameter warning
-    (void)nmemb;  // Suppress unused parameter warning
-    (void)size;   // Suppress unused parameter warning
-    (void)compar; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
-}
+// void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
+//     // TODO: Implement qsort for your operating system.
+//     // This is a complex generic sorting algorithm.
+//     (void)base;   // Suppress unused parameter warning
+//     (void)nmemb;  // Suppress unused parameter warning
+//     (void)size;   // Suppress unused parameter warning
+//     (void)compar; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
+// }

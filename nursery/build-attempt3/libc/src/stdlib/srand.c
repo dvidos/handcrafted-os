@@ -12,9 +12,9 @@
  * This function sets the initial state of the pseudo-random number generator.
  * For a simple LCG, it might just set a global variable.
  */
-void srand(unsigned int seed) {
-    // TODO: Implement srand for your operating system.
-    // This involves setting the seed for the rand() function.
-    (void)seed; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
-}
+// void srand(unsigned int seed) {
+//     // TODO: Implement srand for your operating system.
+//     // This involves setting the seed for the rand() function.
+//     (void)seed; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
+// }

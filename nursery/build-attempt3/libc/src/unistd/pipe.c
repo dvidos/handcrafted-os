@@ -15,10 +15,10 @@
  * Pipes are a classic form of IPC, often used with `fork` and `exec` to
  * establish communication between parent and child processes.
  */
-int pipe(int pipefd[2]) {
-    // TODO: Implement pipe for your operating system.
-    // This typically involves a system call.
-    (void)pipefd; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int pipe(int pipefd[2]) {
+//     // TODO: Implement pipe for your operating system.
+//     // This typically involves a system call.
+//     (void)pipefd; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

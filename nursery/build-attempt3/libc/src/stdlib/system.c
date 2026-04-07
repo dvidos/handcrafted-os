@@ -18,10 +18,10 @@
  * 3. The parent process `waitpid()` for the child process to complete.
  * This requires full process management and inter-process communication.
  */
-int system(const char *command) {
-    // TODO: Implement system for your operating system.
-    // This is a complex function involving fork, exec, and wait.
-    (void)command; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int system(const char *command) {
+//     // TODO: Implement system for your operating system.
+//     // This is a complex function involving fork, exec, and wait.
+//     (void)command; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

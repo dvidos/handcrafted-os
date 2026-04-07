@@ -15,10 +15,10 @@
  * 2. Write the buffered data to the underlying file descriptor (e.g., via `write()` system call).
  * 3. Reset the buffer state.
  */
-int fflush(FILE *stream) {
-    // TODO: Implement fflush for your operating system.
-    // This involves writing buffered data to the underlying file.
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return EOF;
-}
+// int fflush(FILE *stream) {
+//     // TODO: Implement fflush for your operating system.
+//     // This involves writing buffered data to the underlying file.
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return EOF;
+// }

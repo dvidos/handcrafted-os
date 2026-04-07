@@ -14,11 +14,11 @@
  * This function typically maps to a system call (e.g., `ftruncate` on Linux).
  * It's useful for changing file size without needing to close and reopen the file.
  */
-int ftruncate(int fd, off_t length) {
-    // TODO: Implement ftruncate for your operating system.
-    // This typically involves a system call.
-    (void)fd;     // Suppress unused parameter warning
-    (void)length; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int ftruncate(int fd, off_t length) {
+//     // TODO: Implement ftruncate for your operating system.
+//     // This typically involves a system call.
+//     (void)fd;     // Suppress unused parameter warning
+//     (void)length; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

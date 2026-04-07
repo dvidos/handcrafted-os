@@ -15,9 +15,9 @@
  * implementation involves adding the block to a free list or marking it as
  * available in the memory allocator's internal structures.
  */
-void free(void *ptr) {
-    // TODO: Implement free for your operating system.
-    // This involves returning memory to the allocator.
-    (void)ptr; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
-}
+// void free(void *ptr) {
+//     // TODO: Implement free for your operating system.
+//     // This involves returning memory to the allocator.
+//     (void)ptr; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
+// }

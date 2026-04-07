@@ -20,9 +20,9 @@
  * 3. The exact mechanism depends on how directory entries are read and buffered
  *    internally by `readdir`.
  */
-void seekdir(DIR *dirp, long loc) {
-    // TODO: Implement seekdir for your operating system.
-    (void)dirp; // Suppress unused parameter warning
-    (void)loc;  // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented - this function does not return a value
-}
+// void seekdir(DIR *dirp, long loc) {
+//     // TODO: Implement seekdir for your operating system.
+//     (void)dirp; // Suppress unused parameter warning
+//     (void)loc;  // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented - this function does not return a value
+// }

@@ -13,10 +13,10 @@
  * This function typically involves a system call to query the kernel for the
  * current set of pending signals for the calling thread.
  */
-int sigpending(sigset_t *set) {
-    // TODO: Implement sigpending for your operating system.
-    // This typically involves a system call.
-    (void)set; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int sigpending(sigset_t *set) {
+//     // TODO: Implement sigpending for your operating system.
+//     // This typically involves a system call.
+//     (void)set; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

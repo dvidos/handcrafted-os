@@ -15,10 +15,10 @@
  * It offers a performance optimization over `fsync` when metadata synchronization
  * is not immediately critical.
  */
-int fdatasync(int fd) {
-    // TODO: Implement fdatasync for your operating system.
-    // This typically involves a system call.
-    (void)fd; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fdatasync(int fd) {
+//     // TODO: Implement fdatasync for your operating system.
+//     // This typically involves a system call.
+//     (void)fd; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

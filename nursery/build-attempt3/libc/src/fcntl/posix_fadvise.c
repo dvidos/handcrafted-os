@@ -18,13 +18,13 @@
  * If the underlying OS does not support such fine-grained advice, this function
  * can simply return 0, indicating success (as it's a hint, not a command).
  */
-int posix_fadvise(int fd, off_t offset, off_t len, int advice) {
-    // TODO: Implement posix_fadvise for your operating system.
-    // This typically involves a system call, or can be a no-op if not supported.
-    (void)fd;     // Suppress unused parameter warning
-    (void)offset; // Suppress unused parameter warning
-    (void)len;    // Suppress unused parameter warning
-    (void)advice; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented - this function returns error number directly
-    return ENOSYS;
-}
+// int posix_fadvise(int fd, off_t offset, off_t len, int advice) {
+//     // TODO: Implement posix_fadvise for your operating system.
+//     // This typically involves a system call, or can be a no-op if not supported.
+//     (void)fd;     // Suppress unused parameter warning
+//     (void)offset; // Suppress unused parameter warning
+//     (void)len;    // Suppress unused parameter warning
+//     (void)advice; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented - this function returns error number directly
+//     return ENOSYS;
+// }

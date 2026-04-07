@@ -19,10 +19,10 @@
  * This function is often considered less safe than `setenv` because it takes
  * ownership of the passed string.
  */
-int putenv (char *string) {
-    // TODO: Implement putenv for your operating system.
-    // This involves modifying the environment array.
-    (void)string; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int putenv (char *string) {
+//     // TODO: Implement putenv for your operating system.
+//     // This involves modifying the environment array.
+//     (void)string; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

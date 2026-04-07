@@ -15,10 +15,10 @@
  *    and potentially compacting the array.
  * This often requires dynamic memory management of the environment array.
  */
-int unsetenv(const char *name) {
-    // TODO: Implement unsetenv for your operating system.
-    // This involves removing an environment variable from the list.
-    (void)name; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int unsetenv(const char *name) {
+//     // TODO: Implement unsetenv for your operating system.
+//     // This involves removing an environment variable from the list.
+//     (void)name; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

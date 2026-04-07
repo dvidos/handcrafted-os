@@ -20,12 +20,12 @@
  * 3. If not found, adding a new "name=value" string to the environment.
  * 4. This often requires dynamic memory allocation and management of the environment array.
  */
-int setenv(const char *name, const char *value, int overwrite) {
-    // TODO: Implement setenv for your operating system.
-    // This involves modifying the environment list with specific overwrite logic.
-    (void)name;      // Suppress unused parameter warning
-    (void)value;     // Suppress unused parameter warning
-    (void)overwrite; // Suppress unused parameter warning
-    errno = ENOSYS;  // Function not implemented
-    return -1;
-}
+// int setenv(const char *name, const char *value, int overwrite) {
+//     // TODO: Implement setenv for your operating system.
+//     // This involves modifying the environment list with specific overwrite logic.
+//     (void)name;      // Suppress unused parameter warning
+//     (void)value;     // Suppress unused parameter warning
+//     (void)overwrite; // Suppress unused parameter warning
+//     errno = ENOSYS;  // Function not implemented
+//     return -1;
+// }

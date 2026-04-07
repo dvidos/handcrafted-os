@@ -19,9 +19,9 @@
  * 3. The internal representation might correspond to the byte offset within the
  *    directory file or an entry index.
  */
-long telldir(DIR *dirp) {
-    // TODO: Implement telldir for your operating system.
-    (void)dirp; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// long telldir(DIR *dirp) {
+//     // TODO: Implement telldir for your operating system.
+//     (void)dirp; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

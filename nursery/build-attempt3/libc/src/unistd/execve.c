@@ -17,12 +17,12 @@
  * mapping to a system call (e.g., `execve` on Linux). It allows complete control
  * over the arguments and environment passed to the new program.
  */
-int execve(const char *path, char *const argv[], char *const envp[]) {
-    // TODO: Implement execve for your operating system.
-    // This typically involves a system call.
-    (void)path;  // Suppress unused parameter warning
-    (void)argv;  // Suppress unused parameter warning
-    (void)envp;  // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int execve(const char *path, char *const argv[], char *const envp[]) {
+//     // TODO: Implement execve for your operating system.
+//     // This typically involves a system call.
+//     (void)path;  // Suppress unused parameter warning
+//     (void)argv;  // Suppress unused parameter warning
+//     (void)envp;  // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

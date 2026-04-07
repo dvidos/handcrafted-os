@@ -15,11 +15,11 @@
  * This function typically maps to a system call (e.g., `dup2` on Linux).
  * It's used for redirecting standard I/O (e.g., `stdout` to a file).
  */
-int dup2(int oldfd, int newfd) {
-    // TODO: Implement dup2 for your operating system.
-    // This typically involves a system call.
-    (void)oldfd; // Suppress unused parameter warning
-    (void)newfd; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int dup2(int oldfd, int newfd) {
+//     // TODO: Implement dup2 for your operating system.
+//     // This typically involves a system call.
+//     (void)oldfd; // Suppress unused parameter warning
+//     (void)newfd; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

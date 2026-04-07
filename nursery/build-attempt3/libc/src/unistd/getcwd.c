@@ -15,11 +15,11 @@
  * The kernel provides the path, but this function also needs to handle
  * buffer sizing and potential truncation.
  */
-char *getcwd(char *buf, size_t size) {
-    // TODO: Implement getcwd for your operating system.
-    // This typically involves a system call.
-    (void)buf;  // Suppress unused parameter warning
-    (void)size; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// char *getcwd(char *buf, size_t size) {
+//     // TODO: Implement getcwd for your operating system.
+//     // This typically involves a system call.
+//     (void)buf;  // Suppress unused parameter warning
+//     (void)size; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

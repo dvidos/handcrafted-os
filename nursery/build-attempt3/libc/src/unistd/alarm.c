@@ -15,10 +15,10 @@
  * This function typically maps to a system call (e.g., `alarm` on Linux).
  * It interacts with the kernel's timer facilities.
  */
-unsigned int alarm(unsigned int seconds) {
-    // TODO: Implement alarm for your operating system.
-    // This typically involves a system call.
-    (void)seconds; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return 0;
-}
+// unsigned int alarm(unsigned int seconds) {
+//     // TODO: Implement alarm for your operating system.
+//     // This typically involves a system call.
+//     (void)seconds; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return 0;
+// }

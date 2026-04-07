@@ -14,11 +14,11 @@
  * This function typically maps to a system call (e.g., `chmod` on Linux).
  * It requires appropriate permissions to change the file's mode.
  */
-int chmod(const char *pathname, mode_t mode) {
-    // TODO: Implement chmod for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    (void)mode;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int chmod(const char *pathname, mode_t mode) {
+//     // TODO: Implement chmod for your operating system.
+//     // This typically involves a system call.
+//     (void)pathname; // Suppress unused parameter warning
+//     (void)mode;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

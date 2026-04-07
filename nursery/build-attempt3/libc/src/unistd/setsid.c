@@ -15,9 +15,9 @@
  * It's essential for creating daemons or background processes that detach
  * from their controlling terminal.
  */
-pid_t setsid(void) {
-    // TODO: Implement setsid for your operating system.
-    // This typically involves a system call.
-    errno = ENOSYS; // Function not implemented
-    return (pid_t)-1;
-}
+// pid_t setsid(void) {
+//     // TODO: Implement setsid for your operating system.
+//     // This typically involves a system call.
+//     errno = ENOSYS; // Function not implemented
+//     return (pid_t)-1;
+// }

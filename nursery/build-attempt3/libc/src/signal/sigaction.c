@@ -18,12 +18,12 @@
  * signal dispatching for the specified signal. It needs to handle the `sigaction`
  * structure members, including the handler function, signal mask, and flags.
  */
-int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
-    // TODO: Implement sigaction for your operating system.
-    // This typically involves a system call to set up signal handlers.
-    (void)signum; // Suppress unused parameter warning
-    (void)act;    // Suppress unused parameter warning
-    (void)oldact; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
+//     // TODO: Implement sigaction for your operating system.
+//     // This typically involves a system call to set up signal handlers.
+//     (void)signum; // Suppress unused parameter warning
+//     (void)act;    // Suppress unused parameter warning
+//     (void)oldact; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

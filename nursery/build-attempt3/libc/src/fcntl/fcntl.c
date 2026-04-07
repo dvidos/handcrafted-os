@@ -16,18 +16,18 @@
  * This function typically translates the `cmd` and arguments into a system call.
  * The implementation must correctly handle the variadic argument for commands that require it.
  */
-int fcntl(int fd, int cmd, ...) {
-    // TODO: Implement fcntl for your operating system.
-    // This typically involves a system call.
-    (void)fd;  // Suppress unused parameter warning
-    (void)cmd; // Suppress unused parameter warning
+// int fcntl(int fd, int cmd, ...) {
+//     // TODO: Implement fcntl for your operating system.
+//     // This typically involves a system call.
+//     (void)fd;  // Suppress unused parameter warning
+//     (void)cmd; // Suppress unused parameter warning
 
-    // Handle variadic arguments based on cmd
-    // va_list args;
-    // va_start(args, cmd);
-    // long arg = va_arg(args, long); // Example for a command taking a long
-    // va_end(args);
+//     // Handle variadic arguments based on cmd
+//     // va_list args;
+//     // va_start(args, cmd);
+//     // long arg = va_arg(args, long); // Example for a command taking a long
+//     // va_end(args);
 
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

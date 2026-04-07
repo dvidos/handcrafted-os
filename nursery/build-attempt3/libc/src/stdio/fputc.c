@@ -15,11 +15,11 @@
  * buffering (full, line, or unbuffered) and eventually calls the underlying
  * system call (e.g., `write`) to output the character.
  */
-int fputc(int c, FILE *stream) {
-    // TODO: Implement fputc for your operating system.
-    // This involves writing a single character to the specified stream, managing buffering.
-    (void)c;      // Suppress unused parameter warning
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return EOF;
-}
+// int fputc(int c, FILE *stream) {
+//     // TODO: Implement fputc for your operating system.
+//     // This involves writing a single character to the specified stream, managing buffering.
+//     (void)c;      // Suppress unused parameter warning
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return EOF;
+// }

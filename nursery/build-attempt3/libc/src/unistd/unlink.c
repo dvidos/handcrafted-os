@@ -15,10 +15,10 @@
  * This function typically maps to a system call (e.g., `unlink` on Linux).
  * It's the primary way to remove files.
  */
-int unlink(const char *pathname) {
-    // TODO: Implement unlink for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int unlink(const char *pathname) {
+//     // TODO: Implement unlink for your operating system.
+//     // This typically involves a system call.
+//     (void)pathname; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

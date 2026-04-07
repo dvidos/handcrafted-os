@@ -18,12 +18,12 @@
  * until a newline, EOF, or buffer limit is reached. It manages buffering
  * and ensures null termination.
  */
-char *fgets(char *s, int size, FILE *stream) {
-    // TODO: Implement fgets for your operating system.
-    // This involves reading a line, managing buffer and newline.
-    (void)s;      // Suppress unused parameter warning
-    (void)size;   // Suppress unused parameter warning
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// char *fgets(char *s, int size, FILE *stream) {
+//     // TODO: Implement fgets for your operating system.
+//     // This involves reading a line, managing buffer and newline.
+//     (void)s;      // Suppress unused parameter warning
+//     (void)size;   // Suppress unused parameter warning
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

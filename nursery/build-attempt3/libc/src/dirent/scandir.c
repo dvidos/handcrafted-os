@@ -26,14 +26,14 @@
  * 4. If `compar` is not NULL, sort the `namelist` array using `qsort`.
  * 5. On failure, free any allocated memory before returning.
  */
-int scandir(const char *dirp, struct dirent ***namelist,
-            int (*filter)(const struct dirent *),
-            int (*compar)(const struct dirent **, const struct dirent **)) {
-    // TODO: Implement scandir for your operating system.
-    (void)dirp;     // Suppress unused parameter warning
-    (void)namelist; // Suppress unused parameter warning
-    (void)filter;   // Suppress unused parameter warning
-    (void)compar;   // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int scandir(const char *dirp, struct dirent ***namelist,
+//             int (*filter)(const struct dirent *),
+//             int (*compar)(const struct dirent **, const struct dirent **)) {
+//     // TODO: Implement scandir for your operating system.
+//     (void)dirp;     // Suppress unused parameter warning
+//     (void)namelist; // Suppress unused parameter warning
+//     (void)filter;   // Suppress unused parameter warning
+//     (void)compar;   // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

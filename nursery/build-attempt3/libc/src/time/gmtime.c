@@ -16,10 +16,10 @@
  * convert seconds since Epoch to year, month, day, hour, minute, second
  * in UTC, accounting for leap years.
  */
-struct tm *gmtime(const time_t *timer) {
-    // TODO: Implement gmtime for your operating system.
-    // This is a complex time conversion function.
-    (void)timer; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// struct tm *gmtime(const time_t *timer) {
+//     // TODO: Implement gmtime for your operating system.
+//     // This is a complex time conversion function.
+//     (void)timer; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

@@ -13,9 +13,9 @@
  * This function typically maps to a system call (e.g., `pause` on Linux).
  * It's a simple way to wait for any signal.
  */
-int pause(void) {
-    // TODO: Implement pause for your operating system.
-    // This typically involves a system call.
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int pause(void) {
+//     // TODO: Implement pause for your operating system.
+//     // This typically involves a system call.
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

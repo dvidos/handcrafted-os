@@ -16,11 +16,11 @@
  * FIFOs are a form of interprocess communication (IPC) that allows
  * unrelated processes to exchange data.
  */
-int mkfifo(const char *pathname, mode_t mode) {
-    // TODO: Implement mkfifo for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    (void)mode;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int mkfifo(const char *pathname, mode_t mode) {
+//     // TODO: Implement mkfifo for your operating system.
+//     // This typically involves a system call.
+//     (void)pathname; // Suppress unused parameter warning
+//     (void)mode;     // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

@@ -15,11 +15,11 @@
  * This can often be implemented as a wrapper around `malloc` followed by `memset`.
  * It needs to handle potential integer overflow if `nmemb * size` exceeds `SIZE_MAX`.
  */
-void *calloc(size_t nmemb, size_t size) {
-    // TODO: Implement calloc for your operating system.
-    // This can often be a wrapper around malloc and memset.
-    (void)nmemb; // Suppress unused parameter warning
-    (void)size;  // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// void *calloc(size_t nmemb, size_t size) {
+//     // TODO: Implement calloc for your operating system.
+//     // This can often be a wrapper around malloc and memset.
+//     (void)nmemb; // Suppress unused parameter warning
+//     (void)size;  // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

@@ -17,16 +17,16 @@
  * It needs to direct the formatted output to the `stream`'s internal
  * buffering mechanism and ultimately to the underlying file descriptor.
  */
-int fprintf(FILE *stream, const char *format, ...) {
-    // TODO: Implement fprintf for your operating system.
-    // This involves parsing format strings and writing to the specified stream.
-    (void)stream; // Suppress unused parameter warning
-    (void)format; // Suppress unused parameter warning
-    // va_list args;
-    // va_start(args, format);
-    // int ret = vfprintf(stream, format, args);
-    // va_end(args);
-    // return ret;
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fprintf(FILE *stream, const char *format, ...) {
+//     // TODO: Implement fprintf for your operating system.
+//     // This involves parsing format strings and writing to the specified stream.
+//     (void)stream; // Suppress unused parameter warning
+//     (void)format; // Suppress unused parameter warning
+//     // va_list args;
+//     // va_start(args, format);
+//     // int ret = vfprintf(stream, format, args);
+//     // va_end(args);
+//     // return ret;
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

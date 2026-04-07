@@ -13,10 +13,10 @@
  * This function typically maps to a system call (e.g., `sysconf` on Linux).
  * It's a versatile interface for getting various system-specific limits and parameters.
  */
-long sysconf(int name) {
-    // TODO: Implement sysconf for your operating system.
-    // This typically involves a system call.
-    (void)name; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// long sysconf(int name) {
+//     // TODO: Implement sysconf for your operating system.
+//     // This typically involves a system call.
+//     (void)name; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

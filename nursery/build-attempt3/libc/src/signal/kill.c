@@ -15,11 +15,11 @@
  * This function typically maps directly to a `kill` system call in the kernel.
  * The kernel is responsible for delivering the signal to the target process(es).
  */
-int kill(pid_t pid, int sig) {
-    // TODO: Implement kill for your operating system.
-    // This typically involves a system call.
-    (void)pid; // Suppress unused parameter warning
-    (void)sig; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int kill(pid_t pid, int sig) {
+//     // TODO: Implement kill for your operating system.
+//     // This typically involves a system call.
+//     (void)pid; // Suppress unused parameter warning
+//     (void)sig; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

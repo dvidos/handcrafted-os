@@ -17,11 +17,11 @@
  * how much has been read into a buffer, direction of I/O). The `fpos_t`
  * type is opaque and its internal structure is implementation-defined.
  */
-int fgetpos(FILE *stream, fpos_t *pos) {
-    // TODO: Implement fgetpos for your operating system.
-    // This involves saving the current file position and stream state.
-    (void)stream; // Suppress unused parameter warning
-    (void)pos;    // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fgetpos(FILE *stream, fpos_t *pos) {
+//     // TODO: Implement fgetpos for your operating system.
+//     // This involves saving the current file position and stream state.
+//     (void)stream; // Suppress unused parameter warning
+//     (void)pos;    // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

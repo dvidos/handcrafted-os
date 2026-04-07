@@ -18,11 +18,11 @@
  * performing a `lseek` system call, and then restoring the buffer state as
  * recorded in `fpos_t`.
  */
-int fsetpos(FILE *stream, const fpos_t *pos) {
-    // TODO: Implement fsetpos for your operating system.
-    // This involves restoring the file position and stream state.
-    (void)stream; // Suppress unused parameter warning
-    (void)pos;    // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fsetpos(FILE *stream, const fpos_t *pos) {
+//     // TODO: Implement fsetpos for your operating system.
+//     // This involves restoring the file position and stream state.
+//     (void)stream; // Suppress unused parameter warning
+//     (void)pos;    // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

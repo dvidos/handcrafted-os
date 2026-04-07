@@ -14,10 +14,10 @@
  * buffering and eventually calls the underlying system call (e.g., `read`)
  * to input data.
  */
-int fgetc(FILE *stream) {
-    // TODO: Implement fgetc for your operating system.
-    // This involves reading a single character from the specified stream, managing buffering.
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return EOF;
-}
+// int fgetc(FILE *stream) {
+//     // TODO: Implement fgetc for your operating system.
+//     // This involves reading a single character from the specified stream, managing buffering.
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return EOF;
+// }

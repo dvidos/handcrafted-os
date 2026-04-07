@@ -13,10 +13,10 @@
  * This function typically maps to a system call (e.g., `chdir` on Linux).
  * The kernel is responsible for tracking the current working directory for each process.
  */
-int chdir(const char *path) {
-    // TODO: Implement chdir for your operating system.
-    // This typically involves a system call.
-    (void)path; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int chdir(const char *path) {
+//     // TODO: Implement chdir for your operating system.
+//     // This typically involves a system call.
+//     (void)path; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

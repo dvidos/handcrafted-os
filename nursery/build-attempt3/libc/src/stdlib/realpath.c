@@ -18,11 +18,11 @@
  * `stat`) and careful string manipulation to resolve path components and avoid
  * infinite loops with symbolic links.
  */
-char *realpath(const char *path, char *resolved_path) {
-    // TODO: Implement realpath for your operating system.
-    // This is a complex path resolution function involving multiple system calls.
-    (void)path;          // Suppress unused parameter warning
-    (void)resolved_path; // Suppress unused parameter warning
-    errno = ENOSYS;      // Function not implemented
-    return NULL;
-}
+// char *realpath(const char *path, char *resolved_path) {
+//     // TODO: Implement realpath for your operating system.
+//     // This is a complex path resolution function involving multiple system calls.
+//     (void)path;          // Suppress unused parameter warning
+//     (void)resolved_path; // Suppress unused parameter warning
+//     errno = ENOSYS;      // Function not implemented
+//     return NULL;
+// }

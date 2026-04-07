@@ -19,12 +19,12 @@
  * This function typically maps to a system call (e.g., `lseek` on Linux).
  * It allows random access within a file.
  */
-off_t lseek(int fd, off_t offset, int whence) {
-    // TODO: Implement lseek for your operating system.
-    // This typically involves a system call.
-    (void)fd;     // Suppress unused parameter warning
-    (void)offset; // Suppress unused parameter warning
-    (void)whence; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return (off_t)-1;
-}
+// off_t lseek(int fd, off_t offset, int whence) {
+//     // TODO: Implement lseek for your operating system.
+//     // This typically involves a system call.
+//     (void)fd;     // Suppress unused parameter warning
+//     (void)offset; // Suppress unused parameter warning
+//     (void)whence; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return (off_t)-1;
+// }

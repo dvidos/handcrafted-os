@@ -1,29 +1,34 @@
 #include "../libc_internal.h"
-#include <stddef.h> // For size_t
+#include <stddef.h> // For size_t, NULL
+// #include <errno.h> // Removed, as not needed for this implementation
 
-/**
- * @brief Locates the first occurrence of a substring.
- *
- * This function finds the first occurrence of the null-terminated substring
- * `needle` in the null-terminated string `haystack`.
- *
- * @param haystack The string to search within.
- * @param needle The substring to search for.
- * @return A pointer to the first occurrence of `needle` in `haystack`,
- *         or NULL if `needle` is not found. If `needle` is an empty string,
- *         `haystack` is returned.
- *
- * @implNote
- * This function involves searching algorithms. A naive implementation
- * involves nested loops, but more optimized algorithms (e.g., Boyer-Moore,
- * Knuth-Morris-Pratt) can be used for better performance, especially
- * with long strings and needles.
- */
 char *strstr(const char *haystack, const char *needle) {
-    // TODO: Implement strstr for your operating system.
-    // This is a complex string searching algorithm.
-    (void)haystack; // Suppress unused parameter warning
-    (void)needle;   // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
+    if (!haystack || !needle) {
+        // POSIX defines behavior as undefined if haystack or needle is a null pointer.
+        // We proceed assuming valid non-NULL inputs as per common libc implementations.
+        return NULL;
+    }
+
+    if (*needle == '\0') {
+        return (char *)haystack; // Empty needle, return haystack
+    }
+
+    const char *h_ptr = haystack;
+    while (*h_ptr != '\0') {
+        const char *n_ptr = needle;
+        const char *h_current = h_ptr;
+
+        // Check if needle matches starting from current position in haystack
+        while (*n_ptr != '\0' && *h_current != '\0' && *n_ptr == *h_current) {
+            n_ptr++;
+            h_current++;
+        }
+
+        if (*n_ptr == '\0') {
+            return (char *)h_ptr; // Needle found
+        }
+        h_ptr++;
+    }
+
+    return NULL; // Needle not found
 }

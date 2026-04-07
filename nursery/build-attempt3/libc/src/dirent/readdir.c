@@ -21,9 +21,9 @@
  *    or a thread-local buffer, which means its content may be overwritten by subsequent
  *    calls to `readdir` or `readdir_r`.
  */
-struct dirent *readdir(DIR *dirp) {
-    // TODO: Implement readdir for your operating system.
-    (void)dirp; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// struct dirent *readdir(DIR *dirp) {
+//     // TODO: Implement readdir for your operating system.
+//     (void)dirp; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

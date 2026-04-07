@@ -13,10 +13,10 @@
  * This function typically makes a system call to send the signal to the current process.
  * It's effectively a self-targeting `kill(getpid(), signum)`.
  */
-int raise(int signum) {
-    // TODO: Implement raise for your operating system.
-    // This typically involves a system call to send a signal to the current process.
-    (void)signum; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int raise(int signum) {
+//     // TODO: Implement raise for your operating system.
+//     // This typically involves a system call to send a signal to the current process.
+//     (void)signum; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

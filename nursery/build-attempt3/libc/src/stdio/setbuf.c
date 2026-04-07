@@ -15,10 +15,10 @@
  * how it interacts with its internal read/write buffer. It usually needs to
  * be called after `fopen` but before any I/O operations on the stream.
  */
-void setbuf(FILE *stream, char *buf) {
-    // TODO: Implement setbuf for your operating system.
-    // This involves configuring the stream's buffering.
-    (void)stream; // Suppress unused parameter warning
-    (void)buf;    // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented - this function does not return a value
-}
+// void setbuf(FILE *stream, char *buf) {
+//     // TODO: Implement setbuf for your operating system.
+//     // This involves configuring the stream's buffering.
+//     (void)stream; // Suppress unused parameter warning
+//     (void)buf;    // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented - this function does not return a value
+// }

@@ -24,14 +24,14 @@
  * 2. Using pointer arithmetic to access elements.
  * 3. Repeatedly dividing the search interval in half.
  */
-void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
-    // TODO: Implement bsearch for your operating system.
-    // This is a complex generic searching algorithm.
-    (void)key;    // Suppress unused parameter warning
-    (void)base;   // Suppress unused parameter warning
-    (void)nmemb;  // Suppress unused parameter warning
-    (void)size;   // Suppress unused parameter warning
-    (void)compar; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
+//     // TODO: Implement bsearch for your operating system.
+//     // This is a complex generic searching algorithm.
+//     (void)key;    // Suppress unused parameter warning
+//     (void)base;   // Suppress unused parameter warning
+//     (void)nmemb;  // Suppress unused parameter warning
+//     (void)size;   // Suppress unused parameter warning
+//     (void)compar; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

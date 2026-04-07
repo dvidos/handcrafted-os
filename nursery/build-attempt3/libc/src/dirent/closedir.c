@@ -16,9 +16,9 @@
  * 2. Free any dynamically allocated memory for the `DIR` structure and its internal buffers.
  * 3. Handle errors from the system call.
  */
-int closedir(DIR *dirp) {
-    // TODO: Implement closedir for your operating system.
-    (void)dirp; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int closedir(DIR *dirp) {
+//     // TODO: Implement closedir for your operating system.
+//     (void)dirp; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

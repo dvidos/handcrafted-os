@@ -15,10 +15,10 @@
  * This function typically maps to a system call (e.g., `dup` on Linux).
  * It's a low-level operation to create another handle to an open file.
  */
-int dup(int oldfd) {
-    // TODO: Implement dup for your operating system.
-    // This typically involves a system call.
-    (void)oldfd; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int dup(int oldfd) {
+//     // TODO: Implement dup for your operating system.
+//     // This typically involves a system call.
+//     (void)oldfd; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

@@ -17,10 +17,10 @@
  * equivalent) to create a unique name, and then `open` to create the file.
  * It's important to prevent race conditions during name generation and file creation.
  */
-int mkstemp(char *template) {
-    // TODO: Implement mkstemp for your operating system.
-    // This involves generating a unique filename and opening it.
-    (void)template; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int mkstemp(char *template) {
+//     // TODO: Implement mkstemp for your operating system.
+//     // This involves generating a unique filename and opening it.
+//     (void)template; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

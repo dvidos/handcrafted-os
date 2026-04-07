@@ -17,10 +17,10 @@
  * 4. Freeing the `FILE` structure itself.
  * Error handling during flushing or closing the descriptor is important.
  */
-int fclose(FILE *stream) {
-    // TODO: Implement fclose for your operating system.
-    // This involves flushing buffers, closing the file descriptor, and freeing the stream.
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return EOF;
-}
+// int fclose(FILE *stream) {
+//     // TODO: Implement fclose for your operating system.
+//     // This involves flushing buffers, closing the file descriptor, and freeing the stream.
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return EOF;
+// }

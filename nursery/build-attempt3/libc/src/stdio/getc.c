@@ -15,8 +15,8 @@
  * If implemented as a function, its behavior is identical to `fgetc`. If as a macro,
  * it avoids function call overhead but may re-evaluate its arguments.
  */
-int getc(FILE *stream) {
-    // TODO: Implement getc for your operating system.
-    // This can be identical to fgetc, or a macro.
-    return fgetc(stream);
-}
+// int getc(FILE *stream) {
+//     // TODO: Implement getc for your operating system.
+//     // This can be identical to fgetc, or a macro.
+//     return fgetc(stream);
+// }

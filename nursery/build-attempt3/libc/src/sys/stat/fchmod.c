@@ -15,11 +15,11 @@
  * It allows changing permissions on an already open file, which can be useful
  * when the path to the file is not easily accessible.
  */
-int fchmod(int fd, mode_t mode) {
-    // TODO: Implement fchmod for your operating system.
-    // This typically involves a system call.
-    (void)fd;   // Suppress unused parameter warning
-    (void)mode; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fchmod(int fd, mode_t mode) {
+//     // TODO: Implement fchmod for your operating system.
+//     // This typically involves a system call.
+//     (void)fd;   // Suppress unused parameter warning
+//     (void)mode; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

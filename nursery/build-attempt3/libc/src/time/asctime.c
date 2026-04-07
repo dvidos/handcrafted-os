@@ -18,10 +18,10 @@
  * a static buffer. Its implementation involves formatting the fields of `struct tm`
  * into a fixed-format string.
  */
-char *asctime(const struct tm *timeptr) {
-    // TODO: Implement asctime for your operating system.
-    // This involves formatting a struct tm into a standard string.
-    (void)timeptr; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// char *asctime(const struct tm *timeptr) {
+//     // TODO: Implement asctime for your operating system.
+//     // This involves formatting a struct tm into a standard string.
+//     (void)timeptr; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

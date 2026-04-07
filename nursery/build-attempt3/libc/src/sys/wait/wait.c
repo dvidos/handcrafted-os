@@ -17,10 +17,10 @@
  * with appropriate flags). The kernel manages the process states and notifies
  * the parent when a child changes state.
  */
-pid_t wait(int *stat_loc) {
-    // TODO: Implement wait for your operating system.
-    // This typically involves a system call.
-    (void)stat_loc; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return (pid_t)-1;
-}
+// pid_t wait(int *stat_loc) {
+//     // TODO: Implement wait for your operating system.
+//     // This typically involves a system call.
+//     (void)stat_loc; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return (pid_t)-1;
+// }

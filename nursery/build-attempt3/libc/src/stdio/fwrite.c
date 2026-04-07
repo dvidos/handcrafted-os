@@ -18,13 +18,13 @@
  * (like `fputc`) or directly interacts with the stream's buffer and underlying
  * `write` system call. It handles buffering and error flags for the stream.
  */
-size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    // TODO: Implement fwrite for your operating system.
-    // This involves writing blocks of data, managing buffering.
-    (void)ptr;    // Suppress unused parameter warning
-    (void)size;   // Suppress unused parameter warning
-    (void)nmemb;  // Suppress unused parameter warning
-    (void)stream; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return 0;
-}
+// size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+//     // TODO: Implement fwrite for your operating system.
+//     // This involves writing blocks of data, managing buffering.
+//     (void)ptr;    // Suppress unused parameter warning
+//     (void)size;   // Suppress unused parameter warning
+//     (void)nmemb;  // Suppress unused parameter warning
+//     (void)stream; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return 0;
+// }

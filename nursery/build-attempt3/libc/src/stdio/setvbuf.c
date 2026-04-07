@@ -20,13 +20,13 @@
  * structure, and handling the three different buffering modes. It must be
  * called after `fopen` but before any I/O.
  */
-int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
-    // TODO: Implement setvbuf for your operating system.
-    // This involves complex buffering setup for a stream.
-    (void)stream; // Suppress unused parameter warning
-    (void)buf;    // Suppress unused parameter warning
-    (void)mode;   // Suppress unused parameter warning
-    (void)size;   // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
+//     // TODO: Implement setvbuf for your operating system.
+//     // This involves complex buffering setup for a stream.
+//     (void)stream; // Suppress unused parameter warning
+//     (void)buf;    // Suppress unused parameter warning
+//     (void)mode;   // Suppress unused parameter warning
+//     (void)size;   // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

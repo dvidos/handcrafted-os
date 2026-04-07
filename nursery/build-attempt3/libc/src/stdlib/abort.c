@@ -11,13 +11,13 @@
  * This function usually maps to a system call or a sequence of system calls
  * that forcefully terminates the current process. It should not return.
  */
-void abort(void) {
-    // TODO: Implement abort for your operating system.
-    // This typically involves sending a SIGABRT signal to self or a system halt.
-    errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
-    // For systems where abort doesn't return, an infinite loop or system halt
-    // is appropriate as a placeholder.
-    while (1) {
-        // Halt the system or enter a debugger
-    }
-}
+// void abort(void) {
+//     // TODO: Implement abort for your operating system.
+//     // This typically involves sending a SIGABRT signal to self or a system halt.
+//     errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
+//     // For systems where abort doesn't return, an infinite loop or system halt
+//     // is appropriate as a placeholder.
+//     while (1) {
+//         // Halt the system or enter a debugger
+//     }
+// }

@@ -16,12 +16,12 @@
  * This function typically maps to a system call (e.g., `fchown` on Linux).
  * It requires appropriate privileges (e.g., `CAP_CHOWN` on Linux) to change ownership.
  */
-int fchown(int fd, uid_t owner, gid_t group) {
-    // TODO: Implement fchown for your operating system.
-    // This typically involves a system call.
-    (void)fd;    // Suppress unused parameter warning
-    (void)owner; // Suppress unused parameter warning
-    (void)group; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int fchown(int fd, uid_t owner, gid_t group) {
+//     // TODO: Implement fchown for your operating system.
+//     // This typically involves a system call.
+//     (void)fd;    // Suppress unused parameter warning
+//     (void)owner; // Suppress unused parameter warning
+//     (void)group; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

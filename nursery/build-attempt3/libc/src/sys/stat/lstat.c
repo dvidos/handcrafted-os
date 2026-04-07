@@ -16,11 +16,11 @@
  * This function typically maps to a system call (e.g., `lstat` on Linux).
  * It's crucial for tools that need to inspect symbolic links directly.
  */
-int lstat(const char *pathname, struct stat *buf) {
-    // TODO: Implement lstat for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    (void)buf;      // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int lstat(const char *pathname, struct stat *buf) {
+//     // TODO: Implement lstat for your operating system.
+//     // This typically involves a system call.
+//     (void)pathname; // Suppress unused parameter warning
+//     (void)buf;      // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }

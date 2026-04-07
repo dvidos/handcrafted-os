@@ -26,10 +26,10 @@ int errno;
  * ```
  * The global `errno` macro would then be defined as `*__errno_location()`.
  */
-int *__errno_location(void) {
-    // TODO: Implement __errno_location for your operating system.
-    // This typically involves returning the address of a thread-local errno variable.
-    // For a single-threaded environment, it could simply return the address of the global errno.
-    static int global_errno; // Placeholder for single-threaded or initial implementation
-    return &global_errno;
-}
+// int *__errno_location(void) {
+//     // TODO: Implement __errno_location for your operating system.
+//     // This typically involves returning the address of a thread-local errno variable.
+//     // For a single-threaded environment, it could simply return the address of the global errno.
+//     static int global_errno; // Placeholder for single-threaded or initial implementation
+//     return &global_errno;
+// }

@@ -20,12 +20,34 @@
  * current locale. In a minimal libc, it might perform a simple byte-for-byte
  * copy and return `strlen(src)`.
  */
+#include "../libc_internal.h"
+#include <string.h> // For strncpy, strlen
+#include <stddef.h> // For size_t, NULL
+
 size_t strxfrm(char *dest, const char *src, size_t n) {
-    // TODO: Implement strxfrm for your operating system.
-    // This is a complex, locale-dependent string transformation function.
-    (void)dest; // Suppress unused parameter warning
-    (void)src;  // Suppress unused parameter warning
-    (void)n;    // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return 0;
+    size_t src_len;
+
+    if (!src) {
+        // According to POSIX, if src is NULL, the behavior is undefined.
+        // We assume valid non-NULL inputs.
+        return 0; // Or some error indicator if convention allows
+    }
+
+    src_len = strlen(src);
+
+    if (dest && n > 0) {
+        // Copy at most n-1 characters, ensuring null termination
+        // strncpy fills the remaining space with nulls if src_len < n-1
+        // but it doesn't guarantee null termination if src_len >= n.
+        // So, we manually null-terminate.
+        size_t copy_len = (src_len < (n - 1)) ? src_len : (n - 1);
+        strncpy(dest, src, copy_len);
+        dest[copy_len] = '\0';
+    } else if (n == 0) {
+        // If n is 0, dest is ignored, and strxfrm simply returns the length
+        // that would have been written.
+        // This is correctly handled by returning src_len.
+    }
+
+    return src_len;
 }

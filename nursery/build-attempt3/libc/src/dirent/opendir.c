@@ -17,9 +17,9 @@
  *    including the file descriptor returned by the system call and a buffer for reading entries.
  * 3. Handle potential errors from the system call (e.g., `ENOENT`, `EACCES`, `ENOTDIR`).
  */
-DIR *opendir(const char *name) {
-    // TODO: Implement opendir for your operating system.
-    (void)name; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
-}
+// DIR *opendir(const char *name) {
+//     // TODO: Implement opendir for your operating system.
+//     (void)name; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return NULL;
+// }

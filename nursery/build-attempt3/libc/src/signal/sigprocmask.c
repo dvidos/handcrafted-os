@@ -19,12 +19,12 @@
  * signal mask for the current thread or process. It's crucial for controlling
  * when signals are delivered.
  */
-int sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
-    // TODO: Implement sigprocmask for your operating system.
-    // This typically involves a system call.
-    (void)how;    // Suppress unused parameter warning
-    (void)set;    // Suppress unused parameter warning
-    (void)oldset; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
-}
+// int sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
+//     // TODO: Implement sigprocmask for your operating system.
+//     // This typically involves a system call.
+//     (void)how;    // Suppress unused parameter warning
+//     (void)set;    // Suppress unused parameter warning
+//     (void)oldset; // Suppress unused parameter warning
+//     errno = ENOSYS; // Function not implemented
+//     return -1;
+// }
