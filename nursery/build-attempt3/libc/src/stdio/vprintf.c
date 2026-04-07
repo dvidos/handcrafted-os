@@ -16,11 +16,24 @@
  * formatting, and writing to `stdout`. Other `*printf` functions often
  * wrap around this function.
  */
-// int vprintf(const char *format, va_list ap) {
-//     // TODO: Implement vprintf for your operating system.
-//     // This is the core variadic printf function writing to stdout.
-//     (void)format; // Suppress unused parameter warning
-//     (void)ap;     // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int vprintf(const char *format, va_list ap) {
+    char tmp[128];
+    int len;
+
+    int total = vsnprintf(tmp, sizeof(tmp), format, ap);
+    if (total < 0)
+        return total;
+    if ((unsigned)total < sizeof(tmp))
+        return write(STDOUT_FILENO, tmp, strlen(tmp));
+
+    // we need more than our stack
+    char *big = malloc(total + 1);
+    if (big == 0) return -1;
+
+    vsnprintf(big, total + 1, format, ap);
+
+    len = write(STDOUT_FILENO, big, total);
+    free(big);
+
+    return len;
+}

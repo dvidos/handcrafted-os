@@ -20,10 +20,6 @@
  * by the process's `umask` to determine the actual file permissions.
  */
 int open(const char *pathname, int flags, ...) {
-    // TODO: Implement open for your operating system.
-    // This typically involves a system call.
-    (void)pathname; // Suppress unused parameter warning
-    (void)flags;    // Suppress unused parameter warning
 
     // Handle variadic arguments for mode if O_CREAT is set
     // va_list args;
@@ -33,7 +29,6 @@ int open(const char *pathname, int flags, ...) {
     //     mode = va_arg(args, mode_t);
     // }
     // va_end(args);
-
-    errno = ENOSYS; // Function not implemented
-    return -1;
+    
+    return syscall(SYS_OPEN, (int)pathname, flags, 0, 0, 0);
 }

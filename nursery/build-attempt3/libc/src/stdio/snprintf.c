@@ -21,17 +21,12 @@
  * The return value behavior is important: it indicates how many characters
  * *would have been* written, which can be useful for determining buffer needs.
  */
-// int snprintf(char *str, size_t size, const char *format, ...) {
-//     // TODO: Implement snprintf for your operating system.
-//     // This involves parsing format strings and writing safely to a character array.
-//     (void)str;    // Suppress unused parameter warning
-//     (void)size;   // Suppress unused parameter warning
-//     (void)format; // Suppress unused parameter warning
-//     // va_list args;
-//     // va_start(args, format);
-//     // int ret = vsnprintf(str, size, format, args);
-//     // va_end(args);
-//     // return ret;
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int snprintf(char *str, size_t size, const char *format, ...) {
+    va_list args;
+    
+    va_start(args, format);
+    int total = vsnprintf(str, size, format, args);
+    va_end(args);
+
+    return total;
+}

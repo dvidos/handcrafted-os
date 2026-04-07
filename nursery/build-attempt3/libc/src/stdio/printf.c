@@ -12,25 +12,31 @@
  * @param ... Additional arguments corresponding to format specifiers in `format`.
  * @return On success, the total number of characters written is returned.
  *         On error, a negative value is returned.
- *
- * @implNote
- * This is a fundamental output function. Its implementation involves:
- * 1. Parsing the `format` string to identify format specifiers.
- * 2. Accessing the variadic arguments using `va_list` (from `<stdarg.h>`).
- * 3. Converting and formatting each argument according to its specifier.
- * 4. Writing the resulting characters to `stdout` (which internally might
- *    call `fputc` or `write` system calls).
- * 5. Managing internal buffers associated with `stdout`.
  */
 int printf(const char *format, ...) {
-    // TODO: Implement printf for your operating system.
-    // This involves parsing format strings and writing to stdout.
-    (void)format; // Suppress unused parameter warning
-    // va_list args;
-    // va_start(args, format);
-    // int ret = vprintf(format, args);
-    // va_end(args);
-    // return ret;
-    errno = ENOSYS; // Function not implemented
-    return -1;
+    char tmp[128];
+    int len;
+
+    va_list args;
+    va_start(args, format);
+    int total = vsnprintf(tmp, sizeof(tmp), format, args);
+    va_end(args);
+
+    if (total < 0)
+        return total;
+    if ((unsigned)total < sizeof(tmp))
+        return write(STDOUT_FILENO, tmp, strlen(tmp));
+
+    // we need more than our stack
+    char *big = malloc(total + 1);
+    if (big == 0) return -1;
+
+    va_start(args, format);
+    vsnprintf(big, total + 1, format, args);
+    va_end(args);
+
+    len = write(STDOUT_FILENO, big, total);
+    free(big);
+
+    return len;
 }

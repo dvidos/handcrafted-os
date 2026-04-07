@@ -16,9 +16,5 @@
  * if it becomes zero, the file description is freed.
  */
 int close(int fd) {
-    // TODO: Implement close for your operating system.
-    // This typically involves a system call.
-    (void)fd; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
+    return syscall(SYS_CLOSE, fd, 0, 0, 0, 0);
 }

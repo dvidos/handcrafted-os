@@ -43,4 +43,10 @@
 #define INTPTR_MAX INT64_MAX
 #define UINTPTR_MAX UINT64_MAX
 
+
+// This is a 32 bit system
+#define SIZE_MAX	(4294967295U)
+
+
+
 #endif // _STDINT_H

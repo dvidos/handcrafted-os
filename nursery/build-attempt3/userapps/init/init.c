@@ -1,7 +1,9 @@
-#include <stdio.h>
-#include <string.h>
+#include <hcos/syslog.h>
 #include <stdlib.h>
-#include <stdbool.h> // For bool type
+#include <stdbool.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 // Definitions for common types
 typedef int pid_t;
@@ -181,7 +183,7 @@ void fatal(char *msg) {
 }
 
 char *load_initrc_file() {
-    int h = open("/etc/initrc");
+    int h = open("/etc/initrc", 0);
     if (h < 0) return NULL;
 
     int length = seek(h, 0, SEEK_END);

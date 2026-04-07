@@ -190,11 +190,6 @@ static void handle_selector(input *ip, output *op, va_list args) {
  * @return On success, the total number of characters that would have been written
  *         if `size` had been sufficiently large (excluding the null terminator)
  *         is returned. On error, a negative value is returned.
- *
- * @implNote
- * This is the core engine for `snprintf`. It performs the actual parsing,
- * formatting, and writing safely to the character array `str` with bounds checking.
- * Other `*snprintf` functions often wrap around this function.
  */
 int vsnprintf(char *buffer, size_t buffer_size, const char *format, va_list args) {
 

@@ -17,11 +17,5 @@
  * to transfer data from a file or device associated with `fd` to user space.
  */
 ssize_t read(int fd, void *buf, size_t count) {
-    // TODO: Implement read for your operating system.
-    // This typically involves a system call.
-    (void)fd;    // Suppress unused parameter warning
-    (void)buf;   // Suppress unused parameter warning
-    (void)count; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return (ssize_t)-1;
+    return syscall(SYS_READ, fd, (int)buf, count, 0, 0);
 }
