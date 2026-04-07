@@ -8,7 +8,7 @@ void syslog(int level, char *format, ...) {
 
     va_list args;
     va_start(args, format);
-    vsprintfn(syslog_buffer, sizeof(syslog_buffer), format, args);
+    vsnprintf(syslog_buffer, sizeof(syslog_buffer), format, args);
     va_end(args);
 
     syscall(SYS_LOG_ENTRY, level, (int)syslog_buffer, 0, 0, 0);
