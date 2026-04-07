@@ -14,17 +14,7 @@
  * @param whence The starting point for the offset (`SEEK_SET`, `SEEK_CUR`, `SEEK_END`).
  * @return The resulting offset from the beginning of the file on success,
  *         or `(off_t)-1` on error with `errno` set.
- *
- * @implNote
- * This function typically maps to a system call (e.g., `lseek` on Linux).
- * It allows random access within a file.
  */
-// off_t lseek(int fd, off_t offset, int whence) {
-//     // TODO: Implement lseek for your operating system.
-//     // This typically involves a system call.
-//     (void)fd;     // Suppress unused parameter warning
-//     (void)offset; // Suppress unused parameter warning
-//     (void)whence; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return (off_t)-1;
-// }
+off_t lseek(int fd, off_t offset, int whence) {
+    return syscall(SYS_SEEK, fd, offset, whence, 0, 0);
+}

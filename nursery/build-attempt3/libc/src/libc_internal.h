@@ -30,6 +30,10 @@
 #include "../include/utime.h"
 
 
+// error codes
+#include "../../kernel/include/uapi/errors.h"
+
+
 // syscall numbers
 #include "../../kernel/include/uapi/syscall.h"
 int syscall(int sysno, int arg1, int arg2, int arg3, int arg4, int arg5);
@@ -38,6 +42,9 @@ int syscall(int sysno, int arg1, int arg2, int arg3, int arg4, int arg5);
 // syslog macros and stuff
 #include "../include/hcos/syslog.h"
 
+
+// yield, spawn and other non-posix
+#include "../include/hcos/misc.h"
 
 
 

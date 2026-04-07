@@ -1,9 +1,12 @@
 #include <hcos/syslog.h>
+#include <hcos/syslog.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 // Definitions for common types
 typedef int pid_t;
@@ -186,13 +189,13 @@ char *load_initrc_file() {
     int h = open("/etc/initrc", 0);
     if (h < 0) return NULL;
 
-    int length = seek(h, 0, SEEK_END);
+    int length = lseek(h, 0, SEEK_END);
 
     char *buff = malloc(length + 1);
     if (buff == NULL) fatal("Could not allocate buffer for initrc");
     memset(buff, 0, length + 1);
 
-    seek(h, 0, SEEK_SET);
+    lseek(h, 0, SEEK_SET);
     read(h, buff, length);
     close(h);
     
@@ -273,7 +276,7 @@ int main(int argc, char *argv[]) {
         pid_t exited_pid = wait(&status);
         if (exited_pid < 0) {
             syslog_debug("wait() --> %d, will sleep and wait for reparented children in the future", exited_pid);
-            sleep(3000);
+            sleep(3);
             continue;
         }
 

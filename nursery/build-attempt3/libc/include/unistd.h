@@ -54,6 +54,7 @@ void sync(void);
 long sysconf(int name);
 int pipe(int pipefd[2]);
 
+
 // Terminal control
 int isatty(int fd);
 int ttyname_r(int fd, char *buf, size_t buflen);

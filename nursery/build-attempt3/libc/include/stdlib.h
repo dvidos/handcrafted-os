@@ -24,10 +24,11 @@ typedef struct {
 #define EXIT_FAILURE 1
 #define RAND_MAX 32767 // Minimum guaranteed value for RAND_MAX
 
-// --- Function Prototypes (based on usage analysis) ---
+
 
 // Memory management
-void *malloc(size_t size);
+#include "hcos/malloc_extensions.h"
+// void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);
 void free(void *ptr);
