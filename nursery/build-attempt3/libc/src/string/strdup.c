@@ -12,15 +12,16 @@
  * @param s The string to duplicate.
  * @return A pointer to the duplicated string, or NULL if insufficient memory
  *         was available. `errno` is set on error.
- *
- * @implNote
- * This function combines `strlen`, `malloc`, and `strcpy`. It's a convenient
- * way to create a dynamically allocated copy of a string.
  */
 char *strdup(const char *s) {
-    // TODO: Implement strdup for your operating system.
-    // This involves allocating memory and copying the string.
-    (void)s; // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return NULL;
+    if (s == NULL)
+        return NULL;
+
+    int len = strlen(s);
+    char *p = malloc(len + 1);
+    if (p == NULL)
+        return NULL;
+
+    strcpy(p, s);
+    return p;
 }
