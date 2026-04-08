@@ -1,6 +1,10 @@
 #ifndef _ERRNO_H
 #define _ERRNO_H
 
+
+#include "kernel/errors.h"
+
+
 // Declare errno as an external integer. Its value is set by library functions
 // on error and is not cleared on success.
 extern int errno;
@@ -9,43 +13,37 @@ extern int errno;
 extern int *__errno_location(void);
 
 // --- Common POSIX Error Codes ---
-#define EPERM        1  /* Operation not permitted */
-#define ENOENT       2  /* No such file or directory */
-#define ESRCH        3  /* No such process */
-#define EINTR        4  /* Interrupted system call */
-#define EIO          5  /* I/O error */
-#define ENXIO        6  /* No such device or address */
-#define E2BIG        7  /* Argument list too long */
-#define ENOEXEC      8  /* Exec format error */
-#define EBADF        9  /* Bad file number */
-#define ECHILD      10  /* No child processes */
-#define EAGAIN      11  /* Try again */
-#define ENOMEM      12  /* Out of memory */
-#define EACCES      13  /* Permission denied */
-#define EFAULT      14  /* Bad address */
-#define ENOTBLK     15  /* Block device required */
-#define EBUSY       16  /* Device or resource busy */
-#define EEXIST      17  /* File exists */
-#define EXDEV       18  /* Cross-device link */
-#define ENODEV      19  /* No such device */
-#define ENOTDIR     20  /* Not a directory */
-#define EISDIR      21  /* Is a directory */
-#define EINVAL      22  /* Invalid argument */
-#define ENFILE      23  /* File table overflow */
-#define EMFILE      24  /* Too many open files */
-#define ENOTTY      25  /* Not a typewriter */
-#define ETXTBSY     26  /* Text file busy */
-#define EFBIG       27  /* File too large */
-#define ENOSPC      28  /* No space left on device */
-#define ESPIPE      29  /* Illegal seek */
-#define EROFS       30  /* Read-only file system */
-#define EMLINK      31  /* Too many links */
-#define EPIPE       32  /* Broken pipe */
-#define EDOM        33  /* Math argument out of domain of func */
-#define ERANGE      34  /* Math result not representable */
-#define ENOSYS      38  /* Function not implemented */
-#define ELOOP       40  /* Too many symbolic links encountered */
-#define ENOTSOCK    80  /* Socket operation on non-socket */
-#define EPROTO      81  /* Protocol error */
+#define EPERM     ERR_NOT_PERMITTED
+#define ENOENT    ERR_NOT_FOUND
+#define ESRCH     ERR_NOT_FOUND
+#define EINTR     ERR_INTERRUPTED
+#define EIO       ERR_IO_ERROR
+#define ENXIO     ERR_NO_DEVICE
+#define E2BIG     ERR_TOO_LONG
+#define ENOEXEC   ERR_BAD_EXECUTABLE
+#define EBADF     ERR_BAD_FILE
+#define ECHILD    ERR_NO_CHILDREN
+#define EAGAIN    ERR_AGAIN
+#define ENOMEM    ERR_NO_MEMORY
+#define EACCES    ERR_ACCESS_DENIED
+#define EFAULT    ERR_BAD_ADDRESS
+#define ENOTBLK   ERR_BLOCK_DEVICE_NEEDED
+#define EBUSY     ERR_BUSY
+#define EEXIST    ERR_ALREADY_EXISTS
+#define ENODEV    ERR_NO_DEVICE
+#define ENOTDIR   ERR_NOT_A_DIRECTORY
+#define EISDIR    ERR_IS_A_DIRECTORY
+#define EINVAL    ERR_BAD_ARGUMENT
+#define EMFILE    ERR_TOO_MANY_OPEN_FILES
+#define ENOTTY    ERR_NOT_A_TTY
+#define EFBIG     ERR_FILE_TOO_LARGE
+#define ENOSPC    ERR_NO_SPACE_LEFT
+#define EROFS     ERR_READ_ONLY_SYSTEM
+#define EPIPE     ERR_BROKEN_PIPE
+#define ENOSYS    ERR_NOT_IMPLEMENTED
+#define ERANGE    ERR_OUT_OF_RANGE
+
+
+
 
 #endif // _ERRNO_H

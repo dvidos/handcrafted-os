@@ -6,7 +6,13 @@ At high level, the steps will be:
 * ~~Make and verify: fork(), execve(), spawn(), wait(), waitpid(), _exit(), elf loader, syscalls~~
 * ~~Make and put the tiniest executables, into the image~~
 * ~~Then bring in libc, on top of syscalls, make unit tests~~
-* Then bring in the basic programs from : init, shell, edit, etc.
+* ~~Then bring in the basic programs from : init, shell, edit, etc.~~
+
+* Find ways to transfer headers:
+  * From kernel --> libc
+  * From kernel --> rootfs/usr/include/kernel
+  * From libc   --> rootfs/usr/include
+
 * Port sash to work as shell
   * May need to implement pipe() for pipes
   * May need to implement shared memory IPC for pipes (also usable in Graphics Server)

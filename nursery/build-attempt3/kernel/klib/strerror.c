@@ -60,6 +60,19 @@ const char *strerror(error_t err) {
         CASE(ERR_SATA_NO_CMD_SLOT);
         CASE(ERR_SATA_PORT_HUNG_BSY);
         CASE(ERR_SATA_TASK_FILE_ERROR);
+        CASE(ERR_ACCESS_DENIED);
+        CASE(ERR_INTERRUPTED);
+        CASE(ERR_TOO_LONG);
+        CASE(ERR_BAD_EXECUTABLE);
+        CASE(ERR_BAD_ADDRESS);
+        CASE(ERR_BLOCK_DEVICE_NEEDED);
+        CASE(ERR_IS_A_DIRECTORY);
+        CASE(ERR_TOO_MANY_OPEN_FILES);
+        CASE(ERR_NOT_A_TTY);
+        CASE(ERR_FILE_TOO_LARGE);
+        CASE(ERR_READ_ONLY_SYSTEM);
+        CASE(ERR_BROKEN_PIPE);
+        CASE(ERR_OUT_OF_RANGE);
     }
 
     sprintfn(unknown_str_buffer, sizeof(unknown_str_buffer), "(unknown error_t: %u)", err);

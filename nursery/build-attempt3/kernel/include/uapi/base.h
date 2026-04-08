@@ -16,7 +16,8 @@
 
 #else
 
-    // these definitions below for compiling on a host arch
+    // these definitions below for compiling on host system
+    // for example the sfs_tool utility
     #include <stdint.h>
     #include <stdbool.h>
     #include <stddef.h>

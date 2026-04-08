@@ -33,17 +33,27 @@ C_FILES = \
 	$(wildcard src/unistd/*.c) \
 	$(wildcard src/utime/*.c)
 
-
 ASM_FILES = $(wildcard src/hcos/*.asm)
 
 OBJ_FILES = $(ASM_FILES:.asm=.o) $(C_FILES:.c=.o) 
 DEP_FILES = $(C_FILES:.c=.d)
 
-HEADER_FILES = $(wildcard include/*.h)
+HEADER_FILES = \
+	$(wildcard include/*.h) \
+	$(wildcard include/sys/*.h) \
+	$(wildcard include/hcos/*.h)
+
+UAPI_SRC_DIR = ../kernel/include/uapi
+UAPI_DEST_DIR = ./include/kernel
+UAPI_SRC_HEADERS = $(wildcard $(UAPI_SRC_DIR)/*.h)
+UAPI_DEST_HEADERS = $(patsubst $(UAPI_SRC_DIR)/%,$(UAPI_DEST_DIR)/%,$(UAPI_SRC_HEADERS))
+
+
+
 
 all: $(LIBC)
 
-$(LIBC): $(OBJ_FILES)
+$(LIBC): $(UAPI_DEST_HEADERS) $(OBJ_FILES)
 	$(AR) rcs $@ $(OBJ_FILES)
 
 %.o: %.c
@@ -52,11 +62,16 @@ $(LIBC): $(OBJ_FILES)
 %.o: %.asm
 	nasm -f elf $< -o $@
 
+$(UAPI_DEST_DIR)/%.h: $(UAPI_SRC_DIR)/%.h
+	@mkdir -p $(@D)
+	cp $< $@
+
 tests: $(LIBC)
 	# compile and run tests, against the library
 
 clean:
-	rm -f $(LIBC) $(OBJ_FILES) $(LIBC_OBJ_DEPS)
+	rm -f $(LIBC) $(OBJ_FILES) $(LIBC_OBJ_DEPS) $(UAPI_DEST_HEADERS)
+	rmdir $(UAPI_DEST_DIR)
 
 # include depenedencies files, produced by "gcc -MD"
 -include $(DEP_FILES)

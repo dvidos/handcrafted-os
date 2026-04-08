@@ -3,64 +3,77 @@
 #include <errno.h>  // For E* macros
 #include <stddef.h> // For size_t, which might be implicitly used by some headers
 
-// This array holds the error messages.
-// The index corresponds to the errno value.
-// It's a simplified version for a basic libc, matching the E* definitions in errno.h
-static const char *const _sys_errlist[] = {
-    "Success",                  // 0
-    "Operation not permitted",  // EPERM       1
-    "No such file or directory",// ENOENT      2
-    "No such process",          // ESRCH       3
-    "Interrupted system call",  // EINTR       4
-    "I/O error",                // EIO         5
-    "No such device or address",// ENXIO       6
-    "Argument list too long",   // E2BIG       7
-    "Exec format error",        // ENOEXEC     8
-    "Bad file number",          // EBADF       9
-    "No child processes",       // ECHILD     10
-    "Resource temporarily unavailable", // EAGAIN     11 (often same as EWOULDBLOCK)
-    "Out of memory",            // ENOMEM     12
-    "Permission denied",        // EACCES     13
-    "Bad address",              // EFAULT     14
-    "Block device required",    // ENOTBLK    15
-    "Device or resource busy",  // EBUSY      16
-    "File exists",              // EEXIST     17
-    "Cross-device link",        // EXDEV      18
-    "No such device",           // ENODEV     19
-    "Not a directory",          // ENOTDIR    20
-    "Is a directory",           // EISDIR     21
-    "Invalid argument",         // EINVAL     22
-    "File table overflow",      // ENFILE     23
-    "Too many open files",      // EMFILE     24
-    "Not a typewriter",         // ENOTTY     25
-    "Text file busy",           // ETXTBSY    26
-    "File too large",           // EFBIG      27
-    "No space left on device",  // ENOSPC     28
-    "Illegal seek",             // ESPIPE     29
-    "Read-only file system",    // EROFS      30
-    "Too many links",           // EMLINK     31
-    "Broken pipe",              // EPIPE      32
-    "Math argument out of domain of func", // EDOM 33
-    "Math result not representable", // ERANGE 34
-    "Deadlock avoided",         // EDEADLK    35 (placeholder)
-    "File name too long",       // ENAMETOOLONG 36 (placeholder)
-    "No record locks available",// ENOLCK     37 (placeholder)
-    "Function not implemented", // ENOSYS     38
-    "Directory not empty",      // ENOTEMPTY  39 (placeholder)
-    "Too many symbolic links encountered", // ELOOP 40
-    // ... add more as needed, ensuring indices match errno values
-};
-
-#define _SYS_NERR (int)(sizeof(_sys_errlist) / sizeof(_sys_errlist[0]))
+static char unknown[32];
 
 char *strerror(int errnum) {
-    if (errnum >= 0 && errnum < _SYS_NERR) {
-        return (char *)_sys_errlist[errnum];
-    } else {
-        // Fallback for unknown error numbers
-        // A more robust implementation might use a static buffer and snprintf
-        // for "Unknown error %d" to conform more closely to POSIX,
-        // but for a basic libc, a generic string is acceptable.
-        return "Unknown error";
+    switch ((error_t)errnum) {
+        case OK:                               return "Success";
+        case ERR_NOT_FOUND:                    return "Not found";
+        case ERR_NO_MORE_CONTENT:              return "No more content";
+        case ERR_PARTIAL_CONTENT_ONLY:         return "Partial content only";
+        case ERR_NOT_SUPPORTED:                return "Not supported";
+        case ERR_NOT_IMPLEMENTED:              return "Not implemented";
+        case ERR_NOT_PERMITTED:                return "Not permitted";
+        case ERR_NOT_INITIALIZED:              return "Not initialized";
+        case ERR_BAD_ARGUMENT:                 return "Bad argument";
+        case ERR_BAD_VALUE:                    return "Bad value";
+        case ERR_ALREADY_EXISTS:               return "Already exists";
+        case ERR_NO_DEVICE:                    return "No device";
+        case ERR_NO_PARTITION:                 return "No partition";
+        case ERR_NO_DRIVER_FOUND:              return "No driver found";
+        case ERR_NOT_A_DIRECTORY:              return "Not a directory";
+        case ERR_NOT_A_FILE:                   return "Not a file";
+        case ERR_NO_SPACE_LEFT:                return "No space left";
+        case ERR_NO_FS_MOUNTED:                return "No filesystem mounted";
+        case ERR_DIR_NOT_EMPTY:                return "Dir not empty";
+        case ERR_DIR_HAS_MOUNT:                return "Dir has mount";
+        case ERR_NO_RUNNING_PROCESS:           return "No running process";
+        case ERR_READING_FILE:                 return "Reading file";
+        case ERR_WRITING_FILE:                 return "Writing file";
+        case ERR_HANDLES_EXHAUSTED:            return "Handles exhausted";
+        case ERR_EOF:                          return "End of file";
+        case ERR_NAME_TOO_LONG:                return "Name too long";
+        case ERR_CORRUPTION_DETECTED:          return "Corruption detected";
+        case ERR_CONTAINER_FULL:               return "Container full";
+        case ERR_OVERFLOWN:                    return "Overflown";
+        case ERR_UNDERFLOW:                    return "Underflow";
+        case ERR_BUSY:                         return "Busy";
+        case ERR_INVALID_ARGS:                 return "Invalid args";
+        case ERR_NO_MEMORY:                    return "No memory";
+        case ERR_IO_ERROR:                     return "Io error";
+        case ERR_BAD_FILE:                     return "Bad file";
+        case ERR_NO_CHILDREN:                  return "No children";
+        case ERR_AGAIN:                        return "Try again";
+        case ERR_ACCESS_DENIED:                return "Access denied";
+        case ERR_INTERRUPTED:                  return "Interrupted";
+        case ERR_TOO_LONG:                     return "Too long";
+        case ERR_BAD_EXECUTABLE:               return "Bad executable";
+        case ERR_BAD_ADDRESS:                  return "Bad address";
+        case ERR_BLOCK_DEVICE_NEEDED:          return "Block device needed";
+        case ERR_IS_A_DIRECTORY:               return "Is a directory";
+        case ERR_TOO_MANY_OPEN_FILES:          return "Too many open files";
+        case ERR_NOT_A_TTY:                    return "Not a TTY";
+        case ERR_FILE_TOO_LARGE:               return "File too large";
+        case ERR_READ_ONLY_SYSTEM:             return "Read only system";
+        case ERR_BROKEN_PIPE:                  return "Broken pipe";
+        case ERR_OUT_OF_RANGE:                 return "Out of range";
+        case ERR_IDE_DEVICE_FAULT:             return "IDE device fault";
+        case ERR_IDE_STATUS_ERROR:             return "IDE status error";
+        case ERR_IDE_NO_DATA_REQ:              return "IDE no data req";
+        case ERR_IDE_ADDR_MARK_NOT_FOUND:      return "IDE addr mark not found";
+        case ERR_IDE_NO_MEDIA:                 return "IDE no media";
+        case ERR_IDE_CMD_ABORTED:              return "IDE cmd aborted";
+        case ERR_IDE_ID_MARK_NOT_FOUND:        return "IDE id mark not found";
+        case ERR_IDE_UNCORRECTABLE_DATA_ERROR: return "IDE uncorrectable data error";
+        case ERR_IDE_BAD_SECTORS:              return "IDE bad sectors";
+        case ERR_IDE_DRIVE_NOT_FOUND:          return "IDE drive not found";
+        case ERR_IDE_INVALID_ADDRESS:          return "IDE invalid address";
+        case ERR_IDE_READ_ONLY:                return "IDE read only";
+        case ERR_SATA_NO_CMD_SLOT:             return "SATA no cmd slot";
+        case ERR_SATA_PORT_HUNG_BSY:           return "SATA port hung bsy";
+        case ERR_SATA_TASK_FILE_ERROR:         return "SATA task file error";
     }
+
+    snprintf(unknown, sizeof(unknown), "Unknown error %d", errnum);
+    return unknown;
 }
