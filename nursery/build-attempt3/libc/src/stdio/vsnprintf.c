@@ -49,7 +49,7 @@ static void out_aligned(output *p, char *content, bool align_left, char padding,
     }
 }
 
-static void handle_selector(input *ip, output *op, va_list args) {
+static void handle_selector(input *ip, output *op, va_list *args) {
     bool align_left = false;
     bool is_short = false;
     bool is_long = false;
@@ -57,8 +57,9 @@ static void handle_selector(input *ip, output *op, va_list args) {
     bool is_size = false;
     char padding = ' ';
     int width = 0;
-    char tmp[64];
+    char tmp[64+1];
     char c;
+    char *str;
 
     c = in_chr(ip);
     if (c == 0) return;
@@ -103,14 +104,14 @@ static void handle_selector(input *ip, output *op, va_list args) {
 
     switch (c) {
         case 'c':
-            c = (char)va_arg(args, int); // note arg promoted to int
+            c = (char)va_arg(*args, int); // note arg promoted to int
             tmp[0] = c;
             tmp[1] = 0;
             out_aligned(op, tmp, align_left, padding, width);
             break;
 
         case 's':
-            char *str = va_arg(args, char *);
+            str = va_arg(*args, char *);
             if (str == NULL) str = "(null)";
             out_aligned(op, str, align_left, padding, width);
             break;
@@ -118,19 +119,19 @@ static void handle_selector(input *ip, output *op, va_list args) {
         case 'd': // signed decimal
         case 'i': // fallthrough
             if (is_short) {
-                short s = (short)va_arg(args, int); // note arg promoted to int
+                short s = (short)va_arg(*args, int); // note arg promoted to int
                 ltoa((int)s, tmp, 10);
             } else if (is_long) {
-                long l = (long)va_arg(args, long);
+                long l = (long)va_arg(*args, long);
                 ltoa(l, tmp, 10);
             } else if (is_long_long) {
-                long long ll = (long long)va_arg(args, long long);
+                long long ll = (long long)va_arg(*args, long long);
                 lltoa(ll, tmp, 10);
             } else if (is_size) {
-                ssize_t s = (ssize_t)va_arg(args, ssize_t);
+                ssize_t s = (ssize_t)va_arg(*args, ssize_t);
                 ltoa((long)s, tmp, 10);
             } else {
-                int i = (int)va_arg(args, int);
+                int i = (int)va_arg(*args, int);
                 ltoa(i, tmp, 10);
             }
             out_aligned(op, tmp, align_left, padding, width);
@@ -141,26 +142,26 @@ static void handle_selector(input *ip, output *op, va_list args) {
             int radix = (c == 'x') ? 16 : 10;
 
             if (is_short) {
-                unsigned short s = (short)va_arg(args, unsigned int); // note arg promoted to int
+                unsigned short s = (short)va_arg(*args, unsigned int); // note arg promoted to int
                 ultoa((int)s, tmp, radix);
             } else if (is_long) {
-                unsigned long l = (long)va_arg(args, unsigned long);
+                unsigned long l = (long)va_arg(*args, unsigned long);
                 ultoa(l, tmp, radix);
             } else if (is_long_long) {
-                unsigned long long ll = (long long)va_arg(args, unsigned long long);
+                unsigned long long ll = (long long)va_arg(*args, unsigned long long);
                 ulltoa(ll, tmp, radix);
             } else if (is_size) {
-                size_t s = (size_t)va_arg(args, size_t);
-                ultoa((long long)s, tmp, radix);
+                size_t s = (size_t)va_arg(*args, size_t);
+                ultoa((long)s, tmp, radix);
             } else {
-                unsigned int i = (unsigned int)va_arg(args, unsigned int);
+                unsigned int i = (unsigned int)va_arg(*args, unsigned int);
                 ultoa(i, tmp, radix);
             }
             out_aligned(op, tmp, align_left, padding, width);
             break;
 
         case 'p': // pointer
-            uintptr_t ptr = (uintptr_t)va_arg(args, void *);
+            uintptr_t ptr = (uintptr_t)va_arg(*args, void *);
             tmp[0] = '0';
             tmp[1] = 'x';
             ultoa(ptr, tmp + 2, 16);
@@ -201,7 +202,7 @@ int vsnprintf(char *buffer, size_t buffer_size, const char *format, va_list args
         if (c == 0) break;
 
         if (c == '%') {
-            handle_selector(&ip, &op, args);
+            handle_selector(&ip, &op, &args);
         } else {
             out_chr(&op, c);
         }

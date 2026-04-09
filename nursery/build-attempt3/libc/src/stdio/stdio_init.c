@@ -45,7 +45,9 @@ FILE *stderr = &__stderr;
 void __init_stdio(void) {
     // For stdin, use full buffering by default, with read mode
     stdin = fdopen(STDIN_FILENO, "r");
-    if (!stdin) {
+    if (stdin) {
+        setvbuf(stdin, NULL, _IOLBF, 0); // Line buffering
+    } else {
         // Handle error: possibly set a global flag or fallback to unbuffered
         // For now, if fdopen fails, we'll proceed with potentially invalid stdin
         // or rely on default values which might be incorrect.
@@ -54,7 +56,9 @@ void __init_stdio(void) {
 
     // For stdout, use full buffering by default, with write mode
     stdout = fdopen(STDOUT_FILENO, "w");
-    if (!stdout) {
+    if (stdout) {
+        setvbuf(stdout, NULL, _IOLBF, 0); // Line buffering
+    } else {
         // Handle error
     }
 
