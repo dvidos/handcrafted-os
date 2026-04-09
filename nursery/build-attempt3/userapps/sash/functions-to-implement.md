@@ -1,10 +1,7 @@
-access
-chmod
+
+
 chown
-creat
-ctime
-execve
-follow
+chmod
 
 
 
@@ -18,20 +15,24 @@ closedir
 getcwd
 chdir
 
+putchar
 
 
+access
+creat
+ctime
+execve
+follow
 getpid
 isatty
 kill
 link
 lstat
 perror
-putchar
 putenv
 rename
 signal
 stat
-symlink
 sync
 system
 time
@@ -39,3 +40,4 @@ umask
 unlink
 utime
 waitpid
+symlink

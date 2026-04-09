@@ -14,11 +14,13 @@
  */
 void exit(int status) {
 
+    // Flush all open output streams
+    __flush_all_files();
+
     // we should call the atexit() functions
 
-    fflush(stdout);
-    fflush(stderr);
-    // we need all the open FILE, a linked list or something.
+    // Close all open streams (this would ideally iterate __open_files_list and call fclose)
+    // For now, we rely on the kernel to close file descriptors on process exit.
 
     syscall(SYS_EXIT, status, 0, 0, 0, 0);
 }

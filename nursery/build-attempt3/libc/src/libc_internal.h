@@ -53,8 +53,13 @@ typedef struct _IO_FILE {
     int flags;          // Error flags, EOF, etc.
     int ungetc_char;    // Character pushed back by ungetc
     bool has_ungetc_char; // Flag if ungetc_char is valid
+    struct _IO_FILE *next;  // allow chaining for flushing buffers at end.
 } FILE;
 
+extern FILE *__open_files_list;
+
+// Function to flush all open files
+void __flush_all_files(void);
 
 // Internal flags for FILE structure
 #define _IO_READ        (1 << 0) // File is open for reading

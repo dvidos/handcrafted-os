@@ -22,6 +22,19 @@ int fclose(FILE *stream) {
         ret = EOF; // An error occurred during flush
     }
 
+    // Remove the stream from the __open_files_list
+    if (__open_files_list == stream) {
+        __open_files_list = stream->next;
+    } else {
+        FILE *current = __open_files_list;
+        while (current != NULL && current->next != stream) {
+            current = current->next;
+        }
+        if (current != NULL) { // Found the previous node
+            current->next = stream->next;
+        }
+    }
+
     // Free the buffer if it was allocated
     if (stream->buffer) {
         free(stream->buffer);

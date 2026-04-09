@@ -39,6 +39,7 @@ FILE __stderr = {
 FILE *stdin = &__stdin;
 FILE *stdout = &__stdout;
 FILE *stderr = &__stderr;
+FILE *__open_files_list = NULL;
 
 
 // Function to initialize stdin, stdout, stderr

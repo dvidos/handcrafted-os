@@ -67,6 +67,8 @@ FILE *fdopen(int fd, const char *mode) {
     stream->pos = 0;
     stream->end = 0;
     stream->flags = internal_flags | _IO_FULL_BUF; // Default to full buffering
+    stream->next = __open_files_list; // Add to linked list
+    __open_files_list = stream;       // Make it the new head
 
     return stream;
 }
