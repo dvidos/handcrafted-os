@@ -2,7 +2,6 @@ access
 chdir
 chmod
 chown
-clearerr
 closedir
 creat
 ctime

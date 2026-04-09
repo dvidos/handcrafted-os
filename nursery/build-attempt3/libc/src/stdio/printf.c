@@ -14,29 +14,9 @@
  *         On error, a negative value is returned.
  */
 int printf(const char *format, ...) {
-    char tmp[128];
-    int len;
-
     va_list args;
     va_start(args, format);
-    int total = vsnprintf(tmp, sizeof(tmp), format, args);
+    int ret = vfprintf(stdout, format, args);
     va_end(args);
-
-    if (total < 0)
-        return total;
-    if ((unsigned)total < sizeof(tmp))
-        return write(STDOUT_FILENO, tmp, strlen(tmp));
-
-    // we need more than our stack
-    char *big = malloc(total + 1);
-    if (big == 0) return -1;
-
-    va_start(args, format);
-    vsnprintf(big, total + 1, format, args);
-    va_end(args);
-
-    len = write(STDOUT_FILENO, big, total);
-    free(big);
-
-    return len;
+    return ret;
 }

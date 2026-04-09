@@ -16,22 +16,34 @@
  *               if the first argument is considered to be respectively less than,
  *               equal to, or greater than the second.
  * @return A pointer to a matching element, or NULL if no match is found.
- *
- * @implNote
- * `bsearch` is a generic searching algorithm that can work with any data type.
- * Its implementation involves:
- * 1. Implementing the binary search algorithm.
- * 2. Using pointer arithmetic to access elements.
- * 3. Repeatedly dividing the search interval in half.
  */
-// void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
-//     // TODO: Implement bsearch for your operating system.
-//     // This is a complex generic searching algorithm.
-//     (void)key;    // Suppress unused parameter warning
-//     (void)base;   // Suppress unused parameter warning
-//     (void)nmemb;  // Suppress unused parameter warning
-//     (void)size;   // Suppress unused parameter warning
-//     (void)compar; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return NULL;
-// }
+void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
+    if (key == NULL || base == NULL || nmemb == 0 || size == 0 || compar == NULL) {
+        // errno = EINVAL; // Not typically set by bsearch, just return NULL
+        return NULL;
+    }
+
+    char *arr = (char *)base;
+    size_t low = 0;
+    size_t high = nmemb - 1;
+
+    while (low <= high) {
+        size_t mid_idx = low + (high - low) / 2;
+        char *mid_ptr = arr + mid_idx * size;
+
+        int cmp_result = compar(key, mid_ptr);
+
+        if (cmp_result == 0) {
+            return mid_ptr; // Found
+        } else if (cmp_result < 0) {
+            if (mid_idx == 0) { // Avoid underflow
+                break;
+            }
+            high = mid_idx - 1; // Key is in the left half
+        } else {
+            low = mid_idx + 1; // Key is in the right half
+        }
+    }
+
+    return NULL; // Not found
+}

@@ -154,6 +154,139 @@ void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
 }
 
 
+// Reallocate memory block
+void *realloc(void *ptr, size_t size) {
+    // 1. Handle ptr == NULL: Behaves like malloc(size).
+    if (ptr == NULL) {
+        return malloc(size); // Use the macro for consistency
+    }
+
+    // 2. Handle size == 0: Behaves like free(ptr).
+    if (size == 0) {
+        free(ptr);
+        return NULL;
+    }
+
+    // Get the memory_block_t header
+    memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
+
+    // Basic validation (optional, but good for debugging)
+    if (block->used == 0 || block->magic1 != MEM_MAGIC || block->magic2 != MEM_MAGIC) {
+        syslog_error("realloc(%p, %u): Invalid or free block.", ptr, size);
+        errno = EFAULT; // Or some other appropriate error
+        return NULL;
+    }
+
+    // Get current user data size
+    size_t current_size = block->size;
+
+    // Case A: New size is smaller or equal
+    if (size <= current_size) {
+        // Only split if the new size is at most half as big as the original,
+        // and there's enough space for a new block header + a minimal free block size.
+        // Assuming minimal useful free block size is > 0 bytes.
+        if (size <= current_size / 2 && current_size > size + sizeof(memory_block_t)) {
+            // Shrink and split
+            memory_block_t *new_free = (memory_block_t *)((char *)block + sizeof(memory_block_t) + size);
+            memory_block_t *next = block->next;
+
+            new_free->size = current_size - sizeof(memory_block_t) - size;
+            new_free->used = 0;
+            new_free->magic1 = MEM_MAGIC;
+            new_free->magic2 = MEM_MAGIC;
+            #ifdef DEBUG_HEAP_OPS
+                new_free->size_explanation = NULL;
+                new_free->file = NULL;
+                new_free->ff_indicator = 0;
+                new_free->line = 0;
+            #endif
+            new_free->prev = block;
+            new_free->next = next;
+
+            block->size = size;
+            block->next = new_free;
+            if (next != NULL) {
+                next->prev = new_free;
+            }
+            heap.available_memory -= sizeof(memory_block_t); // A new block header was created
+
+            // Clean up the newly freed part of memory
+            memset((char*)new_free + sizeof(memory_block_t), 0, new_free->size);
+            syslog_trace("realloc(%p, %u): shrunk block and split new free block %p", ptr, size, (char*)new_free + sizeof(memory_block_t));
+        }
+        // If not enough to split (either size is not small enough, or remaining space is too small),
+        // just keep the block as is. No data movement needed.
+        return ptr;
+    }
+
+    // Case B: New size is larger
+    // Try to extend the current block by merging with next free block
+    memory_block_t *next_block = block->next;
+    if (next_block != NULL && !next_block->used &&
+        (current_size + sizeof(memory_block_t) + next_block->size >= size)) {
+        syslog_trace("realloc(%p, %u): attempting to merge with next free block %p", ptr, size, (char*)next_block + sizeof(memory_block_t));
+
+        // Remove next_block from the list
+        block->next = next_block->next;
+        if (next_block->next != NULL) {
+            next_block->next->prev = block;
+        }
+
+        heap.available_memory += sizeof(memory_block_t); // next_block header is being absorbed
+
+        // Update current block's size
+        block->size += sizeof(memory_block_t) + next_block->size;
+
+        // Clean up the memory of the absorbed block (already done by memset below if splitting)
+        // memset((char*)next_block + sizeof(memory_block_t), 0, next_block->size);
+
+        // Now, the block is larger. If it's *much* larger, we can split it.
+        if (block->size > size + sizeof(memory_block_t)) {
+             // Split off a new free block from the end
+            memory_block_t *new_free = (memory_block_t *)((char *)block + sizeof(memory_block_t) + size);
+            memory_block_t *orig_next = block->next; // This is the block that was originally after next_block
+
+            new_free->size = block->size - sizeof(memory_block_t) - size;
+            new_free->used = 0;
+            new_free->magic1 = MEM_MAGIC;
+            new_free->magic2 = MEM_MAGIC;
+            #ifdef DEBUG_HEAP_OPS
+                new_free->size_explanation = NULL;
+                new_free->file = NULL;
+                new_free->ff_indicator = 0;
+                new_free->line = 0;
+            #endif
+            new_free->prev = block;
+            new_free->next = orig_next;
+
+            block->size = size;
+            block->next = new_free;
+            if (orig_next != NULL) {
+                orig_next->prev = new_free;
+            }
+            heap.available_memory -= sizeof(memory_block_t); // A new block header was created
+            memset((char*)new_free + sizeof(memory_block_t), 0, new_free->size); // Clear the new free memory
+            syslog_trace("realloc(%p, %u): merged with next free and then split", ptr, size);
+        }
+        return ptr; // Return the same pointer
+    }
+
+    // If unable to extend, allocate new memory, copy, and free old
+    syslog_trace("realloc(%p, %u): allocating new block, copying, freeing old", ptr, size);
+    void *new_ptr = malloc(size); // Use the macro for consistency
+    if (new_ptr == NULL) {
+        // Malloc failed, errno is already set
+        return NULL;
+    }
+
+    // Copy original data, up to the smaller of current_size or new size
+    memcpy(new_ptr, ptr, (current_size < size) ? current_size : size);
+
+    free(ptr); // Free the old block
+
+    return new_ptr;
+}
+
 void free(void *ptr) {
     // syslog_trace("free(0x%p)", ptr);
 
