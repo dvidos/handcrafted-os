@@ -8,15 +8,12 @@
  * for the stream.
  *
  * @param stream The `FILE` stream.
- *
- * @implNote
- * This function is equivalent to `fseek(stream, 0L, SEEK_SET)` with the
- * additional effect of clearing error/EOF flags. It involves flushing output
- * buffers, discarding input buffers, and performing a `lseek` system call.
  */
-// void rewind(FILE *stream) {
-//     // TODO: Implement rewind for your operating system.
-//     // This involves seeking to the beginning and clearing flags.
-//     (void)stream; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented - this function does not return a value
-// }
+void rewind(FILE *stream) {
+    if (!stream) {
+        // Standard says behavior is undefined for NULL stream, but we'll handle gracefully
+        return;
+    }
+    fseek(stream, 0L, SEEK_SET);
+    clearerr(stream);
+}

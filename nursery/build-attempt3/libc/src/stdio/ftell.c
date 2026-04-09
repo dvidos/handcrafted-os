@@ -10,16 +10,30 @@
  * @param stream The `FILE` stream.
  * @return On success, the current file position is returned. On error, -1L
  *         is returned, and `errno` is set.
- *
- * @implNote
- * This function typically maps to the `lseek(fd, 0, SEEK_CUR)` system call
- * on the stream's underlying file descriptor. It must also account for any
- * buffered data that has been read but not yet consumed by the user.
  */
-// long ftell(FILE *stream) {
-//     // TODO: Implement ftell for your operating system.
-//     // This involves querying the underlying file descriptor's position and accounting for buffers.
-//     (void)stream; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1L;
-// }
+long ftell(FILE *stream) {
+    if (!stream) {
+        errno = EINVAL;
+        return -1L;
+    }
+
+    // Flush output buffer if the stream is write-enabled and has buffered data
+    if ((stream->flags & _IO_WRITE) && stream->pos > 0) {
+        if (fflush(stream) == EOF) {
+            return -1L; // fflush failed, errno should be set
+        }
+    }
+
+    off_t current_offset = lseek(stream->fd, 0, SEEK_CUR);
+    if (current_offset == (off_t)-1) {
+        // lseek failed, errno should be set
+        return -1L;
+    }
+
+    // Adjust for buffered input data
+    if (stream->flags & _IO_READ) {
+        current_offset -= (stream->end - stream->pos);
+    }
+
+    return (long)current_offset;
+}

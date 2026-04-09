@@ -12,18 +12,39 @@
  * @param size The maximum number of characters to read, including the null terminator.
  * @param stream The input stream to read from.
  * @return On success, `s` is returned. On end-of-file or error, NULL is returned.
- *
- * @implNote
- * This function typically reads characters one by one (e.g., using `fgetc`)
- * until a newline, EOF, or buffer limit is reached. It manages buffering
- * and ensures null termination.
  */
-// char *fgets(char *s, int size, FILE *stream) {
-//     // TODO: Implement fgets for your operating system.
-//     // This involves reading a line, managing buffer and newline.
-//     (void)s;      // Suppress unused parameter warning
-//     (void)size;   // Suppress unused parameter warning
-//     (void)stream; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return NULL;
-// }
+char *fgets(char *s, int size, FILE *stream) {
+    if (!s || !stream || size <= 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if (!(stream->flags & _IO_READ)) {
+        errno = EBADF; // Stream not open for reading
+        stream->flags |= _IO_ERROR;
+        return NULL;
+    }
+
+    int c = EOF;
+    char *p = s;
+    size_t count = 0;
+
+    while (count < (size_t)size - 1) {
+        c = fgetc(stream);
+        if (c == EOF) {
+            break;
+        }
+        *p++ = (char)c;
+        count++;
+        if (c == '\n') {
+            break;
+        }
+    }
+
+    if (count == 0 && c == EOF) {
+        return NULL; // No characters read before EOF or error
+    }
+
+    *p = '\0'; // Null-terminate the string
+    return s;
+}

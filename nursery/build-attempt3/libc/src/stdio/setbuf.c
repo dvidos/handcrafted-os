@@ -15,10 +15,13 @@
  * how it interacts with its internal read/write buffer. It usually needs to
  * be called after `fopen` but before any I/O operations on the stream.
  */
-// void setbuf(FILE *stream, char *buf) {
-//     // TODO: Implement setbuf for your operating system.
-//     // This involves configuring the stream's buffering.
-//     (void)stream; // Suppress unused parameter warning
-//     (void)buf;    // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented - this function does not return a value
-// }
+#include "../libc_internal.h"
+#include <stdio.h> // For setvbuf, BUFSIZ, _IONBF, _IOFBF
+
+void setbuf(FILE *stream, char *buf) {
+    if (buf == NULL) {
+        setvbuf(stream, NULL, _IONBF, 0); // No buffering
+    } else {
+        setvbuf(stream, buf, _IOFBF, BUFSIZ); // Full buffering with user-provided buffer
+    }
+}

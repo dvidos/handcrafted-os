@@ -8,17 +8,25 @@
  *
  * @param stream The `FILE` stream to flush. If NULL, all open output streams are flushed.
  * @return 0 on success, or `EOF` on error.
- *
- * @implNote
- * This function interacts with the stream's internal buffering. It needs to:
- * 1. Check if `stream` is an output stream and has buffered data.
- * 2. Write the buffered data to the underlying file descriptor (e.g., via `write()` system call).
- * 3. Reset the buffer state.
  */
-// int fflush(FILE *stream) {
-//     // TODO: Implement fflush for your operating system.
-//     // This involves writing buffered data to the underlying file.
-//     (void)stream; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return EOF;
-// }
+int fflush(FILE *stream) {
+    if (!stream) {
+        // If stream is NULL, behavior is undefined for a single stream.
+        // POSIX allows flushing all streams, but C standard says undefined.
+        // For now, return error.
+        errno = EBADF;
+        return EOF;
+    }
+
+    // Only flush if in write mode and there's data in the buffer
+    if ((stream->flags & _IO_WRITE) && stream->pos > 0) {
+        ssize_t written_bytes = write(stream->fd, stream->buffer, stream->pos);
+        if (written_bytes != stream->pos) {
+            stream->flags |= _IO_ERROR; // Set error flag
+            // errno should be set by the underlying write() call
+            return EOF;
+        }
+        stream->pos = 0; // Reset buffer position after flushing
+    }
+    return 0; // Success
+}

@@ -42,6 +42,7 @@ extern int *__errno_location(void);
 #define EPIPE     ERR_BROKEN_PIPE
 #define ENOSYS    ERR_NOT_IMPLEMENTED
 #define ERANGE    ERR_OUT_OF_RANGE
+#define EOVERFLOW ERR_OVERFLOWN
 
 
 

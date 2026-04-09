@@ -10,17 +10,29 @@
  * @param c The character to push back.
  * @param stream The input stream.
  * @return On success, the character `c` is returned. On error, `EOF` is returned.
- *
- * @implNote
- * This function typically stores the character `c` in an internal buffer
- * associated with the `stream` such that the next `fgetc` (or similar) call
- * retrieves it. It can be complex to implement correctly with full buffering.
  */
-// int ungetc(int c, FILE *stream) {
-//     // TODO: Implement ungetc for your operating system.
-//     // This involves placing a character back into the stream's buffer.
-//     (void)c;      // Suppress unused parameter warning
-//     (void)stream; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return EOF;
-// }
+int ungetc(int c, FILE *stream) {
+    if (!stream) {
+        errno = EBADF;
+        return EOF;
+    }
+
+    // Standard guarantees only one character pushback.
+    if (stream->has_ungetc_char) {
+        errno = EOVERFLOW; // Or other appropriate error
+        return EOF;
+    }
+
+    // Cannot push back EOF
+    if (c == EOF) {
+        return EOF;
+    }
+
+    stream->ungetc_char = c;
+    stream->has_ungetc_char = true;
+
+    // Clear EOF flag, as we are no longer at EOF if a char is pushed back.
+    stream->flags &= ~_IO_EOF;
+
+    return c;
+}

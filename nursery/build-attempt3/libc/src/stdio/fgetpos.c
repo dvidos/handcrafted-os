@@ -10,18 +10,32 @@
  * @param stream The `FILE` stream.
  * @param pos Pointer to an `fpos_t` object to store the position.
  * @return 0 on success, or -1 on error with `errno` set.
- *
- * @implNote
- * This function needs to capture more than just the byte offset; it also
- * typically stores information about the stream's buffering state (e.g.,
- * how much has been read into a buffer, direction of I/O). The `fpos_t`
- * type is opaque and its internal structure is implementation-defined.
  */
-// int fgetpos(FILE *stream, fpos_t *pos) {
-//     // TODO: Implement fgetpos for your operating system.
-//     // This involves saving the current file position and stream state.
-//     (void)stream; // Suppress unused parameter warning
-//     (void)pos;    // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int fgetpos(FILE *stream, fpos_t *pos) {
+    if (!stream || !pos) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    // Flush output buffer if the stream is write-enabled and has buffered data
+    // This is important to get an accurate file offset for writing streams
+    if ((stream->flags & _IO_WRITE) && stream->pos > 0) {
+        if (fflush(stream) == EOF) {
+            return -1; // fflush failed, errno should be set
+        }
+    }
+
+    off_t current_offset = lseek(stream->fd, 0, SEEK_CUR);
+    if (current_offset == (off_t)-1) {
+        // lseek failed, errno should be set
+        return -1;
+    }
+
+    // Adjust for buffered input data
+    if (stream->flags & _IO_READ) {
+        current_offset -= (stream->end - stream->pos);
+    }
+
+    *pos = (fpos_t)current_offset;
+    return 0;
+}

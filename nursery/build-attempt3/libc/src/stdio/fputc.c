@@ -9,17 +9,35 @@
  * @param c The character to write, cast to an `int`.
  * @param stream The output stream to write to.
  * @return On success, the character written is returned. On error, `EOF` is returned.
- *
- * @implNote
- * This is a fundamental character output function. It manages the `stream`'s
- * buffering (full, line, or unbuffered) and eventually calls the underlying
- * system call (e.g., `write`) to output the character.
  */
-// int fputc(int c, FILE *stream) {
-//     // TODO: Implement fputc for your operating system.
-//     // This involves writing a single character to the specified stream, managing buffering.
-//     (void)c;      // Suppress unused parameter warning
-//     (void)stream; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return EOF;
-// }
+int fputc(int c, FILE *stream) {
+    if (!stream) {
+        errno = EBADF;
+        return EOF;
+    }
+
+    if (!(stream->flags & _IO_WRITE)) {
+        errno = EBADF; // Stream not open for writing
+        stream->flags |= _IO_ERROR;
+        return EOF;
+    }
+
+    // If buffer is full, flush it
+    if (stream->pos >= stream->buf_size) {
+        if (fflush(stream) == EOF) {
+            return EOF; // Error during flush
+        }
+    }
+
+    // Place character in buffer
+    stream->buffer[stream->pos++] = (unsigned char)c;
+
+    // Handle line buffering (_IOLBF) - flush on newline
+    if ((stream->flags & _IO_LINE_BUF) && c == '\n') {
+        if (fflush(stream) == EOF) {
+            return EOF; // Error during flush
+        }
+    }
+
+    return (unsigned char)c;
+}

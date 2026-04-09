@@ -8,19 +8,35 @@
  *
  * @param stream The `FILE` stream to close.
  * @return 0 on success, or `EOF` on error.
- *
- * @implNote
- * This function involves:
- * 1. Flushing any pending output for `stream`.
- * 2. Releasing any buffers allocated for the `stream`.
- * 3. Closing the underlying file descriptor (e.g., via `close()` system call).
- * 4. Freeing the `FILE` structure itself.
- * Error handling during flushing or closing the descriptor is important.
  */
-// int fclose(FILE *stream) {
-//     // TODO: Implement fclose for your operating system.
-//     // This involves flushing buffers, closing the file descriptor, and freeing the stream.
-//     (void)stream; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return EOF;
-// }
+int fclose(FILE *stream) {
+    if (!stream) {
+        errno = EBADF;
+        return EOF;
+    }
+
+    int ret = 0;
+
+    // Flush any pending output
+    if (fflush(stream) == EOF) { // Call public fflush
+        ret = EOF; // An error occurred during flush
+    }
+
+    // Free the buffer if it was allocated
+    if (stream->buffer) {
+        free(stream->buffer);
+        stream->buffer = NULL;
+    }
+
+    // Close the underlying file descriptor
+    if (close(stream->fd) < 0) {
+        // If an error occurred during close, and no flush error, set ret to EOF
+        if (ret == 0) {
+            ret = EOF;
+        }
+    }
+
+    free(stream);
+
+    return ret;
+}

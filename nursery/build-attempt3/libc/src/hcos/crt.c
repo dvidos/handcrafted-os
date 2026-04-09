@@ -3,6 +3,7 @@
 
 extern void __init_heap();
 extern void __init_env(char **envp);
+extern void __init_stdio();
 extern int main(int argc, char *argv[], char *envp[]);
 
 
@@ -11,6 +12,7 @@ void __libc_init(int argc, char **argv, char **envp) {
 
     __init_heap();
     __init_env(envp);
+    __init_stdio(); // Initialize stdin, stdout, stderr
 
     int exit_code = main(argc, argv, envp);
 
