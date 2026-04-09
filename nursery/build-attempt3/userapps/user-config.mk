@@ -7,14 +7,17 @@ LD = $(TARGET)-ld
 
 # find where we are, in order to calculate include & lib paths correctly
 CONFIG_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
-LIBC_DIR := $(abspath $(CONFIG_DIR)/../libc)
+ROOTFS_DIR = $(abspath $(CONFIG_DIR)/../build/rootfs)
+LIBC_DIR := $(ROOTFS_DIR)/usr/lib
+LIBC_INCLUDE_DIR := $(ROOTFS_DIR)/usr/include
 LIBC = $(LIBC_DIR)/libc.a
+
 
 
 CFLAGS = \
 	-std=gnu99 -ffreestanding -Wall -Wextra -O2 \
 	-Wno-unused-parameter \
-	-I$(LIBC_DIR)/include
+	-I$(LIBC_INCLUDE_DIR)
 
 LDFLAGS = -nostdlib -L$(LIBC_DIR) -lc
 

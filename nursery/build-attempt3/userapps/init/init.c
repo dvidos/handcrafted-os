@@ -1,5 +1,5 @@
 #include <hcos/syslog.h>
-#include <hcos/syslog.h>
+#include <hcos/misc.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>

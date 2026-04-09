@@ -10,13 +10,13 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/mount.h>
+// #include <sys/mount.h>
 #include <signal.h>
-#include <pwd.h>
-#include <grp.h>
-#include <utime.h>
+// #include <pwd.h>
+// #include <grp.h>
+// #include <utime.h>
 #include <errno.h>
-#include <linux/fs.h>
+// #include <linux/fs.h>
 
 /* Need to tell loop.h what the actual dev_t type is. */
 #undef dev_t
@@ -25,7 +25,7 @@
 #else
 #define dev_t unsigned short
 #endif
-#include <linux/loop.h>
+// #include <linux/loop.h>
 #undef dev_t
 #define dev_t dev_t
 
@@ -105,52 +105,53 @@ do_mkdir(int argc, const char ** argv)
 void
 do_mknod(int argc, const char ** argv)
 {
-	const char *	cp;
-	int		mode;
-	int		major;
-	int		minor;
+	// const char *	cp;
+	// int		mode;
+	// int		major;
+	// int		minor;
 
-	mode = 0666;
+	// mode = 0666;
 
-	if (strcmp(argv[2], "b") == 0)
-		mode |= S_IFBLK;
-	else if (strcmp(argv[2], "c") == 0)
-		mode |= S_IFCHR;
-	else
-	{
-		fprintf(stderr, "Bad device type\n");
+	// if (strcmp(argv[2], "b") == 0)
+	// 	mode |= S_IFBLK;
+	// else if (strcmp(argv[2], "c") == 0)
+	// 	mode |= S_IFCHR;
+	// else
+	// {
+	// 	fprintf(stderr, "Bad device type\n");
 
-		return;
-	}
+	// 	return;
+	// }
 
-	major = 0;
-	cp = argv[3];
+	// major = 0;
+	// cp = argv[3];
 
-	while (isDecimal(*cp))
-		major = major * 10 + *cp++ - '0';
+	// while (isDecimal(*cp))
+	// 	major = major * 10 + *cp++ - '0';
 
-	if (*cp || (major < 0) || (major > 255))
-	{
-		fprintf(stderr, "Bad major number\n");
+	// if (*cp || (major < 0) || (major > 255))
+	// {
+	// 	fprintf(stderr, "Bad major number\n");
 
-		return;
-	}
+	// 	return;
+	// }
 
-	minor = 0;
-	cp = argv[4];
+	// minor = 0;
+	// cp = argv[4];
 
-	while (isDecimal(*cp))
-		minor = minor * 10 + *cp++ - '0';
+	// while (isDecimal(*cp))
+	// 	minor = minor * 10 + *cp++ - '0';
 
-	if (*cp || (minor < 0) || (minor > 255))
-	{
-		fprintf(stderr, "Bad minor number\n");
+	// if (*cp || (minor < 0) || (minor > 255))
+	// {
+	// 	fprintf(stderr, "Bad minor number\n");
 
-		return;
-	}
+	// 	return;
+	// }
 
-	if (mknod(argv[1], mode, major * 256 + minor) < 0)
-		perror(argv[1]);
+	// if (mknod(argv[1], mode, major * 256 + minor) < 0)
+	// 	perror(argv[1]);
+	fprintf(stderr, "No supported\n");
 }
 
 
@@ -244,106 +245,108 @@ do_chmod(int argc, const char ** argv)
 void
 do_chown(int argc, const char ** argv)
 {
-	const char *	cp;
-	int		uid;
-	struct passwd *	pwd;
-	struct stat	statBuf;
+	// const char *	cp;
+	// int		uid;
+	// struct passwd *	pwd;
+	// struct stat	statBuf;
 
-	cp = argv[1];
+	// cp = argv[1];
 
-	if (isDecimal(*cp))
-	{
-		uid = 0;
+	// if (isDecimal(*cp))
+	// {
+	// 	uid = 0;
 
-		while (isDecimal(*cp))
-			uid = uid * 10 + (*cp++ - '0');
+	// 	while (isDecimal(*cp))
+	// 		uid = uid * 10 + (*cp++ - '0');
 
-		if (*cp)
-		{
-			fprintf(stderr, "Bad uid value\n");
+	// 	if (*cp)
+	// 	{
+	// 		fprintf(stderr, "Bad uid value\n");
 
-			return;
-		}
-	} else {
-		pwd = getpwnam(cp);
+	// 		return;
+	// 	}
+	// } else {
+	// 	pwd = getpwnam(cp);
 
-		if (pwd == NULL)
-		{
-			fprintf(stderr, "Unknown user name\n");
+	// 	if (pwd == NULL)
+	// 	{
+	// 		fprintf(stderr, "Unknown user name\n");
 
-			return;
-		}
+	// 		return;
+	// 	}
 
-		uid = pwd->pw_uid;
-	}
+	// 	uid = pwd->pw_uid;
+	// }
 
-	argc--;
-	argv++;
+	// argc--;
+	// argv++;
 
-	while (argc-- > 1)
-	{
-		argv++;
+	// while (argc-- > 1)
+	// {
+	// 	argv++;
 
-		if ((stat(*argv, &statBuf) < 0) ||
-			(chown(*argv, uid, statBuf.st_gid) < 0))
-		{
-			perror(*argv);
-		}
-	}
+	// 	if ((stat(*argv, &statBuf) < 0) ||
+	// 		(chown(*argv, uid, statBuf.st_gid) < 0))
+	// 	{
+	// 		perror(*argv);
+	// 	}
+	// }
+	fprintf(stderr, "No supported\n");
 }
 
 
 void
 do_chgrp(int argc, const char ** argv)
 {
-	const char *	cp;
-	int		gid;
-	struct group *	grp;
-	struct stat	statBuf;
+	// const char *	cp;
+	// int		gid;
+	// struct group *	grp;
+	// struct stat	statBuf;
 
-	cp = argv[1];
+	// cp = argv[1];
 
-	if (isDecimal(*cp))
-	{
-		gid = 0;
+	// if (isDecimal(*cp))
+	// {
+	// 	gid = 0;
 
-		while (isDecimal(*cp))
-			gid = gid * 10 + (*cp++ - '0');
+	// 	while (isDecimal(*cp))
+	// 		gid = gid * 10 + (*cp++ - '0');
 
-		if (*cp)
-		{
-			fprintf(stderr, "Bad gid value\n");
+	// 	if (*cp)
+	// 	{
+	// 		fprintf(stderr, "Bad gid value\n");
 
-			return;
-		}
-	}
-	else
-	{
-		grp = getgrnam(cp);
+	// 		return;
+	// 	}
+	// }
+	// else
+	// {
+	// 	grp = getgrnam(cp);
 
-		if (grp == NULL)
-		{
-			fprintf(stderr, "Unknown group name\n");
+	// 	if (grp == NULL)
+	// 	{
+	// 		fprintf(stderr, "Unknown group name\n");
 
-			return;
-		}
+	// 		return;
+	// 	}
 
-		gid = grp->gr_gid;
-	}
+	// 	gid = grp->gr_gid;
+	// }
 
-	argc--;
-	argv++;
+	// argc--;
+	// argv++;
 
-	while (argc-- > 1)
-	{
-		argv++;
+	// while (argc-- > 1)
+	// {
+	// 	argv++;
 
-		if ((stat(*argv, &statBuf) < 0) ||
-			(chown(*argv, statBuf.st_uid, gid) < 0))
-		{
-			perror(*argv);
-		}
-	}
+	// 	if ((stat(*argv, &statBuf) < 0) ||
+	// 		(chown(*argv, statBuf.st_uid, gid) < 0))
+	// 	{
+	// 		perror(*argv);
+	// 	}
+	// }
+	fprintf(stderr, "No supported\n");
 }
 
 
@@ -352,10 +355,10 @@ do_touch(int argc, const char ** argv)
 {
 	const char *	name;
 	int		fd;
-	struct utimbuf	now;
+	// struct utimbuf	now;
 
-	time(&now.actime);
-	now.modtime = now.actime;
+	// time(&now.actime);
+	// now.modtime = now.actime;
 
 	while (argc-- > 1)
 	{
@@ -370,8 +373,8 @@ do_touch(int argc, const char ** argv)
 			continue;
 		}
 
-		if (utime(name, &now) < 0)
-			perror(name);
+		// if (utime(name, &now) < 0)
+		// 	perror(name);
 	}
 }
 
@@ -414,18 +417,20 @@ do_mv(int argc, const char ** argv)
 		if (rename(srcName, destName) >= 0)
 			continue;
 
-		if (errno != EXDEV)
-		{
-			perror(destName);
+		perror(destName);
+		continue;
 
-			continue;
-		}
+		// if (errno != EXDEV) // cross device link
+		// {
+		// 	perror(destName);
+		// 	continue;
+		// }
 
-		if (!copyFile(srcName, destName, TRUE))
-			continue;
+		// if (!copyFile(srcName, destName, TRUE))
+		// 	continue;
 
-		if (unlink(srcName) < 0)
-			perror(srcName);
+		// if (unlink(srcName) < 0)
+		// 	perror(srcName);
 	}
 }
 
@@ -433,72 +438,73 @@ do_mv(int argc, const char ** argv)
 void
 do_ln(int argc, const char ** argv)
 {
-	const char *	srcName;
-	const char *	destName;
-	const char *	lastArg;
-	BOOL		dirFlag;
+// 	const char *	srcName;
+// 	const char *	destName;
+// 	const char *	lastArg;
+// 	BOOL		dirFlag;
 
-	if (argv[1][0] == '-')
-	{
-		if (strcmp(argv[1], "-s"))
-		{
-			fprintf(stderr, "Unknown option\n");
+// 	if (argv[1][0] == '-')
+// 	{
+// 		if (strcmp(argv[1], "-s"))
+// 		{
+// 			fprintf(stderr, "Unknown option\n");
 
-			return;
-		}
+// 			return;
+// 		}
 
-		if (argc != 4)
-		{
-			fprintf(stderr, "Wrong number of arguments for symbolic link\n");
+// 		if (argc != 4)
+// 		{
+// 			fprintf(stderr, "Wrong number of arguments for symbolic link\n");
 
-			return;
-		}
+// 			return;
+// 		}
 
-#ifdef	S_ISLNK
-		if (symlink(argv[2], argv[3]) < 0)
-			perror(argv[3]);
-#else
-		fprintf(stderr, "Symbolic links are not allowed\n");
-#endif
-		return;
-	}
+// #ifdef	S_ISLNK
+// 		if (symlink(argv[2], argv[3]) < 0)
+// 			perror(argv[3]);
+// #else
+// 		fprintf(stderr, "Symbolic links are not allowed\n");
+// #endif
+// 		return;
+// 	}
 
-	/*
-	 * Here for normal hard links.
-	 */
-	lastArg = argv[argc - 1];
-	dirFlag = isDirectory(lastArg);
+// 	/*
+// 	 * Here for normal hard links.
+// 	 */
+// 	lastArg = argv[argc - 1];
+// 	dirFlag = isDirectory(lastArg);
 
-	if ((argc > 3) && !dirFlag)
-	{
-		fprintf(stderr, "%s: not a directory\n", lastArg);
+// 	if ((argc > 3) && !dirFlag)
+// 	{
+// 		fprintf(stderr, "%s: not a directory\n", lastArg);
 
-		return;
-	}
+// 		return;
+// 	}
 
-	while (argc-- > 2)
-	{
-		srcName = *(++argv);
+// 	while (argc-- > 2)
+// 	{
+// 		srcName = *(++argv);
 
-		if (access(srcName, 0) < 0)
-		{
-			perror(srcName);
+// 		if (access(srcName, 0) < 0)
+// 		{
+// 			perror(srcName);
 
-			continue;
-		}
+// 			continue;
+// 		}
 
-		destName = lastArg;
+// 		destName = lastArg;
 
-		if (dirFlag)
-			destName = buildName(destName, srcName);
+// 		if (dirFlag)
+// 			destName = buildName(destName, srcName);
 
-		if (link(srcName, destName) < 0)
-		{
-			perror(destName);
+// 		if (link(srcName, destName) < 0)
+// 		{
+// 			perror(destName);
 
-			continue;
-		}
-	}
+// 			continue;
+// 		}
+// 	}
+	fprintf(stderr, "No supported\n");
 }
 
 
@@ -537,66 +543,68 @@ do_cp(int argc, const char ** argv)
 void
 do_mount(int argc, const char ** argv)
 {
-	const char *	str;
-	const char *	type;
-	int		flags;
+	// const char *	str;
+	// const char *	type;
+	// int		flags;
 
-	argc--;
-	argv++;
-	type = "ext2";
-	flags = MS_MGC_VAL;
+	// argc--;
+	// argv++;
+	// type = "ext2";
+	// flags = MS_MGC_VAL;
 
-	while ((argc > 0) && (**argv == '-'))
-	{
-		argc--;
-		str = *argv++;
+	// while ((argc > 0) && (**argv == '-'))
+	// {
+	// 	argc--;
+	// 	str = *argv++;
 
-		while (*++str) switch (*str)
-		{
-			case 't':
-				if ((argc <= 0) || (**argv == '-'))
-				{
-					fprintf(stderr, "Missing file system type\n");
+	// 	while (*++str) switch (*str)
+	// 	{
+	// 		case 't':
+	// 			if ((argc <= 0) || (**argv == '-'))
+	// 			{
+	// 				fprintf(stderr, "Missing file system type\n");
 
-					return;
-				}
+	// 				return;
+	// 			}
 
-				type = *argv++;
-				argc--;
-				break;
+	// 			type = *argv++;
+	// 			argc--;
+	// 			break;
 
-			case 'r':
-				flags |= MS_RDONLY;
-				break;
+	// 		case 'r':
+	// 			flags |= MS_RDONLY;
+	// 			break;
 
-			case 'm':
-				flags |= MS_REMOUNT;
-				break;
+	// 		case 'm':
+	// 			flags |= MS_REMOUNT;
+	// 			break;
 
-			default:
-				fprintf(stderr, "Unknown option\n");
+	// 		default:
+	// 			fprintf(stderr, "Unknown option\n");
 
-				return;
-		}
-	}
+	// 			return;
+	// 	}
+	// }
 
-	if (argc != 2)
-	{
-		fprintf(stderr, "Wrong number of arguments for mount\n");
+	// if (argc != 2)
+	// {
+	// 	fprintf(stderr, "Wrong number of arguments for mount\n");
 
-		return;
-	}
+	// 	return;
+	// }
 
-	if (mount(argv[0], argv[1], type, flags, 0) < 0)
-		perror("mount failed");
+	// if (mount(argv[0], argv[1], type, flags, 0) < 0)
+	// 	perror("mount failed");
+	fprintf(stderr, "No supported (yet)\n");
 }
 
 
 void
 do_umount(int argc, const char ** argv)
 {
-	if (umount(argv[1]) < 0)
-		perror(argv[1]);
+	// if (umount(argv[1]) < 0)
+	// 	perror(argv[1]);
+	fprintf(stderr, "No supported (yet)\n");
 }
 
 
@@ -990,7 +998,7 @@ do_printenv(int argc, const char ** argv)
 
 	while (*env)
 	{
-		if ((strlen(*env) > len) && (env[0][len] == '=') &&
+		if ((strlen(*env) > (unsigned)len) && (env[0][len] == '=') &&
 			(memcmp(argv[1], *env, len) == 0))
 		{
 			printf("%s\n", &env[0][len+1]);
@@ -1158,7 +1166,7 @@ do_where(int argc, const char ** argv)
 		 */
 		dirName = path;
 
-		if (dirName == '\0')
+		if (*dirName == '\0')
 			dirName = ".";
 
 		/*

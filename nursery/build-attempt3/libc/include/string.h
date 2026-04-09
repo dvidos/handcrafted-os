@@ -36,6 +36,7 @@ void *memcpy(void *dest, const void *src, size_t n);
 void *memmove(void *dest, const void *src, size_t n);
 void *memccpy(void *restrict dst, const void *restrict src, int c, size_t n);
 void *memset(void *s, int c, size_t n);
+void *memchr(const void *s, int c, size_t n);
 
 // Miscellaneous
 char *strerror(int errnum);

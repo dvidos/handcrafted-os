@@ -11,8 +11,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <pwd.h>
-#include <grp.h>
+// #include <pwd.h>
+// #include <grp.h>
 
 
 #define	LISTSIZE	8192
@@ -352,9 +352,9 @@ listFile(
 )
 {
 	char *		cp;
-	struct passwd *	pwd;
-	struct group *	grp;
-	int		len;
+	// struct passwd *	pwd;
+	// struct group *	grp;
+	// int		len;
 	int		mode;
 	int		flagChar;
 	int		usedWidth;
@@ -395,13 +395,13 @@ listFile(
 		sprintf(cp, "%3d ", statBuf->st_nlink);
 		cp += strlen(cp);
 
-		if (!userIdKnown || (statBuf->st_uid != userId))
+		if (!userIdKnown || (statBuf->st_uid != (unsigned)userId))
 		{
-			pwd = getpwuid(statBuf->st_uid);
+			// pwd = getpwuid(statBuf->st_uid);
 
-			if (pwd)
-				strcpy(userName, pwd->pw_name);
-			else
+			// if (pwd)
+			// 	strcpy(userName, pwd->pw_name);
+			// else
 				sprintf(userName, "%d", statBuf->st_uid);
 
 			userId = statBuf->st_uid;
@@ -411,13 +411,13 @@ listFile(
 		sprintf(cp, "%-8s ", userName);
 		cp += strlen(cp);
 
-		if (!groupIdKnown || (statBuf->st_gid != groupId))
+		if (!groupIdKnown || (statBuf->st_gid != (unsigned)groupId))
 		{
-			grp = getgrgid(statBuf->st_gid);
+			// grp = getgrgid(statBuf->st_gid);
 
-			if (grp)
-				strcpy(groupName, grp->gr_name);
-			else
+			// if (grp)
+			// 	strcpy(groupName, grp->gr_name);
+			// else
 				sprintf(groupName, "%d", statBuf->st_gid);
 
 			groupId = statBuf->st_gid;
@@ -477,20 +477,20 @@ listFile(
 	/*
 	 * Show where a symbolic link points.
 	 */
-#ifdef	S_ISLNK
-	if ((flags & LSF_LONG) && S_ISLNK(mode))
-	{
-		len = readlink(name, buf, PATH_LEN - 1);
+// #ifdef	S_ISLNK
+// 	if ((flags & LSF_LONG) && S_ISLNK(mode))
+// 	{
+// 		len = readlink(name, buf, PATH_LEN - 1);
 
-		if (len >= 0)
-		{
-			buf[len] = '\0';
-			printf(" -> %s", buf);
-		}
+// 		if (len >= 0)
+// 		{
+// 			buf[len] = '\0';
+// 			printf(" -> %s", buf);
+// 		}
 
-		usedWidth += strlen(buf) + 4;
-	}
-#endif
+// 		usedWidth += strlen(buf) + 4;
+// 	}
+// #endif
 
 	/*
 	 * If no width was given then just end the line with a newline.

@@ -87,15 +87,15 @@ modeString(int mode)
 	if (mode & S_IXOTH)
 		buf[9] = 'x';
 
-	/*
-	 * Finally fill in magic stuff like suid and sticky text.
-	 */
-	if (mode & S_ISUID)
-		buf[3] = ((mode & S_IXUSR) ? 's' : 'S');
-	if (mode & S_ISGID)
-		buf[6] = ((mode & S_IXGRP) ? 's' : 'S');
-	if (mode & S_ISVTX)
-		buf[9] = ((mode & S_IXOTH) ? 't' : 'T');
+	// /*
+	//  * Finally fill in magic stuff like suid and sticky text.
+	//  */
+	// if (mode & S_ISUID)
+	// 	buf[3] = ((mode & S_IXUSR) ? 's' : 'S');
+	// if (mode & S_ISGID)
+	// 	buf[6] = ((mode & S_IXGRP) ? 's' : 'S');
+	// if (mode & S_ISVTX)
+	// 	buf[9] = ((mode & S_IXOTH) ? 't' : 'T');
 
 	return buf;
 }
@@ -595,7 +595,7 @@ match(const char * text, const char * pattern)
 					text = ++retryText;
 				}
 
-				/* fall into next case */
+				/* fallthrough */
 
 			case '?':  
 				if (*text++ == '\0')
@@ -609,7 +609,7 @@ match(const char * text, const char * pattern)
 				if (ch == '\0')
 					return FALSE;
 
-				/* fall into next case */
+				/* fallthrough */
 
 			default:        
 				if (*text == ch)

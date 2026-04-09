@@ -183,7 +183,7 @@ do_dd(int argc, const char ** argv)
 
 	buf = localBuf;
 
-	if (blockSize > sizeof(localBuf))
+	if ((unsigned)blockSize > sizeof(localBuf))
 	{
 		buf = malloc(blockSize);
 

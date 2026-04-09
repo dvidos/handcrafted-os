@@ -923,7 +923,8 @@ childProcess(const char * cmd)
 	/*
 	 * Try to execute the program directly.
 	 */
-	execvp(argv[0], (char **) argv);
+	execve(argv[0], (char **)argv, NULL);
+	// execvp(argv[0], (char **) argv);
 
 	/*
 	 * The exec failed, so try to run the command using the shell
@@ -1172,7 +1173,8 @@ do_exec(int argc, const char ** argv)
 
 	argv[argc] = NULL;
 
-	execvp(name, (char **) argv + 1);
+	// execvp(name, (char **) argv + 1);
+	execve(name, (char **) argv + 1, NULL);
 	exit(1);
 }
 

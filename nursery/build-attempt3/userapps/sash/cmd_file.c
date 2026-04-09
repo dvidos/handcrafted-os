@@ -108,15 +108,15 @@ checkFile(const char * name)
 		cp += strlen(cp);
 	}
 
-	/*
-	 * Check for an executable file.
-	 */
-	if ((mode & (S_IEXEC | S_IXGRP | S_IXOTH)) != 0)
-	{
-		strcpy(cp, "executable, ");
+	// /*
+	//  * Check for an executable file.
+	//  */
+	// if ((mode & (S_IEXEC | S_IXGRP | S_IXOTH)) != 0)
+	// {
+	// 	strcpy(cp, "executable, ");
 
-		cp += strlen(cp);
-	}
+	// 	cp += strlen(cp);
+	// }
 
 	/*
 	 * The file is a normal file.

@@ -7,11 +7,7 @@ At high level, the steps will be:
 * ~~Make and put the tiniest executables, into the image~~
 * ~~Then bring in libc, on top of syscalls, make unit tests~~
 * ~~Then bring in the basic programs from : init, shell, edit, etc.~~
-
-* Find ways to transfer headers:
-  * From kernel --> libc
-  * From kernel --> rootfs/usr/include/kernel
-  * From libc   --> rootfs/usr/include
+* ~~kernel/libc/uapi --> libc/include/kernel --> rootfs/include/kernel~~
 
 * Port sash to work as shell
   * May need to implement pipe() for pipes
