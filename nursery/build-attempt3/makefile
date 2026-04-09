@@ -40,7 +40,9 @@ kernel:
 libc:
 	make -C libc
 	mkdir -p build/rootfs/usr/lib
+	mkdir -p build/rootfs/usr/include
 	cp libc/libc.a -t build/rootfs/usr/lib
+	cp -r libc/include/* -t build/rootfs/usr/include
 
 userapps: libc
 	make -C userapps

@@ -20,7 +20,7 @@ OBJS = sash.o cmds.o cmd_dd.o cmd_ed.o cmd_grep.o cmd_ls.o cmd_tar.o \
 
 
 sash:	$(OBJS)
-	$(CC) -v -Wl,--verbose -o sash $(OBJS) $(LIBS) $(LDFLAGS)
+	$(CC) -o sash $(OBJS) $(LIBS) $(LDFLAGS)
 
 clean:
 	rm -f $(OBJS) sash
