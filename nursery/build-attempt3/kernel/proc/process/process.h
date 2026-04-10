@@ -106,15 +106,9 @@ struct process {
     pid_t terminated_child_pid;
     int   terminated_child_exit_code;
 
-    // data for loading and running user processes
-    struct {
-        char *executable_path;
-        char **argv;
-        char **envp;
-    } user_proc;
+    inode_t cwd_node;
+    char *cwd_path;
 
-    inode_t *curr_dir;
-    char *curr_dir_path;
     open_file_t *file_handles[MAX_FILE_HANDLES];
 };
 

@@ -594,6 +594,16 @@ exit:
     return traceable(err);
 }
 
+static error_t _prepare_working_directory_for_new_process(process_t *child, process_t *parent) {
+    if (parent != NULL) {
+        child->cwd_node = parent->cwd_node;
+        if (parent->cwd_path != NULL)
+            child->cwd_path = strdup(parent->cwd_path);
+    }
+
+    return OK;
+}
+
 static error_t _inherit_file_descriptors_from_parent(process_t *child, process_t *parent) {
     if (parent == NULL) {
         // open default ones for the very first process
@@ -731,6 +741,9 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, ch
 
     vfs_close(elf);
 
+    err = _prepare_working_directory_for_new_process(child, parent);
+    if (err) goto failed;
+
     err = _inherit_file_descriptors_from_parent(child, parent);
     if (err) goto failed;
 
@@ -770,7 +783,8 @@ error_t process_v2_replace_for_exec(process_t *proc, const char *file_path, char
 
     vfs_close(elf);
 
-    // we would never return, right? we should just restart execution...
+    // Current working directory and open files are preserved.
+
     return OK;
 
 failed:
@@ -799,6 +813,9 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
     if (err) goto failed;
 
     child->memory.saved_esp = parent->memory.saved_esp;
+
+    err = _prepare_working_directory_for_new_process(child, parent);
+    if (err) goto failed;
 
     err = _inherit_file_descriptors_from_parent(child, parent);
     if (err) goto failed;
@@ -834,21 +851,9 @@ void proc_destroy(process_t *proc) {
         kfree((void *)proc->memory.kernel_stack.address);
         proc->memory.kernel_stack.address = 0;
     }
-    if (proc->user_proc.executable_path != NULL) {
-        kfree(proc->user_proc.executable_path);
-        proc->user_proc.executable_path = NULL;
-    }
-    if (proc->user_proc.argv != NULL) {
-        free_strvec(proc->user_proc.argv);
-        proc->user_proc.argv = NULL;
-    }
-    if (proc->user_proc.envp != NULL) {
-        free_strvec(proc->user_proc.envp);
-        proc->user_proc.envp = NULL;
-    }
-    if (proc->curr_dir_path != NULL) {
-        kfree(proc->curr_dir_path);
-        proc->curr_dir_path = NULL;
+    if (proc->cwd_path != NULL) {
+        kfree(proc->cwd_path);
+        proc->cwd_path = NULL;
     }
 
     // let's release all file handles as well.

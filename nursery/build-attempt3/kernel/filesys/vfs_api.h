@@ -8,6 +8,9 @@ error_t vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver
 error_t vfs_unmount(const char *path);
 error_t vfs_sync(void);
 
+void vfs_canonicalize(char *path);
+error_t vfs_lookup_relative(inode_t start, const char *path, inode_t *target_out);
+
 // file open/close (resolve path -> inode_t, allocate open_file_t, call n->sb->driver->open(n, flags, open_file);, store open_file_t in process FD table)
 error_t vfs_open(const char *path, int flags, open_file_t **file);
 error_t vfs_close(open_file_t *file);

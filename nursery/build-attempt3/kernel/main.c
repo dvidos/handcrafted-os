@@ -172,6 +172,7 @@ static void launch_initial_process() {
     // ideally init path should be settable by kernel cmd line
     err = process_v2_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
+    proc_chdir(proc, "/");
     log_debug_fmt(proc_log_formatter, "init: ", proc);
     proc_set_reparenting_proc(proc);
     proc_start(proc);

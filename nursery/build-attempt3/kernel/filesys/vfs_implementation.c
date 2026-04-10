@@ -49,7 +49,7 @@ static error_t vfs_flex_lookup(inode_t *start, const char *path, bool lookup_par
     if (mtab.get_entries_list() == NULL)
         return traceable(ERR_NO_FS_MOUNTED);
 
-    inode_t curr = start == NULL ? inodes.empty() : *start;
+    inode_t curr = (start == NULL) ? inodes.empty() : *start;
     inode_t next = inodes.empty();
     mount_entry_t *mte;
 
@@ -114,12 +114,23 @@ static error_t vfs_flex_lookup(inode_t *start, const char *path, bool lookup_par
     return OK;
 }
 
-static error_t vfs_lookup_target(const char *path, inode_t *target_out) {
-    log_trace("vfs_lookup_target(path='%s')", path);
+static error_t vfs_lookup(const char *path, inode_t *target_out) {
+    log_trace("vfs_lookup(path='%s')", path);
     if (path[0] != '/') return traceable(ERR_BAD_ARGUMENT); // till we get process cwd
 
     const char *name_out;
     int err = vfs_flex_lookup(NULL, path, false, target_out, &name_out);
+    if (err) return err;
+
+    return OK;
+}
+
+error_t vfs_lookup_relative(inode_t start, const char *path, inode_t *target_out) {
+    log_trace("vfs_lookup(path='%s')", path);
+    if (path[0] != '/') return traceable(ERR_BAD_ARGUMENT); // till we get process cwd
+
+    const char *name_out;
+    int err = vfs_flex_lookup(&start, path, false, target_out, &name_out);
     if (err) return err;
 
     return OK;
@@ -135,6 +146,47 @@ static error_t vfs_lookup_parent(const char *path, inode_t *parent_out, const ch
     return OK;
 }
 
+void vfs_canonicalize(char *path) {
+    // converts "/usr/../etc/./init" into "/etc/init"
+    char *out = path; // write pointer
+    char *in = path;  // read pointer
+
+    
+    while (*in) {
+        if (*in == '/') {
+            in++; 
+            continue; 
+        }
+
+        // Check for "." and ".."
+        if (in[0] == '.') {
+            if (in[1] == '/' || in[1] == '\0') {
+                in++; // Skip "."
+                continue;
+            }
+            if (in[1] == '.' && (in[2] == '/' || in[2] == '\0')) {
+                in += 2; // Skip ".."
+                // Backtrack 'out' to previous '/'
+                if (out > path + 1) {
+                    out--; // move before trailing slash
+                    while (out > path && *out != '/') out--;
+                }
+                continue;
+            }
+        }
+
+        // Standard component: copy it
+        *out++ = '/';
+        while (*in && *in != '/') {
+            *out++ = *in++;
+        }
+    }
+
+    if (out == path)
+        *out++ = '/'; // Ensure root is '/'
+    *out = '\0';
+}
+
 // ----------------------------------------------------------------------------------------
 
 error_t vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
@@ -148,7 +200,7 @@ error_t vfs_mount(const char *path, block_device_t *dev, fs_driver_ops_t *driver
             return traceable(ERR_DIR_HAS_MOUNT);
 
     } else {
-        err = vfs_lookup_target(path, &host_dir);
+        err = vfs_lookup(path, &host_dir);
         if (err != OK) return err;
 
         if (!inodes.is_dir(&host_dir))
@@ -179,7 +231,7 @@ error_t vfs_unmount(const char *path) {
     int err;
     inode_t dir = inodes.empty();
 
-    err = vfs_lookup_target(path, &dir);
+    err = vfs_lookup(path, &dir);
     if (err) return err;
 
     mount_entry_t *entry = mtab.find_entry_by_host_dir(&dir);
@@ -229,7 +281,7 @@ error_t vfs_open(const char *path, int flags, open_file_t **file) {
         return vfs_open_device(path + 5, flags, file);
     }
 
-    err = vfs_lookup_target(path, &n);
+    err = vfs_lookup(path, &n);
     if (err) return err;
     if (!inodes.is_file(&n))
         return traceable(ERR_NOT_A_FILE);
@@ -307,7 +359,7 @@ error_t vfs_opendir(const char *path, open_file_t **dir) {
     int err;
     inode_t n = inodes.empty();
 
-    err = vfs_lookup_target(path, &n);
+    err = vfs_lookup(path, &n);
     if (err) return err;
     if (!inodes.is_dir(&n))
         return traceable(ERR_NOT_A_DIRECTORY);
@@ -356,7 +408,7 @@ error_t vfs_closedir(open_file_t *dir) {
 error_t vfs_stat(const char *path, vfs_stat_t *out) {
     log_trace("vfs_stat(path='%s')", path);
     inode_t n = inodes.empty();
-    int err = vfs_lookup_target(path, &n);
+    int err = vfs_lookup(path, &n);
     if (err) return err;
 
     err = n.sb->driver->stat(&n, out);
@@ -373,7 +425,7 @@ error_t vfs_fstat(open_file_t *file, vfs_stat_t *out) {
 error_t vfs_truncate(const char *path, size_t size) {
     log_trace("vfs_truncate(file='%s')", path);
     inode_t n = inodes.empty();
-    int err = vfs_lookup_target(path, &n);
+    int err = vfs_lookup(path, &n);
     if (err) return err;
 
     err = n.sb->driver->truncate(&n, size);

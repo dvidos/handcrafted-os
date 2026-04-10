@@ -1,36 +1,45 @@
 #include "process.h"
+#include "../../utils/assert.h"
 #include "../../klib/string.h"
+#include "../../memory/kheap.h"
+#include "../../filesys/vfs_api.h"
+
+MODULE("PROC_CWD", LOG_LEVEL_WARN);
 
 
-int proc_getcwd(process_t *proc, char *buffer, int size) {
-    if (size < strlen(proc->curr_dir_path) + 1)
+
+error_t proc_getcwd(process_t *proc, char *buffer, int size) {
+    if (size < strlen(proc->cwd_path) + 1)
         return ERR_NO_SPACE_LEFT;
-    // how is this updated when the folder is deleted from the filesystem?
-    // maybe a message should be broadcasted to all processes?
-    strcpy(buffer, proc->curr_dir_path);
+    
+    strcpy(buffer, proc->cwd_path);
     return OK;
 }
 
 // in unices, this would be called chdir(), especially in libc
-int proc_chdir(process_t *proc, const char *path) {
+error_t proc_chdir(process_t *proc, const char *path) {
 
-    // if (vfs_get_root_mount() == NULL)
-    //     return ERR_NO_FS_MOUNTED;
+    inode_t new_inode;
+    error_t err = vfs_lookup_relative(proc->cwd_node, path, &new_inode);
+    if (err) return err;
+    if (!inodes.is_dir(&new_inode))
+        return ERR_NOT_A_DIRECTORY;
+    if (inodes.equals(&new_inode, &proc->cwd_node))
+        return OK; // note, avoid string processing
+
+    char *new_path = kmalloc(strlen(proc->cwd_path) + 1 + strlen(path) + 1);
+    if (new_path == NULL)
+        return traceable(ERR_NO_MEMORY);
     
-    // inode_t *root = vfs_get_root_mount()->mounted_fs_root;
-    // inode_t *target = NULL;
-    // int err = vfs_resolve(path, root, proc->curr_dir, false, &target);
-    // if (err)
-    //     return err;
-
-    // if (proc->curr_dir != NULL)
-    //     destroy_inode(proc->curr_dir);
-    // proc->curr_dir = target;
-
-    // if (proc->curr_dir_path != NULL)
-    //     kfree(proc->curr_dir_path);
-    // inode_get_full_path(proc->curr_dir, &proc->curr_dir_path);
+    strcpy(new_path, proc->cwd_path);
+    strcat(new_path, "/");
+    strcat(new_path, path);
+    vfs_canonicalize(new_path);
     
+    if (proc->cwd_path != NULL)
+        kfree(proc->cwd_path);
+    proc->cwd_path = new_path;
+    proc->cwd_node = new_inode;
+
     return OK;
 }
-
