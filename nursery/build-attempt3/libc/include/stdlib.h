@@ -38,7 +38,7 @@ void *aligned_alloc(size_t alignment, size_t size); // C11
 void abort(void);
 void exit(int status);
 char *getenv(const char *name);
-int putenv (char *string); // data will used as is, not copied
+// int putenv (char *string); -- use setenv() instead
 int setenv(const char *name, const char *value, int overwrite);
 int unsetenv(const char *name);
 int system(const char *command);

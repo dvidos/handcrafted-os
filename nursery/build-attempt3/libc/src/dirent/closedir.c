@@ -16,9 +16,18 @@
  * 2. Free any dynamically allocated memory for the `DIR` structure and its internal buffers.
  * 3. Handle errors from the system call.
  */
-// int closedir(DIR *dirp) {
-//     // TODO: Implement closedir for your operating system.
-//     (void)dirp; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int closedir(DIR *dirp) {
+    if (!dirp) {
+        errno = EBADF;
+        return -1;
+    }
+
+    int ret = syscall(SYS_CLOSE_DIR, dirp->fd, 0, 0, 0, 0);
+    if (ret < 0) {
+        errno = -ret; // Syscalls typically return negative errno on error
+        return -1;
+    }
+
+    free(dirp);
+    return 0;
+}

@@ -1,4 +1,6 @@
 #include "../../libc_internal.h"
+#include <errno.h> // For errno
+#include <sys/stat.h> // For mode_t
 
 /**
  * @brief Creates a new directory.
@@ -10,17 +12,12 @@
  * @param pathname The path to the new directory.
  * @param mode The file mode (permissions) for the new directory.
  * @return 0 on success, or -1 on error with `errno` set.
- *
- * @implNote
- * This function typically maps to a system call (e.g., `mkdir` on Linux).
- * It's important to handle cases where the parent directory does not exist
- * or if permissions are insufficient.
  */
-// int mkdir(const char *pathname, mode_t mode) {
-//     // TODO: Implement mkdir for your operating system.
-//     // This typically involves a system call.
-//     (void)pathname; // Suppress unused parameter warning
-//     (void)mode;     // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int mkdir(const char *pathname, mode_t mode) {
+    int ret = syscall(SYS_MKDIR, (int)pathname, (int)mode, 0, 0, 0);
+    if (ret < 0) {
+        errno = -ret; // Syscalls typically return negative errno on error
+        return -1;
+    }
+    return 0;
+}

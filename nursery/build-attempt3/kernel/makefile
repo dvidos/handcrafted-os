@@ -12,7 +12,6 @@ include ../config.mk
 # using customly built cross compiler on path
 EMU = qemu-system-i386 -m 2G
 CFLAGS = -std=gnu99 -ffreestanding -O2 \
-		-D__KERNEL__ \
 		-I./include  \
 		-Wall \
 		-Wextra  \

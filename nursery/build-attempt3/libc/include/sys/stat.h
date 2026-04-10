@@ -1,7 +1,7 @@
 #ifndef _SYS_STAT_H
 #define _SYS_STAT_H
 
-#include <sys/types.h> // For dev_t, ino_t, mode_t, nlink_t, uid_t, gid_t, off_t, time_t
+#include "types.h" // For dev_t, ino_t, mode_t, nlink_t, uid_t, gid_t, off_t, time_t
 
 // --- Structure for file status ---
 struct stat {

@@ -956,24 +956,8 @@ do_setenv(int argc, const char ** argv)
 	name = argv[1];
 	value = argv[2];
 
-	/*
-	 * The value given to putenv must remain around, so we must malloc it.
-	 * Note: memory is not reclaimed if the same variable is redefined.
-	 */
-	str = malloc(strlen(name) + strlen(value) + 2);
-
-	if (str == NULL)
-	{
-		fprintf(stderr, "Cannot allocate memory\n");
-
-		return;
-	}
-
-	strcpy(str, name);
-	strcat(str, "=");
-	strcat(str, value);
-
-	putenv(str);
+	// setenv is safer than putenv
+	setenv(name, value, 1);
 }
 
 

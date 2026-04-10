@@ -1,43 +1,39 @@
 
-
-chown
-chmod
-
-
-
 opendir
 mkdir
 rmdir
 readdir
 closedir
 
+chown-
+chmod-
+putchar-
+umask-
+getpid-
+utime-
+putenv-
+
 
 getcwd
 chdir
 
-putchar
-
-
 access
 creat
-ctime
 execve
 follow
-getpid
 isatty
 kill
-link
 lstat
 perror
-putenv
 rename
 signal
 stat
 sync
 system
 time
-umask
+
+link
 unlink
-utime
+ctime
 waitpid
 symlink

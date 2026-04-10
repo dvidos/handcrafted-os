@@ -1,7 +1,7 @@
 #ifndef _STDDEF_H
 #define _STDDEF_H
 
-#include <sys/types.h> // For size_t, ptrdiff_t
+#include "sys/types.h" // For size_t, ptrdiff_t
 
 // NULL is a common macro for a null pointer constant.
 // It can be defined as 0, 0L, or (void*)0. (void*)0 is generally preferred in C.

@@ -41,8 +41,9 @@ int syscall(int sysno, int arg1, int arg2, int arg3, int arg4, int arg5);
 #include "../include/hcos/misc.h"
 
 
-
-
+// For DIR and dirent structures
+#include "../include/dirent.h"
+#include "../include/kernel/vfs_dirent.h"
 
 typedef struct _IO_FILE {
     int fd;             // The underlying kernel file descriptor
@@ -55,6 +56,11 @@ typedef struct _IO_FILE {
     bool has_ungetc_char; // Flag if ungetc_char is valid
     struct _IO_FILE *next;  // allow chaining for flushing buffers at end.
 } FILE;
+
+typedef struct __DIR {
+    int fd; // File descriptor for the open directory
+    struct dirent entry; // Buffer for the current directory entry
+} DIR;
 
 extern FILE *__open_files_list;
 

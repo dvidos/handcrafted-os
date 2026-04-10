@@ -1,7 +1,7 @@
 #pragma once
 
 // POSIX-related flags for open(), create() etc.
-#ifdef __KERNEL__
+#ifndef __HOST_SYSTEM__
 
 
     // ----------- Open flags below -----------------------

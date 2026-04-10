@@ -1,17 +1,18 @@
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
 
-#include <stddef.h> // For size_t and ptrdiff_t
+#include "../stddef.h" // For size_t and ptrdiff_t
 
 // --- Standard Integer Types ---
-typedef unsigned char   uint8_t;
-typedef signed char     int8_t;
-typedef unsigned short  uint16_t;
-typedef signed short    int16_t;
-typedef unsigned int    uint32_t;
-typedef signed int      int32_t;
-typedef unsigned long   uint64_t; // Assuming 64-bit long for now, adjust as needed for target arch
-typedef signed long     int64_t;  // Assuming 64-bit long for now, adjust as needed for target arch
+#include "../kernel/base.h"
+// typedef unsigned char   uint8_t;
+// typedef signed char     int8_t;
+// typedef unsigned short  uint16_t;
+// typedef signed short    int16_t;
+// typedef unsigned int    uint32_t;
+// typedef signed int      int32_t;
+// typedef unsigned long   uint64_t; // Assuming 64-bit long for now, adjust as needed for target arch
+// typedef signed long     int64_t;  // Assuming 64-bit long for now, adjust as needed for target arch
 
 // --- Pointer-sized integers ---
 typedef unsigned long   uintptr_t; // Assuming uintptr_t is unsigned long
@@ -28,5 +29,15 @@ typedef unsigned int    mode_t;     // File mode (permissions and type)
 typedef long            off_t;      // File offset
 typedef long            ssize_t;    // Signed size_t, used for byte counts or errors
 typedef unsigned int    nlink_t;
+
+
+_Static_assert(sizeof(uint8_t)  == 1, "uint8_t is expected to have size of 1 byte");
+_Static_assert(sizeof(uint16_t) == 2, "uint16_t is expected to have a size of 2 bytes");
+_Static_assert(sizeof(uint32_t) == 4, "uint32_t is expected to have a size of 4 bytes");
+_Static_assert(sizeof(uint64_t) == 8, "uint64_t is expected to have a size of 8 bytes");
+_Static_assert(sizeof(void *)   == 4,   "pointer is expected to have a size of 4 bytes");
+_Static_assert(sizeof(uintptr_t) == 4,   "uintptr_t is expected to have a size of 4 bytes");
+
+
 
 #endif // _SYS_TYPES_H

@@ -17,9 +17,22 @@
  *    including the file descriptor returned by the system call and a buffer for reading entries.
  * 3. Handle potential errors from the system call (e.g., `ENOENT`, `EACCES`, `ENOTDIR`).
  */
-// DIR *opendir(const char *name) {
-//     // TODO: Implement opendir for your operating system.
-//     (void)name; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return NULL;
-// }
+DIR *opendir(const char *name) {
+    int fd = syscall(SYS_OPEN_DIR, (int)name, 0, 0, 0, 0);
+    if (fd < 0) {
+        errno = -fd; // Syscalls typically return negative errno on error
+        return NULL;
+    }
+
+    DIR *dir = (DIR *)malloc(sizeof(DIR));
+    if (!dir) {
+        close(fd); // Close the opened directory fd
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    dir->fd = fd;
+    // The dirent 'entry' member will be populated by readdir
+
+    return dir;
+}

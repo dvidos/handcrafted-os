@@ -55,9 +55,6 @@
     #error "This tutorial needs to be compiled with a ix86-elf compiler"
 #endif
 
-#if !defined(__KERNEL__)
-    #error "To compile for kernel the __KERNEL__ macro must be defined"
-#endif
 
 MODULE("MAIN", LOG_LEVEL_INFO);
 
