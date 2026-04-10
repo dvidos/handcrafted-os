@@ -11,16 +11,7 @@
  * @param mode The file permissions for the newly created file.
  * @return On success, a new file descriptor is returned. On error, -1 is returned,
  *         and `errno` is set.
- *
- * @implNote
- * This function can often be implemented as a simple wrapper around the `open` function.
- * It's part of older POSIX standards; `open` with appropriate flags is generally preferred.
  */
-// int creat(const char *pathname, mode_t mode) {
-//     // TODO: Implement creat for your operating system.
-//     // This can often be a wrapper around open().
-//     (void)pathname; // Suppress unused parameter warning
-//     (void)mode;     // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int creat(const char *pathname, mode_t mode) {
+    return open(pathname, O_WRONLY | O_CREAT | O_TRUNC, mode);
+}

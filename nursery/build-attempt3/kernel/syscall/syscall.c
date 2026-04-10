@@ -196,7 +196,7 @@ void isr_syscall(trap_frame_t *tf) {
             return_value = sys_opendir((char *)arg1);
             break;
         case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
-            // return_value = sys_readdir(arg1, (dirent_t *)arg2);
+            return_value = sys_readdir(arg1, (void *)arg2);
             break;
         case SYS_CLOSE_DIR:   // arg1 = handle
             return_value = sys_closedir(arg1);
@@ -205,13 +205,13 @@ void isr_syscall(trap_frame_t *tf) {
             // return_value = vfs_touch((char *)arg1);
             break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
-            // return_value = vfs_unlink((char *)arg1);
+            return_value = vfs_unlink((char *)arg1);
             break;
         case SYS_MKDIR:   // arg1 = path
-            // return_value = vfs_mkdir((char *)arg1);
+            return_value = vfs_mkdir((char *)arg1);
             break;
         case SYS_RMDIR:  // arg1 = path
-            // return_value = vfs_rmdir((char *)arg1);
+            return_value = vfs_rmdir((char *)arg1);
             break;
         case SYS_DUP:
             return_value = sys_dup(arg1);

@@ -11,18 +11,7 @@
  * @param envp An array of null-terminated strings, in "KEY=VALUE" format, defining
  *             the environment for the new program.
  * @return On success, `execve` does not return. On error, -1 is returned, and `errno` is set.
- *
- * @implNote
- * This is the most flexible of the `exec` family of functions, often directly
- * mapping to a system call (e.g., `execve` on Linux). It allows complete control
- * over the arguments and environment passed to the new program.
  */
-// int execve(const char *path, char *const argv[], char *const envp[]) {
-//     // TODO: Implement execve for your operating system.
-//     // This typically involves a system call.
-//     (void)path;  // Suppress unused parameter warning
-//     (void)argv;  // Suppress unused parameter warning
-//     (void)envp;  // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int execve(const char *path, char *const argv[], char *const envp[]) {
+    return syscall(SYS_EXEC, (int)path, (int)argv, (int)envp, 0, 0);
+}

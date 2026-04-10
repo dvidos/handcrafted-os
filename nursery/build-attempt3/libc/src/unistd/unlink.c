@@ -10,15 +10,7 @@
  *
  * @param pathname The path to the name to delete.
  * @return 0 on success, or -1 on error with `errno` set.
- *
- * @implNote
- * This function typically maps to a system call (e.g., `unlink` on Linux).
- * It's the primary way to remove files.
  */
-// int unlink(const char *pathname) {
-//     // TODO: Implement unlink for your operating system.
-//     // This typically involves a system call.
-//     (void)pathname; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int unlink(const char *pathname) {
+    return syscall(SYS_UNLINK, (int)pathname, 0, 0, 0, 0);
+}

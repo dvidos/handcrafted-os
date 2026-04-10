@@ -951,7 +951,6 @@ do_setenv(int argc, const char ** argv)
 {
 	const char *	name;
 	const char *	value;
-	char *		str;
 
 	name = argv[1];
 	value = argv[2];

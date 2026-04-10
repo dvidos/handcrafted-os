@@ -491,7 +491,7 @@ main(int argc, const char ** argv)
 	 * Default our path if it is not set.
 	 */
 	if (getenv("PATH") == NULL)
-		setenv("PATH", "/bin:/usr/bin:/sbin:/usr/sbin:/etc");
+		setenv("PATH", "/bin:/usr/bin:/sbin:/usr/sbin:/etc", 1);
 
 	/*
 	 * If the alias flag is set then define all aliases.

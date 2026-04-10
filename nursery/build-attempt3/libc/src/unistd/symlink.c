@@ -16,11 +16,9 @@
  * Symbolic links are distinct from hard links; they are special files that
  * contain the path to another file.
  */
-// int symlink(const char *oldpath, const char *newpath) {
-//     // TODO: Implement symlink for your operating system.
-//     // This typically involves a system call.
-//     (void)oldpath; // Suppress unused parameter warning
-//     (void)newpath; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int symlink(const char *oldpath, const char *newpath) {
+    (void)oldpath; // Suppress unused parameter warning
+    (void)newpath; // Suppress unused parameter warning
+    errno = ENOSYS; // Function not implemented
+    return -1;
+}
