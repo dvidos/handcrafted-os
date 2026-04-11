@@ -57,11 +57,11 @@ static const CommandEntry	commandEntryTable[] =
 		""
 	},
 
-	{
-		"-ar",		do_ar,		3,	INFINITE_ARGS,
-		"Extract or list files from an AR file",
-		"[txp]v arFileName fileName ..."
-	},
+	// {
+	// 	"-ar",		do_ar,		3,	INFINITE_ARGS,
+	// 	"Extract or list files from an AR file",
+	// 	"[txp]v arFileName fileName ..."
+	// },
 
 	{
 		"cd",		do_cd,		1,	2,

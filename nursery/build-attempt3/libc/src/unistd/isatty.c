@@ -13,10 +13,11 @@
  * This function typically maps to a system call (e.g., `isatty` on Linux).
  * It's used to determine if a program is interacting with a human-controlled terminal.
  */
-// int isatty(int fd) {
-//     // TODO: Implement isatty for your operating system.
-//     // This typically involves a system call.
-//     (void)fd; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return 0; // Assume not a TTY by default
-// }
+int isatty(int fd) {
+    // TODO: Implement isatty for your operating system.
+    // This typically involves a system call.
+    (void)fd; // Suppress unused parameter warning
+    errno = ENOSYS; // Function not implemented
+    return 1; // just to fool sash
+    return 0; // Assume not a TTY by default
+}

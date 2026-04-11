@@ -207,6 +207,13 @@ void isr_syscall(trap_frame_t *tf) {
         case SYS_TOUCH:   // arg1 = path
             // return_value = vfs_touch((char *)arg1);
             break;
+        case SYS_STAT:   // arg1 = path, arg2 = stat struct pointer
+            return_value = vfs_stat((const char *)arg1, (vfs_stat_t *)arg2);
+            break;
+        case SYS_FSTAT:   // arg1 = fd, arg2 = stat struct pointer
+            // we need to find 
+            return_value = proc_fstat(running_process(), arg1, (vfs_stat_t *)arg2);
+            break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
             return_value = vfs_unlink((char *)arg1);
             break;

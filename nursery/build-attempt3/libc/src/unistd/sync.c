@@ -11,8 +11,8 @@
  * It's a system-wide operation, often used before system shutdown to ensure
  * data integrity.
  */
-// void sync(void) {
-//     // TODO: Implement sync for your operating system.
-//     // This typically involves a system call.
-//     errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
-// }
+void sync(void) {
+    // TODO: Implement sync for your operating system.
+    // This typically involves a system call.
+    errno = ENOSYS; // Function not implemented (no return value, so errno usage is limited)
+}

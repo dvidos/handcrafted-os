@@ -18,6 +18,7 @@ mkdir -p \
     $R/tmp
 
 cp ./userapps/init/init   $R/bin
+cp ./userapps/sash/sash   $R/bin
 cp ./userapps/shell/shell $R/bin
 cp ./userapps/edit/edit   $R/bin
 
@@ -29,6 +30,7 @@ cat > $R/etc/initrc <<EOF
 # /bin/shell
 # ... etc
 /bin/echo Testing testing, one, two, three
+/bin/sash
 
 EOF
 

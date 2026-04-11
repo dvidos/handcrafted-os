@@ -14,11 +14,11 @@
  * This function typically maps to a system call (e.g., `fstat` on Linux).
  * It queries the kernel for file attributes using an already open file handle.
  */
-// int fstat(int fd, struct stat *buf) {
-//     // TODO: Implement fstat for your operating system.
-//     // This typically involves a system call.
-//     (void)fd;  // Suppress unused parameter warning
-//     (void)buf; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int fstat(int fd, struct stat *buf) {
+    // TODO: Implement fstat for your operating system.
+    // This typically involves a system call.
+    (void)fd;  // Suppress unused parameter warning
+    (void)buf; // Suppress unused parameter warning
+    errno = ENOSYS; // Function not implemented
+    return -1;
+}

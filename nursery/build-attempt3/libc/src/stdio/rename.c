@@ -15,11 +15,11 @@
  * Various error conditions can occur, such as `EXDEV` (different filesystems),
  * `ENOTEMPTY` (newname is a non-empty directory), or permission issues.
  */
-// int rename(const char *oldname, const char *newname) {
-//     // TODO: Implement rename for your operating system.
-//     // This typically involves a system call.
-//     (void)oldname; // Suppress unused parameter warning
-//     (void)newname; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int rename(const char *oldname, const char *newname) {
+    // TODO: Implement rename for your operating system.
+    // This typically involves a system call.
+    (void)oldname; // Suppress unused parameter warning
+    (void)newname; // Suppress unused parameter warning
+    errno = ENOSYS; // Function not implemented
+    return -1;
+}
