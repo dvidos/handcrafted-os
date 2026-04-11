@@ -29,6 +29,7 @@ C_FILES = \
 	$(wildcard src/sys/*.c) \
 	$(wildcard src/sys/stat/*.c) \
 	$(wildcard src/sys/wait/*.c) \
+	$(wildcard src/sys/ioctl/*.c) \
 	$(wildcard src/time/*.c) \
 	$(wildcard src/unistd/*.c) \
 	$(wildcard src/utime/*.c)

@@ -489,3 +489,10 @@ error_t vfs_rmdir(const char *path) {
     return OK;
 }
 
+error_t vfs_ioctl(open_file_t *file, uint32_t cmd, long arg) {
+    log_trace("vfs_ioctl(file=%ld)", file->inode.inode_num);
+    if (file->sb->driver->ioctl == NULL)
+        return ERR_NOT_SUPPORTED;
+    
+    return file->sb->driver->ioctl(file, cmd, arg);
+}

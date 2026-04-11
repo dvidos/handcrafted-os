@@ -2,6 +2,7 @@
 #include "../../../klib/string.h"
 #include "../../../devices/tty.h"
 #include "../../../include/uapi/errors.h"
+#include "../../../include/uapi/ioctl.h"
 #include "../../../logger/logger.h"
 
 
@@ -59,6 +60,20 @@ static ssize_t tty_driver_write(open_file_t *file, const void *buf, size_t len, 
     return len;
 }
 
+static error_t tty_driver_ioctl(open_file_t *dev, uint32_t cmd, long arg) {
+    log_trace("tty_driver_ioctl(cmd=%u, arg=%ld)", cmd, arg);
+
+    if (dev->driver_priv_data == NULL)
+        return ERR_BAD_ARGUMENT;
+    tty_t *tty = (tty_t *)dev->driver_priv_data;
+
+    switch (cmd) {
+        case TCGETS: return 1;
+    }
+
+    return ERR_NOT_SUPPORTED;
+}
+
 
 static fs_driver_ops_t tty_fs_ops = {
     .probe        = NULL,
@@ -83,6 +98,7 @@ static fs_driver_ops_t tty_fs_ops = {
     .rmdir        = NULL,
     .stat         = NULL,
     .truncate     = NULL,
+    .ioctl        = tty_driver_ioctl,
 };
 
 dev_driver_t tty_dev_driver = {

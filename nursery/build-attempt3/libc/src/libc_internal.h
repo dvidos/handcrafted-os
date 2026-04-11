@@ -6,6 +6,7 @@
 #include "../include/sys/time.h"
 #include "../include/sys/types.h"
 #include "../include/sys/wait.h"
+#include "../include/sys/ioctl.h"
 
 #include "../include/assert.h"
 #include "../include/ctype.h"
@@ -25,6 +26,7 @@
 #include "../include/stdio.h"
 #include "../include/stdlib.h"
 #include "../include/string.h"
+#include "../include/termios.h"
 #include "../include/time.h"
 #include "../include/unistd.h"
 #include "../include/utime.h"

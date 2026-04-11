@@ -31,6 +31,7 @@ error_t vfs_closedir(open_file_t *dir);
 error_t vfs_stat(const char *path, vfs_stat_t *out);
 error_t vfs_fstat(open_file_t *file, vfs_stat_t *out);
 error_t vfs_truncate(const char *path, size_t size);
+error_t vfs_ioctl(open_file_t *file, uint32_t cmd, long arg);
 
 // creation/removal (resolve parent directory, extract final component name, call driver create/unlink/mkdir/rmdir)
 error_t vfs_create(const char *path, int type);

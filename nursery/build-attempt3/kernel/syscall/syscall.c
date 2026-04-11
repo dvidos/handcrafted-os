@@ -92,6 +92,16 @@ static int sys_readdir(int handle, void *dirent) {
 static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
 }
+static int sys_fstat(int handle, vfs_stat_t *out) {
+    open_file_t *f = proc_get_open_file(running_process(), handle);
+    if (f == NULL) return ERR_BAD_FILE;
+    return vfs_fstat(f, out);
+}
+static int sys_ioctl(int handle, uint32_t cmd, long arg) {
+    open_file_t *f = proc_get_open_file(running_process(), handle);
+    if (f == NULL) return ERR_BAD_FILE;
+    return vfs_ioctl(f, cmd, arg);
+}
 static int sys_dup(int fd) {
     return proc_dup(running_process(), fd);    
 }
@@ -212,10 +222,13 @@ void isr_syscall(trap_frame_t *tf) {
             break;
         case SYS_FSTAT:   // arg1 = fd, arg2 = stat struct pointer
             // we need to find 
-            return_value = proc_fstat(running_process(), arg1, (vfs_stat_t *)arg2);
+            return_value = sys_fstat(arg1, (vfs_stat_t *)arg2);
             break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
             return_value = vfs_unlink((char *)arg1);
+            break;
+        case SYS_IOCTL:  // arg1 = handle, arg2 = cmd, arg3 = arg
+            return_value = sys_ioctl(arg1, arg2, arg3);
             break;
         case SYS_MKDIR:   // arg1 = path
             return_value = vfs_mkdir((char *)arg1);

@@ -100,12 +100,6 @@ int proc_close(process_t *proc, int handle) {
     return OK;
 }
 
-int proc_fstat(process_t *proc, int handle, vfs_stat_t *stat) {
-    if (!is_valid_handle(proc, handle))
-        return ERR_BAD_ARGUMENT;
-    return vfs_fstat(proc->file_handles[handle], stat);
-}
-
 int proc_opendir(process_t *proc, char *name) {
     open_file_t *file;
     // fast resolve relative to cwd
@@ -181,5 +175,11 @@ int proc_dup2(process_t *source_proc, int source_fd, process_t *target_proc, int
 int proc_pipe(process_t *proc, int fds[]) {
     // no idea what this does, yet.
     return ERR_NOT_IMPLEMENTED;
+}
+
+open_file_t *proc_get_open_file(process_t *proc, int handle) {
+    if (!is_valid_handle(proc, handle))
+        return NULL;
+    return proc->file_handles[handle];
 }
 

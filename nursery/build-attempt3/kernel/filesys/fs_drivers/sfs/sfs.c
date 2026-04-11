@@ -642,6 +642,7 @@ static fs_driver_ops_t console_fs_ops = {
     .rmdir        = sfs_driver_rmdir,
     .stat         = sfs_driver_stat,
     .truncate     = sfs_driver_truncate,
+    .ioctl        = NULL,
 };
 
 fs_driver_t simple_fs = {

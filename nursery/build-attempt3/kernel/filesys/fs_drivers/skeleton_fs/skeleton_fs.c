@@ -133,6 +133,7 @@ static fs_driver_ops_t skeleton_fs_ops = {
     .rmdir        = _skeleton_fs_rmdir,
     .stat         = _skeleton_fs_stat,
     .truncate     = _skeleton_fs_truncate,
+    .ioctl        = NULL,
 };
 
 fs_driver_t skeleton_fs = {

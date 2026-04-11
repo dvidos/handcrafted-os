@@ -177,7 +177,6 @@ int proc_read(process_t *proc, int handle, char *buffer, int length);
 int proc_write(process_t *proc, int handle, char *buffer, int length);
 int proc_seek(process_t *proc, int handle, int offset, int origin);
 int proc_close(process_t *proc, int handle);
-int proc_fstat(process_t *proc, int handle, vfs_stat_t *stat);
 int proc_opendir(process_t *proc, char *name);
 int proc_rewinddir(process_t *proc, int handle);
 int proc_readdir(process_t *proc, int handle, vfs_dirent_t *entry);
@@ -186,6 +185,7 @@ int proc_closedir(process_t *proc, int handle);
 int proc_dup(process_t *proc, int fd);
 int proc_dup2(process_t *source_proc, int source_fd, process_t *target_proc, int target_fd);
 int proc_pipe(process_t *proc, int fds[]);
+open_file_t *proc_get_open_file(process_t *proc, int handle);
 
 
 // debug.c

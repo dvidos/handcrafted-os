@@ -11,25 +11,26 @@
 #define SYS_LOG_HEX_DUMP      4   // log binary contents in syslog
 
 // file manipulation
-#define SYS_OPEN             31   // arg1 = file path, returns handle or error<0
-#define SYS_READ             32   // arg1 = handle, arg2 = buffer, arg3 = len
-#define SYS_WRITE            33   // arg1 = handle, arg2 = buffer, arg3 = len
-#define SYS_SEEK             34   // arg1 = handle, arg2 = offset, arg3 = origin
-#define SYS_CLOSE            35   // arg1 = handle
-#define SYS_OPEN_DIR         36   // arg1 = dir path
-#define SYS_READ_DIR         37   // arg1 = handle
-#define SYS_REWIND_DIR       38   // arg1 = handle
-#define SYS_CLOSE_DIR        39   // arg1 = handle
-#define SYS_TOUCH            40   // arg1 = path
-#define SYS_UNLINK           41   // arg1 = path
-#define SYS_MKDIR            42   // arg1 = path
-#define SYS_RMDIR            43   // arg1 = path
+#define SYS_OPEN             21   // arg1 = file path, returns handle or error<0
+#define SYS_READ             22   // arg1 = handle, arg2 = buffer, arg3 = len
+#define SYS_WRITE            23   // arg1 = handle, arg2 = buffer, arg3 = len
+#define SYS_SEEK             24   // arg1 = handle, arg2 = offset, arg3 = origin
+#define SYS_CLOSE            25   // arg1 = handle
+#define SYS_OPEN_DIR         26   // arg1 = dir path
+#define SYS_READ_DIR         27   // arg1 = handle
+#define SYS_REWIND_DIR       28   // arg1 = handle
+#define SYS_CLOSE_DIR        29   // arg1 = handle
+#define SYS_TOUCH            30   // arg1 = path
+#define SYS_UNLINK           31   // arg1 = path
+#define SYS_MKDIR            32   // arg1 = path
+#define SYS_RMDIR            33   // arg1 = path
 
 // file metadata / control
-#define SYS_STAT             44   // arg1 = path, arg2 = struct stat*
-#define SYS_FSTAT            45   // arg1 = fd, arg2 = struct stat*
-#define SYS_FCNTL            46   // arg1 = fd, arg2 = cmd, arg3 = arg
-#define SYS_RENAME           47   // arg1 = old path, arg2 = new path
+#define SYS_STAT             41   // arg1 = path, arg2 = struct stat*
+#define SYS_FSTAT            42   // arg1 = fd, arg2 = struct stat*
+#define SYS_FCNTL            43   // arg1 = fd, arg2 = cmd, arg3 = arg
+#define SYS_RENAME           44   // arg1 = old path, arg2 = new path
+#define SYS_IOCTL            45   // arg1 = handle, arg2 = cmd, arg3 = arg
 
 // process / environment
 #define SYS_GET_CWD          51   // arg1 = buffer, arg2 = buffer size
@@ -50,7 +51,6 @@
 #define SYS_DUP              64   // arg1 = old fd
 #define SYS_DUP2             65   // arg1 = old fd, arg2 = new fd
 #define SYS_PIPE             66   // returns two fds (read, write)
-#define SYS_IOCTL            67   // arg1 = fd, arg2 = request, arg3 = arg
 
 // signals (optional)
 #define SYS_KILL             68   // arg1 = pid, arg2 = signal

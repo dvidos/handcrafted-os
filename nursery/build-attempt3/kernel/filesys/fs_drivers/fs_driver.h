@@ -47,6 +47,8 @@ struct fs_driver_ops {
 
     error_t (*stat)(inode_t *n, vfs_stat_t *out);
     error_t (*truncate)(inode_t *n, size_t size);
+
+    error_t (*ioctl)(open_file_t *dev, uint32_t cmd, long arg);
 };
 
 struct fs_driver {
