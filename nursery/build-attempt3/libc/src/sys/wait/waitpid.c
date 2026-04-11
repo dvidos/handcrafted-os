@@ -20,7 +20,7 @@
  */
 pid_t waitpid(pid_t pid, int *stat_loc, int options) {
     while (true) {
-        int pid = syscall(SYS_WAIT_ANY_CHILD, (int)pid, (int)stat_loc, options, 0, 0);
+        int pid = syscall(SYS_WAIT_SPEC_CHILD, (int)pid, (int)stat_loc, options, 0, 0);
         if (pid == ERR_AGAIN) {
             continue;
         }

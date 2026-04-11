@@ -8,32 +8,31 @@ source ./config.sh  # get build variables
 R=./build/rootfs
 
 
-mkdir -p \
-    $R/bin \
-    $R/etc \
-    $R/usr \
-    $R/usr/src \
-    $R/usr/include \
-    $R/usr/lib \
-    $R/tmp
+# Ensure the destination exists
+mkdir -p ./build/rootfs
 
+# 1. Recreate the directory structure
+# We find all directories, excluding the root '.' itself, then mkdir them
+find ./rootfs -type d -not -path "./rootfs" | sed 's|^\./rootfs/||' | xargs -I {} mkdir -p ./build/rootfs/{}
+
+# 2. Copy the files, filtering out .gitkeep
+# -not -name matches filenames exactly
+find ./rootfs -type f -not -name ".gitkeep" | while read -r file; do
+    dest="./build/rootfs/${file#./rootfs/}"
+    cp "$file" "$dest"
+done
+
+
+# copy libc so that programs can compile..?
+cp ./libc/libc.a $R/usr/lib
+cp -r ./libc/include/* $R/usr/include
+
+
+
+# these should be put there by their respective makefiles, upon "make install"
 cp ./userapps/init/init   $R/bin
 cp ./userapps/sash/sash   $R/bin
 cp ./userapps/shell/shell $R/bin
 cp ./userapps/edit/edit   $R/bin
 
-cat > $R/etc/initrc <<EOF
-# commands executed by init, at system boot
-
-# /bin/gui
-# /bin/window_manager
-# /bin/shell
-# ... etc
-/bin/echo Testing testing, one, two, three
-/bin/sash
-
-EOF
-
-cp ./libc/libc.a $R/usr/lib
-cp -r ./libc/include/* $R/usr/include
 

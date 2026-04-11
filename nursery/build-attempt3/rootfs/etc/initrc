@@ -1,0 +1,14 @@
+# commands executed by init, at system boot
+# each line is a command, optionally prefixed by:
+# - wait: runs the command, waits for exit
+# - once: runs the command, fire and forget (services)
+# - repeat: runs the command and, if/when it exists, runs it again
+
+
+# /bin/gui
+# /bin/window_manager
+# /bin/shell
+# ... etc
+
+wait    /bin/echo Testing testing, one, two, three
+repeat  /bin/sash -a -p $

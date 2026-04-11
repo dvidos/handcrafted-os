@@ -88,5 +88,6 @@ clean: config.mk
 	make -C stage1   clean
 	make -C stage2   clean
 	make -C kernel   clean
-	rm -rf build/*
+	rm -rf ./build/*
+	rmdir ./build
 	rm -f config.mk config.h config.sh os.img

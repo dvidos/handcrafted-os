@@ -9,11 +9,18 @@ At high level, the steps will be:
 * ~~Then bring in the basic programs from : init, shell, edit, etc.~~
 * ~~kernel/libc/uapi --> libc/include/kernel --> rootfs/include/kernel~~
 
-* Port sash to work as shell
-  * May need to implement pipe() for pipes
-  * May need to implement shared memory IPC for pipes (also usable in Graphics Server)
-  * May need to implement flags O_CREATE and O_WRITE etc.
-  * May need to implement chattr, chmod, chown, chgrp
+## porting sash to work as shell
+  * make system legit rootfs files before copying over
+  * make rootfs a legit step
+  * init once, repeat, add the "wait" command type
+  * keyboard driver + input
+  * implement Kill, signal
+  * implement readdir()
+  * implement O_CREATE etc
+  * implement attributes, owners, groups
+  * implement symlinks, readlink, symlink, lstat etc
+
+
 * Move from nursery to root, move root to graveyard
 * Create a filter in userapps for single-file programs, make appropriate makefile
   * Create true, false, cat, and all those small things we need

@@ -23,6 +23,7 @@ void fatal(char *msg);
 
 
 typedef enum {
+    CMD_TYPE_WAIT = 1,
     CMD_TYPE_ONCE,
     CMD_TYPE_REPEAT
 } cmd_type_t;
@@ -67,8 +68,16 @@ void cmd_list_add(cmd_list_t *list, cmd_entry_t *cmd) {
     cmd_list_node_t *new_node = (cmd_list_node_t *)malloc(sizeof(cmd_list_node_t));
     if (!new_node) syslog_critical("Failed to allocate cmd_list_node_t");
     new_node->command = cmd;
-    new_node->next = list->head;
-    list->head = new_node;
+
+    if (list->head == NULL) {
+        list->head = new_node;
+    } else {
+        cmd_list_node_t *p = list->head;
+        while (p->next != NULL)
+            p = p->next;
+        p->next = new_node;
+    }
+    new_node->next = NULL;
     list->count++;
 }
 
@@ -108,7 +117,7 @@ cmd_entry_t *parse_command_line(char *line) {
         return NULL;
     }
     memset(cmd, 0, sizeof(cmd_entry_t));
-    cmd->type = CMD_TYPE_ONCE; // Default type
+    cmd->type = CMD_TYPE_WAIT; // Default type
     cmd->pid = 0;
     cmd->active = false;
     cmd->spawned_once = false;
@@ -130,7 +139,10 @@ cmd_entry_t *parse_command_line(char *line) {
         return NULL;
     }
 
-    if (strcmp(token, "once") == 0) {
+    if (strcmp(token, "wait") == 0) {
+        cmd->type = CMD_TYPE_WAIT;
+        token = strtok_r(NULL, " \t\n", &saveptr); // Get next token (path)
+    } else if (strcmp(token, "once") == 0) {
         cmd->type = CMD_TYPE_ONCE;
         token = strtok_r(NULL, " \t\n", &saveptr); // Get next token (path)
     } else if (strcmp(token, "repeat") == 0) {
@@ -245,6 +257,13 @@ pid_t spawn_command(cmd_entry_t *cmd) {
         cmd->pid = pid;
         cmd->active = true;
         cmd->spawned_once = true; // Mark as spawned for 'once' commands
+    }
+
+    if (cmd->type == CMD_TYPE_WAIT) {
+        int status = 0;
+        syslog_info("waiting for child with pid %d", pid);
+        waitpid(pid, &status, 0);
+        syslog_info("child with pid %d exited, status=%d", pid, status);
     }
     return pid;
 }
