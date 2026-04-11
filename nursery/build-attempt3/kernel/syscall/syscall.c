@@ -110,8 +110,11 @@ static int sys_exec(char *path, char **argv, char **envp) {
 static int sys_spawn(char *path, char **argv, char **envp) {
     return proc_spawnve(running_process(), path, argv, envp);
 }
-static int sys_wait_child(int *exit_code) {
+static int sys_wait_any_child(int *exit_code) {
     return proc_wait(running_process(), exit_code);
+}
+static int sys_wait_spec_child(pid_t child_pid, int *exit_code, int mode) {
+    return proc_waitpid(running_process(), child_pid, exit_code, mode);
 }
 static int sys_get_clocktime(clocktime_t *ct) {
 
@@ -238,8 +241,11 @@ void isr_syscall(trap_frame_t *tf) {
         case SYS_SPAWN:   // arg1 = path, arg2 = argv, arg3 = envp, returns... maybe?
             return_value = sys_spawn((char *)arg1, (char **)arg2, (char **)arg3);
             break;
-        case SYS_WAIT_CHILD:
-            return_value = sys_wait_child((int *)arg1);
+        case SYS_WAIT_ANY_CHILD:
+            return_value = sys_wait_any_child((int *)arg1);
+            break;
+        case SYS_WAIT_SPEC_CHILD:
+            return_value = sys_wait_spec_child((pid_t)arg1, (int *)arg2, arg3);
             break;
         case SYS_YIELD:
             return_value = sys_yield();

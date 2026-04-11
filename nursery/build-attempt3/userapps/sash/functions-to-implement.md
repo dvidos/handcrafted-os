@@ -1,8 +1,8 @@
+waitpid
+system
 
 
 
-getcwd
-chdir
 
 follow
 isatty
@@ -12,7 +12,5 @@ rename
 signal
 stat
 sync
-system
 time
 ctime
-waitpid

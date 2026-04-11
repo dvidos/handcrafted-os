@@ -187,7 +187,8 @@ const char *str_block_reason(enum block_reasons reason) {
         CASE(SLEEPING);
         CASE(SEMAPHORE);
         CASE(WAIT_USER_INPUT);
-        CASE(WAIT_CHILD_EXIT);
+        CASE(WAIT_ANY_CHILD);
+        CASE(WAIT_SPEC_CHILD);
     }
 
     sprintfn(unknown_str_buffer, sizeof(unknown_str_buffer), "(unknown block reason: %u)", reason);

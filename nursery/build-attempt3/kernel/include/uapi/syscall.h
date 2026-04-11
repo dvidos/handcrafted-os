@@ -37,23 +37,24 @@
 #define SYS_GET_PID          53   // returns pid
 #define SYS_GET_PPID         54   // returns ppid
 #define SYS_FORK             55   // returns 0 in child, child PID in parent
-#define SYS_WAIT_CHILD       56   // arg1 = pointer to exit_code
-#define SYS_EXEC             57   // arg1 = path, arg2 = argv, arg3 = envp
-#define SYS_SPAWN            58   // arg1 = path, arg2 = argv, arg3 = envp
-#define SYS_SLEEP            59   // arg1 = millisecs
-#define SYS_YIELD            60   // no args
-#define SYS_EXIT             61   // arg1 = exit code
-#define SYS_SBRK             62   // arg1 = signed diff, returns pointer
+#define SYS_WAIT_ANY_CHILD   56   // arg1 = pointer to exit_code
+#define SYS_WAIT_SPEC_CHILD  57   // arg1 = child_pid, arg2 = pointer to exit code
+#define SYS_EXEC             58   // arg1 = path, arg2 = argv, arg3 = envp
+#define SYS_SPAWN            59   // arg1 = path, arg2 = argv, arg3 = envp
+#define SYS_SLEEP            60   // arg1 = millisecs
+#define SYS_YIELD            61   // no args
+#define SYS_EXIT             62   // arg1 = exit code
+#define SYS_SBRK             63   // arg1 = signed diff, returns pointer
 
 // fd / IPC
-#define SYS_DUP              63   // arg1 = old fd
-#define SYS_DUP2             64   // arg1 = old fd, arg2 = new fd
-#define SYS_PIPE             65   // returns two fds (read, write)
-#define SYS_IOCTL            66   // arg1 = fd, arg2 = request, arg3 = arg
+#define SYS_DUP              64   // arg1 = old fd
+#define SYS_DUP2             65   // arg1 = old fd, arg2 = new fd
+#define SYS_PIPE             66   // returns two fds (read, write)
+#define SYS_IOCTL            67   // arg1 = fd, arg2 = request, arg3 = arg
 
 // signals (optional)
-#define SYS_KILL             67   // arg1 = pid, arg2 = signal
-#define SYS_SIGNAL           68   // arg1 = signal, arg2 = handler
+#define SYS_KILL             68   // arg1 = pid, arg2 = signal
+#define SYS_SIGNAL           69   // arg1 = signal, arg2 = handler
 
 // mounting (optional)
 #define SYS_MOUNT            70   // arg1 = source, arg2 = target, arg3 = fs type

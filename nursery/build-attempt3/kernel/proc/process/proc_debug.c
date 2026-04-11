@@ -74,8 +74,10 @@ const char *proc_get_block_reason_name(enum block_reasons reason) {
             return "SEMAPHORE";
         case WAIT_USER_INPUT:
             return "WAIT_KBD";
-        case WAIT_CHILD_EXIT:
-            return "WAIT CHILD";
+        case WAIT_ANY_CHILD:
+            return "WAIT_ANY_CHILD";
+        case WAIT_SPEC_CHILD:
+            return "WAIT_SPEC_CHILD";
         default:
             return "?";
     }

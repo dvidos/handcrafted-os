@@ -17,18 +17,14 @@
  * @return On success, returns the process ID of the child process that changed state.
  *         If `WNOHANG` is used and no child has changed state, 0 is returned.
  *         On error, -1 is returned, and `errno` is set.
- *
- * @implNote
- * This function typically maps to a system call (e.g., `wait4` or `waitid`
- * with appropriate flags). The kernel manages process states and provides
- * notifications based on the `pid` and `options`.
  */
-// pid_t waitpid(pid_t pid, int *stat_loc, int options) {
-//     // TODO: Implement waitpid for your operating system.
-//     // This typically involves a system call.
-//     (void)pid;      // Suppress unused parameter warning
-//     (void)stat_loc; // Suppress unused parameter warning
-//     (void)options;  // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return (pid_t)-1;
-// }
+pid_t waitpid(pid_t pid, int *stat_loc, int options) {
+    while (true) {
+        int pid = syscall(SYS_WAIT_ANY_CHILD, (int)pid, (int)stat_loc, options, 0, 0);
+        if (pid == ERR_AGAIN) {
+            continue;
+        }
+
+        return pid;
+    }
+}

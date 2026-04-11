@@ -49,7 +49,7 @@ typedef enum proc_priority {
 enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 
 // reasons a process can be blocked
-enum block_reasons { NONE, SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_CHILD_EXIT };
+enum block_reasons { NONE, SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_ANY_CHILD, WAIT_SPEC_CHILD };
 
 // flags of the process
 #define MAX_PROCESS_ELF_SECTIONS 4 // good enough even for dynamic executable
@@ -147,6 +147,7 @@ process_t *proc_get_reparenting_proc();
 void       proc_set_reparenting_proc(process_t *proc);
 void proc_exit(process_t *proc, int exit_code); 
 int  proc_wait(process_t *proc, int *exit_code); // returns error or exited PID
+int proc_waitpid(process_t *proc, pid_t child_pid, int *exit_code, int mode); // returns error or exited PID
 void proc_destroy(process_t *proc);
 
 // cwd.c

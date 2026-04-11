@@ -19,9 +19,8 @@
  */
 pid_t wait(int *stat_loc) {
     while (true) {
-        int pid = syscall(SYS_WAIT_CHILD, (int)stat_loc, 0, 0, 0, 0);
+        int pid = syscall(SYS_WAIT_ANY_CHILD, (int)stat_loc, 0, 0, 0, 0);
         if (pid == ERR_AGAIN) {
-            yield();
             continue;
         }
 
