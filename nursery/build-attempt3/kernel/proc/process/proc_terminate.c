@@ -65,12 +65,15 @@ void proc_exit(process_t *proc, int exit_code) {
     }
 
     // whether we unblocked parent or not, somebody else should run
-    prepare_switch_to_another_process();
+    schedule_another_process();
 }
 
 
 // wait for any child to exit, returns child's PID
 int proc_wait(process_t *proc, int *exit_code) {
+    process_t *child;
+    pid_t pid;
+
     log_trace("proc_wait(process=%s[%d])", proc->name, proc->pid);
 
     // if no children, there is no point
@@ -79,71 +82,71 @@ int proc_wait(process_t *proc, int *exit_code) {
     
     // if process has children that are already terminated (zombies), 
     // pick one, get the exit code, and now we can completely cleanup the process struct.
-    for (process_t *child = proc->children_list; child != NULL; child = child->next_child) {
-        if (child->state != TERMINATED)
-            continue;
-
+    child = proc_find_child_in_state(proc, TERMINATED);
+    if (child != NULL) {
         log_trace("proc_wait(): %s[%d] found terminated child %s[%d] with exit code %d", proc->name, proc->pid, child->name, child->pid, child->exit_code);
         *exit_code = child->exit_code;
-        int pid = child->pid;
+        pid = child->pid;
 
         proc_remove_child(proc, child);
         proc_destroy(child);
         return pid;
     }
 
-    // otherwise, go to sleep, let the exit() wake us up and set the return code.
-    log_trace("proc_wait(process=%s[%d]) will block on WAIT_CHILD", proc->name, proc->pid);
-    proc->state = BLOCKED;
-    proc->block_reason = WAIT_ANY_CHILD;
-    proc->block_channel = NULL;
-    proclist_append(&blocked_list, proc);
+    proc_block(proc, WAIT_ANY_CHILD, NULL);
 
-    prepare_switch_to_another_process();
-    
-    // signal to libc to call again, to collect the child.
-    return ERR_AGAIN;  
+    child = proc_find_child_in_state(proc, TERMINATED);
+    if (child == NULL)
+        panic("Process %s[%d] woken up from terminated child, but no terminated child found!", proc->name, proc->pid);
+
+    log_trace("proc_wait(): %s[%d] found terminated child %s[%d] with exit code %d", proc->name, proc->pid, child->name, child->pid, child->exit_code);
+    *exit_code = child->exit_code;
+    pid = child->pid;
+
+    proc_remove_child(proc, child);
+    proc_destroy(child);
+    return pid;
 }
 
 // wait for any child to exit, returns child's PID
 int proc_waitpid(process_t *proc, pid_t child_pid, int *exit_code, int mode) {
+    process_t *child;
+    pid_t pid;
+    
     log_trace("proc_waitpid(process=%s[%d], pid=%d, mode=%d)", proc->name, proc->pid, child_pid, mode);
 
     // if no children, there is no point
     if (!proc_has_children(proc))
         return ERR_NO_CHILDREN;
 
-    if (child_pid >= 0) // we don't support these options yet
+    if (child_pid <= 0) // we don't support these options yet
         return ERR_NOT_SUPPORTED;
     
     // we need to ensure this child exists
-    process_t *child = NULL;
-    for (process_t *p = proc->children_list; p != NULL; p = p->next_child) {
-        if (p->pid == child_pid) {
-            child = p;
-            break;
-        }
-    }
+    child = proc_find_child(proc, child_pid);
     if (child == NULL)
         return ERR_NOT_FOUND;
 
     if (child->state == TERMINATED) {
         log_trace("proc_waitpid(): %s[%d] found terminated child %s[%d] with exit code %d", proc->name, proc->pid, child->name, child->pid, child->exit_code);
         *exit_code = child->exit_code;
+
         proc_remove_child(proc, child);
         proc_destroy(child);
         return child_pid;
     }
 
-    // so the child is running or blocked, we need to sleep on this.
-    log_trace("proc_waitpid(process=%s[%d]) will block on WAIT_CHILD", proc->name, proc->pid);
-    proc->state = BLOCKED;
-    proc->block_reason = WAIT_SPEC_CHILD;
-    proc->block_channel = (void *)child_pid;
-    proclist_append(&blocked_list, proc);
+    proc_block(proc, WAIT_SPEC_CHILD, (void *)child_pid);
 
-    prepare_switch_to_another_process();
-    
-    // signal to libc to call again, to collect the child, when we are woken up
-    return ERR_AGAIN;  
+    child = proc_find_child(proc, child_pid);
+    if (child == NULL)
+        panic("Process %s[%d] woken up from terminated child, but the terminated child was not found!", proc->name, proc->pid);
+
+    ASSERT(child->state == TERMINATED);
+    log_trace("proc_waitpid(): %s[%d] found terminated child %s[%d] with exit code %d", proc->name, proc->pid, child->name, child->pid, child->exit_code);
+    *exit_code = child->exit_code;
+
+    proc_remove_child(proc, child);
+    proc_destroy(child);
+    return child_pid;
 }

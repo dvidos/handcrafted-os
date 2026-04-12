@@ -11,9 +11,6 @@
 
 MODULE("SCHED", LOG_LEVEL_DEBUG);
 
-// for the assembly switcher in isr
-volatile uint32_t proc_switch_tss_address;
-
 // defined in isr.asm, swaps c_frame_t frames.
 extern void switch_inside_c_function(uint32_t *old_esp_ptr, uint32_t new_esp, uint32_t new_cr3, uint32_t new_esp0);
 
@@ -28,8 +25,7 @@ static process_t *find_next_runnable_process() {
     return NULL;
 }
 
-// caller is responsible for locking interrupts before calling us
-void prepare_switch_to_another_process() {
+void schedule_another_process() {
 
     process_t *next = find_next_runnable_process();
     if (next == NULL && running_proc->state != RUNNING)
@@ -57,11 +53,7 @@ void prepare_switch_to_another_process() {
     
     // log_debug_fmt(proc_log_formatter, "previous:", previous);
     // log_debug_fmt(proc_log_formatter, "upcoming:", next);
-    // log_debug("Raw upcoming trapframe dump");
-    // log_debug_hex((void *)next->memory.saved_esp, sizeof(interrupt_frame_t), 0);
 
-    proc_switch_tss_address  = tss_address;
-    
     log_trace("scheduler(): switching from %s[%d] --> %s[%d]", previous->name, previous->pid, next->name, next->pid);
 
     switch_inside_c_function(

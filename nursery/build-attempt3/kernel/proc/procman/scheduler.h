@@ -11,7 +11,7 @@ extern volatile uint32_t proc_switch_new_tss_esp0;
 extern volatile uint32_t proc_switch_new_esp;
 extern volatile uint32_t proc_switch_tss_address;
 
-void prepare_switch_to_another_process();
+void schedule_another_process();
 
 
 

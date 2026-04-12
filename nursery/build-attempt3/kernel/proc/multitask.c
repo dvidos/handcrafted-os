@@ -134,7 +134,7 @@ void multitasking_timer_ticked() {
     if (next_switching_time > 0 && uptime_msecs >= next_switching_time) {
         // i think that to be able to switch during IRQ, our first switching must be 
         // done through IRQ, meaning, all the new task stacks should return to the IRQ handler.
-        prepare_switch_to_another_process();
+        schedule_another_process();
     }
 }
 

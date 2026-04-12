@@ -134,6 +134,8 @@ void proc_yield(process_t *proc);  // voluntarily give up the CPU to another tas
 bool proc_has_children(process_t *parent);
 void proc_add_child(process_t *parent, process_t *child);
 void proc_remove_child(process_t *parent, process_t *child);
+process_t *proc_find_child_in_state(process_t *parent, enum process_state state);
+process_t *proc_find_child(process_t *parent, pid_t child_pid);
 
 
 // proc_create.c

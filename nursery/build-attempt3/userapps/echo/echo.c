@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <hcos/syslog.h>
 
 
 
@@ -14,6 +16,11 @@ int main(int argc, char *argv[]) {
         printf("%s", argv[i]);
     }
     printf("\n");
+
+    // for (int i = 0; i < 5; i++) {
+    //     syslog_info("delaying %d...", i+1);
+    //     sleep(1);
+    // }
 
     return 0;
 }

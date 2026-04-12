@@ -25,7 +25,7 @@ void proc_sleep(process_t *proc, int milliseconds) {
     advice_on_next_wake_up_time(proc->wake_up_time);
     
     proclist_append(&blocked_list, proc);
-    prepare_switch_to_another_process(); // allow someone else to run
+    schedule_another_process(); // allow someone else to run
 }
 
 // this is how the running task can block itself
@@ -37,8 +37,8 @@ void proc_block(process_t *proc, int reason, void *channel) {
     proc->block_reason = reason;
     proc->block_channel = channel;
     proclist_append(&blocked_list, proc);
-    log_trace("process %s got blocked, reason %d, channel %p", proc->name, reason, channel);
-    prepare_switch_to_another_process(); // allow someone else to run
+    log_trace("process %s[%d] got blocked, reason %s, channel %p", proc->name, proc->pid, str_block_reason(reason), channel);
+    schedule_another_process(); // allow someone else to run
 }
 
 
@@ -60,6 +60,6 @@ void proc_unblock(process_t *proc) {
     // let's preempt it, as we are higher priority, 
     // otherwise, wait till timeshare expiration
     if (running_process()->priority > proc->priority)
-        prepare_switch_to_another_process();
+        schedule_another_process();
 }
 

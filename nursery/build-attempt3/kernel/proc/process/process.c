@@ -85,7 +85,7 @@ void proc_start(process_t *process) {
 
     // if running task is lower priority (e.g. idle task), preempt it
     if (running_process() != NULL && process->priority < running_process()->priority)
-        prepare_switch_to_another_process();
+        schedule_another_process();
 }
 
 
@@ -114,7 +114,7 @@ void unblock_process_that(enum block_reasons block_reason, void *block_channel) 
     // let's preempt it, as we are higher priority, 
     // otherwise, wait till timeshare expiration
     if (proc != NULL && running_process()->priority > proc->priority)
-        prepare_switch_to_another_process();
+        schedule_another_process();
 }
 
 bool proc_has_children(process_t *parent) {
@@ -156,12 +156,30 @@ void proc_remove_child(process_t *parent, process_t *child) {
     child->parent = NULL;
 }
 
+process_t *proc_find_child_in_state(process_t *parent, enum process_state state) {
+    for (process_t *child = parent->children_list; child != NULL; child = child->next_child) {
+        if (child->state == state)
+            return child;
+    }
+    return NULL;
+}
+
+process_t *proc_find_child(process_t *parent, pid_t child_pid) {
+    for (process_t *child = parent->children_list; child != NULL; child = child->next_child) {
+        if (child->pid == child_pid)
+            return child;
+    }
+    return NULL;
+}
+
+
+
 
 // voluntarily give up the CPU to another task
 void proc_yield(process_t *proc) {
     log_trace("proc_yield(proc=%p [pid=%d])", proc, proc == NULL ? -1 : proc->pid);
     if (proc == running_proc) {
-        prepare_switch_to_another_process();
+        schedule_another_process();
     }
 }
 

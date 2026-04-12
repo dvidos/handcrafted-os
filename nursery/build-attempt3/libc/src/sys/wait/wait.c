@@ -18,12 +18,5 @@
  * the parent when a child changes state.
  */
 pid_t wait(int *stat_loc) {
-    while (true) {
-        int pid = syscall(SYS_WAIT_ANY_CHILD, (int)stat_loc, 0, 0, 0, 0);
-        if (pid == ERR_AGAIN) {
-            continue;
-        }
-
-        return pid;
-    }
+    return syscall(SYS_WAIT_ANY_CHILD, (int)stat_loc, 0, 0, 0, 0);
 }

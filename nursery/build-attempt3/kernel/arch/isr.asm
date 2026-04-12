@@ -185,7 +185,7 @@ minimal_returning_function:
 
 ; extern void switch_inside_c_function(uint32_t *old_esp_ptr, uint32_t new_esp, uint32_t new_cr3, uint32_t new_esp0);
 [global switch_inside_c_function]
-[extern proc_switch_tss_address]
+[extern tss_address]
 switch_inside_c_function:
   ; the 'call' instruction already pushed EIP here, push the rest of the c_frame_t
   push ebp
@@ -204,7 +204,7 @@ switch_inside_c_function:
 
   ; assume esp0 at 4 bytes inside the tss structure
   mov eax, [esp + 32]     ; Fourth arg: new_esp0
-  mov edx, [proc_switch_tss_address]
+  mov edx, [tss_address]
   mov [edx + 4], eax
 
   ; switch to the new stack
