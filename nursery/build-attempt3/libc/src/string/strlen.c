@@ -11,6 +11,8 @@
  * @return The number of characters in `s` before the null terminator.
  */
 size_t strlen(const char *s) {
+    if (s == NULL)
+        return 0;
     size_t length = 0;
     while (*s++ != '\0') {
         length++;

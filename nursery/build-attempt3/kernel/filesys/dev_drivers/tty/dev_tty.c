@@ -1,14 +1,17 @@
 #include "dev_tty.h"
 #include "../../../klib/string.h"
-#include "../../../devices/tty.h"
+#include "../../../devices/tty_manager.h"
 #include "../../../include/uapi/errors.h"
 #include "../../../include/uapi/ioctl.h"
 #include "../../../logger/logger.h"
 
 
-MODULE("DEV_TTY", LOG_LEVEL_INFO);
+MODULE("DEV_TTY", LOG_LEVEL_TRACE);
 
 static superblock_t tty_superblock;
+
+
+
 
 
 static error_t tty_driver_open(inode_t *n, int flags, open_file_t **file_handle) {

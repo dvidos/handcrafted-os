@@ -9,7 +9,7 @@
 #include "drivers/timer.h"
 #include "drivers/clock.h"
 #include "drivers/serial.h"
-#include "devices/tty.h"
+#include "devices/tty_manager.h"
 #include "memory/kmemmap.h"
 #include "memory/vmm.h"
 #include "memory/kheap.h"

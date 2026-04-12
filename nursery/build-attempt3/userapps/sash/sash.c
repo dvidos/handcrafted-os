@@ -9,6 +9,7 @@
 
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <hcos/syslog.h>
 #include <signal.h>
 #include <errno.h>
 

@@ -3,10 +3,11 @@
 #include "../procman/scheduler.h"
 #include "../multitask.h"
 #include "../../drivers/timer.h"
+#include "../../utils/assert.h"
 #include "../../logger/logger.h"
 
 
-MODULE("PROC_BLCK", LOG_LEVEL_DEBUG);
+MODULE("PROC_BLCK", LOG_LEVEL_TRACE);
 
 
 // a task can ask to sleep for some time
@@ -29,6 +30,8 @@ void proc_sleep(process_t *proc, int milliseconds) {
 
 // this is how the running task can block itself
 void proc_block(process_t *proc, int reason, void *channel) {
+    // we assume the process is in no runlist
+    ASSERT(proc == running_proc);
 
     proc->state = BLOCKED;
     proc->block_reason = reason;

@@ -5,7 +5,6 @@
 #include "../memory/kheap.h"
 #include "../klib/string.h"
 #include "../proc/process/process.h"
-#include "../devices/tty.h"
 #include "../include/uapi/vfs_seek_flags.h"
 #include "elf_reader.h"
 

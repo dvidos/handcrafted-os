@@ -12,6 +12,31 @@
 MODULE("KBD", LOG_LEVEL_WARN);
 
 
+
+#define KBD_SCANCODE_NUMPAD_START      0x47
+#define KBD_SCANCODE_NUMPAD_END        0x53
+#define KBD_SCANCODE_Q_KEY             0x10
+#define KBD_SCANCODE_P_KEY             0x19
+#define KBD_SCANCODE_A_KEY             0x1E
+#define KBD_SCANCODE_L_KEY             0x26
+#define KBD_SCANCODE_Z_KEY             0x2C
+#define KBD_SCANCODE_M_KEY             0x32
+
+#define KBD_SCANCODE_LCTRL             0x1D
+#define KBD_SCANCODE_LSHIFT            0x2A
+#define KBD_SCANCODE_RSHIFT            0x36
+#define KBD_SCANCODE_LALT              0x38
+#define KBD_SCANCODE_CAPS_LOCK         0x3A
+#define KBD_SCANCODE_NUM_LOCK          0x45
+#define KBD_SCANCODE_SUPER             0x5B // Extended scancode for Super key
+
+#define KBD_DATA_PORT                0x60
+#define KBD_COMMAND_PORT               0x64
+#define KBD_RESET_COMMAND              0xFE
+#define KBD_EXTENDED_SCANCODE_PREFIX   0xE0
+#define KBD_KEY_RELEASE_BIT            0x80
+
+
 // interesting article: https://linuxjournal.com/article/1080
 
 uint32_t flags = 0;
@@ -29,9 +54,7 @@ static volatile bool super_key = false;
 
 
 #define KEY_HOOKS_SIZE  8
-key_event_hook_t key_event_hooks[KEY_HOOKS_SIZE];
-uint8_t num_event_hooks;
-void call_key_event_hooks(key_event_t *event);
+key_event_hook_t *key_event_hook = NULL;
 void reboot();
 
 struct scancode_info {
@@ -151,59 +174,64 @@ void init_keyboard() {
     // we should detect caps and num lock state
     // or at least set it to our defaults and understanding
     // to make sure we align with the leds
-    memset(key_event_hooks, 0, sizeof(key_event_hooks));
-    num_event_hooks = 0;
+    key_event_hook = NULL;
+}
+
+static inline void on_key_event(key_event_t *event) {
+    bool handled = false;
+    if (key_event_hook != NULL)
+        key_event_hook(event, &handled);
 }
 
 void keyboard_handler(trap_frame_t* regs) {
     (void)regs;
 
-    uint8_t scancode = inb(0x60);
+    uint8_t scancode = inb(KBD_DATA_PORT);
     // log_debug("keyboard: received scancode 0x%02x", scancode);
-    if (scancode == 0xE0) {
+    if (scancode == KBD_EXTENDED_SCANCODE_PREFIX) {
         extended = true;
         // we'll get the next value in a subsequent interrupt
         return;
     }
 
     bool down = true;
-    if (scancode & 0x80) {
+    if (scancode & KBD_KEY_RELEASE_BIT) {
         down = false;
-        scancode = scancode & 0x7F;
+        scancode = scancode & (~KBD_KEY_RELEASE_BIT);
     }
 
     if (!extended) {
         switch (scancode) {
-            case 0x1D:
+            case KBD_SCANCODE_LCTRL:
                 left_ctrl = down;
                 break;
-            case 0x2A:
+            case KBD_SCANCODE_LSHIFT:
                 left_shift = down;
                 break;
-            case 0x36:
+            case KBD_SCANCODE_RSHIFT:
                 right_shift = down;
                 break;
-            case 0x38:
+            case KBD_SCANCODE_LALT:
                 left_alt = down;
                 break;
-            case 0x3A:
+            case KBD_SCANCODE_CAPS_LOCK:
                 if (down)
                     caps_lock = !caps_lock;
                 break;
-            case 0x45:
+            case KBD_SCANCODE_NUM_LOCK:
                 if (down)
                     num_lock = !num_lock;
                 break;
         }
     } else { // extended
         switch (scancode) {
-            case 0x1D:
+            case KBD_SCANCODE_LCTRL: // E0 1D is Right Ctrl
                 right_ctrl = down;
                 break;
-            case 0x38:
+            case KBD_SCANCODE_LALT: // E0 38 is Right Alt
                 right_alt = down;
                 break;
-            case 0x5B:
+            case KBD_SCANCODE_SUPER:
                 super_key = down;
                 break;
         }
@@ -217,11 +245,11 @@ void keyboard_handler(trap_frame_t* regs) {
 
     // derive whether we should use the shifted values
     bool shifted = false;
-    if (scancode >= 0x47 && scancode <= 0x53) {
+    if (scancode >= KBD_SCANCODE_NUMPAD_START && scancode <= KBD_SCANCODE_NUMPAD_END) {
         shifted = left_shift || right_shift || num_lock;  // numpad
-    } else if ((scancode >= 0x10 && scancode <= 0x19)
-            || (scancode >= 0x1e && scancode <= 0x26)
-            || (scancode >= 0x2c && scancode <= 0x32)) {
+    } else if ((scancode >= KBD_SCANCODE_Q_KEY && scancode <= KBD_SCANCODE_P_KEY)
+            || (scancode >= KBD_SCANCODE_A_KEY && scancode <= KBD_SCANCODE_L_KEY)
+            || (scancode >= KBD_SCANCODE_Z_KEY && scancode <= KBD_SCANCODE_M_KEY)) {
         shifted = left_shift || right_shift || caps_lock; // normal letters
     } else {
         shifted = left_shift || right_shift; // all other symbols
@@ -257,7 +285,7 @@ void keyboard_handler(trap_frame_t* regs) {
             ((left_ctrl || right_ctrl) ? MOD_CTRL : 0) |
             ((left_alt || right_alt) ? MOD_ALT : 0) |
             ((super_key) ? MOD_SUPER : 0);
-        call_key_event_hooks(&event);
+        on_key_event(&event);
     }
 
     // clear this flag for next call
@@ -265,44 +293,21 @@ void keyboard_handler(trap_frame_t* regs) {
 }
 
 
-void keyboard_register_hook(key_event_hook_t hook) {
-    // check if already registered
-    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
-        if (key_event_hooks[i] == hook)
-            return;
-    }
+bool keyboard_register_hook(key_event_hook_t hook) {
+    if (key_event_hook != NULL)
+        log_warn("keyboard hook already registered.");
 
-    // find a slot and add it
-    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
-        if (key_event_hooks[i] == NULL) {
-            key_event_hooks[i] = hook;
-            return;
-        }
-    }
+    key_event_hook = hook;
+    return true;
 }
 
 void keyboard_unregister_hook(key_event_hook_t hook) {
-    // find and remove it
-    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
-        if (key_event_hooks[i] == hook) {
-            key_event_hooks[i] = NULL;
-            return;
-        }
+    if (key_event_hook != hook) {
+        log_warn("unregistering non registered keyboard hook");
+        return;
     }
 
-    // we could close the gap and honor the registration sequence, 
-    // but meh...
-}
-
-void call_key_event_hooks(key_event_t *event) {
-    bool handled = false;
-    for (int i = 0; i < KEY_HOOKS_SIZE; i++) {
-        if (key_event_hooks[i] == NULL)
-            continue;
-        (key_event_hooks[i])(event, &handled);
-        if (handled)
-            break;
-    }
+    key_event_hook = NULL;
 }
 
 
@@ -316,16 +321,16 @@ void reboot() {
     do
     {
         // empty user data
-        temp = inb(0x64);
+        temp = inb(KBD_COMMAND_PORT);
 
         // empty keyboard data
         if (temp & 0x01)
-            inb(0x60);
+            inb(KBD_DATA_PORT);
 
     } while (temp & 0x02);
 
     // pulse CPU reset line
-    outb(0x64, 0xFE);
+    outb(KBD_COMMAND_PORT, KBD_RESET_COMMAND);
 
     for (;;)
         asm ("hlt");

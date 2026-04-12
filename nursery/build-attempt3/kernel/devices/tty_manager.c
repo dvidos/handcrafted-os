@@ -8,7 +8,7 @@
 #include "../klib/string.h"
 #include "../utils/mutex.h"
 
-MODULE("TTY", LOG_LEVEL_INFO);
+MODULE("TTY_MGR", LOG_LEVEL_INFO);
 
 // this device is given or allocated by a task
 // and the task can interact with the screen
@@ -166,6 +166,7 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
         scroll_tty_screenful(tty_mgr_data.active_tty, up);
     } else {
         // put in buffer
+        log_info("enqueueing key event 0x%x (%c)", event->keycode, event->ascii);
         enqueue_key_event(tty_mgr_data.active_tty, event);
 
         // if a process was blocked waiting for a key in this tty, unblock them.
@@ -184,11 +185,13 @@ void tty_read_key(tty_t *tty, key_event_t *event) {
         dequeue_key_event(tty, event);
     } else {
         // current process getting blocked.
+        log_info("tty%d sleeping on user input", tty->dev_no);
         proc_block(running_process(), WAIT_USER_INPUT, tty);
+        log_info("* * * * * (this should happen only after the switch, if we had the ability to sleep/wake while in C)", tty->dev_no);
 
         // if unblocked, it means we got a key!
         if (tty->keys_buffer_len == 0)
-            log_error("tty unblocked for key event, but no keys in buffer!");
+            log_error("tty%d unblocked for key event, but no keys in buffer!", tty->dev_no);
         dequeue_key_event(tty, event);
     }
 }
@@ -340,10 +343,8 @@ static void enqueue_key_event(tty_t *tty, key_event_t *event) {
         return;
     }
     // log_trace("tty: enqueueing key event on tty %d", tty->dev_no);
-    mutex_acquire(&tty->keys_buffer_lock);
     memcpy(&tty->keys_buffer[tty->keys_buffer_len], event, sizeof(key_event_t));
     tty->keys_buffer_len++;
-    mutex_release(&tty->keys_buffer_lock);
 }
 
 static void dequeue_key_event(tty_t *tty, key_event_t *event) {
