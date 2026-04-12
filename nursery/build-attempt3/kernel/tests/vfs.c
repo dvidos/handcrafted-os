@@ -103,7 +103,7 @@ void test_vfs() {
     _mock_filesys_lookup_data[1].result = sh;
     _mock_filesys_lookup_data[1].ret_val = OK;
 
-    logger_set_module_log_level("VFS", LOG_LEVEL_TRACE);
+    logger_set_module_log_level("VFS", LOG_LEVEL_DEBUG);
 
     // see resolution of bin, even if curr dir does not exist.
     err = vfs_resolve("/bin", root, NULL, false, &target);

@@ -73,7 +73,7 @@ void process_monitor_main() {
     */
 
     while (true) {
-        tty_clear(tty);
+        tty_clear_screen(tty);
 
         // Memory          Total     Free     Used Used        Clock  Abc, 12 Abc 1234, 00:11:22
         // Phys Pages   12345678 12345678 12345678 123%        Uptime 12d 12:23:23m
@@ -136,7 +136,7 @@ void vfs_monitor_main() {
     tty_set_title(tty, "VFS Monitor");
 
     while (true) {
-        tty_clear(tty);
+        tty_clear_screen(tty);
         int row = 0;
 
         tty_set_cursor(tty, row++, 0);

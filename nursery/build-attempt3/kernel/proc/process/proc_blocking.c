@@ -7,7 +7,7 @@
 #include "../../logger/logger.h"
 
 
-MODULE("PROC_BLCK", LOG_LEVEL_TRACE);
+MODULE("PROC_BLCK", LOG_LEVEL_DEBUG);
 
 
 // a task can ask to sleep for some time

@@ -7,6 +7,7 @@
 #include "../arch/cpu.h"
 #include "../klib/string.h"
 #include "../utils/mutex.h"
+#include "../utils/assert.h"
 
 MODULE("TTY_MGR", LOG_LEVEL_INFO);
 
@@ -62,6 +63,8 @@ struct tty {
     key_event_t keys_buffer[KEYS_BUFFER_SIZE];
     int keys_buffer_len;
     lock_t keys_buffer_lock;
+
+    bool input_carriage_return_to_new_line;
 };
 
 typedef struct tty tty_t;
@@ -85,28 +88,38 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled);
 static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw);
 
 
+tty_t *create_tty(int dev_no, int line_scroll) {
+    tty_t *tty = kmalloc(sizeof(tty_t));
+    memset(tty, 0, sizeof(tty_t));
+
+    tty->dev_no = dev_no;
+    tty->total_buffer_rows = line_scroll;
+    tty->buffer_alloc_size = tty->total_buffer_rows * screen_cols() * 2;
+    tty->screen_buffer = kmalloc(tty->buffer_alloc_size);
+
+    // we cannot blindly memset(0), black on black makes cursor unviewable
+    int offset = 0;
+    while (offset < tty->buffer_alloc_size) {
+        tty->screen_buffer[offset++] = ' ';
+        tty->screen_buffer[offset++] = VGA_COLOR_LIGHT_GREY;
+    }
+    tty->color = VGA_COLOR_BLACK << 4 | VGA_COLOR_LIGHT_GREY;
+    tty->input_carriage_return_to_new_line = true;
+
+    return tty;
+}
+
+
 // essentially, this tty manager acts something like the window manager of the x-window sys
 void init_tty_manager(int num_of_ttys, int lines_scroll_capacity) {
+    ASSERT(num_of_ttys >= 1);
+
     memset(&tty_mgr_data, 0, sizeof(tty_mgr_data));
     tty_mgr_data.header_lines = 1;
 
     tty_t *tty;
     for (int i = 0; i < num_of_ttys; i++) {
-        tty = kmalloc(sizeof(tty_t));
-        memset(tty, 0, sizeof(tty_t));
-
-        tty->dev_no = i;
-        tty->total_buffer_rows = lines_scroll_capacity;
-        tty->buffer_alloc_size = tty->total_buffer_rows * screen_cols() * 2;
-        tty->screen_buffer = kmalloc(tty->buffer_alloc_size);
-
-        // we cannot blindly memset(0), black on black makes cursor unviewable
-        int offset = 0;
-        while (offset < tty->buffer_alloc_size) {
-            tty->screen_buffer[offset++] = ' ';
-            tty->screen_buffer[offset++] = VGA_COLOR_LIGHT_GREY;
-        }
-        tty->color = VGA_COLOR_BLACK << 4 | VGA_COLOR_LIGHT_GREY;
+        tty = create_tty(i, lines_scroll_capacity);
 
         // insert it into the list of ttys
         tty->next = tty_mgr_data.ttys_list;
@@ -175,33 +188,6 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
     }
 }
 
-void tty_read_key(tty_t *tty, key_event_t *event) {
-    if (tty == NULL)
-        return;
-    
-    // if there are keys in the keys buffer, use them
-    // other wise block on keyboard entry, whether we are or are not the current one
-    if (tty->keys_buffer_len > 0) {
-        dequeue_key_event(tty, event);
-    } else {
-        // current process getting blocked.
-        log_info("tty%d sleeping on user input", tty->dev_no);
-        proc_block(running_process(), WAIT_USER_INPUT, tty);
-        log_info("* * * * * (this should happen only after the switch, if we had the ability to sleep/wake while in C)", tty->dev_no);
-
-        // if unblocked, it means we got a key!
-        if (tty->keys_buffer_len == 0)
-            log_error("tty%d unblocked for key event, but no keys in buffer!", tty->dev_no);
-        dequeue_key_event(tty, event);
-    }
-}
-
-void tty_write(tty_t *tty, const char *buffer) {
-    if (tty != NULL)
-        tty_write_specific_tty(tty, buffer, strlen(buffer));
-}
-
-
 void tty_printf(tty_t *tty, char *format, ...) {
     char buffer[128];
 
@@ -210,10 +196,10 @@ void tty_printf(tty_t *tty, char *format, ...) {
     vsprintfn(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    tty_write(tty, buffer);
+    tty_write(tty, buffer, strlen(buffer));
 }
 
-void tty_write_specific_tty(tty_t *tty, const char *buffer, int length) {
+void tty_write(tty_t *tty, const char *buffer, int length) {
     if (tty == NULL)
         return;
     
@@ -232,30 +218,47 @@ void tty_write_specific_tty(tty_t *tty, const char *buffer, int length) {
     //     log_debug("(tty%d) write: %s", tty->dev_no, buffer);
 }
 
-int tty_read_specific_tty(tty_t *tty, char *buffer, int length) {
+void tty_read_key_event(tty_t *tty, key_event_t *event) {
+    // we assume running process has this tty
+    while (tty->keys_buffer_len == 0) {
+        log_info("tty%d sleeping on user input", tty->dev_no);
+        proc_block(running_process(), WAIT_USER_INPUT, tty);
+    }
+
+    ASSERT(tty->keys_buffer_len > 0);
+    dequeue_key_event(tty, event);
+
+    if (event->ascii == 0xD && tty->input_carriage_return_to_new_line) {
+        log_info("converting CR to LF");
+        event->ascii = 0xA;
+    }
+}
+
+int tty_read(tty_t *tty, char *buffer, int length) {
     key_event_t event;
 
     if (length == 0)
         return 0;
-    int read = 0;
+    int bytes_read = 0;
 
-    if (tty->keys_buffer_len == 0) {
-        tty_read_key(tty, &event);
+    while (length > 0) {
+        // if we drained the buffer, we can return
+        if (bytes_read > 0 && tty->keys_buffer_len == 0)
+            break;
+        
+        // this will block if there are no keys in the buffer
+        tty_read_key_event(tty, &event);
+
+        // special keys, we'll convert to escape codes at other time
+        if (event.ascii == 0)
+            continue;
+        
         *buffer++ =  event.ascii;
         length--;
-        read++;
+        bytes_read++;
     }
 
-    // now collect any others, if they exist
-    while (tty->keys_buffer_len > 0 && length > 0) {
-        tty_read_key(tty, &event);
-        *buffer++ =  event.ascii;
-        length--;
-        read++;
-    }
-
-    // we are done
-    return read;
+    return bytes_read;
 }
 
 void tty_set_color(tty_t *tty, int color) {
@@ -275,7 +278,7 @@ int tty_get_color(tty_t *tty) {
     return tty->color;
 }
 
-void tty_clear(tty_t *tty) {
+void tty_clear_screen(tty_t *tty) {
     if (tty == NULL)
         return;
 
@@ -326,12 +329,6 @@ void tty_set_title(tty_t *tty, const char *title) {
     if (tty == NULL)
         return;
     
-    tty->title = title;
-    if (tty == tty_mgr_data.active_tty)
-        draw_tty_buffer_to_screen(tty);
-}
-
-void tty_set_title_specific_tty(tty_t *tty, const char *title) {
     tty->title = title;
     if (tty == tty_mgr_data.active_tty)
         draw_tty_buffer_to_screen(tty);
@@ -523,5 +520,5 @@ static void ensure_cursor_visible(tty_t *tty, bool *need_screen_redraw) {
 void tty_log_appender(void *context, const char *str) {
     // context is supposed to represent the logger tty device
     tty_t *tty = (tty_t *)context;
-    tty_write_specific_tty(tty, str, strlen(str));
+    tty_write(tty, str, strlen(str));
 }

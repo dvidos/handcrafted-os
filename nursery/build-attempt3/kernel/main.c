@@ -148,9 +148,9 @@ void kernel_main(boot_info_t* boot)
     fs_register_device("tty3", &tty_dev_driver, 3);
     fs_register_device("tty4", &tty_dev_driver, 4);
     fs_register_device("tty5", &tty_dev_driver, 5);
-    tty_set_title_specific_tty(tty_manager_get_device(4), "System Monitor");
-    tty_set_title_specific_tty(tty_manager_get_device(5), "VFS Monitor");
-    tty_set_title_specific_tty(tty_manager_get_device(6), "System log");
+    tty_set_title(tty_manager_get_device(4), "System Monitor");
+    tty_set_title(tty_manager_get_device(5), "VFS Monitor");
+    tty_set_title(tty_manager_get_device(6), "System log");
     logger_add_appender(tty_log_appender, tty_manager_get_device(6), LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)

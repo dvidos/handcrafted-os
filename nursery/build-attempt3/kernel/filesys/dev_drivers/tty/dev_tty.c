@@ -35,7 +35,7 @@ static error_t tty_driver_close(open_file_t *file) {
     tty_t *tty = (tty_t *)file->driver_priv_data;
 
     const char *str = "(tty closing)\n";
-    tty_write_specific_tty(tty, str, strlen(str));
+    tty_write(tty, str, strlen(str));
 
     open_files.release(file);
     return OK;
@@ -48,7 +48,8 @@ static ssize_t tty_driver_read(open_file_t *file, void *buf, size_t len, off_t o
         return ERR_BAD_ARGUMENT;
     tty_t *tty = (tty_t *)file->driver_priv_data;
 
-    int bytes = tty_read_specific_tty(tty, buf, len);
+    int bytes = tty_read(tty, buf, len);
+    // log_info("tty_read --> %d bytes, buf is '%s'", bytes, buf);
     return bytes;
 }
 
@@ -59,7 +60,7 @@ static ssize_t tty_driver_write(open_file_t *file, const void *buf, size_t len, 
         return ERR_BAD_ARGUMENT;
     tty_t *tty = (tty_t *)file->driver_priv_data;
 
-    tty_write_specific_tty(tty, buf, len);
+    tty_write(tty, buf, len);
     return len;
 }
 

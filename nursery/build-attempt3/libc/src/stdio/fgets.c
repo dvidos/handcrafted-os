@@ -31,12 +31,14 @@ char *fgets(char *s, int size, FILE *stream) {
 
     while (count < (size_t)size - 1) {
         c = fgetc(stream);
+        // syslog_debug("fgets(): fgetc --> %c (0x%x)", c, c);
         if (c == EOF) {
             break;
         }
         *p++ = (char)c;
         count++;
         if (c == '\n') {
+            // syslog_debug("fgets(): got enter");
             break;
         }
     }

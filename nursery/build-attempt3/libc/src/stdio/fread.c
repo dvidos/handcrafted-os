@@ -38,6 +38,8 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
             }
 
             ssize_t bytes_from_fd = read(stream->fd, stream->buffer, stream->buf_size);
+            // syslog_debug("fread(): read returned %d bytes, buffer is '%s'", bytes_from_fd, stream->buffer);
+
             if (bytes_from_fd == 0) {
                 stream->flags |= _IO_EOF; // Set EOF flag
                 break; // End of file

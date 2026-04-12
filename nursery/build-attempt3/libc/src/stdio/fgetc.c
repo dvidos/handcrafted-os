@@ -35,6 +35,7 @@ int fgetc(FILE *stream) {
         }
 
         ssize_t bytes_from_fd = read(stream->fd, stream->buffer, stream->buf_size);
+        // syslog_debug("fgetc(): read returned %d, whole buffer is '%s'", bytes_from_fd, stream->buffer);
         if (bytes_from_fd == 0) {
             stream->flags |= _IO_EOF; // Set EOF flag
             return EOF; // End of file

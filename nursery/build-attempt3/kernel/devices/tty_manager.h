@@ -13,11 +13,9 @@ int tty_get_devno(tty_t *tty);
 
 
 // called by processes
-void tty_read_key(tty_t *tty, key_event_t *event);
-void tty_write(tty_t *tty, const char *buffer);
 int  tty_get_color(tty_t *tty);
 void tty_set_color(tty_t *tty, int color);
-void tty_clear(tty_t *tty);
+void tty_clear_screen(tty_t *tty);
 void tty_get_cursor(tty_t *tty, uint8_t *row, uint8_t *col);
 void tty_set_cursor(tty_t *tty, uint8_t row, uint8_t col);
 void tty_set_title(tty_t *tty, const char *title);
@@ -27,10 +25,10 @@ void tty_printf(tty_t *tty, char *format, ...);
 
 
 // for processes working on different ttys (not their own process one)
-void tty_write_specific_tty(tty_t *tty, const char *buffer, int length);
-int  tty_read_specific_tty(tty_t *tty, char *buffer, int length);
-void tty_set_title_specific_tty(tty_t *tty, const char *title);
-
+void tty_set_title(tty_t *tty, const char *title);
+void tty_write(tty_t *tty, const char *buffer, int length);
+void tty_read_key_event(tty_t *tty, key_event_t *event); // blocking
+int  tty_read(tty_t *tty, char *buffer, int length); // blocking
 
 void tty_log_appender(void *context, const char *str);
 
