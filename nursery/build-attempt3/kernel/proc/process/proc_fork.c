@@ -17,7 +17,7 @@ int proc_fork(process_t *proc) {
     log_debug_fmt(proc_log_formatter, "child:", child);
 
     // return zero in child
-    ((interrupt_frame_t *)child->memory.saved_esp)->eax = 0;
+    proc_get_interrupt_frame(child)->eax = 0;
 
     // enqueue child to start when appropriate
     proc_start(child);

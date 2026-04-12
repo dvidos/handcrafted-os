@@ -84,7 +84,7 @@ struct process {
         // this is the ESP inside ring 0, when we are serving an interrupt (e.g. syscall or switching)
         // if should point to the kernel stack.
         // it is saved when switching out, and put on ESP when switching in.
-        // whenever this points (because of how we handle interrupts) there should be a interrupt_frame_t.
+        // whenever this points (because of how we handle interrupts) there should be a c_frame_t.
         uint32_t saved_esp;
 
     } memory;
@@ -115,9 +115,10 @@ struct process {
 
 static inline pid_t proc_get_pid(process_t *proc) { return proc == NULL ? 0 : proc->pid; }
 static inline pid_t proc_get_ppid(process_t *proc) { return proc == NULL ? 0 : (proc->parent == NULL ? 0 : proc->parent->pid); }
-static inline pid_t proc_is_user_proc(process_t *proc) { return proc == NULL ? false : proc->is_user; }
-static inline pid_t proc_is_kernel_proc(process_t *proc) { return proc == NULL ? false : !proc->is_user; }
-static inline pid_t proc_count_elf_sections(process_t *proc) { int count = 0; for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) { if (!mem_region_is_empty(&proc->memory.elf_sections[i])) count++; }; return count; }
+static inline bool  proc_is_user_proc(process_t *proc) { return proc == NULL ? false : proc->is_user; }
+static inline bool  proc_is_kernel_proc(process_t *proc) { return proc == NULL ? false : !proc->is_user; }
+static inline int   proc_count_elf_sections(process_t *proc) { int count = 0; for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) { if (!mem_region_is_empty(&proc->memory.elf_sections[i])) count++; }; return count; }
+static inline interrupt_frame_t *proc_get_interrupt_frame(process_t *proc) { return (interrupt_frame_t *)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(interrupt_frame_t)); }
 
 
 

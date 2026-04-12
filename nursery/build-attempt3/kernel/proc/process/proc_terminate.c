@@ -60,7 +60,7 @@ void proc_exit(process_t *proc, int exit_code) {
         if (wake_them) {
             // the parent to return a try-again to libc
             proc_unblock(proc->parent);
-            ((interrupt_frame_t *)proc->parent->memory.saved_esp)->eax = ERR_AGAIN;
+            proc_get_interrupt_frame(proc->parent)->eax = ERR_AGAIN;
         }            
     }
 

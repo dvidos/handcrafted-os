@@ -601,6 +601,11 @@ static error_t _duplicate_all_memory_regions_from_process(process_t *dest, proce
 
     error_t err = OK;
 
+    // as kernel stack is already allocated, just memcpy() to include even return values
+    ASSERT(dest->memory.kernel_stack.address != 0);
+    ASSERT(dest->memory.kernel_stack.size = src->memory.kernel_stack.size);
+    memcpy((void *)dest->memory.kernel_stack.address, (void *)src->memory.kernel_stack.address, src->memory.kernel_stack.size);
+
     err = _duplicate_memory_region(&dest->memory.user_stack, dest->memory.page_dir, &src->memory.user_stack, src->memory.page_dir);
     if (err) goto exit;
 
@@ -699,10 +704,8 @@ static error_t _create_base_process_v2(bool is_user_proc, page_dir_t pd, process
     proc->memory.kernel_stack.size = 4096;
     proc->memory.kernel_stack.address = (uintptr_t)kmalloc(proc->memory.kernel_stack.size);
     if (proc->memory.kernel_stack.address == 0) { err = ERR_NO_MEMORY; goto failed; }
-
     // this to be given to scheduler at each switch
     proc->memory.tss_esp0_value = (uint32_t)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size);
-    // for first execution, we will place a interrupt_frame at the top of kernel stack, so set saved_esp accordingly
 
     *proc_ptr = proc;
     return OK;
@@ -730,7 +733,7 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
 
     ASSERT(proc->memory.saved_esp != 0);
     ASSERT(proc->memory.tss_esp0_value != 0);
-    
+
     // log_debug_fmt(proc_log_formatter, "process_v2_create_for_kernel(): ", proc);
     *proc_ptr = proc;
     return OK;
@@ -847,7 +850,7 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
 
     // we'll need a few more things, but this is looking better
     ASSERT(child->memory.saved_esp != 0);
-    ASSERT(((interrupt_frame_t *)child->memory.saved_esp)->eip != 0);
+    ASSERT(proc_get_interrupt_frame(child)->eip != 0);
 
     *proc_ptr = child;
     return OK;
