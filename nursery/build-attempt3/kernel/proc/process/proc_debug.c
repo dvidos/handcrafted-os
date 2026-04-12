@@ -144,9 +144,9 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     if (!mem_region_is_empty(&proc->memory.elf_sections[3])) format_mem_region(stream, "elf #3", &proc->memory.elf_sections[3]);
     
     // trapframe will always be in kernel_stack, therefore always identity mapped
-    trap_frame_t *tf = (trap_frame_t *)proc->memory.saved_esp;
+    interrupt_frame_t *iframe = (interrupt_frame_t *)proc->memory.saved_esp;
     stream->printf(stream, "- Trap frame (saved_esp=0x%08x, tss_esp0=0x%08x)", proc->memory.saved_esp, proc->memory.tss_esp0_value);
-    stream->print_fmt(stream, "   ", trap_frame_log_formatter, tf);
+    stream->print_fmt(stream, "   ", interrupt_frame_log_formatter, iframe);
 
     // stream->printf(stream->context, "- Arguments");
     // stream->printf(stream->context, "- Environment");

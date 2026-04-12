@@ -84,7 +84,7 @@ struct process {
         // this is the ESP inside ring 0, when we are serving an interrupt (e.g. syscall or switching)
         // if should point to the kernel stack.
         // it is saved when switching out, and put on ESP when switching in.
-        // whenever this points (because of how we handle interrupts) there should be a trap_frame_t.
+        // whenever this points (because of how we handle interrupts) there should be a interrupt_frame_t.
         uint32_t saved_esp;
 
     } memory;

@@ -16,6 +16,11 @@
 MODULE("PROC_CREATE", LOG_LEVEL_INFO);
 
 
+// defined in assembly for switch / starting
+extern void isr_body_exit_point();
+extern void minimal_returning_function();
+
+
 static pid_t   next_pid();
 static int     next_kernel_stack_no();
 
@@ -359,7 +364,7 @@ exit:
     return traceable(err);
 }
 
-static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, open_file_t *elf, char **argv, char **envp) {
+static error_t _prepare_stack_frames_for_new_user_process(process_t *proc, open_file_t *elf, char **argv, char **envp) {
     error_t err;
 
     // this function for user processes
@@ -374,21 +379,32 @@ static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, open_fi
     if (err) return err;
     log_debug("Elf entry point is 0x%08x", elf_entry_point);
     
-    // trap frame is located on the KERNEL stack, not the user_stack
-    trap_frame_t *tf = (trap_frame_t *)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(trap_frame_t));
+    // both interrupt and c frames are located on the KERNEL stack, not the user_stack
+    uint32_t ksp = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size;
+    ksp -= sizeof(interrupt_frame_t);
+    interrupt_frame_t *iframe = (interrupt_frame_t *)ksp;
+    ksp -= sizeof(uint32_t);
+    uint32_t *ret_address = (uint32_t *)ksp;
+    ksp -= sizeof(c_frame_t);
+    c_frame_t *cframe = (c_frame_t *)ksp;
+    proc->memory.saved_esp = (uint32_t)cframe;
+    
+    memset(iframe, 0, sizeof(interrupt_frame_t));
+    iframe->eip = elf_entry_point;
+    iframe->cs  = USER_CODE_SEGMENT | RING3_RPL;
+    iframe->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size; // this is where CPU will return in ring 3, after 'iret'
+    iframe->ss  = USER_DATA_SEGMENT | RING3_RPL;
+    iframe->eflags = 0x202;   // interrupts enabled
+    iframe->ds = USER_DATA_SEGMENT | RING3_RPL;
+    iframe->es = USER_DATA_SEGMENT | RING3_RPL;
+    iframe->fs = USER_DATA_SEGMENT | RING3_RPL;
+    iframe->gs = USER_DATA_SEGMENT | RING3_RPL;
 
-    memset(tf, 0, sizeof(trap_frame_t));
-    tf->eip = elf_entry_point;
-    tf->cs  = USER_CODE_SEGMENT | RING3_RPL;
-    tf->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size; // this is where CPU will return in ring 3, after 'iret'
-    tf->ss  = USER_DATA_SEGMENT | RING3_RPL;
-    tf->eflags = 0x202;   // interrupts enabled
+    *ret_address = (uint32_t)isr_body_exit_point; // when miminal_returning_function returns, it returns here
 
-    tf->ds = USER_DATA_SEGMENT | RING3_RPL;
-    tf->es = USER_DATA_SEGMENT | RING3_RPL;
-    tf->fs = USER_DATA_SEGMENT | RING3_RPL;
-    tf->gs = USER_DATA_SEGMENT | RING3_RPL;
-
+    memset(cframe, 0, sizeof(c_frame_t));
+    cframe->eip = (uint32_t)minimal_returning_function; // when switch_inside_c_function returns, it returns here
+    
 
     // arguments and environment are set on the USER stack, as if passed into _start()
     uint32_t user_stack_top = proc->memory.user_stack.address + proc->memory.user_stack.size;
@@ -447,34 +463,43 @@ static error_t _prepare_trap_frame_for_new_user_process(process_t *proc, open_fi
     vmm_physpg_write(stack_last_page_phys_addr, 0, buff, vmm_page_size());
     // log_debug("Stack last page virtual address: 0x%08x, physical address: 0x%08x", stack_last_page_virt_addr, stack_last_page_phys_addr);
     kfree(buff);
-    tf->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size - stack_used;
-    // log_debug("Setting user ESP to 0x%08x", tf->user_esp);
+    iframe->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size - stack_used;
+    // log_debug("Setting user ESP to 0x%08x", iframe->user_esp);
     log_debug_fmt(proc_log_formatter, "prepped", proc);
     return OK;
 }
 
-static error_t _prepare_trap_frame_for_new_kernel_process(process_t *proc, uintptr_t function_to_call) {
+static error_t _prepare_stack_frames_for_new_kernel_process(process_t *proc, uintptr_t function_to_call) {
 
     // this function for user processes
     ASSERT(proc_is_kernel_proc(proc));
     ASSERT(proc->memory.kernel_stack.address != 0);
     ASSERT(proc->memory.kernel_stack.size != 0);
 
-    // trap frame is located on the kernel_stack, not the user_stack
-    proc->memory.saved_esp = (proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(trap_frame_t));
-    trap_frame_t *tf = (trap_frame_t *)proc->memory.saved_esp;
+    uint32_t ksp = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size;
+    ksp -= sizeof(interrupt_frame_t);
+    interrupt_frame_t *iframe = (interrupt_frame_t *)ksp;
+    ksp -= sizeof(uint32_t);
+    uint32_t *ret_address = (uint32_t *)ksp;
+    ksp -= sizeof(c_frame_t);
+    c_frame_t *cframe = (c_frame_t *)ksp;
+    proc->memory.saved_esp = (uint32_t)cframe;
 
-    memset(tf, 0, sizeof(trap_frame_t));
-    tf->eip = function_to_call;
-    tf->cs  = KERNEL_CODE_SEGMENT;
-    tf->user_esp = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size; // this is where CPU will return to, after 'iret'
-    tf->ss  = KERNEL_DATA_SEGMENT;
-    tf->eflags = 0x202;   // interrupts enabled, this is important
+    memset(iframe, 0, sizeof(interrupt_frame_t));
+    iframe->eip = function_to_call;
+    iframe->cs  = KERNEL_CODE_SEGMENT;
+    iframe->user_esp = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size; // this is where CPU will return to, after 'iret'
+    iframe->ss  = KERNEL_DATA_SEGMENT;
+    iframe->eflags = 0x202;   // interrupts enabled, this is important
+    iframe->ds = KERNEL_DATA_SEGMENT;
+    iframe->es = KERNEL_DATA_SEGMENT;
+    iframe->fs = KERNEL_DATA_SEGMENT;
+    iframe->gs = KERNEL_DATA_SEGMENT;
 
-    tf->ds = KERNEL_DATA_SEGMENT;
-    tf->es = KERNEL_DATA_SEGMENT;
-    tf->fs = KERNEL_DATA_SEGMENT;
-    tf->gs = KERNEL_DATA_SEGMENT;
+    *ret_address = (uint32_t)isr_body_exit_point; // when miminal_returning_function returns, it returns here
+
+    memset(cframe, 0, sizeof(c_frame_t));
+    cframe->eip = (uint32_t)minimal_returning_function; // when switch_inside_c_function returns, it returns here
 
     return OK;
 }
@@ -677,8 +702,7 @@ static error_t _create_base_process_v2(bool is_user_proc, page_dir_t pd, process
 
     // this to be given to scheduler at each switch
     proc->memory.tss_esp0_value = (uint32_t)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size);
-    // for first execution, we will place a trap_frame at the top of kernel stack, so set saved_esp accordingly
-    proc->memory.saved_esp = (uint32_t)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(trap_frame_t));
+    // for first execution, we will place a interrupt_frame at the top of kernel stack, so set saved_esp accordingly
 
     *proc_ptr = proc;
     return OK;
@@ -700,12 +724,13 @@ error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_cal
 
     ASSERT(proc->memory.kernel_stack.address != 0);
     ASSERT(proc->memory.kernel_stack.size != 0);
-    ASSERT(proc->memory.saved_esp != 0);
-    ASSERT(proc->memory.tss_esp0_value != 0);
 
-    err = _prepare_trap_frame_for_new_kernel_process(proc, function_to_call);
+    err = _prepare_stack_frames_for_new_kernel_process(proc, function_to_call);
     if (err) return err;
 
+    ASSERT(proc->memory.saved_esp != 0);
+    ASSERT(proc->memory.tss_esp0_value != 0);
+    
     // log_debug_fmt(proc_log_formatter, "process_v2_create_for_kernel(): ", proc);
     *proc_ptr = proc;
     return OK;
@@ -736,7 +761,7 @@ error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, ch
     err = _allocate_and_initialize_all_regions_for_elf(child, elf);
     if (err) goto failed;
 
-    err = _prepare_trap_frame_for_new_user_process(child, elf, argv, envp);
+    err = _prepare_stack_frames_for_new_user_process(child, elf, argv, envp);
     if (err) goto failed;
 
     vfs_close(elf);
@@ -778,7 +803,7 @@ error_t process_v2_replace_for_exec(process_t *proc, const char *file_path, char
     err = _allocate_and_initialize_all_regions_for_elf(proc, elf);
     if (err) goto failed;
 
-    err = _prepare_trap_frame_for_new_user_process(proc, elf, argv, envp);
+    err = _prepare_stack_frames_for_new_user_process(proc, elf, argv, envp);
     if (err) goto failed;
 
     vfs_close(elf);
@@ -822,7 +847,7 @@ error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr) {
 
     // we'll need a few more things, but this is looking better
     ASSERT(child->memory.saved_esp != 0);
-    ASSERT(((trap_frame_t *)child->memory.saved_esp)->eip != 0);
+    ASSERT(((interrupt_frame_t *)child->memory.saved_esp)->eip != 0);
 
     *proc_ptr = child;
     return OK;

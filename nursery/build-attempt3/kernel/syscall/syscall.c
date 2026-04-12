@@ -148,7 +148,7 @@ int sys_uptime(uint64_t *msecs) {
 }
 
 
-void isr_syscall(trap_frame_t *tf) {
+void isr_syscall(interrupt_frame_t *frame) {
     
     /* before getting to this function, the assembly isr handler
        has pushed CS, DS and SS into the stack, and will subsequently
@@ -162,12 +162,12 @@ void isr_syscall(trap_frame_t *tf) {
 
     // it seems we are in the stack of the user process
     int return_value = 0;
-    uint32_t arg0 = tf->eax; // usuallys the sysno
-    uint32_t arg1 = tf->ebx;
-    uint32_t arg2 = tf->ecx;
-    uint32_t arg3 = tf->edx;
-    uint32_t arg4 = tf->esi;
-    uint32_t arg5 = tf->edi;
+    uint32_t arg0 = frame->eax; // usuallys the sysno
+    uint32_t arg1 = frame->ebx;
+    uint32_t arg2 = frame->ecx;
+    uint32_t arg3 = frame->edx;
+    uint32_t arg4 = frame->esi;
+    uint32_t arg5 = frame->edi;
 
     switch (arg0) {
         case SYS_ECHO_TEST:
@@ -302,5 +302,5 @@ void isr_syscall(trap_frame_t *tf) {
     }
 
     // both positive and negative values tested and supported
-    tf->eax = return_value;
+    frame->eax = return_value;
 }

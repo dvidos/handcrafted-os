@@ -6,14 +6,14 @@ static int page_fault_num = 0;
 
 // handles page faults. 
 // see https://wiki.osdev.org/Exceptions#Page_Fault
-void vmm_page_fault_handler(trap_frame_t *tf) {
+void vmm_page_fault_handler(interrupt_frame_t *frame) {
 
     page_fault_num++;
     if (page_fault_num > MAX_PAGE_FAULTS)
         panic("Too many page faults");
 
-    uint32_t error_code = tf->err_code;
-    uint32_t eip = tf->eip;
+    uint32_t error_code = frame->err_code;
+    uint32_t eip = frame->eip;
 
     uint32_t addr = 0;
     __asm__ __volatile__("mov %%cr2, %0" : "=r"(addr));
@@ -34,7 +34,7 @@ void vmm_page_fault_handler(trap_frame_t *tf) {
     else if (addr >= kmm.reserved_end)                              mem_area = "user memory space";
 
     log_warn("Page Fault (#%d):", page_fault_num);
-    log_warn("   CS 0x%08x (0x%x is kernel, 0x%x is user)", tf->cs, KERNEL_CODE_SEGMENT, USER_CODE_SEGMENT);
+    log_warn("   CS 0x%08x (0x%x is kernel, 0x%x is user)", frame->cs, KERNEL_CODE_SEGMENT, USER_CODE_SEGMENT);
     log_warn("  EIP 0x%08x (addr2line -f -e ./kernel/kernel.elf 0x%x)", eip, eip);
     log_warn("  CR3 0x%08x (0x%x is kernel)", cr3, kinfo.page_directory);
     log_warn("  CR2 0x%08x address space: %s", addr, mem_area);

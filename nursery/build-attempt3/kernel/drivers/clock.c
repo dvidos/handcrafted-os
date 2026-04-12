@@ -78,7 +78,7 @@ void init_real_time_clock(uint8_t interrupt_divisor) {
     mutex_release(&clock_writing_lock);
 }
 
-void real_time_clock_interrupt_interrupt_handler(trap_frame_t *regs) {
+void real_time_clock_interrupt_interrupt_handler(interrupt_frame_t *regs) {
     uint8_t type_of_interrupt = get_clock_register(0x0C);
     // Status Register C – Type of Interupt
     // Bit 7 – Any

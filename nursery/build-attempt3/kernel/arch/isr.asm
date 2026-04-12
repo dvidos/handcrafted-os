@@ -1,8 +1,8 @@
-[EXTERN interrupt_handler_c]
+[extern interrupt_handler_c]
 
 
 %macro ISR_ENTRY_WITHOUT_ERROR_CODE 1  ; define a macro, taking one parameter
-  [GLOBAL isr%1]       ; %1 accesses the first parameter.
+  [global isr%1]       ; %1 accesses the first parameter.
   isr%1:
     cli
     push dword  0     ; we push a zero, to make stack snapshot identical to when there is an error code
@@ -11,7 +11,7 @@
 %endmacro
 
 %macro ISR_ENTRY_WITH_ERROR_CODE  1
-  [GLOBAL isr%1]
+  [global isr%1]
   isr%1:
     cli
     ; we don't push a zero, CPU already pushed the error code
@@ -20,7 +20,7 @@
 %endmacro
 
 %macro IRQ_ENTRY 1    ; define a macro, taking one parameter
-  [GLOBAL irq%1]        ; %1 accesses the first parameter.
+  [global irq%1]        ; %1 accesses the first parameter.
   irq%1:
     cli
     push dword  0     ; we push a zero, to make stack snapshot identical to when there is an error code
@@ -140,6 +140,7 @@ IRQ_ENTRY  128  ; i.e. 0x80, i.e. syscall
 
 
 
+[global isr_body_exit_point]
 ; This is the 2nd part of interrupt handling, starting with the macros
 ; It saves the processor state, sets up for kernel mode segments, 
 ; calls the C-level fault handler, and finally restores the stack frame.
@@ -162,17 +163,58 @@ isr_common_body:
   call interrupt_handler_c
   add esp, 4       ; clean up passed arguments
 
-  ; here, our stack contains a perfect trap_frame, which means we can check if we need to switch
-  PROCESS_SWITCHER_STUB
-
+isr_body_exit_point:  ; new processes "return" here via the 'minimal_returning_function'
   pop gs
   pop fs
   pop es
   pop ds
-  popad                    ; Pops edi,esi,ebp...
+  popad          ; Pops edi,esi,ebp,esp,ebx,edx,ecx,eax
 
   add esp, 8     ; cleans up the pushed error code and pushed ISR number (see macros)
   sti
   iret           ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
 
+
+; used in stack frames for starting new processes, by pushing the 'isr_body_exit_point' address to return to
+[global minimal_returning_function]
+minimal_returning_function:
+  ret  ; will just to whatever return address is at top of stack, same segment / ring.
+
+
+
+; extern void switch_inside_c_function(uint32_t *old_esp_ptr, uint32_t new_esp, uint32_t new_cr3, uint32_t new_esp0);
+[global switch_inside_c_function]
+[extern proc_switch_tss_address]
+switch_inside_c_function:
+  ; the 'call' instruction already pushed EIP here, push the rest of the c_frame_t
+  push ebp
+  push ebx
+  push esi
+  push edi
+  ; already 5 values pushed, 4 bytes each = 20 bytes to arguments pushed
+
+  ; save current ESP to old_process->saved_esp
+  mov eax, [esp + 20]     ; First arg: old_esp_ptr
+  mov [eax], esp
+
+  ; switch page directory
+  mov eax, [esp + 28]     ; Third arg: new_cr3
+  mov cr3, eax
+
+  ; assume esp0 at 4 bytes inside the tss structure
+  mov eax, [esp + 32]     ; Fourth arg: new_esp0
+  mov edx, [proc_switch_tss_address]
+  mov [edx + 4], eax
+
+  ; switch to the new stack
+  mov esp, [esp + 24]     ; Second arg: new_esp
+
+  ; restore the new process' c_frame_t
+  pop edi
+  pop esi
+  pop ebx
+  pop ebp
+
+  ; 6. Resumes the EIP (either into C code or minimal_returning_function)
+  ret   ; pops the return address, jumps there

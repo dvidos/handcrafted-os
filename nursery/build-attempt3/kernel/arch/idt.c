@@ -1,7 +1,7 @@
 #include "../klib/string.h"
 #include "../logger/logger.h"
 #include "idt.h"
-#include "trap_frame.h"
+#include "stack_frames.h"
 
 
 // for documentation, see https://wiki.osdev.org/IDT
@@ -195,7 +195,7 @@ void init_idt(uint16_t code_segment_selector) {
     load_idt_descriptor((uint32_t)&idt_descriptor);
 }
 
-void dump_registers(trap_frame_t *regs) {
+void dump_registers(interrupt_frame_t *regs) {
     log_debug("DS      : %08x", regs->ds);
     log_debug("CS      : %08x", regs->cs);
     log_debug("EDI     : %08x", regs->edi);

@@ -183,7 +183,7 @@ static inline void on_key_event(key_event_t *event) {
         key_event_hook(event, &handled);
 }
 
-void keyboard_handler(trap_frame_t* regs) {
+void keyboard_handler(interrupt_frame_t* regs) {
     (void)regs;
 
     uint8_t scancode = inb(KBD_DATA_PORT);

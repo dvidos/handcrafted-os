@@ -18,6 +18,6 @@ struct syscall_stack
 };
 
 // int isr_syscall(struct syscall_stack stack);
-int isr_syscall(trap_frame_t *regs);
+int isr_syscall(interrupt_frame_t *regs);
 
 #endif

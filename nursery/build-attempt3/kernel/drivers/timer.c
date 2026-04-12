@@ -1,5 +1,5 @@
 #include "../arch/cpu.h"
-#include "../arch/trap_frame.h"
+#include "../arch/stack_frames.h"
 #include "screen.h"
 
 MODULE("TIMER", LOG_LEVEL_DEBUG);
@@ -58,7 +58,7 @@ void init_timer() {
     outb(CHANNEL_0_DATA_PORT, (uint8_t)((divisor >> 8) & 0xFF));
 }
 
-void timer_interrupt_handler(trap_frame_t *regs) {
+void timer_interrupt_handler(interrupt_frame_t *regs) {
     milliseconds_since_boot++;
     // if (milliseconds_since_boot % 1000 == 0)
     //     printk("(%u)", milliseconds_since_boot / 1000);
