@@ -8,14 +8,14 @@
 // doubly linked list allows fast consolidation with prev / next blocks
 // magic number allows detection of underflow or overflow
 // the memory area is supposed to be right after the block_header.
-// size refers to the memory area, does not include the memory_block structure
+// size refers to the memory area, does not include the block_header structure
 // sandwich with magic numbers to detect even partial corruption.
-struct memory_block {
+struct block_header {
     uint16_t magic1: 12;        // AAuA   (u = used)
     uint16_t used: 4;           
     uint32_t size;              // ls nn nn ms (little endian)
-    struct memory_block *next;  // ls nn nn ms (split into the two octets)
-    struct memory_block *prev;  // ls nn nn ms 
+    struct block_header *next;  // ls nn nn ms (split into the two octets)
+    struct block_header *prev;  // ls nn nn ms 
     #ifdef DEBUG_HEAP_OPS
         char *size_explanation;        // 
         char *file;             // xx xx xx xx (split into the two octets)
@@ -24,53 +24,52 @@ struct memory_block {
     #endif
     uint16_t magic2;            // AA 0A
 } __attribute__((packed));
-typedef struct memory_block memory_block_t;
+typedef struct block_header block_header_t;
 
 
 struct memory_heap {
     void *start_address;
     void *end_address;
     uint32_t available_memory; // remaining actual memory, leaves out allocated and blocks
-    memory_block_t *list_head;
-    memory_block_t *list_tail;
+    block_header_t *first_header;
+    block_header_t *last_header;
 };
 typedef struct memory_heap memory_heap_t;
 
 
 // in theory, in the data section of each executable
-// we are supposed to 
 memory_heap_t heap = { 0, 0, 0, 0, 0 };
 
-static bool __check_block(memory_block_t *block);
+
+static bool __check_block(block_header_t *block);
 
 
 
 // request to expand or shrink the heap by an amount
-// returns pointer to the break before the change.
+// returns pointer to the break BEFORE the change.
 void *sbrk(int size_diff) {
     return (void *)syscall(SYS_SBRK, size_diff, 0, 0, 0, 0);
 }
-
-
 
 
 // called before main(), no need to be called by user
 void __init_heap() {
 
     // in theory heap is initialized to zero, so the old break value will be the heap start
-    void *heap_start = sbrk(4096);
+    size_t initial_heap_size = 256 * 1024;
+    void *heap_start = sbrk(initial_heap_size);
     void *heap_end = sbrk(0);
     size_t heap_size = heap_end - heap_start;
 
     heap.start_address = heap_start;
     heap.end_address = heap_start + heap_size;
-    heap.available_memory = heap_size - 2 * sizeof(memory_block_t);
+    heap.available_memory = heap_size - 2 * sizeof(block_header_t);
     // putting a block at the end of the area, to detect possible overflow
-    memory_block_t *head = (memory_block_t *)(heap.start_address);
-    memory_block_t *tail = (memory_block_t *)(heap.end_address - sizeof(memory_block_t));
+    block_header_t *head = (block_header_t *)(heap.start_address);
+    block_header_t *tail = (block_header_t *)(heap.end_address - sizeof(block_header_t));
 
     head->used = 0;
-    head->size = heap_size - 2 * sizeof(memory_block_t);
+    head->size = heap_size - 2 * sizeof(block_header_t);
     head->magic1 = MEM_MAGIC;
     head->magic2 = MEM_MAGIC;
     head->next = tail;
@@ -83,41 +82,101 @@ void __init_heap() {
     tail->prev = head;
     tail->next = NULL;
 
-    heap.list_head = head;
-    heap.list_tail = tail;
+    heap.first_header = head;
+    heap.last_header = tail;
 
-    // syslog_debug("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
+    syslog_trace("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
 }
+
+static void extend_heap() {
+    size_t curr_size = heap.end_address - heap.start_address;
+    size_t max_diff = 512 * 1014 * 1024; // 512 MB, cannot go more than 2GB due to int
+    int diff = (int)(curr_size < max_diff ? curr_size : max_diff);
+    syslog_info("heap is %u KB, extending by %d KB", (curr_size / 1024), (diff / 1024));
+
+    void *old_end = sbrk(diff);
+    void *new_end = sbrk(0);
+    int growth = new_end - old_end;
+    assert(growth == diff);
+
+    // we have to update the one block before the end to size
+    // and move the last to end end....
+    block_header_t *old_last = heap.last_header;
+    block_header_t *prev = old_last->prev;
+    assert(old_last != NULL);
+    assert(prev != NULL);
+
+    // create one anyway
+    block_header_t *new_last = (block_header_t *)(new_end - sizeof(block_header_t));
+    new_last->used = 1; // tail marked used to avoid consolidation
+    new_last->size = 0;
+    new_last->magic1 = MEM_MAGIC;
+    new_last->magic2 = MEM_MAGIC;
+    new_last->next = NULL;
+
+
+    // if the very last memory chunk is used, create new chunk from last to new last
+    // else, extend previous marker towards the new end
+    if (prev->used) {
+        // update the old last to contain the extension
+        old_last->next = new_last;
+        new_last->prev = old_last;
+        old_last->used = 0; // now it is free
+        old_last->size = growth - sizeof(block_header_t);
+    } else {
+        // make prev point to new end block. 
+        prev->next = new_last;
+        new_last->prev = prev;
+        prev->size += growth;
+    }
+
+    // in both cases, new last marker
+    heap.last_header = new_last;
+    heap.end_address = new_end;
+}
+
+static block_header_t *find_free_usable_block(size_t needed_size) {
+    // if the block is to be split, we should account for the header size too.
+    
+
+    for (block_header_t *h = heap.first_header; h != NULL; h = h->next) {
+        if (h->used)
+            continue;
+        
+        // either fit exactly, or allow splitting.
+        if (h->size == needed_size || h->size > needed_size + sizeof(block_header_t))
+            return h;
+    }
+
+    return NULL;
+}
+
 
 // allocate a chunk of memory from heap
 void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
-    // size = size < 256 ? 256 : size;
     
     // find the first free block that is equal or larger than size
-    memory_block_t *curr = heap.list_head;
-    while (curr != NULL) {
-        // look for a free block that is either the exact size, or big enough to split.
-        if ((curr->used == false) &&
-            (curr->size == size || curr->size > size + sizeof(memory_block_t)))
+    block_header_t *curr;
+    while (true) {  // sounds like we'll always return or fail
+        curr = find_free_usable_block(size);
+        if (curr != NULL)
             break;
-        curr = curr->next;
+        syslog_trace("extending heap");
+        extend_heap();
     }
-    if (curr == NULL) {
-        syslog_warn("malloc(%u) --> Exiting, as could not find a free block, should sbrk() and extend last block", size);
-        exit(-8);
-        return NULL;
-    }
+
+
 
     if (curr->size == size) {
         // no need to split, just reuse this as is.
         // happens often, as the same structure types may be requested in a loop
-    } else if (curr->size > size + sizeof(memory_block_t)) {
+    } else if (curr->size > size + sizeof(block_header_t)) {
         // big enough to split into two
         // keep the memory we need, create a new memory block
         // sequence of operations (pointers etc) is important
-        memory_block_t *new_free = (memory_block_t *)((char *)curr + sizeof(memory_block_t) + size);
-        memory_block_t *next = curr->next;
-        new_free->size = curr->size - sizeof(memory_block_t) - size;
+        block_header_t *new_free = (block_header_t *)((char *)curr + sizeof(block_header_t) + size);
+        block_header_t *next = curr->next;
+        new_free->size = curr->size - sizeof(block_header_t) - size;
         new_free->used = 0;
         new_free->magic1 = MEM_MAGIC;
         new_free->magic2 = MEM_MAGIC;
@@ -129,7 +188,7 @@ void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
         #endif
         new_free->prev = curr;
         new_free->next = next;
-        heap.available_memory -= sizeof(memory_block_t);
+        heap.available_memory -= sizeof(block_header_t);
 
         curr->size = size;
         curr->next = new_free;
@@ -145,8 +204,8 @@ void *__malloc(size_t size, char *explanation, char *file, uint16_t line) {
         curr->line = line;
     #endif
     curr->used = 1;
-    heap.available_memory -= curr->size; // we should take memory_block size into account 
-    char *ptr = (char *)curr + sizeof(memory_block_t);
+    heap.available_memory -= curr->size; // we should take block_header size into account 
+    char *ptr = (char *)curr + sizeof(block_header_t);
     memset(ptr, 0, curr->size); // contrary to traditional unix, we clear our memory
 
     // syslog_trace("malloc(%u = %s) -> 0x%p, at %s:%d", size, explanation, ptr, file, line);
@@ -167,8 +226,8 @@ void *realloc(void *ptr, size_t size) {
         return NULL;
     }
 
-    // Get the memory_block_t header
-    memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
+    // Get the block_header_t header
+    block_header_t *block = (block_header_t *)(ptr - sizeof(block_header_t));
 
     // Basic validation (optional, but good for debugging)
     if (block->used == 0 || block->magic1 != MEM_MAGIC || block->magic2 != MEM_MAGIC) {
@@ -185,12 +244,12 @@ void *realloc(void *ptr, size_t size) {
         // Only split if the new size is at most half as big as the original,
         // and there's enough space for a new block header + a minimal free block size.
         // Assuming minimal useful free block size is > 0 bytes.
-        if (size <= current_size / 2 && current_size > size + sizeof(memory_block_t)) {
+        if (size <= current_size / 2 && current_size > size + sizeof(block_header_t)) {
             // Shrink and split
-            memory_block_t *new_free = (memory_block_t *)((char *)block + sizeof(memory_block_t) + size);
-            memory_block_t *next = block->next;
+            block_header_t *new_free = (block_header_t *)((char *)block + sizeof(block_header_t) + size);
+            block_header_t *next = block->next;
 
-            new_free->size = current_size - sizeof(memory_block_t) - size;
+            new_free->size = current_size - sizeof(block_header_t) - size;
             new_free->used = 0;
             new_free->magic1 = MEM_MAGIC;
             new_free->magic2 = MEM_MAGIC;
@@ -208,11 +267,11 @@ void *realloc(void *ptr, size_t size) {
             if (next != NULL) {
                 next->prev = new_free;
             }
-            heap.available_memory -= sizeof(memory_block_t); // A new block header was created
+            heap.available_memory -= sizeof(block_header_t); // A new block header was created
 
             // Clean up the newly freed part of memory
-            memset((char*)new_free + sizeof(memory_block_t), 0, new_free->size);
-            syslog_trace("realloc(%p, %u): shrunk block and split new free block %p", ptr, size, (char*)new_free + sizeof(memory_block_t));
+            memset((char*)new_free + sizeof(block_header_t), 0, new_free->size);
+            syslog_trace("realloc(%p, %u): shrunk block and split new free block %p", ptr, size, (char*)new_free + sizeof(block_header_t));
         }
         // If not enough to split (either size is not small enough, or remaining space is too small),
         // just keep the block as is. No data movement needed.
@@ -221,10 +280,10 @@ void *realloc(void *ptr, size_t size) {
 
     // Case B: New size is larger
     // Try to extend the current block by merging with next free block
-    memory_block_t *next_block = block->next;
+    block_header_t *next_block = block->next;
     if (next_block != NULL && !next_block->used &&
-        (current_size + sizeof(memory_block_t) + next_block->size >= size)) {
-        syslog_trace("realloc(%p, %u): attempting to merge with next free block %p", ptr, size, (char*)next_block + sizeof(memory_block_t));
+        (current_size + sizeof(block_header_t) + next_block->size >= size)) {
+        syslog_trace("realloc(%p, %u): attempting to merge with next free block %p", ptr, size, (char*)next_block + sizeof(block_header_t));
 
         // Remove next_block from the list
         block->next = next_block->next;
@@ -232,21 +291,21 @@ void *realloc(void *ptr, size_t size) {
             next_block->next->prev = block;
         }
 
-        heap.available_memory += sizeof(memory_block_t); // next_block header is being absorbed
+        heap.available_memory += sizeof(block_header_t); // next_block header is being absorbed
 
         // Update current block's size
-        block->size += sizeof(memory_block_t) + next_block->size;
+        block->size += sizeof(block_header_t) + next_block->size;
 
         // Clean up the memory of the absorbed block (already done by memset below if splitting)
-        // memset((char*)next_block + sizeof(memory_block_t), 0, next_block->size);
+        // memset((char*)next_block + sizeof(block_header_t), 0, next_block->size);
 
         // Now, the block is larger. If it's *much* larger, we can split it.
-        if (block->size > size + sizeof(memory_block_t)) {
+        if (block->size > size + sizeof(block_header_t)) {
              // Split off a new free block from the end
-            memory_block_t *new_free = (memory_block_t *)((char *)block + sizeof(memory_block_t) + size);
-            memory_block_t *orig_next = block->next; // This is the block that was originally after next_block
+            block_header_t *new_free = (block_header_t *)((char *)block + sizeof(block_header_t) + size);
+            block_header_t *orig_next = block->next; // This is the block that was originally after next_block
 
-            new_free->size = block->size - sizeof(memory_block_t) - size;
+            new_free->size = block->size - sizeof(block_header_t) - size;
             new_free->used = 0;
             new_free->magic1 = MEM_MAGIC;
             new_free->magic2 = MEM_MAGIC;
@@ -264,8 +323,8 @@ void *realloc(void *ptr, size_t size) {
             if (orig_next != NULL) {
                 orig_next->prev = new_free;
             }
-            heap.available_memory -= sizeof(memory_block_t); // A new block header was created
-            memset((char*)new_free + sizeof(memory_block_t), 0, new_free->size); // Clear the new free memory
+            heap.available_memory -= sizeof(block_header_t); // A new block header was created
+            memset((char*)new_free + sizeof(block_header_t), 0, new_free->size); // Clear the new free memory
             syslog_trace("realloc(%p, %u): merged with next free and then split", ptr, size);
         }
         return ptr; // Return the same pointer
@@ -290,9 +349,9 @@ void *realloc(void *ptr, size_t size) {
 void free(void *ptr) {
     // syslog_trace("free(0x%p)", ptr);
 
-    memory_block_t *block = (memory_block_t *)(ptr - sizeof(memory_block_t));
-    memory_block_t *next = block->next;
-    memory_block_t *prev = block->prev;
+    block_header_t *block = (block_header_t *)(ptr - sizeof(block_header_t));
+    block_header_t *next = block->next;
+    block_header_t *prev = block->prev;
     
     block->used = false;
     heap.available_memory += block->size;
@@ -304,7 +363,7 @@ void free(void *ptr) {
     #endif
 
     // clean up memory to cause errors if app still refers to it.
-    memset((char *)block + sizeof(memory_block_t), 0, block->size);
+    memset((char *)block + sizeof(block_header_t), 0, block->size);
 
     // Initial state
     // [ mbt ] ----next---> [ mbt ] ----next---> [ mbt ] ----next---> [ mbt ]
@@ -329,15 +388,15 @@ void free(void *ptr) {
         block->next = next->next;
         if (next->next != NULL)
             next->next->prev = block;
-        block->size += sizeof(memory_block_t) + next->size;
-        heap.available_memory += sizeof(memory_block_t);
+        block->size += sizeof(block_header_t) + next->size;
+        heap.available_memory += sizeof(block_header_t);
     }
     if (prev != NULL && !prev->used) {
         prev->next = block->next;
         if (block->next != NULL)
             block->next->prev = prev;
-        prev->size += sizeof(memory_block_t) + block->size;
-        heap.available_memory += sizeof(memory_block_t);
+        prev->size += sizeof(block_header_t) + block->size;
+        heap.available_memory += sizeof(block_header_t);
     }
 }
 
@@ -352,7 +411,7 @@ uint32_t heap_free_size() {
 }
 
 void heap_dump() {
-    memory_block_t *block = heap.list_head;
+    block_header_t *block = heap.first_header;
     syslog_debug("  Pointer      Size Type Magic   Prev     Next     Alloc file:line - size explanation", 0);
     //         "  0x000000 00000000 Used XXX XXX 0xXXXXXX 0xXXXXXX
     uint32_t free_mem = 0;
@@ -370,7 +429,7 @@ void heap_dump() {
         }
         #if DEBUG_HEAP_OPS
             syslog_debug("  0x%x %8u %s %x %x 0x%x 0x%x %s:%d - %s",
-                (uint32_t)block + sizeof(memory_block_t), block->size,
+                (uint32_t)block + sizeof(block_header_t), block->size,
                 block->used ? "Used" : "Free",
                 block->magic1, block->magic2,
                 block->prev, block->next,
@@ -379,7 +438,7 @@ void heap_dump() {
             );
         #else
             syslog_debug("  0x%x %8u %s %x %x 0x%x 0x%x",
-                (uint32_t)block + sizeof(memory_block_t), block->size,
+                (uint32_t)block + sizeof(block_header_t), block->size,
                 block->used ? "Used" : "Free",
                 block->magic1, block->magic2,
                 block->prev, block->next
@@ -402,10 +461,10 @@ void heap_dump() {
 }
 
 
-static bool __check_block(memory_block_t *block) {
+static bool __check_block(block_header_t *block) {
     uint32_t max_size = (heap.end_address - heap.start_address);
     bool healthy = true;
-    void *ptr = ((void *)block) + sizeof(memory_block_t);
+    void *ptr = ((void *)block) + sizeof(block_header_t);
 
     if (block->magic1 != MEM_MAGIC) {
         syslog_error("block for 0x%x has bad magic 1 (%x)", ptr, block->magic1);
@@ -461,7 +520,7 @@ static bool __check_block(memory_block_t *block) {
 // walk the heap blocks and assert sanity values
 void __heap_verify(char *file, int line) {
     bool healthy = true;
-    memory_block_t *block = heap.list_head;
+    block_header_t *block = heap.first_header;
     while (block != NULL) {
         // make sure the block is healthy
         if (!__check_block(block))

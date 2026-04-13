@@ -114,25 +114,14 @@ int proc_opendir(process_t *proc, char *name) {
 }
 
 int proc_readdir(process_t *proc, int handle, vfs_dirent_t *entry) {
-// int proc_readdir(process_t *proc, int handle, void *entry) {
-    // if (handle < 0 || handle >= MAX_FILE_HANDLES)
-    //     return ERR_BAD_ARGUMENT;
-    // inode_t *n;
-    // int err = vfs_readdir(proc->file_handles[handle], &n);
-    // if (!err) {
-    //     entry->location = n->location;
-    //     entry->size = n->size;
-    //     entry->type = n->flags;
-    //     strncpy(entry->name, n->name, sizeof(entry->name));
-    //     destroy_inode(n);
-    // }
-    // log_trace("proc_readdir() -> %d", err);
-    // return err;
-    return ERR_NOT_IMPLEMENTED;
+    if (!is_valid_handle(proc, handle))
+        return ERR_BAD_ARGUMENT;
+    error_t err = vfs_readdir(proc->file_handles[handle], entry);
+    return err;
 }
 
 int proc_closedir(process_t *proc, int handle) {
-    if (handle < 0 || handle >= MAX_FILE_HANDLES)
+    if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
 
     int err = vfs_closedir(proc->file_handles[handle]);

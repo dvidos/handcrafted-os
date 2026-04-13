@@ -20,18 +20,11 @@
  * @param line The line number in the source file where the assertion failed.
  * @param function The name of the function where the assertion failed.
  */
-// void __assert_fail(const char *expression, const char *file, unsigned int line, const char *function) {
-//     // TODO: Implement __assert_fail for your operating system.
-//     // This typically involves writing to stderr or a kernel log,
-//     // and then terminating the process.
-//     (void)expression; // Suppress unused parameter warning
-//     (void)file;       // Suppress unused parameter warning
-//     (void)line;       // Suppress unused parameter warning
-//     (void)function;   // Suppress unused parameter warning
-
-//     // Example minimal action: infinite loop or system halt
-//     while (1) {
-//         // Halt the system or enter a debugger
-//         // For a real OS, this might involve a kernel panic or immediate exit
-//     }
-// }
+void __assert_fail(const char *expression, const char *file, unsigned int line, const char *function) {
+    syslog_critical("%s:%d, in function %s(), assertion '%s' failed", file, line, function, expression);
+    // either freeze, or exit, either way we must not continue
+    // freezing, hoping this will make the errror visible
+    // exit(-127);
+    for (;;)
+        sleep(3);
+}

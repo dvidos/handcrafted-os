@@ -10,9 +10,9 @@ At high level, the steps will be:
 * ~~kernel/libc/uapi --> libc/include/kernel --> rootfs/include/kernel~~
 
 ## porting sash to work as shell
-  * merge branch to main
+  * ~~merge branch to main~~
   * ~~fix wait(), waitpid() and read() to not use EAGAIN~~
-  * continue with keyboard input, now that we can unblock
+  * ~~continue with keyboard input, now that we can unblock~~
 
   * keyboard driver + input
   * implement Kill, signal

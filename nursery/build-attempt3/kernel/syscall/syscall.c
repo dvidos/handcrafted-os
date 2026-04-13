@@ -86,7 +86,7 @@ static int sys_rewinddir(int handle) {
     return proc_rewinddir(running_process(), handle);
 }
 // static int sys_readdir(int handle, dirent_t *dirent) {
-static int sys_readdir(int handle, void *dirent) {
+static int sys_readdir(int handle, vfs_dirent_t *dirent) {
     return proc_readdir(running_process(), handle, dirent);
 }
 static int sys_closedir(int handle) {
@@ -212,7 +212,7 @@ void isr_syscall(interrupt_frame_t *frame) {
             return_value = sys_opendir((char *)arg1);
             break;
         case SYS_READ_DIR:   // arg1 = handle, arg2 = dentry pointer
-            return_value = sys_readdir(arg1, (void *)arg2);
+            return_value = sys_readdir(arg1, (vfs_dirent_t *)arg2);
             break;
         case SYS_CLOSE_DIR:   // arg1 = handle
             return_value = sys_closedir(arg1);

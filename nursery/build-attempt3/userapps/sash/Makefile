@@ -19,7 +19,7 @@ OBJS = sash.o cmds.o cmd_dd.o cmd_ed.o cmd_grep.o cmd_ls.o cmd_tar.o \
 	cmd_gzip.o cmd_find.o cmd_file.o cmd_chattr.o cmd_ar.o utils.o
 
 
-sash:	$(OBJS)
+sash:	$(OBJS) $(LIBC)
 	$(CC) -o sash $(OBJS) $(LIBS) $(LDFLAGS)
 
 clean:
