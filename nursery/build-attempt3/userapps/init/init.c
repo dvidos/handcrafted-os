@@ -95,22 +95,67 @@ void cmd_list_destroy(cmd_list_t *list) {
 }
 
 
+// Helper function to extract the next argument, handling quotes
+// Returns a pointer to the start of the argument (within the original buffer).
+// Returns NULL on parsing error (unmatched quote).
+// Updates line_ptr to point to the character AFTER the extracted argument (or '#' if a comment was hit).
+// Sets *is_comment to true if parsing stopped due to a comment character ('#').
+char *get_next_arg(char **line_ptr, bool *is_comment) {
+    char *start = *line_ptr;
+    *is_comment = false; // Initialize to false
+
+    // Skip leading whitespace
+    while (*start && (*start == ' ' || *start == '\t')) {
+        start++;
+    }
+
+    if (*start == '\0') {
+        *line_ptr = start;
+        return NULL; // No more arguments
+    }
+    if (*start == '#') {
+        *line_ptr = start;
+        *is_comment = true;
+        return NULL; // Comment encountered
+    }
+
+    char *arg_start = start;
+    char quote_char = 0;
+
+    if (*start == '\'' || *start == '"') {
+        quote_char = *start;
+        arg_start++; // Move past the opening quote
+        start++;
+        while (*start && *start != quote_char) {
+            start++;
+        }
+        if (!*start) {
+            // Unmatched quote
+            *line_ptr = NULL; // Indicate parsing error
+            return NULL;
+        }
+        // Found closing quote
+        *start = '\0'; // Null-terminate the argument
+        start++;       // Move past the closing quote
+    } else {
+        while (*start && *start != ' ' && *start != '\t' && *start != '\n' && *start != '#') {
+            start++;
+        }
+        // If not end of line/comment, null-terminate the argument
+        if (*start && *start != '#') {
+            *start = '\0';
+            start++;
+        }
+    }
+    *line_ptr = start; // Update the pointer for the next call
+
+    return arg_start;
+}
+
+
 // Parses a single command line string into a cmd_entry_t structure
 // Returns a dynamically allocated cmd_entry_t* or NULL on error/empty line
 cmd_entry_t *parse_command_line(char *line) {
-    char *rest = line;
-    char *token;
-    char *saveptr;
-
-    // Skip leading whitespace
-    while (*rest && (*rest == ' ' || *rest == '\t')) {
-        rest++;
-    }
-
-    if (*rest == '\0' || *rest == '#') { // Empty line or comment
-        return NULL;
-    }
-
     cmd_entry_t *cmd = (cmd_entry_t *)malloc(sizeof(cmd_entry_t));
     if (!cmd) {
         syslog_critical("Failed to allocate cmd_entry_t");
@@ -122,41 +167,81 @@ cmd_entry_t *parse_command_line(char *line) {
     cmd->active = false;
     cmd->spawned_once = false;
 
-    // Make a copy of the line to tokenize, as strtok_r modifies the string
+    // Make a copy of the line to tokenize
     char *line_copy = strdup(line);
     if (!line_copy) {
         syslog_critical("Failed to duplicate line for parsing");
         free(cmd);
         return NULL;
     }
-    rest = line_copy;
+    char *current_pos = line_copy;
+    char *token;
+    bool is_comment = false;
 
-    // First token: "once", "repeat", or executable path
-    token = strtok_r(rest, " \t\n", &saveptr);
-    if (!token) {
+    // First, try to get the command type (wait, once, repeat) or the path
+    token = get_next_arg(&current_pos, &is_comment);
+    if (current_pos == NULL) { // Error during parsing (unmatched quote)
+        syslog_error("Parsing error (unmatched quote) in line: %s", line);
         free(line_copy);
-        cmd_destroy(cmd); // Free partially allocated Cmd
+        cmd_destroy(cmd);
         return NULL;
     }
-
-    if (strcmp(token, "wait") == 0) {
-        cmd->type = CMD_TYPE_WAIT;
-        token = strtok_r(NULL, " \t\n", &saveptr); // Get next token (path)
-    } else if (strcmp(token, "once") == 0) {
-        cmd->type = CMD_TYPE_ONCE;
-        token = strtok_r(NULL, " \t\n", &saveptr); // Get next token (path)
-    } else if (strcmp(token, "repeat") == 0) {
-        cmd->type = CMD_TYPE_REPEAT;
-        token = strtok_r(NULL, " \t\n", &saveptr); // Get next token (path)
-    }
-
-    if (!token) { // No path after 'once'/'repeat' or empty line
+    if (token == NULL || is_comment) { // Empty line or comment
         free(line_copy);
         cmd_destroy(cmd);
         return NULL;
     }
 
-    // This token must be the path
+    // Check if the first token is a command type
+    if (strcmp(token, "wait") == 0) {
+        cmd->type = CMD_TYPE_WAIT;
+        // Get the next token which should be the path
+        token = get_next_arg(&current_pos, &is_comment);
+        if (current_pos == NULL) { // Error during parsing (unmatched quote)
+            syslog_error("Parsing error (unmatched quote) in line: %s", line);
+            free(line_copy);
+            cmd_destroy(cmd);
+            return NULL;
+        }
+        if (token == NULL || is_comment || *token == '\0') { // No path after type or comment after type
+            syslog_error("No command path specified after 'wait' in line: %s", line);
+            free(line_copy);
+            cmd_destroy(cmd);
+            return NULL;
+        }
+    } else if (strcmp(token, "once") == 0) {
+        cmd->type = CMD_TYPE_ONCE;
+        token = get_next_arg(&current_pos, &is_comment);
+        if (current_pos == NULL) { // Error during parsing (unmatched quote)
+            syslog_error("Parsing error (unmatched quote) in line: %s", line);
+            free(line_copy);
+            cmd_destroy(cmd);
+            return NULL;
+        }
+        if (token == NULL || is_comment || *token == '\0') { // No path after type or comment after type
+            syslog_error("No command path specified after 'once' in line: %s", line);
+            free(line_copy);
+            cmd_destroy(cmd);
+            return NULL;
+        }
+    } else if (strcmp(token, "repeat") == 0) {
+        cmd->type = CMD_TYPE_REPEAT;
+        token = get_next_arg(&current_pos, &is_comment);
+        if (current_pos == NULL) { // Error during parsing (unmatched quote)
+            syslog_error("Parsing error (unmatched quote) in line: %s", line);
+            free(line_copy);
+            cmd_destroy(cmd);
+            return NULL;
+        }
+        if (token == NULL || is_comment || *token == '\0') { // No path after type or comment after type
+            syslog_error("No command path specified after 'repeat' in line: %s", line);
+            free(line_copy);
+            cmd_destroy(cmd);
+            return NULL;
+        }
+    }
+    // At this point, 'token' should be the command path.
+
     strncpy(cmd->path, token, MAX_PATH_LEN - 1);
     cmd->path[MAX_PATH_LEN - 1] = '\0';
 
@@ -170,8 +255,19 @@ cmd_entry_t *parse_command_line(char *line) {
     }
     cmd->argc++;
 
-    // Remaining tokens are arguments
-    while ((token = strtok_r(NULL, " \t\n", &saveptr)) != NULL) {
+    // Parse remaining arguments
+    while (true) {
+        token = get_next_arg(&current_pos, &is_comment);
+        if (current_pos == NULL) { // Error during parsing (unmatched quote)
+            syslog_error("Parsing error (unmatched quote) in line: %s", line);
+            free(line_copy);
+            cmd_destroy(cmd);
+            return NULL;
+        }
+        if (token == NULL || is_comment) { // No more arguments or comment encountered
+            break;
+        }
+
         if (cmd->argc >= MAX_ARGS) {
             syslog_info("Too many arguments for command %s, truncating.", cmd->path);
             break;
