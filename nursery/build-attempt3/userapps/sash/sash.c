@@ -611,13 +611,10 @@ readFile(const char * name)
 		}
 
 		cc = strlen(buf);
-
 		if (buf[cc - 1] == '\n')
 			cc--;
-
 		while ((cc > 0) && isBlank(buf[cc - 1]))
 			cc--;
-
 		buf[cc] = '\0';
 
 		command(buf);
@@ -652,6 +649,9 @@ command(const char * cmd)
 	const Alias *	alias;
 	char		newCommand[CMD_LEN];
 	char		cmdName[CMD_LEN];
+
+	syslog_debug("command(\"%s\")", cmd);
+
 
 	/*
 	 * Rest the interrupt flag and free any memory chunks that

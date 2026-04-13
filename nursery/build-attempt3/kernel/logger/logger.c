@@ -197,11 +197,27 @@ static inline char is_printable(char c) {
 }
 
 void logger_append_hex(const char *module_name, log_level_t level,  uint8_t *buffer, size_t length, uint32_t start_address) {
+    char last_row[16];
+    bool have_last_row = false;
+    bool star_given = false;
+
     if (length == 0)
         return;
 
+    
     while (length > 0) {
-        // using xxd's format, seems nice
+        if (have_last_row && memcmp(buffer, last_row, 16) == 0) {
+            if (!star_given) {
+                logger_append(module_name, level, "*");
+                star_given = true;
+            }
+
+            buffer += 16;
+            length -= length > 16 ? 16 : length;
+            start_address += 16;
+            continue;
+        }
+
         logger_append(module_name, level,
             "%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
             start_address,
@@ -214,6 +230,11 @@ void logger_append_hex(const char *module_name, log_level_t level,  uint8_t *buf
             is_printable(buffer[8]), is_printable(buffer[9]), is_printable(buffer[10]), is_printable(buffer[11]),
             is_printable(buffer[12]), is_printable(buffer[13]), is_printable(buffer[14]), is_printable(buffer[15])
         );
+
+        memcpy(last_row, buffer, 16);
+        have_last_row = true;
+        star_given = false;
+
         buffer += 16;
         length -= length > 16 ? 16 : length;
         start_address += 16;

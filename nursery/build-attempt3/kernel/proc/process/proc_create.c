@@ -36,7 +36,6 @@ static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd,
 static error_t _allocate_and_map_user_stack_region(process_t *proc, size_t size, virt_addr_t stack_top);
 static error_t _allocate_and_map_user_heap_region(process_t *proc, size_t size, virt_addr_t heap_base);
 static error_t _allocate_and_map_elf_segment(process_t *proc, int section_no, elf_loadable_segment_t *seg);
-static error_t _load_elf_segment_page_from_file(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg, int page_no, phys_addr_t page_addr, char *page_buffer);
 static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg, char *page_buffer);
 static error_t _allocate_and_load_elf_segments_from_file(process_t *proc, open_file_t *elf);
 
@@ -47,6 +46,13 @@ static error_t _unmap_and_release_all_regions_of_process(process_t *proc);
 static error_t _create_base_process_v2(bool is_user_proc, page_dir_t pd, process_t *parent, proc_priority_t priority, const char *name, process_t **proc_ptr);
 
 
+// ----------------------------------------------------------
+typedef struct elf_page_load_info {
+    virt_addr_t page_address;
+    size_t file_offset;
+    size_t page_offset;
+    size_t load_size;
+} elf_page_load_plan_t;
 // ----------------------------------------------------------
 
 static pid_t last_pid = 0;
@@ -81,7 +87,7 @@ static void _calculate_proc_user_stack(process_t *proc, size_t *stack_size, virt
     log_trace("_calculate_proc_user_stack(proc=%p)", proc);
 
     // put user stack at a high enough address
-    *stack_size = 16 * KB;
+    *stack_size = 64 * KB;
     *stack_top = (2 * GB) - (*stack_size);
 
     ASSERT(vmm_is_page_aligned(*stack_top));
@@ -234,7 +240,6 @@ static error_t _region_copy_contents(mem_region_t *dest_reg, page_dir_t dest_pd,
     return traceable(err);
 }
 
-
 static error_t _allocate_and_map_user_stack_region(process_t *proc, size_t size, virt_addr_t stack_top) {
     ASSERT(proc != NULL);
     ASSERT(size > 0);
@@ -297,35 +302,62 @@ static error_t _allocate_and_map_elf_segment(process_t *proc, int section_no, el
     return OK;
 }
 
-static error_t _load_elf_segment_page_from_file(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg, int page_no, phys_addr_t page_addr, char *page_buffer) {
-    ASSERT(proc != NULL);
-    ASSERT(elf != NULL);
-    ASSERT(seg != NULL);
-    ASSERT(page_addr != 0);
-    log_trace("_load_elf_segment_page_from_file(proc=%p, elf=%p, seg=%p, page_no=%d, page_addr=%p)", proc, elf, seg, page_no, page_addr);
+static error_t _prepare_elf_segment_loading_plan(process_t *proc, elf_loadable_segment_t *seg, elf_page_load_plan_t **array, int *num_pages) {
+    virt_addr_t lowest_address = vmm_round_down(seg->address_in_mem);
+    virt_addr_t highest_address = vmm_round_up(seg->address_in_mem + seg->size_in_mem);
+    int pages_needed = (highest_address - lowest_address) / vmm_page_size();
 
-    error_t err = OK;
-    page_dir_t curr_pd = vmm_get_current_page_dir();
-    size_t page_gap = page_no > 0 ? 0 : seg->address_in_mem - vmm_round_down(seg->address_in_mem);
-    off_t offset_in_file = seg->offset_in_file + page_no * vmm_page_size();
-    size_t remaining_bytes = seg->size_in_file - page_no * vmm_page_size();
-    size_t bytes_to_read = min(remaining_bytes, vmm_page_size() - page_gap);
+    elf_page_load_plan_t *arr = kmalloc(sizeof(elf_page_load_plan_t) * pages_needed);
 
-    memset(page_buffer, 0, vmm_page_size());
+    virt_addr_t page_addr = lowest_address;
+    size_t file_offset = seg->offset_in_file;
+    size_t file_remaining = seg->size_in_file;
+    size_t initial_gap = seg->address_in_mem - lowest_address;
+    for (int page_no = 0; page_no < pages_needed; page_no++) {
 
-    off_t new_off = vfs_seek(elf, offset_in_file, SEEK_SET);
-    if (new_off != offset_in_file) { err = ERR_READING_FILE; goto exit; }
-    ssize_t read = vfs_read(elf, page_buffer + page_gap, bytes_to_read);
-    if (read < 0) { err = (error_t)read; goto exit; }
-    if ((size_t)read < bytes_to_read) { err = ERR_READING_FILE; goto exit; }
+        size_t available_mem = vmm_page_size() - initial_gap;
+        size_t load_size = min(file_remaining, available_mem);
 
-    vmm_physpg_write(page_addr, 0, page_buffer, vmm_page_size());
+        arr[page_no].page_address = page_addr;
+        arr[page_no].page_offset = initial_gap;
+        arr[page_no].file_offset = file_offset;
+        arr[page_no].load_size = load_size;
 
-    // log_debug("ELF buffer contents for page (page_no=%d, gap=%d, to_read=%d):", page_no, page_gap, bytes_to_read);
-    // log_debug_hex(page_buffer, bytes_to_read, page_gap);
+        page_addr += vmm_page_size();
+        file_offset += load_size;
+        file_remaining -= load_size;
+        initial_gap = 0;
+    }
 
-exit:
-    return traceable(err);
+    ASSERT(file_remaining == 0); // we managed to load all the segment from file
+
+    *array = arr;
+    *num_pages = pages_needed;
+    return OK;
+}
+
+static error_t _load_elf_segment_page_per_plan(process_t *proc, open_file_t *elf, elf_page_load_plan_t *plan, char *page_buffer) {
+    error_t err;
+    size_t offset = 0;
+    log_trace("load_elf_segment_page_per_plan(page=%p, file_offset=%u, mem_offset=%u, load_size=%u)", plan->page_address, plan->file_offset, plan->page_offset, plan->load_size);
+
+    if (plan->page_offset > 0) {
+        memset(page_buffer, 0, plan->page_offset);
+        offset += plan->page_offset;
+    }
+
+    if (plan->load_size > 0) {
+        vfs_seek(elf, plan->file_offset, SEEK_SET);
+        err = vfs_read(elf, page_buffer + offset, plan->load_size);
+        if (err < 0) return err;
+        if ((size_t)err < plan->load_size) return ERR_READING_FILE;
+        offset += plan->load_size;
+    }
+
+    if (offset < vmm_page_size())
+        memset(page_buffer + offset, 0, vmm_page_size() - offset);
+
+    return OK;
 }
 
 static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_file_t *elf, elf_loadable_segment_t *seg, char *page_buffer) {
@@ -334,6 +366,9 @@ static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_fi
     ASSERT(seg != NULL);
     log_trace("_allocate_and_load_elf_segment_from_file(proc=%p, elf=%p, seg=%p, buffer=%p)", proc, elf, seg, page_buffer);
 
+    error_t err = OK;
+    elf_page_load_plan_t *plans = NULL;
+    int num_pages;
 
     log_debug("loading elf segment from file (0x%x/%u) into memory (0x%x/%u), flags=R%c%c",
         seg->offset_in_file, seg->size_in_file, seg->address_in_mem, seg->size_in_mem, seg->writable ? 'W' : '-', seg->executable ? 'X' : '-');
@@ -342,25 +377,24 @@ static error_t _allocate_and_load_elf_segment_from_file(process_t *proc, open_fi
     ASSERT(section_no >= 0 && section_no < MAX_PROCESS_ELF_SECTIONS);
 
     // this allocates and maps, to prepare the memory for loading
-    error_t err = _allocate_and_map_elf_segment(proc, section_no, seg);
+    err = _allocate_and_map_elf_segment(proc, section_no, seg);
     if (err) goto exit;
 
     // now we need to take it page by page
-    mem_region_t *reg = &proc->memory.elf_sections[section_no];
-    int num_pages = reg->size / vmm_page_size();
-    page_dir_t pd = proc->memory.page_dir;
-
-    for (int page = 0; page < num_pages; page++) {
-        virt_addr_t vaddr = reg->address + page * vmm_page_size();
-        phys_addr_t paddr = vmm_resolve(vaddr, pd);
-
-        // load into physical page, via temp mapping onto kernel copy area
-        err = _load_elf_segment_page_from_file(proc, elf, seg, page, paddr, page_buffer);
+    err = _prepare_elf_segment_loading_plan(proc, seg, &plans, &num_pages);
+    if (err) goto exit;
+    for (int i = 0; i < num_pages; i++) {
+        err = _load_elf_segment_page_per_plan(proc, elf, &plans[i], page_buffer);
         if (err) goto exit;
+
+        // write the buffer onto the physical page
+        phys_addr_t paddr = vmm_resolve(plans[i].page_address, proc->memory.page_dir);
+        vmm_physpg_write(paddr, 0, page_buffer, vmm_page_size());
     }
 
-    return OK;
 exit:
+    if (plans != NULL)
+        kfree(plans);
     return traceable(err);
 }
 
@@ -465,7 +499,7 @@ static error_t _prepare_stack_frames_for_new_user_process(process_t *proc, open_
     kfree(buff);
     iframe->user_esp = proc->memory.user_stack.address + proc->memory.user_stack.size - stack_used;
     // log_debug("Setting user ESP to 0x%08x", iframe->user_esp);
-    log_debug_fmt(proc_log_formatter, "prepped", proc);
+    // log_debug_fmt(proc_log_formatter, "prepped", proc);
     return OK;
 }
 

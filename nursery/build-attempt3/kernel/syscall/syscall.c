@@ -20,16 +20,16 @@ _Static_assert(sizeof(uint32_t) == sizeof(void *));
 
 
 static void sys_log_entry(process_t *proc, int level, uint8_t *buffer) {
-    char prefix[16];
-    sprintfn(prefix, sizeof(prefix), "SYSLOG", proc->pid);
-
-    // syslog is a userland deamon, we need to drop this functionality.
-    logger_append(prefix, level, "%s[%d]  %s", proc->name, proc->pid, buffer);
+    logger_append("SYSLOG", level, "%s[%d]  %s", proc->name, proc->pid, buffer);
 }
-
 static void sys_log_hex(process_t *proc, int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
-    log_debug_hex(address, length, starting_num);
+    logger_append_hex("SYSLOG", level, address, length, starting_num);
 }
+static void sys_log_proc(process_t *proc, int level) {
+    logger_append_using_formatter("SYSLOG", level, "|", proc_log_formatter, proc);
+}
+
+
 
 static virt_addr_t sys_sbrk(int difference) {
     process_t *p = running_process();
@@ -181,8 +181,11 @@ void isr_syscall(interrupt_frame_t *frame) {
         case SYS_LOG_ENTRY:
             sys_log_entry(running_process(), arg1, (uint8_t *)arg2);
             break;
-        case SYS_LOG_HEX_DUMP:
+        case SYS_LOG_HEX_DUMP: // arg1 = level
             sys_log_hex(running_process(), arg1, (uint8_t *)arg2, (uint32_t)arg3, (uint32_t)arg4);
+            break;
+        case SYS_LOG_PROC_DUMP: // arg1 = level
+            sys_log_proc(running_process(), arg1);
             break;
         case SYS_GET_CWD: // arg1 = buffer, arg2 = buffer len
             return_value = sys_get_cwd((char *)arg1, arg2);

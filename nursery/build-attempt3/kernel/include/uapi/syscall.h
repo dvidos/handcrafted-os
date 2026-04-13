@@ -9,6 +9,7 @@
 // logging
 #define SYS_LOG_ENTRY         3   // log something in syslog
 #define SYS_LOG_HEX_DUMP      4   // log binary contents in syslog
+#define SYS_LOG_PROC_DUMP     5   // log info of the current process
 
 // file manipulation
 #define SYS_OPEN             21   // arg1 = file path, returns handle or error<0

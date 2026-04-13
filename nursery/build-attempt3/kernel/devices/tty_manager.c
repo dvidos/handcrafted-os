@@ -179,7 +179,7 @@ static void handle_key_in_interrupt(key_event_t *event, bool *handled) {
         scroll_tty_screenful(tty_mgr_data.active_tty, up);
     } else {
         // put in buffer
-        log_info("enqueueing key event 0x%x (%c)", event->keycode, event->ascii);
+        log_trace("enqueueing key event 0x%x (%c)", event->keycode, event->ascii);
         enqueue_key_event(tty_mgr_data.active_tty, event);
 
         // if a process was blocked waiting for a key in this tty, unblock them.
@@ -221,7 +221,7 @@ void tty_write(tty_t *tty, const char *buffer, int length) {
 void tty_read_key_event(tty_t *tty, key_event_t *event) {
     // we assume running process has this tty
     while (tty->keys_buffer_len == 0) {
-        log_info("tty%d sleeping on user input", tty->dev_no);
+        log_trace("tty%d sleeping on user input", tty->dev_no);
         proc_block(running_process(), WAIT_USER_INPUT, tty);
     }
 
@@ -229,7 +229,7 @@ void tty_read_key_event(tty_t *tty, key_event_t *event) {
     dequeue_key_event(tty, event);
 
     if (event->ascii == 0xD && tty->input_carriage_return_to_new_line) {
-        log_info("converting CR to LF");
+        log_debug("converting CR to LF");
         event->ascii = 0xA;
     }
 }
@@ -339,7 +339,7 @@ static void enqueue_key_event(tty_t *tty, key_event_t *event) {
         log_warn("Key buffer full for tty %d, dropping event", tty->dev_no);
         return;
     }
-    // log_trace("tty: enqueueing key event on tty %d", tty->dev_no);
+    log_trace("tty: enqueueing key event on tty %d", tty->dev_no);
     memcpy(&tty->keys_buffer[tty->keys_buffer_len], event, sizeof(key_event_t));
     tty->keys_buffer_len++;
 }
