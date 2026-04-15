@@ -29,6 +29,17 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     size_t bytes_written_so_far = 0;
     const unsigned char *current_ptr = (const unsigned char *)ptr;
 
+    // Handle unbuffered streams immediately
+    if (stream->flags & _IO_NO_BUF) {
+        ssize_t written_to_fd = write(stream->fd, current_ptr, total_bytes_to_write);
+        if (written_to_fd == (ssize_t)total_bytes_to_write) {
+            return nmemb;
+        } else {
+            stream->flags |= _IO_ERROR;
+            return written_to_fd > 0 ? (size_t)written_to_fd / size : 0;
+        }
+    }
+
     while (bytes_written_so_far < total_bytes_to_write) {
         // Calculate space available in the buffer
         size_t space_in_buffer = stream->buf_size - stream->pos;
@@ -44,8 +55,20 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
         current_ptr += bytes_to_copy_to_buffer;
         bytes_written_so_far += bytes_to_copy_to_buffer;
 
-        // If buffer is full, flush it
-        if (stream->pos == stream->buf_size) {
+        // Check for line buffering or full buffer
+        bool should_flush = false;
+        if (stream->flags & _IO_LINE_BUF) {
+            // Check if a newline character was written
+            for (size_t i = 0; i < bytes_to_copy_to_buffer; ++i) {
+                if (stream->buffer[stream->pos - bytes_to_copy_to_buffer + i] == '\n') {
+                    should_flush = true;
+                    break;
+                }
+            }
+        }
+
+        if (stream->pos == stream->buf_size || should_flush) {
+            // Flush the buffer
             ssize_t written_to_fd = write(stream->fd, stream->buffer, stream->pos);
             if (written_to_fd != stream->pos) {
                 stream->flags |= _IO_ERROR; // Set error flag
