@@ -80,6 +80,9 @@ static void vmm_create_kernel_page_directory_using_mapping_pages(page_dir_t kern
     _set_table_entry(kernel_pd, 1023, pd_entry_of(kernel_pd, false, false, true));
 
     for (virt_addr_t addr = start_addr; addr < end_addr; addr += 4096) {
+        if (addr == 0)
+            continue; // first page unmapped, to catch page faults.
+        
         // Determine page directory index
         int pd_index = (int)(addr >> 22); // bits 31-22
         int pt_index = (int)((addr >> 12) & 0x3FF); // bits 21-12
@@ -280,7 +283,6 @@ error_t vmm_allocate_memory_range_this_pd(virt_addr_t virt_addr_start, virt_addr
 // frees any pointed pages, page tables, and the page directory itself
 void vmm_destroy_user_page_directory(page_dir_t page_dir_address) {
     log_trace("vmm_destroy_user_page_directory(0x%x)", page_dir_address);
-    pushcli();
 
     // log_info("kernel extra mappings");
     // log_info_fmt(mem_map_formatter, "kmapping", &kinfo.extra_identity_mappings);
@@ -335,7 +337,6 @@ void vmm_destroy_user_page_directory(page_dir_t page_dir_address) {
     else
         log_warn("vmm_destroy(): PD at 0x%08x is not allocated on pmm", page_dir_address);
 
-    popcli();
 }
 
 // --------------------------------------------------------------

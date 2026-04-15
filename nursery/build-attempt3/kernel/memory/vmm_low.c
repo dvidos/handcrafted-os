@@ -38,7 +38,7 @@ void trace_dump() {
 
 // ---------------------------------------------------------------------
 
-// INTERNAL: The "Naked" Mapper (no Locks, no.. well some checks)
+// INTERNAL: The "Naked" Mapper (no locks, no checks.. well some checks)
 
 static bool pg1_used = false;
 static bool pg2_used = false;
@@ -77,7 +77,9 @@ static void *_low_unmount_internal(virt_addr_t v_window) {
     int pd_idx = page_dir_index(v_window);
     int pt_idx = page_table_index(v_window);
     
-    rmw_set_pt_entry(pd_idx, pt_idx, 0);
+    // map again to itself for cleaner mapping dumps
+    uint32_t entry = pt_entry_of(v_window, false, true, true);
+    rmw_set_pt_entry(pd_idx, pt_idx, entry);
     vmm_invalidate_cached_address(v_window);
 
     if (v_window == kinfo.work_page1_addr) pg1_used = false;
@@ -93,59 +95,48 @@ static void *_low_unmount_internal(virt_addr_t v_window) {
 // PUBLIC: The Thread-Safe Accessors (this hides pg1/pg2 from rest of kernel)
 
 void vmm_physpg_clear(phys_addr_t paddr) {
-    pushcli();
 
     memset(_low_mount_internal(kinfo.work_page1_addr, paddr), 0, vmm_page_size());
     _low_unmount_internal(kinfo.work_page1_addr);
-    
-    popcli();
+
 }
 
 void vmm_physpg_read(phys_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    pushcli();
 
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
     memcpy(buffer, _low_mount_internal(kinfo.work_page1_addr, paddr) + offset, size);
     _low_unmount_internal(kinfo.work_page1_addr);
 
-    popcli();
 }
 
 void vmm_physpg_write(phys_addr_t paddr, size_t offset, void *buffer, size_t size) {
-    pushcli();
 
     offset = min(offset, vmm_page_size());
     size = min(size, vmm_page_size() - offset);
     memcpy(_low_mount_internal(kinfo.work_page1_addr, paddr) + offset, buffer, size);
     _low_unmount_internal(kinfo.work_page1_addr);
 
-    popcli();
 }
 
 uint32_t vmm_physpg_get_entry(phys_addr_t paddr, int index) {
-    pushcli();
 
     index = clamp(index, 0, 1023);
     uint32_t entry = ((uint32_t *)_low_mount_internal(kinfo.work_page1_addr, paddr))[index];
     _low_unmount_internal(kinfo.work_page1_addr);
 
-    popcli();
     return entry;
 }
 
 void vmm_physpg_set_entry(phys_addr_t paddr, int index, uint32_t value) {
-    pushcli();
 
     index = clamp(index, 0, 1023);
     ((uint32_t *)_low_mount_internal(kinfo.work_page1_addr, paddr))[index] = value;
     _low_unmount_internal(kinfo.work_page1_addr);
 
-    popcli();
 }
 
 void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
-    pushcli();
 
     void *vdest = _low_mount_internal(kinfo.work_page1_addr, pdest);
     void *vsource = _low_mount_internal(kinfo.work_page2_addr, psource);
@@ -153,14 +144,12 @@ void vmm_physpg_copy(phys_addr_t pdest, virt_addr_t psource) {
     _low_unmount_internal(kinfo.work_page1_addr);
     _low_unmount_internal(kinfo.work_page2_addr);
 
-    popcli();
 }
 
 // --------------------------------------------------------------
 
 error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writable) {
     // these work for the "current" CR3 only, as long as it's setup recursively
-    pushcli();
     error_t err = OK;
 
     int pd_idx = page_dir_index(vaddr);
@@ -185,13 +174,11 @@ error_t rmw_map_page(virt_addr_t vaddr, phys_addr_t paddr, bool user, bool writa
     vmm_invalidate_cached_address(vaddr);
 
 exit:
-    popcli();
     return OK;
 }
 
 void rmw_unmap_page(virt_addr_t vaddr) {
     // these work for the "current" CR3 only, as long as it's setup recursively
-    pushcli();
 
     int pd_idx = page_dir_index(vaddr);
     uint32_t pd_entry = rmw_get_pd_entry(pd_idx);
@@ -202,8 +189,6 @@ void rmw_unmap_page(virt_addr_t vaddr) {
         // force CPU to see this address
         vmm_invalidate_cached_address(vaddr);
     }
-
-    popcli();
 }
 
 // ---------------------------------

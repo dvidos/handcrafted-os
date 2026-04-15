@@ -54,7 +54,6 @@ static volatile lock_t clock_writing_lock;
 
 void init_real_time_clock(uint8_t interrupt_divisor) {
     mutex_acquire(&clock_writing_lock);
-    pushcli();
 
     // the highest bit in address port is the NMI mask
     // we can turn NMI off (by turning on bit 7), but we cannot detect if it was originally on.
@@ -74,7 +73,6 @@ void init_real_time_clock(uint8_t interrupt_divisor) {
     uint8_t reg_b = get_clock_register(0x8B);
     set_clock_register(0x8B, reg_b | 0x40);
     
-    popcli();
     mutex_release(&clock_writing_lock);
 }
 

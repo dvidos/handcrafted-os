@@ -152,13 +152,11 @@ phys_addr_t _find_next_free_page() {
 phys_addr_t pmm_allocate_physical_page() { 
     phys_addr_t addr = 0;
     
-    pushcli();
     int page_no = _find_next_free_page();
     if (page_no != INVALID_PAGE) {
         mark_page_used(page_no);
         addr = address_of_page(page_no);
     }
-    popcli();
 
     return addr;
 }
@@ -187,16 +185,12 @@ void pmm_free_physical_page(phys_addr_t addr) {
     if (addr >= (phys_addr_t)pmm_data.bitmap && addr < (phys_addr_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count))
         panic("Attempt to free page in the used pages bitmap");
     
-    pushcli();
     mark_page_free(page_no_for_address(addr));
-    popcli();
 }
 
 phys_addr_t pmm_allocate_consecutive_pages(size_t total_bytes) {
     if (total_bytes <= PAGE_SIZE)
         return pmm_allocate_physical_page();
-
-    pushcli();
 
     phys_addr_t addr = 0;
     int pages_needed = round_up_4k(total_bytes) / PAGE_SIZE;
@@ -226,7 +220,6 @@ phys_addr_t pmm_allocate_consecutive_pages(size_t total_bytes) {
         }
     }
 
-    popcli();
     return addr;
 }
 
@@ -234,14 +227,11 @@ void pmm_free_consecutive_pages(phys_addr_t address, size_t total_bytes) {
     if (total_bytes <= PAGE_SIZE)
         pmm_free_physical_page(address);
 
-    pushcli();
-
     int total_pages = round_up_4k(total_bytes) / PAGE_SIZE;
     uint32_t first_page = page_no_for_address(address);
     for (int extra = 0; extra < total_pages; extra++)
         mark_page_free(first_page + extra);
 
-    popcli();
 }
 
 uint32_t pmm_total_pages() {

@@ -75,32 +75,40 @@ static void formatter_group_extend(struct _pd_group *g) {
     g->size += vmm_page_size();
 }
 
-static void formatter_group_print(log_write_stream_t *stream, struct _pd_group *g, bool print_empty_groups) {
+static void formatter_group_print(log_write_stream_t *stream, struct _pd_group *g, bool print_empty_groups, bool *wrote_rmw_header) {
     // Virtual address          Physical address         Size KB  PD  PT  Identity
     // 0x12345xxx..0x12345xxx   0x12345xxx..0x12345xxx   1234567  XX  XX  identity
     if (g == NULL) {
-        stream->printf(stream, "Virtual address          Physical address         Size KB  PD  PT  Identity");
+        stream->printf(stream, "Virtual addr    Physical addr   Pages         Size   PD   PT   Identity");
     } else {
         if (g->size == 0 && !print_empty_groups) 
             return; // ignore empty groups
+        
+        if (g->vaddr >= rmw_base_address() && !(*wrote_rmw_header)) {
+            stream->printf(stream, "---------- recursive mapping window ----------");
+            *wrote_rmw_header = true;
+        }
 
-        stream->printf(stream, "0x%08x..0x%08x   0x%08x..0x%08x   %7d  %c%c  %c%c  %s",
-            g->vaddr, g->vaddr + g->size - 1,
-            g->paddr, g->paddr + g->size - 1,
+        stream->printf(stream, "%05x..%05x    %05x..%05x    %5d   %7d KB   %c%c   %c%c   %s",
+            g->vaddr >> 12,
+            (g->vaddr + g->size - 1) >> 12,
+            g->paddr >> 12,
+            (g->paddr + g->size - 1) >> 12,
+            (int)(g->size / 4096),
             (int)(g->size / 1024),
             g->permissions[0],
             g->permissions[1],
             g->permissions[2],
             g->permissions[3],
-            g->vaddr == g->paddr ? "identity" : "-"
+            g->vaddr == g->paddr ? "yes" : "-"
         );
     }
 }
 
-static void formatter_got_mapping(log_write_stream_t *stream, struct _pd_group *g, uint32_t vaddr, uint32_t paddr, bool pd_wrt, bool pd_usr, bool pt_wrt, bool pt_usr) {
+static void formatter_got_mapping(log_write_stream_t *stream, struct _pd_group *g, uint32_t vaddr, uint32_t paddr, bool pd_wrt, bool pd_usr, bool pt_wrt, bool pt_usr, bool *wrote_rmw_header) {
 
     if (!formatter_group_is_extension(g, vaddr, paddr, pd_wrt, pd_usr, pt_wrt, pt_usr)) {
-        formatter_group_print(stream, g, false);
+        formatter_group_print(stream, g, false, wrote_rmw_header);
         formatter_group_init(g, vaddr, paddr, pd_wrt, pd_usr, pt_wrt, pt_usr);
     }
     formatter_group_extend(g);
@@ -135,15 +143,14 @@ static uint32_t formatter_get_pt_address(bool is_current_pd, uint32_t pd_value, 
 }
 
 void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args) { 
-    pushcli(); // just to avoid race conditions on the pages
-
     page_dir_t requested_pd = va_arg(args, page_dir_t);
     struct _pd_group grp;
     ASSERT(requested_pd != 0);
 
     bool is_current_pd = kinfo.paging_enabled && (requested_pd == vmm_get_current_page_dir());
+    bool wrote_rmw_header = false;
 
-    formatter_group_print(stream, NULL, false); // header
+    formatter_group_print(stream, NULL, false, NULL); // header
     formatter_group_init(&grp, 0, 0, false, false, false, false);
     
     for (int pd_index = 0; pd_index < 1024; pd_index++) {
@@ -165,12 +172,10 @@ void vmm_pagedir_log_formatter(log_write_stream_t *stream, va_list args) {
             uint32_t paddr = (uint32_t)entry_get_address(pt_entry);
             uint32_t vaddr = SET_BIT_RANGE(pd_index, 31, 22) | SET_BIT_RANGE(pt_index, 21, 12);
 
-            formatter_got_mapping(stream, &grp, vaddr, paddr, pd_wrt, pd_usr, pt_wrt, pt_usr);
+            formatter_got_mapping(stream, &grp, vaddr, paddr, pd_wrt, pd_usr, pt_wrt, pt_usr, &wrote_rmw_header);
         }
     }
 
-    formatter_group_print(stream, &grp, true);
-
-    popcli(); // just to avoid race conditions on the pages
+    formatter_group_print(stream, &grp, true, &wrote_rmw_header);
 }
 
