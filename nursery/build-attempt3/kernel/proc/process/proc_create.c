@@ -419,7 +419,7 @@ static error_t create_kernel_stack(process_t *proc, uint32_t user_entry_point, u
     ksp -= sizeof(uint32_t);          uint32_t *ret_address = (uint32_t *)ksp;
     ksp -= sizeof(c_frame_t);         c_frame_t *cframe = (c_frame_t *)ksp;
 
-    proc->memory.saved_esp = (uint32_t)cframe;
+    proc->memory.ring0_esp = (uint32_t)cframe;
     proc->memory.tss_esp0_value = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size;
 
     if (possible_parent_frame == NULL) {
@@ -703,7 +703,7 @@ error_t process_create_for_kernel(const char *name, uintptr_t function_to_call, 
 
     ASSERT(proc->memory.kernel_stack.address != 0);
     ASSERT(proc->memory.kernel_stack.size != 0);
-    ASSERT(proc->memory.saved_esp != 0);
+    ASSERT(proc->memory.ring0_esp != 0);
     ASSERT(proc->memory.tss_esp0_value != 0);
 
     // log_debug_fmt(proc_log_formatter, "process_create_for_kernel(): ", proc);

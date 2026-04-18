@@ -57,8 +57,8 @@ void schedule_another_process() {
     log_trace("scheduler(): switching from %s[%d] --> %s[%d]", previous->name, previous->pid, next->name, next->pid);
 
     switch_inside_c_function(
-        &previous->memory.saved_esp,
-        running_proc->memory.saved_esp,
+        &previous->memory.ring0_esp,
+        running_proc->memory.ring0_esp,
         running_proc->memory.page_dir,
         running_proc->memory.tss_esp0_value
     );

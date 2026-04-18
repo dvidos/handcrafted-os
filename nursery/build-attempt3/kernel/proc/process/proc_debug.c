@@ -24,7 +24,7 @@ static void dump_process(const char *prefix, process_t *proc) {
         proc->pid,
         proc->parent == NULL ? 0 : proc->parent->pid,
         proc->name, 
-        proc->memory.saved_esp, 
+        proc->memory.ring0_esp, 
         (char *)process_state_names[(int)proc->state],
         (char *)process_block_reason_names[proc->block_reason]
     );
@@ -145,7 +145,7 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     
     // trapframe will always be in kernel_stack, therefore always identity mapped
     c_frame_t *cframe = proc_get_c_frame(proc);
-    stream->printf(stream, "- C-frame frame (saved_esp=0x%08x)", proc->memory.saved_esp);
+    stream->printf(stream, "- C-frame frame (ring0_esp=0x%08x)", proc->memory.ring0_esp);
     stream->print_fmt(stream, "   ", c_frame_log_formatter, cframe);
     interrupt_frame_t *iframe = proc_get_interrupt_frame(proc);
     stream->printf(stream, "- Interrupt frame (tss_esp0=0x%08x)", proc->memory.tss_esp0_value);
