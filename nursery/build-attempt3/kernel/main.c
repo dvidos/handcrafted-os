@@ -64,10 +64,11 @@ static void shell_launcher();
 static void initialize_physical_memory(boot_info_t *info);
 static void initialize_storage_and_file_systems();
 static void print_stage2_boot_info(boot_info_t *info);
+static log_level_t string_to_log_level(const char *level_str);
+static void set_log_level_from_cmdline();
 
 
 boot_info_t saved_multiboot_info;
-
 
 
 void kernel_main(boot_info_t* boot)
@@ -91,6 +92,7 @@ void kernel_main(boot_info_t* boot)
     print_stage2_boot_info(boot);
     memcpy((char *)&saved_multiboot_info, (char *)boot, sizeof(boot_info_t));
     kcmd_parse(saved_multiboot_info.cmdline);
+    set_log_level_from_cmdline();
 
     log_info("Initializing Global Descriptor Table...");
     // kernel code segment selector: 0x08 (8)
@@ -170,7 +172,7 @@ static void launch_initial_process() {
     char *envp[] = { NULL };
 
     // ideally init path should be settable by kernel cmd line
-    err = process_v2_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, &proc);
+    err = process_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
     proc_chdir(proc, "/");
     log_debug_fmt(proc_log_formatter, "init: ", proc);
@@ -179,12 +181,12 @@ static void launch_initial_process() {
 
     // // maybe we should convert these to Tasks or Threads
     // // there's only stack and EIP to set.
-    // err = process_v2_create_for_kernel("sys monitor", (uintptr_t)process_monitor_main, PRIORITY_IDLE_TASK, &proc);
+    // err = process_create_for_kernel("sys monitor", (uintptr_t)process_monitor_main, PRIORITY_IDLE_TASK, &proc);
     // if (err) log_warn("Failed creating system monitor process: %s", strerror(err));
     // log_info_fmt("init: ", proc_log_formatter, proc);
     // proc_start(proc);
 
-    // err = process_v2_create_for_kernel("vfs monitor", (uintptr_t)vfs_monitor_main, PRIORITY_IDLE_TASK, &proc);
+    // err = process_create_for_kernel("vfs monitor", (uintptr_t)vfs_monitor_main, PRIORITY_IDLE_TASK, &proc);
     // if (err) log_warn("Failed creating vfs monitor process: %s", strerror(err));
     // proc_start(proc);
 }
@@ -339,4 +341,38 @@ static void initialize_storage_and_file_systems() {
 
     if (!mounted_one)
         panic("Could not mount a root device");
+}
+
+static log_level_t string_to_log_level(const char *level_str) {
+    if (!level_str) {
+        return LOG_LEVEL_INFO; // Default if no level specified
+    }
+
+    // Convert to lowercase for case-insensitive comparison
+    char lower_level_str[32]; // Max length of log level string + null terminator
+    strncpy(lower_level_str, level_str, sizeof(lower_level_str) - 1);
+    lower_level_str[sizeof(lower_level_str) - 1] = '\0';
+    for (int i = 0; lower_level_str[i]; i++) {
+        lower_level_str[i] = tolower(lower_level_str[i]);
+    }
+
+    if (strcmp(lower_level_str, "critical") == 0) return LOG_LEVEL_CRIT;
+    if (strcmp(lower_level_str, "error") == 0) return LOG_LEVEL_ERROR;
+    if (strcmp(lower_level_str, "warn") == 0 || strcmp(lower_level_str, "warning") == 0) return LOG_LEVEL_WARN;
+    if (strcmp(lower_level_str, "info") == 0) return LOG_LEVEL_INFO;
+    if (strcmp(lower_level_str, "debug") == 0) return LOG_LEVEL_DEBUG;
+    if (strcmp(lower_level_str, "trace") == 0) return LOG_LEVEL_TRACE;
+
+    return LOG_LEVEL_INFO; // Default to INFO if unrecognized
+}
+
+static void set_log_level_from_cmdline() {
+    const char *loglevel_str = kcmd_get("loglevel");
+    if (loglevel_str) {
+        log_level_t new_level = string_to_log_level(loglevel_str);
+        logger_set_global_minimum_log_level(new_level);
+        log_info("Global log level set to '%s' (%u) from kernel command line.", loglevel_str, new_level);
+    } else {
+        log_info("No 'loglevel' specified in kernel command line. Using default.");
+    }
 }

@@ -39,7 +39,7 @@ void init_multitasking() {
 
     // our task that will be running has to be marked as RUNNING, to be swapped out
     process_t *idle;
-    error_t err = process_v2_create_for_kernel("idle", (uintptr_t)idle_task, PRIORITY_IDLE_TASK, &idle);
+    error_t err = process_create_for_kernel("idle", (uintptr_t)idle_task, PRIORITY_IDLE_TASK, &idle);
     if (err) panic("Error creating the idle task: %s", strerror(err));
     // log_debug_fmt(proc_log_formatter, "idle task:", idle);
 

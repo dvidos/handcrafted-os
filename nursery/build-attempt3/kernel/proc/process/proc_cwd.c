@@ -16,8 +16,9 @@ error_t proc_getcwd(process_t *proc, char *buffer, int size) {
     return OK;
 }
 
-// in unices, this would be called chdir(), especially in libc
 error_t proc_chdir(process_t *proc, const char *path) {
+    // note: proc->cwd_path can be null on the first call
+    ASSERT(proc != NULL);
 
     inode_t new_inode;
     error_t err = vfs_lookup_relative(proc->cwd_node, path, &new_inode);
@@ -31,7 +32,9 @@ error_t proc_chdir(process_t *proc, const char *path) {
     if (new_path == NULL)
         return traceable(ERR_NO_MEMORY);
     
-    strcpy(new_path, proc->cwd_path);
+    new_path[0] = 0;
+    if (proc->cwd_path != NULL)
+        strcat(new_path, proc->cwd_path);
     strcat(new_path, "/");
     strcat(new_path, path);
     vfs_canonicalize(new_path);

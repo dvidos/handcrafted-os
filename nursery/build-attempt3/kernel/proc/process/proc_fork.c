@@ -1,7 +1,7 @@
 #include "process.h"
 #include "../../logger/logger.h"
 
-MODULE("PROC_FORK", LOG_LEVEL_INFO);
+MODULE("PROC_FORK", LOG_LEVEL_TRACE);
 
 
 // clone, return child's PID on parent, zero on child.
@@ -11,13 +11,10 @@ int proc_fork(process_t *proc) {
     log_debug_fmt(proc_log_formatter, "parent:", proc);
     
     process_t *child;
-    error_t err = process_v2_create_for_fork(proc, &child);
+    error_t err = process_create_for_fork(proc, &child);
     if (err) return err;
 
     log_debug_fmt(proc_log_formatter, "child:", child);
-
-    // return zero in child
-    proc_get_interrupt_frame(child)->eax = 0;
 
     // enqueue child to start when appropriate
     proc_start(child);

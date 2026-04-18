@@ -117,8 +117,9 @@ static inline pid_t proc_get_pid(process_t *proc) { return proc == NULL ? 0 : pr
 static inline pid_t proc_get_ppid(process_t *proc) { return proc == NULL ? 0 : (proc->parent == NULL ? 0 : proc->parent->pid); }
 static inline bool  proc_is_user_proc(process_t *proc) { return proc == NULL ? false : proc->is_user; }
 static inline bool  proc_is_kernel_proc(process_t *proc) { return proc == NULL ? false : !proc->is_user; }
-static inline int   proc_count_elf_sections(process_t *proc) { int count = 0; for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) { if (!mem_region_is_empty(&proc->memory.elf_sections[i])) count++; }; return count; }
+static inline int   proc_used_elf_sections(process_t *proc) { int count = 0; for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) { if (!mem_region_is_empty(&proc->memory.elf_sections[i])) count++; }; return count; }
 static inline interrupt_frame_t *proc_get_interrupt_frame(process_t *proc) { return (interrupt_frame_t *)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(interrupt_frame_t)); }
+static inline c_frame_t *proc_get_c_frame(process_t *proc) { return (c_frame_t *)proc->memory.saved_esp; }
 
 
 
@@ -139,10 +140,10 @@ process_t *proc_find_child(process_t *parent, pid_t child_pid);
 
 
 // proc_create.c
-error_t process_v2_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);
-error_t process_v2_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, process_t **proc_ptr);
-error_t process_v2_replace_for_exec(process_t *proc, const char *file_path, char **argv, char **envp);
-error_t process_v2_create_for_fork(process_t *parent, process_t **proc_ptr);
+error_t process_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);
+error_t process_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, process_t **proc_ptr);
+error_t process_replace_for_exec(process_t *proc, const char *file_path, char **argv, char **envp);
+error_t process_create_for_fork(process_t *parent, process_t **proc_ptr);
 
 
 // proc_terminate.c

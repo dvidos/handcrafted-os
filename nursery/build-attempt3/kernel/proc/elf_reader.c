@@ -9,7 +9,7 @@
 #include "elf_reader.h"
 
 
-MODULE("ELF", LOG_LEVEL_DEBUG);
+MODULE("ELF", LOG_LEVEL_INFO);
 
 #define min(a, b)   ((a) <= (b) ? (a) : (b))
 #define max(a, b)   ((a) >= (b) ? (a) : (b))
@@ -590,6 +590,7 @@ error_t elf_get_entry_point(open_file_t *file, virt_addr_t *entry_point) {
     error_t err = load_elf_header(file, &header);
     if (err) return err;
 
+    log_debug("Elf entry point is 0x%08x", header.entry);
     *entry_point = header.entry;
     return OK;
 }

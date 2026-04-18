@@ -16,7 +16,7 @@ At high level, the steps will be:
 
   * keyboard driver + input
   * implement Kill, signal
-  * implement readdir()
+  * ~~implement readdir()~~
   * implement O_CREATE etc
   * implement attributes, owners, groups
   * implement symlinks, readlink, symlink, lstat etc

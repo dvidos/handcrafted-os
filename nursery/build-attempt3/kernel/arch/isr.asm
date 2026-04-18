@@ -176,10 +176,22 @@ isr_body_exit_point:  ; new processes "return" here via the 'minimal_returning_f
 
 
 
-; used in stack frames for starting new processes, by pushing the 'isr_body_exit_point' address to return to
+; used in spawn(), to construct new kernel stack, by first "pushing" the 'isr_body_exit_point' address to return to
 [global minimal_returning_function]
 minimal_returning_function:
   ret  ; will just to whatever return address is at top of stack, same segment / ring.
+
+
+
+; used in exec(), to skip all the kernel stack frames, and return to the freshly setup user process
+; takes one argument: pointer to the interrupt_frame_t
+; it only works because we don't need to change neither esp0 nor cr3.
+[global force_jump_to_user_proc]
+force_jump_to_user_proc:
+  mov esp, [esp + 4]        ; first argument is interrupt_frame_t address
+  mov eax, cr3
+  mov cr3, eax   ; This sequence flushes the TLB entirely
+  jmp isr_body_exit_point   ; this will eventually do "iret" whereever the interrupt_frame_t->eip points to.
 
 
 

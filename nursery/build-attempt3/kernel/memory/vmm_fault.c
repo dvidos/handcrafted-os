@@ -33,6 +33,9 @@ void vmm_page_fault_handler(interrupt_frame_t *frame) {
     else if (addr >= kmm.reserved_start && addr < kmm.reserved_end) mem_area = "kernel reserved area";
     else if (addr >= kmm.reserved_end)                              mem_area = "user memory space";
 
+    // TODO: make message of type: "Kernel tried reading null pointer, at EIP = XXXX"
+    // or "Process /bin/asdf tried writing to null pointer, at EIP = XXXX"
+
     log_warn("Page Fault (#%d):", page_fault_num);
     log_warn("   CS 0x%08x (0x%x is kernel, 0x%x is user)", frame->cs, KERNEL_CODE_SEGMENT, USER_CODE_SEGMENT);
     log_warn("  EIP 0x%08x (addr2line -f -e ./kernel/kernel.elf 0x%x)", eip, eip);

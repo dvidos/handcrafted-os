@@ -24,10 +24,18 @@ struct memory_block {
         char *file;             // xx xx xx xx (split into the two octets)
         uint16_t ff_indicator;  // FF FF 
         uint16_t line;          // ls ms (e.g. 27 00) is actually 0x0027 = 39
+    #else
+        char padding[12];
     #endif
     uint16_t magic2;            // AA 0A
+    uint8_t padding[4];
 } __attribute__((packed));
 typedef struct memory_block memory_block_t;
+
+
+// ensure memory or stack allocated is aligned well
+_Static_assert((sizeof(memory_block_t) % 16) == 0);
+
 
 struct memory_heap {
     void *start_address;
