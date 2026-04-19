@@ -15,3 +15,4 @@ libc/include/kernel/
 tools/sfs_img/sfs_img
 
 build/
+os.img

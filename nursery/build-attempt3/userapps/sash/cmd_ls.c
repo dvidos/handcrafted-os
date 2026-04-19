@@ -25,9 +25,7 @@
 #endif
 
 
-/*
- * Flags for the LS command.
- */
+// Flags for the LS command.
 #define	LSF_LONG	0x01
 #define	LSF_DIR		0x02
 #define	LSF_INODE	0x04
@@ -36,17 +34,13 @@
 #define	LSF_COLUMN	0x20
 
 
-/*
- * Data holding list of files.
- */
+// Data holding list of files.
 static	char **	list;
 static	int	listSize;
 static	int	listUsed;
 
 
-/*
- * Local procedures.
- */
+// Local procedures.
 static	void	listFile(
 	const char *		name,
 	const struct stat *	statBuf,
@@ -59,8 +53,7 @@ static	void	listAllFiles(int flags, int displayWidth);
 static	void	clearListNames(void);
 
 
-void
-do_ls(int argc, const char ** argv)
+void do_ls(int argc, const char ** argv)
 {
 	const char *	cp;
 	const char *	name;
@@ -75,27 +68,21 @@ do_ls(int argc, const char ** argv)
 
 	static const char *	def[] = {"."};
 
-	/*
-	 * Reset for a new listing run.
-	 */
+	// Reset for a new listing run.
 	clearListNames();
 
 	displayWidth = 0;
 	flags = 0;
 
-	/*
-	 * Handle options.
-	 */
+	// Handle options.
 	argc--;
 	argv++;
 
-	while ((argc > 0) && (**argv == '-'))
-	{
+	while ((argc > 0) && (**argv == '-')) { 
 		cp = *argv++ + 1;
 		argc--;
 
-		while (*cp) switch (*cp++)
-		{
+		while (*cp) switch (*cp++) { 
 			case 'l':	flags |= LSF_LONG; break;
 			case 'd':	flags |= LSF_DIR; break;
 			case 'i':	flags |= LSF_INODE; break;
@@ -109,9 +96,7 @@ do_ls(int argc, const char ** argv)
 		}
 	}
 
-	/*
-	 * If long listing is specified then turn off column listing.
-	 */
+	// If long listing is specified then turn off column listing.
 	if (flags & LSF_LONG)
 		flags &= ~LSF_COLUMN;
 
@@ -120,8 +105,7 @@ do_ls(int argc, const char ** argv)
 	 * width available for the columns of file names.
 	 * This is settable using the COLS environment variable.
 	 */
-	if (flags & LSF_COLUMN)
-	{
+	if (flags & LSF_COLUMN) { 
 		name = getenv("COLS");
 
 		if (name)
@@ -131,11 +115,8 @@ do_ls(int argc, const char ** argv)
 			displayWidth = 80;
 	}
 
-	/*
-	 * If no arguments are given set up to show the current directory.
-	 */
-	if (argc <= 0)
-	{
+	// If no arguments are given set up to show the current directory.
+	if (argc <= 0) { 
 		argc = 1;
 		argv = def;
 	}
@@ -148,55 +129,40 @@ do_ls(int argc, const char ** argv)
 	 * all of the files which are not directories.
 	 * We will process them all as one list.
 	 */
-	for (i = 0; i < argc; i++)
-	{
-		if ((flags & LSF_DIR) || !isDirectory(argv[i]))
-		{
+	for (i = 0; i < argc; i++) { 
+		if ((flags & LSF_DIR) || !isDirectory(argv[i])) { 
 			if (!addListName(argv[i]))
 				return;
 		}
 	}
 
-	/*
-	 * List those file names, and then clear the list.
-	 */
+	// List those file names, and then clear the list.
 	listAllFiles(flags, displayWidth);
 	clearListNames();
 
-	/*
-	 * If directories were being listed as themselves, then we are done.
-	 */
+	// If directories were being listed as themselves, then we are done.
 	if (flags & LSF_DIR)
 		return;
 
-	/*
-	 * Now iterate over the file names processing the directories.
-	 */
-	while (!intFlag && (argc-- > 0))
-	{
+	// Now iterate over the file names processing the directories.
+	while (!intFlag && (argc-- > 0)) { 
 		name = *argv++;
 		endSlash = (*name && (name[strlen(name) - 1] == '/'));
 
-		if (LSTAT(name, &statBuf) < 0)
-		{
+		if (LSTAT(name, &statBuf) < 0) { 
 			perror(name);
 
 			continue;
 		}
 
-		/*
-		 * If this file name is not a directory, then ignore it.
-		 */
+		// If this file name is not a directory, then ignore it.
 		if (!S_ISDIR(statBuf.st_mode))
 			continue;
 
-		/*
-		 * Collect all the files in the directory.
-		 */
+		// Collect all the files in the directory.
 		dirp = opendir(name);
 
-		if (dirp == NULL)
-		{
+		if (dirp == NULL) { 
 			perror(name);
 
 			continue;
@@ -205,12 +171,10 @@ do_ls(int argc, const char ** argv)
 		if (flags & LSF_MULT)
 			printf("\n%s:\n", name);
 
-		while (!intFlag && ((dp = readdir(dirp)) != NULL))
-		{
+		while (!intFlag && ((dp = readdir(dirp)) != NULL)) { 
 			fullName[0] = '\0';
 
-			if ((*name != '.') || (name[1] != '\0'))
-			{
+			if ((*name != '.') || (name[1] != '\0')) { 
 				strcpy(fullName, name);
 
 				if (!endSlash)
@@ -219,11 +183,8 @@ do_ls(int argc, const char ** argv)
 
 			strcat(fullName, dp->d_name);
 
-			/*
-			 * Save the file name in the list.
-			 */
-			if (!addListName(fullName))
-			{
+			// Save the file name in the list.
+			if (!addListName(fullName)) { 
 				closedir(dirp);
 
 				return;
@@ -241,14 +202,12 @@ do_ls(int argc, const char ** argv)
 	}
 }
 
-
 /*
  * List all of the files in the current list of files.
  * The files are displayed according to the specified flags,
  * in the specified display width.
  */
-static void
-listAllFiles(int flags, int displayWidth)
+static void listAllFiles(int flags, int displayWidth)
 {
 	const char *	name;
 	const char *	cp;
@@ -258,15 +217,11 @@ listAllFiles(int flags, int displayWidth)
 	int		i;
 	struct stat	statBuf;
 
-	/*
-	 * Initialise width data until we need it.
-	 */
+	// Initialise width data until we need it.
 	fileWidth = 0;
 	column = 0;
 
-	/*
-	 * Sort the files in the list.
-	 */
+	// Sort the files in the list.
 	qsort((void *) list, listUsed, sizeof(char *), nameSort);
 
 	/*
@@ -274,10 +229,8 @@ listAllFiles(int flags, int displayWidth)
 	 * maximum width of all of the file names, taking into account
 	 * various factors.
 	 */
-	if (flags & LSF_COLUMN)
-	{
-		for (i = 0; i < listUsed; i++)
-		{
+	if (flags & LSF_COLUMN) { 
+		for (i = 0; i < listUsed; i++) { 
 			len = strlen(list[i]);
 
 			if (fileWidth < len)
@@ -293,15 +246,11 @@ listAllFiles(int flags, int displayWidth)
 		fileWidth += 2;
 	}
 
-	/*
-	 * Now list the fileNames.
-	 */
-	for (i = 0; i < listUsed; i++)
-	{
+	// Now list the fileNames.
+	for (i = 0; i < listUsed; i++) { 
 		name = list[i];
 
-		if (LSTAT(name, &statBuf) < 0)
-		{
+		if (LSTAT(name, &statBuf) < 0) { 
 			perror(name);
 
 			continue;
@@ -318,8 +267,7 @@ listAllFiles(int flags, int displayWidth)
 		 * List the file in the next column or at the end
 		 * of a line depending on the width left.
 		 */
-		if (column + fileWidth * 2 >= displayWidth)
-		{
+		if (column + fileWidth * 2 >= displayWidth) { 
 			listFile(cp, &statBuf, flags, 0);
 			column = 0;
 		}
@@ -330,21 +278,17 @@ listAllFiles(int flags, int displayWidth)
 		}
 	}
 
-	/*
-	 * Terminate the last file name if necessary.
-	 */
+	// Terminate the last file name if necessary.
 	if (column > 0)
 		fputc('\n', stdout);
 }
-
 
 /*
  * Do a listing of a particular file name according to the flags.
  * The output is shown within the specified width if it is nonzero,
  * or on its own line if the width is zero.
  */
-static void
-listFile(
+static void listFile(
 	const char *		name,
 	const struct stat *	statBuf,
 	int			flags,
@@ -368,35 +312,26 @@ listFile(
 
 	mode = statBuf->st_mode;
 
-	/*
-	 * Initialise buffers for use.
-	 */
+	// Initialise buffers for use.
 	cp = buf;
 	buf[0] = '\0';
 	flagChar = '\0';
 
-	/*
-	 * Show the inode number if requested.
-	 */
-	if (flags & LSF_INODE)
-	{
+	// Show the inode number if requested.
+	if (flags & LSF_INODE) { 
 		sprintf(cp, "%7ld ", statBuf->st_ino);
 		cp += strlen(cp);
 	}
 
-	/*
-	 * Create the long status line if requested.
-	 */
-	if (flags & LSF_LONG)
-	{
+	// Create the long status line if requested.
+	if (flags & LSF_LONG) { 
 		strcpy(cp, modeString(mode));
 		cp += strlen(cp);
 
 		sprintf(cp, "%3d ", statBuf->st_nlink);
 		cp += strlen(cp);
 
-		if (!userIdKnown || (statBuf->st_uid != (unsigned)userId))
-		{
+		if (!userIdKnown || (statBuf->st_uid != (unsigned)userId)) { 
 			// pwd = getpwuid(statBuf->st_uid);
 
 			// if (pwd)
@@ -411,8 +346,7 @@ listFile(
 		sprintf(cp, "%-8s ", userName);
 		cp += strlen(cp);
 
-		if (!groupIdKnown || (statBuf->st_gid != (unsigned)groupId))
-		{
+		if (!groupIdKnown || (statBuf->st_gid != (unsigned)groupId)) { 
 			// grp = getgrgid(statBuf->st_gid);
 
 			// if (grp)
@@ -427,8 +361,7 @@ listFile(
 		sprintf(cp, "%-8s ", groupName);
 		cp += strlen(cp);
 
-		if (S_ISBLK(mode) || S_ISCHR(mode))
-		{
+		if (S_ISBLK(mode) || S_ISCHR(mode)) { 
 			sprintf(cp, "%3lu, %3lu ",
 				((unsigned long) statBuf->st_rdev) >> 8,
 				((unsigned long) statBuf->st_rdev) & 0xff);
@@ -445,8 +378,7 @@ listFile(
 	 * Set the special character if the file is a directory or
 	 * symbolic link or executable and the display was requested.
 	 */
-	if (flags & LSF_FLAG)
-	{
+	if (flags & LSF_FLAG) { 
 		if (S_ISDIR(mode))
 			flagChar = '/';
 #ifdef S_ISLNK
@@ -457,26 +389,20 @@ listFile(
 			flagChar = '*';
 	}
 
-	/*
-	 * Print the status info followed by the file name.
-	 */
+	// Print the status info followed by the file name.
 	fputs(buf, stdout);
 	fputs(name, stdout);
 
 	if (flagChar)
 		fputc(flagChar, stdout);
 
-	/*
-	 * Calculate the width used so far.
-	 */
+	// Calculate the width used so far.
 	usedWidth = strlen(buf) + strlen(name);
 
 	if (flagChar)
 		usedWidth++;
 
-	/*
-	 * Show where a symbolic link points.
-	 */
+	// Show where a symbolic link points.
 // #ifdef	S_ISLNK
 // 	if ((flags & LSF_LONG) && S_ISLNK(mode))
 // 	{
@@ -492,11 +418,8 @@ listFile(
 // 	}
 // #endif
 
-	/*
-	 * If no width was given then just end the line with a newline.
-	 */
-	if (width == 0)
-	{
+	// If no width was given then just end the line with a newline.
+	if (width == 0) { 
 		fputc('\n', stdout);
 
 		return;
@@ -510,27 +433,21 @@ listFile(
 		fputc(' ', stdout);
 }
 
-
 /*
  * Save a file name to the end of the static list, reallocating if necessary.
  * The file name is copied into allocated memory owned by the list.
  * Returns TRUE on success.
  */
-static BOOL
-addListName(const char * fileName)
+static BOOL addListName(const char * fileName)
 {
 	char **	newList;
 
-	/*
-	 * Reallocate the list if necessary.
-	 */
-	if (listUsed >= listSize)
-	{
+	// Reallocate the list if necessary.
+	if (listUsed >= listSize) { 
 		newList = realloc(list,
 			((sizeof(char **)) * (listSize + LISTSIZE)));
 
-		if (newList == NULL)
-		{
+		if (newList == NULL) { 
 			fprintf(stderr, "No memory for file name buffer\n");
 
 			return FALSE;
@@ -540,39 +457,29 @@ addListName(const char * fileName)
 		listSize += LISTSIZE;
 	}
 
-	/*
-	 * Copy the file name into the next entry.
-	 */
+	// Copy the file name into the next entry.
 	list[listUsed] = strdup(fileName);
 
-	if (list[listUsed] == NULL)
-	{
+	if (list[listUsed] == NULL) { 
 		fprintf(stderr, "No memory for file name\n");
 
 		return FALSE;
 	}
 
-	/*
-	 * Increment the amount of space used.
-	 */
+	// Increment the amount of space used.
 	listUsed++;
 
 	return TRUE;
 }
 
-
-/*
- * Free all of the names from the list of file names.
- */
-static void
-clearListNames(void)
+// Free all of the names from the list of file names.
+static void clearListNames(void)
 {
-	while (listUsed > 0)
-	{
+	while (listUsed > 0) { 
 		listUsed--;
 
 		free(list[listUsed]);
 	}
 }
 
-/* END CODE */
+

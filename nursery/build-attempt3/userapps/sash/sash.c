@@ -16,7 +16,7 @@
 #include "sash.h"
 
 
-static const char * const version = "3.4-fmb";
+static const char *const version = "3.4-fmb";
 
 
 /*
@@ -26,17 +26,15 @@ static const char * const version = "3.4-fmb";
 #define INFINITE_ARGS 0x7fffffff
 
 
-/*
- * One entry of the command table.
- */
+// One entry of the command table.
 typedef struct
 {
-    const char * name;
-    void  (*func)(int argc, const char ** argv);
+    const char *name;
+    void  (*func)(int argc, const char **argv);
     int  minArgs;
     int  maxArgs;
-    const char * description;
-    const char * usage;
+    const char *description;
+    const char *usage;
 } CommandEntry;
 
 
@@ -360,54 +358,46 @@ static const CommandEntry commandEntryTable[] =
 };
 
 
-/*
- * The definition of an command alias.
- */
+// The definition of an command alias.
 typedef struct
 {
-    char * name;
-    char * value;
+    char *name;
+    char *value;
 } Alias;
 
 
-/*
- * Local data.
- */
-static Alias * aliasTable;
+// Local data.
+static Alias *aliasTable;
 static int aliasCount;
 
-static FILE * sourcefiles[MAX_SOURCE];
+static FILE *sourcefiles[MAX_SOURCE];
 static int sourceCount;
 
 static BOOL intCrlf = TRUE;
-static char * prompt;
+static char *prompt;
 
 
-/*
- * Local procedures.
- */
+// Local procedures.
 static void catchInt(int);
 static void catchQuit(int);
-static void readFile(const char * name);
-static void command(const char * cmd);
-static BOOL tryBuiltIn(const char * cmd);
-static void runCmd(const char * cmd);
-static void childProcess(const char * cmd);
+static void readFile(const char *name);
+static void command(const char *cmd);
+static BOOL tryBuiltIn(const char *cmd);
+static void runCmd(const char *cmd);
+static void runOnChild(const char *cmd);
 static void showPrompt(void);
 static void usage(void);
-static Alias * findAlias(const char * name);
-static void expandVariable(char * name);
+static Alias *findAlias(const char *name);
+static void expandVariable(char *name);
 
 
-/*
- * Global interrupt flag.
- */
+// Global interrupt flag.
 BOOL intFlag;
 
 
-int main(int argc, const char ** argv) {
-    const char * cp;
-    const char * singleCommand;
+int main(int argc, const char **argv) {
+    const char *cp;
+    const char *singleCommand;
     BOOL  quietFlag;
     BOOL  aliasFlag;
     char  buf[PATH_LEN];
@@ -416,9 +406,7 @@ int main(int argc, const char ** argv) {
     quietFlag = FALSE;
     aliasFlag = FALSE;
 
-    /*
-     * Look for options.
-     */
+    // Look for options.
     argv++;
     argc--;
 
@@ -426,12 +414,9 @@ int main(int argc, const char ** argv) {
         cp = *argv++ + 1;
         argc--;
 
-        while (*cp) switch (*cp++)
-        {
+        while (*cp) switch (*cp++) { 
             case 'c':
-                /*
-                 * Execute specified command.
-                 */
+                // Execute specified command.
                 if ((argc != 1) || singleCommand)
                     usage();
 
@@ -441,9 +426,7 @@ int main(int argc, const char ** argv) {
                 break;
 
             case 'p':
-                /*
-                 * Set the prompt string.
-                 */
+                // Set the prompt string.
                 if ((argc <= 0) || (**argv == '-'))
                     usage();
 
@@ -475,9 +458,7 @@ int main(int argc, const char ** argv) {
         }
     }
 
-    /*
-     * No more arguments are allowed.
-     */
+    // No more arguments are allowed.
     if (argc > 0)
         if ((access(*argv, 0) == 0) || (errno != ENOENT)) {
             readFile(*argv++);
@@ -485,30 +466,22 @@ int main(int argc, const char ** argv) {
             return 0;
         }
 
-    /*
-     * Default our path if it is not set.
-     */
+    // Default our path if it is not set.
     if (getenv("PATH") == NULL)
         setenv("PATH", "/bin:/usr/bin:/sbin:/usr/sbin:/etc", 1);
 
-    /*
-     * If the alias flag is set then define all aliases.
-     */
+    // If the alias flag is set then define all aliases.
     if (aliasFlag)
         do_aliasall(0, NULL);
 
-    /*
-     * If we are to execute a single command, then do so and exit.
-     */
+    // If we are to execute a single command, then do so and exit.
     if (singleCommand) {
         command(singleCommand);
 
         return 0;
     }
 
-    /*
-     * Print a hello message unless we are told to be silent.
-     */
+    // Print a hello message unless we are told to be silent.
     if (!quietFlag && isatty(STDIN)) {
         printf("Stand-alone shell (version %s)\n", version);
 
@@ -519,9 +492,7 @@ int main(int argc, const char ** argv) {
     signal(SIGINT, catchInt);
     signal(SIGQUIT, catchQuit);
 
-    /*
-     * Execute the user's alias file if present.
-     */
+    // Execute the user's alias file if present.
     cp = getenv("HOME");
 
     if (cp) {
@@ -533,28 +504,24 @@ int main(int argc, const char ** argv) {
             readFile(buf);
     }
 
-    /*
-     * Read commands from stdin.
-     */
+    // Read commands from stdin.
     readFile(NULL);
 
     return 0;
 }
 
-
 /*
  * Read commands from the specified file.
  * A null name pointer indicates to read from stdin.
  */
-static void readFile(const char * name) {
-    FILE * fp;
+static void readFile(const char *name) {
+    FILE *fp;
     int cc;
     BOOL ttyFlag;
     char buf[CMD_LEN];
 
     if (sourceCount >= MAX_SOURCE) {
         fprintf(stderr, "Too many source files\n");
-
         return;
     }
 
@@ -563,10 +530,8 @@ static void readFile(const char * name) {
     if (name) {
         fp = fopen(name, "r");
 
-        if (fp == NULL)
-        {
+        if (fp == NULL) { 
             perror(name);
-
             return;
         }
     }
@@ -579,20 +544,15 @@ static void readFile(const char * name) {
         if (ttyFlag)
             showPrompt();
 
-        if (intFlag && !ttyFlag && (fp != stdin))
-        {
+        if (intFlag && !ttyFlag && (fp != stdin)) { 
             fclose(fp);
             sourceCount--;
-
             return;
         }
     
-        if (fgets(buf, CMD_LEN - 1, fp) == NULL)
-        {
-            if (ferror(fp) && (errno == EINTR))
-            {
+        if (fgets(buf, CMD_LEN - 1, fp) == NULL) { 
+            if (ferror(fp) && (errno == EINTR)) { 
                 clearerr(fp);
-
                 continue;
             }
 
@@ -624,15 +584,14 @@ static void readFile(const char * name) {
     sourceCount--;
 }
 
-
 /*
  * Parse and execute one null-terminated command line string.
  * This breaks the command line up into words, checks to see if the
  * command is an alias, and expands wildcards.
  */
-static void command(const char * cmd) {
-    const char * endCmd;
-    const Alias * alias;
+static void command(const char *cmd) {
+    const char *endCmd;
+    const Alias *alias;
     char  newCommand[CMD_LEN];
     char  cmdName[CMD_LEN];
 
@@ -644,15 +603,11 @@ static void command(const char * cmd) {
 
     freeChunks();
 
-    /*
-     * Skip leading blanks.
-     */
+    // Skip leading blanks.
     while (isBlank(*cmd))
         cmd++;
 
-    /*
-     * If the command is empty or is a comment then ignore it.
-     */
+    // If the command is empty or is a comment then ignore it.
     if ((*cmd == '\0') || (*cmd == '#'))
         return;
 
@@ -684,9 +639,7 @@ static void command(const char * cmd) {
         cmd = newCommand;
     }
 
-    /*
-     * Expand simple environment variables
-     */
+    // Expand simple environment variables
     while (strstr(cmd, "$(")) expandVariable((char *)cmd);
 
     /*
@@ -696,24 +649,20 @@ static void command(const char * cmd) {
     if (tryBuiltIn(cmd))
         return;
 
-    /*
-     * The command is not a built-in, so run the program along
-     * the PATH list.
-     */
+    // The command is not a built-in, so run the program along the PATH list.
     runCmd(cmd);
 }
-
 
 /*
  * Try to execute a built-in command.
  * Returns TRUE if the command is a built in, whether or not the
  * command succeeds.  Returns FALSE if this is not a built-in command.
  */
-static BOOL tryBuiltIn(const char * cmd) {
-    const char *  endCmd;
+static BOOL tryBuiltIn(const char *cmd) {
+    const char *endCmd;
     const CommandEntry * entry;
     int   argc;
-    const char **  argv;
+    const char **argv;
     char   cmdName[CMD_LEN];
 
     /*
@@ -729,17 +678,13 @@ static BOOL tryBuiltIn(const char * cmd) {
 
     cmdName[endCmd - cmd] = '\0';
 
-    /*
-     * Search the command table looking for the command name.
-     */
+    // Search the command table looking for the command name.
     for (entry = commandEntryTable; entry->name != NULL; entry++) {
         if (strcmp(entry->name, cmdName) == 0)
             break;
     }
 
-    /*
-     * If the command is not a built-in, return indicating that.
-     */
+    // If the command is not a built-in, return indicating that.
     if (entry->name == NULL)
         return FALSE;
 
@@ -751,30 +696,25 @@ static BOOL tryBuiltIn(const char * cmd) {
         return TRUE;
 
     /*
-     * Give a usage string if the number of arguments is too large
-     * or too small.
+     * Give a usage string if the number of arguments is too large or too small.
      */
     if ((argc < entry->minArgs) || (argc > entry->maxArgs)) {
         fprintf(stderr, "usage: %s %s\n", entry->name, entry->usage);
-
         return TRUE;
     }
 
-    /*
-     * Call the built-in function with the argument list.
-     */
+    // Call the built-in function with the argument list.
     entry->func(argc, argv);
 
     return TRUE;
 }
 
-
 /*
  * Execute the specified command either by forking and executing
  * the program ourself, or else by using the shell.
  */
-static void runCmd(const char * cmd) {
-    const char * cp;
+static void runCmd(const char *cmd) {
+    const char *cp;
     BOOL  magic;
     pid_t  pid;
     int  status;
@@ -801,8 +741,7 @@ static void runCmd(const char * cmd) {
         if ((*cp == '.') || (*cp == '/') || (*cp == '-') ||
             (*cp == '+') || (*cp == '=') || (*cp == '_') ||
             (*cp == ':') || (*cp == ',') || (*cp == '\'') ||
-            (*cp == '"'))
-        {
+            (*cp == '"')) { 
             continue;
         }
 
@@ -830,11 +769,9 @@ static void runCmd(const char * cmd) {
         return;
     }
 
-    /*
-     * If we are the child process, then go execute the program.
-     */
+    // If we are the child process, then go execute the program.
     if (pid == 0) {
-        childProcess(cmd);
+        runOnChild(cmd);
         exit(0);
     }
 
@@ -859,19 +796,16 @@ static void runCmd(const char * cmd) {
     }
 }
 
-
 /*
  * Here as the child process to try to execute the command.
  * This is only called if there are no meta-characters in the command.
  * This procedure never returns.
  */
-static void childProcess(const char * cmd) {
-    const char ** argv;
+static void runOnChild(const char *cmd) {
+    const char **argv;
     int  argc;
 
-    /*
-     * Close any extra file descriptors we have opened.
-     */ 
+    // Close any extra file descriptors we have opened. 
     while (--sourceCount >= 0) {
         if (sourcefiles[sourceCount] != stdin)
             fclose(sourcefiles[sourceCount]);
@@ -886,9 +820,7 @@ static void childProcess(const char * cmd) {
         exit(0);
     }
 
-    /*
-     * Try to execute the program directly.
-     */
+    // Try to execute the program directly.
     execve(argv[0], (char **)argv, NULL);
     // execvp(argv[0], (char **) argv);
 
@@ -901,31 +833,24 @@ static void childProcess(const char * cmd) {
         exit(0);
     }
 
-    /*
-     * There was something else wrong, complain and exit.
-     */
+    // There was something else wrong, complain and exit.
     perror(argv[0]);
     exit(1);
 }
 
-
-void do_help(int argc, const char ** argv) {
+void do_help(int argc, const char **argv) {
     const CommandEntry * entry;
-    const char *  str;
+    const char *str;
 
     str = NULL;
 
     if (argc == 2)
         str = argv[1];
 
-    /*
-     * Check for an exact match, in which case describe the program.
-     */
+    // Check for an exact match, in which case describe the program.
     if (str) {
-        for (entry = commandEntryTable; entry->name; entry++)
-        {
-            if (strcmp(str, entry->name) == 0)
-            {
+        for (entry = commandEntryTable; entry->name; entry++) { 
+            if (strcmp(str, entry->name) == 0) { 
                 printf("%s\n", entry->description);
 
                 printf("usage: %s %s\n", entry->name,
@@ -942,20 +867,18 @@ void do_help(int argc, const char ** argv) {
      */
     for (entry = commandEntryTable; entry->name; entry++) {
         if ((str == NULL) || (strstr(entry->name, str) != NULL) ||
-            (strstr(entry->usage, str) != NULL))
-        {
+            (strstr(entry->usage, str) != NULL)) { 
             printf("%-10s %s\n", entry->name, entry->usage);
         }
     }
 }
 
-
-void do_alias(int argc, const char ** argv) {
-    const char * name;
-    char *  value;
-    Alias *  alias;
-    int  count;
-    char  buf[CMD_LEN];
+void do_alias(int argc, const char **argv) {
+    const char *name;
+    char *value;
+    Alias *alias;
+    int count;
+    char buf[CMD_LEN];
 
     if (argc < 2) {
         count = aliasCount;
@@ -1010,16 +933,12 @@ void do_alias(int argc, const char ** argv) {
     if ((aliasCount % ALIAS_ALLOC) == 0) {
         count = aliasCount + ALIAS_ALLOC;
 
-        if (aliasTable)
-        {
-            alias = (Alias *) realloc(aliasTable,
-                sizeof(Alias) * count);
-        }
-        else
+        if (aliasTable) { 
+            alias = (Alias *) realloc(aliasTable, sizeof(Alias) * count);
+        } else
             alias = (Alias *) malloc(sizeof(Alias) * count);
 
-        if (alias == NULL)
-        {
+        if (alias == NULL) { 
             free(value);
             fprintf(stderr, "No memory for alias table\n");
 
@@ -1030,9 +949,7 @@ void do_alias(int argc, const char ** argv) {
     }
 
     alias = &aliasTable[aliasCount];
-
     alias->name = malloc(strlen(name) + 1);
-
     if (alias->name == NULL) {
         free(value);
         fprintf(stderr, "No memory for alias name\n");
@@ -1045,15 +962,10 @@ void do_alias(int argc, const char ** argv) {
     aliasCount++;
 }
 
-
-/*
- * Build aliases for all of the built-in commands which start with a dash,
- * using the names without the dash.
- */
 void do_aliasall(int argc, const char **argv) {
     const CommandEntry * entry;
-    const char *  name;
-    const char *  newArgv[4];
+    const char *name;
+    const char *newArgv[4];
 
     for (entry = commandEntryTable; entry->name; entry++) {
         name = entry->name;
@@ -1070,13 +982,8 @@ void do_aliasall(int argc, const char **argv) {
     }
 }
 
-
-/*
- * Look up an alias name, and return a pointer to it.
- * Returns NULL if the name does not exist.
- */
-static Alias *findAlias(const char * name) {
-    Alias * alias;
+static Alias *findAlias(const char *name) {
+    Alias *alias;
     int count;
 
     count = aliasCount;
@@ -1089,14 +996,12 @@ static Alias *findAlias(const char * name) {
     return NULL;
 }
 
-
-void do_source(int argc, const char ** argv) {
+void do_source(int argc, const char **argv) {
     readFile(argv[1]);
 }
 
-
-void do_exec(int argc, const char ** argv) {
-    const char * name;
+void do_exec(int argc, const char **argv) {
+    const char *name;
 
     name = argv[1];
 
@@ -1118,9 +1023,8 @@ void do_exec(int argc, const char ** argv) {
     exit(1);
 }
 
-
-void do_prompt(int argc, const char ** argv) {
-    char * cp;
+void do_prompt(int argc, const char **argv) {
+    char *cp;
     char buf[CMD_LEN];
 
     if (!makeString(argc - 1, argv + 1, buf, CMD_LEN))
@@ -1143,11 +1047,9 @@ void do_prompt(int argc, const char ** argv) {
     prompt = cp;
 }
 
-
-void
-do_unalias(int argc, const char ** argv)
+void do_unalias(int argc, const char **argv)
 {
-    Alias * alias;
+    Alias *alias;
 
     while (--argc > 0) {
         alias = findAlias(*++argv);
@@ -1163,21 +1065,10 @@ do_unalias(int argc, const char ** argv)
     }
 }
 
-
-/*
- * Display the prompt string.
- */
 static void showPrompt(void) {
-    const char * cp;
-
-    cp = "> ";
-
-    if (prompt)
-        cp = prompt;
-
+    const char *cp = prompt ? prompt : "> ";
     write(STDOUT, cp, strlen(cp));
 } 
-
 
 static void catchInt(int val) {
     signal(SIGINT, catchInt);
@@ -1188,7 +1079,6 @@ static void catchInt(int val) {
         write(STDOUT, "\n", 1);
 }
 
-
 static void catchQuit(int val) {
     signal(SIGQUIT, catchQuit);
 
@@ -1198,10 +1088,6 @@ static void catchQuit(int val) {
         write(STDOUT, "\n", 1);
 }
 
-
-/*
- * Print the usage information and quit.
- */
 static void usage(void) {
     fprintf(stderr, "Stand-alone shell (version %s)\n", version);
     fprintf(stderr, "\n");
@@ -1210,10 +1096,7 @@ static void usage(void) {
     exit(1);
 }
 
-/*
- * Expand one environment variable: Syntax $(VAR)
- */
-static void expandVariable(char * cmd) {
+static void expandVariable(char *cmd) { // Expand one environment variable: Syntax $(VAR)
     char tmp[CMD_LEN];
     char  *cp;
     char *ep;
@@ -1232,4 +1115,3 @@ static void expandVariable(char * cmd) {
     }
     return;
 }
-
