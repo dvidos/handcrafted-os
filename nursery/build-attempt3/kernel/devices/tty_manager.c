@@ -64,7 +64,9 @@ struct tty {
     int keys_buffer_len;
     lock_t keys_buffer_lock;
 
+    // we need lots of flags, e.g. local echo, whether to return whole line or char by char etc.
     bool input_carriage_return_to_new_line;
+    bool echo_flag;
 };
 
 typedef struct tty tty_t;
@@ -105,6 +107,7 @@ tty_t *create_tty(int dev_no, int line_scroll) {
     }
     tty->color = VGA_COLOR_BLACK << 4 | VGA_COLOR_LIGHT_GREY;
     tty->input_carriage_return_to_new_line = true;
+    tty->echo_flag = true;
 
     return tty;
 }
@@ -256,6 +259,10 @@ int tty_read(tty_t *tty, char *buffer, int length) {
         *buffer++ =  event.ascii;
         length--;
         bytes_read++;
+
+        if (tty->echo_flag) {
+            tty_write(tty, &event.ascii, 1);
+        }
     }
 
     return bytes_read;
