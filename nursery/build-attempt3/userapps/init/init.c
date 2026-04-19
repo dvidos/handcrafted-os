@@ -8,11 +8,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-// Definitions for common types
-typedef int pid_t;
-typedef long ssize_t;
-typedef long off_t;
-
 // Forward declaration for fatal, as it uses syslog_critical
 void fatal(char *msg);
 

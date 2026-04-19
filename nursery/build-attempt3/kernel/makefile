@@ -1,4 +1,4 @@
-include ../config.mk
+include ../config.inc.mk
 
 # Common macros
 #   $@ is the target for multiple targets (separated by space)

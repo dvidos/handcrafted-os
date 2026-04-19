@@ -1,7 +1,7 @@
 #include "process.h"
 #include "../../logger/logger.h"
 
-MODULE("PROC_FORK", LOG_LEVEL_TRACE);
+MODULE("PROC_FORK", LOG_LEVEL_INFO);
 
 
 // clone, return child's PID on parent, zero on child.

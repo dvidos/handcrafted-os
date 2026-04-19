@@ -2,21 +2,21 @@
 EMU := qemu-system-i386
 
 
-# run configure.sh to generate the config.mk file
-include config.mk
+# run configure.sh to generate the config.inc.mk file
+include config.inc.mk
 
 .PHONY: tools stage1 stage2 kernel libc userapps rootfs
 
 
 default: os.img
 
-config.mk: ./tools/configure.sh
+config.inc.mk: ./tools/configure.sh
 	./tools/configure.sh
 
-config.sh: ./tools/configure.sh
+config.inc.sh: ./tools/configure.sh
 	./tools/configure.sh
 
-config.h: ./tools/configure.sh
+config.inc.h: ./tools/configure.sh
 	./tools/configure.sh
 
 tools:
@@ -81,7 +81,7 @@ run-ide: os.img
 run-with-cpu-diags: os.img
 	$(EMU) -drive format=raw,file=os.img -m 4G -serial stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown -D qemu.log
 
-clean: config.mk
+clean: config.inc.mk
 	make -C tools    clean
 	make -C libc     clean
 	make -C userapps clean
@@ -90,4 +90,4 @@ clean: config.mk
 	make -C kernel   clean
 	rm -rf ./build/*
 	rmdir ./build
-	rm -f config.mk config.h config.sh os.img
+	rm -f config.inc.mk config.inc.h config.inc.sh os.img

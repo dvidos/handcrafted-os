@@ -1,4 +1,4 @@
-include ../config.mk
+include ../config.inc.mk
 
 CC = i686-elf-gcc
 LD = i686-elf-ld

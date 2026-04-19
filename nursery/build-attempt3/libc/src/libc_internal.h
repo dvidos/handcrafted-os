@@ -46,6 +46,7 @@ int syscall(int sysno, int arg1, int arg2, int arg3, int arg4, int arg5);
 // For DIR and dirent structures
 #include "../include/dirent.h"
 #include "../include/kernel/vfs_dirent.h"
+#include "../include/kernel/vfs_stat.h"
 
 typedef struct _IO_FILE {
     int fd;             // The underlying kernel file descriptor

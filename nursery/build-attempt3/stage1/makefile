@@ -1,4 +1,4 @@
-include ../config.mk
+include ../config.inc.mk
 
 all: stage1.bin
 

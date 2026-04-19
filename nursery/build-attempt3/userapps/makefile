@@ -1,4 +1,4 @@
-include ../config.mk
+include ../config.inc.mk
 
 ROOTFS := ../build/rootfs
 SUBDIRS := init sash edit shell echo

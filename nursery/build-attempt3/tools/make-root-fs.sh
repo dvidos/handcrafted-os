@@ -4,7 +4,7 @@ set -e
 # stage all files to be packed into the disk image
 # mkdir / copy / create what is needed into build/rootfs
 
-source ./config.sh  # get build variables
+source ./config.inc.sh  # get build variables
 R=./build/rootfs
 
 

@@ -120,6 +120,12 @@ int proc_readdir(process_t *proc, int handle, vfs_dirent_t *entry) {
     return err;
 }
 
+int proc_rewinddir(process_t *proc, int handle) {
+    if (!is_valid_handle(proc, handle))
+        return ERR_BAD_ARGUMENT;
+    return vfs_rewinddir(proc->file_handles[handle]);
+}
+
 int proc_closedir(process_t *proc, int handle) {
     if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;

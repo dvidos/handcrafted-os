@@ -1,4 +1,4 @@
-include ../config.mk
+include ../config.inc.mk
 
 STAGE2_OBJS = \
 	stage2_asm.o \

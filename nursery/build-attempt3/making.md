@@ -10,7 +10,7 @@
 
 
 
-The script `tools/configure.sh` is calculating sizes and is creating the files `config.mk`, `config.sh` and `config.h`, that are included in makefiles, scripts, source.
+The script `tools/configure.sh` is calculating sizes and is creating the files `config.inc.mk`, `config.inc.sh` and `config.inc.h`, that are included in makefiles, scripts, source.
 
 The main product will the `os.img` image file, in this folder. 🔥
 It will contain the bootloaders, the kernel, and a populated file system.

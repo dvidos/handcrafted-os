@@ -62,7 +62,7 @@ PARTITION_1_SECTOR_COUNT=$(($DISK_IMAGE_SECTOR_COUNT - $PARTITION_1_FIRST_SECTOR
 echo Creating configuration included files...
 
 
-cat > config.mk <<EOF
+cat > config.inc.mk <<EOF
 # auto generated, do not edit, run configure.sh to generate
 CROSS_CC                  := $CROSS_CC
 CROSS_LD                  := $CROSS_LD
@@ -104,7 +104,7 @@ PARTITION_1_SECTOR_COUNT  := $PARTITION_1_SECTOR_COUNT
 EOF
 
 
-cat > config.h <<EOF
+cat > config.inc.h <<EOF
 #pragma once
 // auto generated, do not edit, run configure.sh to generate
 #define VERSION                   "$VERSION"
@@ -144,7 +144,7 @@ cat > config.h <<EOF
 EOF
 
 
-cat > config.sh <<EOF
+cat > config.inc.sh <<EOF
 #!/bin/sh
 # auto generated, do not edit, run configure.sh to generate
 VERSION="$VERSION"

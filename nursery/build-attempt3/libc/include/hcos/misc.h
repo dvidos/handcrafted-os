@@ -3,7 +3,7 @@
 
 
 // HCOS extensions
-int spawn(const char *path, char *const argv[], char *const envp[]);
+pid_t spawn(const char *path, char *const argv[], char *const envp[]);
 void yield();
 
 

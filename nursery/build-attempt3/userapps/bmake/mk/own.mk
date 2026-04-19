@@ -24,7 +24,7 @@ TARGET_HOST?= ${HOST_TARGET}
 
 # these may or may not exist
 .-include <${TARGET_HOST}.mk>
-.-include <config.mk>
+.-include <config.inc.mk>
 
 RM?= rm
 LN?= ln

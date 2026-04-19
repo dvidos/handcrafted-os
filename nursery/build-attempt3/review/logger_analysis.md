@@ -19,7 +19,7 @@ Key components and functionalities include:
     *   Log messages generated very early in the boot process (before appenders are initialized) are stored in a fixed-size in-memory ring buffer (`memlog`).
     *   When an appender is later added, `mem_log_get_contents()` is used to dump all buffered messages to the new appender, ensuring no early boot logs are lost.
 *   **Formatted Output (`logger.c`):** Provides `logger_append` (printf-style), `logger_append_using_formatter` (for custom data formatting via `log_formatter_t` callbacks), and `logger_append_hex` (for hex dumps of memory regions).
-*   **`traceable` Macro (`logger.h`):** A debugging macro that can wrap function return values (`error_t`). If an error occurs, it logs the function name, file, line, and error details, making error tracing easier if `TRACE_RETURNS` is enabled in `config.h`.
+*   **`traceable` Macro (`logger.h`):** A debugging macro that can wrap function return values (`error_t`). If an error occurs, it logs the function name, file, line, and error details, making error tracing easier if `TRACE_RETURNS` is enabled in `config.inc.h`.
 *   **Existing Appenders (from `README.md` and dependencies):** Serial port output (`serial_log_appender`), screen output (`screen_panic_writer` or similar through `printk`), and the internal memory buffer.
 
 In summary, the `kernel/logger` is a well-designed, flexible, and robust logging facility that is crucial for kernel development, debugging, and runtime diagnostics. Its modular appender design and early boot buffering are particularly strong features.

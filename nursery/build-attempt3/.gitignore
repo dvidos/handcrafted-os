@@ -1,0 +1,17 @@
+config.inc.h
+config.inc.mk
+config.inc.sh
+
+stage1/stage1.bin
+stage2/stage2.elf
+stage2/stage2.bin
+
+kernel/kernel.elf
+kernel/kernel.bin
+
+libc/libc.a
+libc/include/kernel/
+
+tools/sfs_img/sfs_img
+
+build/

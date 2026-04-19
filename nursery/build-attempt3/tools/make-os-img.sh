@@ -5,7 +5,7 @@
 # use the ./sfs/sfs cli tool to generate the image
 set -e
 
-. ./config.sh  # get build variables
+. ./config.inc.sh  # get build variables
 
 IMG=os.img
 SFS=./tools/sfs_img/sfs_img

@@ -1,7 +1,7 @@
 #ifndef _LOGGER_H
 #define _LOGGER_H
 
-#include "../../config.h"
+#include "../../config.inc.h"
 #include "../include/ctypes.h"
 #include "../include/va_list.h"
 #include "../klib/strerror.h"
