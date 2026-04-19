@@ -13,10 +13,9 @@ At high level, the steps will be:
   * ~~merge branch to main~~
   * ~~fix wait(), waitpid() and read() to not use EAGAIN~~
   * ~~continue with keyboard input, now that we can unblock~~
-
-  * keyboard driver + input
-  * implement Kill, signal
   * ~~implement readdir()~~
+  * ~~keyboard driver + input~~
+  * implement Kill, signal
   * implement O_CREATE etc
   * implement attributes, owners, groups
   * implement symlinks, readlink, symlink, lstat etc
