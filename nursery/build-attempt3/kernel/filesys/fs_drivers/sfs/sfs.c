@@ -212,14 +212,30 @@ static error_t sfs_driver_open(inode_t *n, int flags, open_file_t **file_handle)
     error_t err = md->inode_cache->ops->get(md->inode_cache, n->inode_num, (void **)&sin);
     if (err) return err;
 
-    // validate first
-    if (!stored_inode_is_file(sin)) return traceable(ERR_NOT_A_FILE);
+    // Validate that it's a file
+    if (!stored_inode_is_file(sin)) {
+        // If it's a directory, allow opening only for read operations
+        if (stored_inode_is_dir(sin) && (flags & (O_WRONLY | O_RDWR))) {
+            return traceable(ERR_IS_A_DIRECTORY);
+        }
+        // For other non-file types (e.g., block device, char device) or invalid access, return error
+        else if (!stored_inode_is_dir(sin)) {
+             return traceable(ERR_NOT_A_FILE);
+        }
+    }
 
     *file_handle = open_files.create(n->sb, n);
 
     // ensure this is not evicted until file is closed
     err = md->inode_cache->ops->lock(md->inode_cache, n->inode_num);
-    if (err) return err;
+    if (err) {
+        open_files.release(*file_handle); // Release the created open_file_t if locking fails
+        return err;
+    }
+
+    // No need to handle O_TRUNC here, as VFS layer handles it via vfs_truncate before this call.
+    // No need to handle O_CREAT/O_EXCL here, as VFS layer handles file creation before this call.
+    // O_APPEND is handled by VFS layer in vfs_write.
 
     return OK;
 }

@@ -13,7 +13,7 @@
 #include "../../utils/assert.h"
 #include "../elf_reader.h"
 
-MODULE("PROC_CREATE", LOG_LEVEL_TRACE);
+MODULE("PROC_CREATE", LOG_LEVEL_INFO);
 
 
 // defined in assembly for switch / starting

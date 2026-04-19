@@ -1,4 +1,5 @@
 #include "../libc_internal.h"
+#include <stdarg.h> // Required for va_list
 
 /**
  * @brief Opens and optionally creates a file.
@@ -21,14 +22,13 @@
  */
 int open(const char *pathname, int flags, ...) {
 
-    // Handle variadic arguments for mode if O_CREAT is set
-    // va_list args;
-    // va_start(args, flags);
-    // mode_t mode = 0;
-    // if (flags & O_CREAT) {
-    //     mode = va_arg(args, mode_t);
-    // }
-    // va_end(args);
+    va_list args;
+    va_start(args, flags);
+    mode_t mode = 0;
+    if (flags & O_CREAT) {
+        mode = va_arg(args, mode_t);
+    }
+    va_end(args);
     
-    return syscall(SYS_OPEN, (int)pathname, flags, 0, 0, 0);
+    return syscall(SYS_OPEN, (int)pathname, flags, mode, 0, 0);
 }

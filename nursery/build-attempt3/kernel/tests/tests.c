@@ -24,7 +24,7 @@ bool run_frameworked_unit_tests() {
         unit_test(test_printf),
         unit_test(test_strbuff),
         unit_test(test_strings),
-        // unit_test(test_vfs),
+        unit_test(test_vfs),
     };
     return run_tests(tests);
 }

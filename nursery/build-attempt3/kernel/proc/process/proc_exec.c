@@ -2,7 +2,7 @@
 #include "../../logger/logger.h"
 #include "../../utils/panic.h"
 
-MODULE("PROC_EXEC", LOG_LEVEL_TRACE);
+MODULE("PROC_EXEC", LOG_LEVEL_INFO);
 
 extern void force_jump_to_user_proc(interrupt_frame_t *iframe);
 
@@ -25,7 +25,7 @@ int proc_execve(process_t *proc, const char *path, char *argv[], char *envp[]) {
     interrupt_frame_t *iframe = proc_get_interrupt_frame(proc);
     log_debug("calling 'force_jump_to_user_proc(%p)' to return to user land", iframe);
     force_jump_to_user_proc(iframe);
-    
+
     panic("exec returned, this should not happen");
     return OK;
 }

@@ -275,6 +275,9 @@ error_t vfs_open(const char *path, int flags, open_file_t **file) {
     log_trace("vfs_open(path='%s', flags=%d)", path, flags);
     int err;
     inode_t n = inodes.empty();
+    inode_t parent_inode = inodes.empty();
+    const char *final_name = NULL;
+    bool created = false; // Flag to track if the file was newly created
 
     // ideally a /dev is mounted. for now we take a shortcut
     if (memcmp((char *)path, "/dev/", 5) == 0) {
@@ -282,16 +285,60 @@ error_t vfs_open(const char *path, int flags, open_file_t **file) {
     }
 
     err = vfs_lookup(path, &n);
-    if (err) return err;
-    if (!inodes.is_file(&n))
-        return traceable(ERR_NOT_A_FILE);
+
+    if (err == ERR_NOT_FOUND) {
+        if (flags & O_CREAT) {
+            // File does not exist, and O_CREAT is set. Attempt to create.
+            err = vfs_lookup_parent(path, &parent_inode, &final_name);
+            if (err) return err;
+
+            // Use S_IFREG for regular file type by default. Other types would need to be passed via mode.
+            err = vfs_create(path, S_IFREG); 
+            if (err) return err;
+            created = true;
+            // Now that the file is created, lookup its inode
+            err = vfs_lookup(path, &n);
+            if (err) return err; // Should not fail as it was just created
+        } else {
+            // File does not exist, and O_CREAT is not set. Return ERR_NOT_FOUND.
+            return traceable(ERR_NOT_FOUND);
+        }
+    } else if (err == OK) {
+        // File exists.
+        if (flags & O_CREAT && flags & O_EXCL) {
+            // O_CREAT and O_EXCL are set, but file already exists. Return ERR_FILE_EXISTS.
+            return traceable(ERR_ALREADY_EXISTS);
+        }
+        if (!inodes.is_file(&n)) {
+            // Path refers to a directory or other non-regular file.
+            return traceable(ERR_NOT_A_FILE);
+        }
+    } else {
+        // Some other lookup error occurred.
+        return err;
+    }
+
+    // At this point, 'n' contains the inode of the file to open (either existing or newly created).
+
+    // Handle O_TRUNC
+    if ((flags & O_TRUNC) && !created) { // Don't truncate if just created, as it's already empty
+        err = n.sb->driver->truncate(&n, 0);
+        if (err) return err;
+    }
 
     err = n.sb->driver->open(&n, flags, file);
     if (err) return err;
 
+    // Store the original flags in the open_file_t structure
+    (*file)->flags = flags;
     // cache size for offset calculations
     (*file)->size = n.size;
     (*file)->offset = 0;
+
+    // If O_APPEND is set, initial offset should be end of file
+    if (flags & O_APPEND) {
+        (*file)->offset = (*file)->size;
+    }
 
     return OK;
 }
@@ -318,6 +365,12 @@ ssize_t vfs_read(open_file_t *file, void *buf, size_t len) {
 
 ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
     log_trace("vfs_write(file=%p, buff=%p, len=%d)", file, buf, len);
+    
+    // If O_APPEND is set, set the offset to the end of the file before writing
+    if (file->flags & O_APPEND) {
+        file->offset = file->size;
+    }
+
     ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
