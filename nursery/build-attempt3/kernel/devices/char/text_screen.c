@@ -89,12 +89,11 @@ static void text_screen_putc(text_screen_t *s, char c) {
     uint16_t *screen_mem;
 
     switch (c) {
-        case '
-': // Newline
+        case '\n': // Newline
             priv->state.pos.col = 0;
             priv->state.pos.row++;
             break;
-        case '': // Carriage return
+        case '\r': // Carriage return
             priv->state.pos.col = 0;
             break;
         case '\b': // Backspace
