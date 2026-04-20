@@ -1,6 +1,6 @@
-#include <uapi/base.h>
-#include <klib/string.h>
-#include <memory/kheap.h>
+#include "../../include/uapi/base.h"
+#include "../klib/string.h"
+#include "../memory/kheap.h"
 #include "vt100.h"
 #include "text_screen.h"
 
@@ -68,15 +68,15 @@ static void vt100_handle_csi_sequence(vt100_t *vt, char final_char) {
         case 'J': // Erase in Display (ED) - ESC[paramJ
             if (p1 == 0) { // Erase from cursor to end of screen
                 vt->screen->ops->set_pos(vt->screen, current_row, current_col);
-                for (int r = current_row; r < vt->screen->priv_data->rows; r++) {
+                for (int r = current_row; r < vt->screen->data->rows; r++) {
                     vt->screen->ops->set_pos(vt->screen, r, 0); // Move to start of line to clear
-                    vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->priv_data->cols); // Clear line with spaces
+                    vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->data->cols); // Clear line with spaces
                 }
                 vt->screen->ops->set_pos(vt->screen, current_row, current_col); // Restore cursor
             } else if (p1 == 1) { // Erase from start of screen to cursor
                 vt->screen->ops->set_pos(vt->screen, 0, 0);
                 for (int r = 0; r <= current_row; r++) {
-                    vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->priv_data->cols);
+                    vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->data->cols);
                 }
                 vt->screen->ops->set_pos(vt->screen, current_row, current_col);
             } else if (p1 == 2) { // Erase entire screen
@@ -88,7 +88,7 @@ static void vt100_handle_csi_sequence(vt100_t *vt, char final_char) {
             vt->screen->ops->get_pos(vt->screen, &current_row, &current_col);
             if (p1 == 0) { // Erase from cursor to end of line
                 vt->screen->ops->set_pos(vt->screen, current_row, current_col);
-                vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->priv_data->cols - current_col);
+                vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->data->cols - current_col);
                 vt->screen->ops->set_pos(vt->screen, current_row, current_col); // Restore cursor
             } else if (p1 == 1) { // Erase from start of line to cursor
                 vt->screen->ops->set_pos(vt->screen, current_row, 0);
@@ -96,7 +96,7 @@ static void vt100_handle_csi_sequence(vt100_t *vt, char final_char) {
                 vt->screen->ops->set_pos(vt->screen, current_row, current_col);
             } else if (p1 == 2) { // Erase entire line
                 vt->screen->ops->set_pos(vt->screen, current_row, 0);
-                vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->priv_data->cols);
+                vt->screen->ops->putmem(vt->screen, "                                                                                ", vt->screen->data->cols);
                 vt->screen->ops->set_pos(vt->screen, current_row, current_col);
             }
             break;
@@ -203,7 +203,7 @@ void vt100_write(vt100_t *vt, char c) {
 
         case VT100_STATE_CSI:
             if ((c >= '0' && c <= '9') || c == ';') { // Parameter characters
-                if (vt->param_idx < sizeof(vt->params) - 1) {
+                if (vt->param_idx < (int)sizeof(vt->params) - 1) {
                     vt->params[vt->param_idx++] = c;
                     vt->params[vt->param_idx] = '\0'; // Always null-terminate
                 }
