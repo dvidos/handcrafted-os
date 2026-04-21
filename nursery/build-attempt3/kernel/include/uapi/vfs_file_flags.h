@@ -56,4 +56,10 @@
     #define S_IXOTH  00001  // others can execute
 
 
+    // ----------- Access modes below -----------------------
+    #define F_OK        0       /* Test for existence.  */
+    #define X_OK        1       /* Test for execute permission.  */
+    #define W_OK        2       /* Test for write permission.  */
+    #define R_OK        4       /* Test for read permission.  */
+
 #endif

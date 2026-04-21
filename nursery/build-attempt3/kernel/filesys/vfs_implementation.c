@@ -13,6 +13,8 @@
 #include "../utils/assert.h"
 #include "../klib/strerror.h"
 #include "../filesys/fs_api.h"
+#include "../include/uapi/vfs_file_flags.h" // For F_OK, R_OK, W_OK, X_OK and S_I* macros
+#include "../include/uapi/vfs_stat.h"       // For vfs_stat_t
 
 MODULE("VFS", LOG_LEVEL_INFO);
 
@@ -470,6 +472,66 @@ error_t vfs_stat(vfs_context_t *ctx, const char *path, vfs_stat_t *out) {
 error_t vfs_fstat(open_file_t *file, vfs_stat_t *out) {
     log_trace("vfs_fstat(file=%ld)", file->inode.inode_num);
     return file->sb->driver->stat(&file->inode, out);
+}
+
+// Check file access permissions
+error_t vfs_access(vfs_context_t *ctx, const char *path, int mode) {
+    log_trace("vfs_access(path='%s', mode=%d)", path, mode);
+    inode_t n = inodes.empty();
+    int err;
+
+    err = vfs_lookup(ctx, path, &n);
+    if (err) {
+        if (mode == F_OK) {
+            // For F_OK, if lookup fails, it means the file does not exist, which is an error.
+            return err;
+        } else {
+            // For other modes, if lookup fails, it's an error.
+            return err;
+        }
+    }
+
+    // If only F_OK is requested and lookup succeeded, then the file exists.
+    if (mode == F_OK) {
+        return OK;
+    }
+
+    vfs_stat_t stat_info;
+    err = n.sb->driver->stat(&n, &stat_info);
+    if (err) {
+        return err;
+    }
+
+    // Root (UID 0) always has access.
+    if (ctx->uid == 0) {
+        return OK;
+    }
+
+    // Determine the required permission bits
+    uint32_t needed_mask = 0;
+    if (mode & R_OK) needed_mask |= S_IRUSR | S_IRGRP | S_IROTH;
+    if (mode & W_OK) needed_mask |= S_IWUSR | S_IWGRP | S_IWOTH;
+    if (mode & X_OK) needed_mask |= S_IXUSR | S_IXGRP | S_IXOTH;
+
+    // Check permissions based on owner, group, and others
+    uint32_t effective_mode = 0;
+    if (ctx->uid == stat_info.st_uid) {
+        // Owner permissions
+        effective_mode = (stat_info.st_mode & (S_IRUSR | S_IWUSR | S_IXUSR));
+    } else if (ctx->gid == stat_info.st_gid) {
+        // Group permissions
+        effective_mode = (stat_info.st_mode & (S_IRGRP | S_IWGRP | S_IXGRP)) << 3; // Shift to match user bits for comparison
+    } else {
+        // Other permissions
+        effective_mode = (stat_info.st_mode & (S_IROTH | S_IWOTH | S_IXOTH)) << 6; // Shift to match user bits for comparison
+    }
+    
+    // Check if all requested permissions are granted
+    if ((effective_mode & needed_mask) == needed_mask) {
+        return OK;
+    } else {
+        return traceable(ERR_NOT_PERMITTED);
+    }
 }
 
 error_t vfs_truncate(vfs_context_t *ctx, const char *path, size_t size) {

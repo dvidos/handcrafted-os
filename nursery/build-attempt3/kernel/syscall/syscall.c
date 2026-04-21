@@ -114,6 +114,9 @@ static int sys_mkdir(const char *path) {
 static int sys_rmdir(const char *path) {
     return vfs_rmdir(&running_process()->vfs_ctx, path);
 }
+static int sys_access(const char *path, int mode) {
+    return vfs_access(&running_process()->vfs_ctx, path, mode);
+}
 static int sys_dup(int fd) {
     return proc_dup(running_process(), fd);    
 }
@@ -250,6 +253,9 @@ void isr_syscall(interrupt_frame_t *frame) {
             break;
         case SYS_RMDIR:  // arg1 = path
             return_value = sys_rmdir((char *)arg1);
+            break;
+        case SYS_ACCESS:   // arg1 = path, arg2 = mode
+            return_value = sys_access((const char *)arg1, arg2);
             break;
         case SYS_DUP:
             return_value = sys_dup(arg1);

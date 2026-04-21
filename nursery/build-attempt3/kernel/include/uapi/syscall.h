@@ -32,6 +32,7 @@
 #define SYS_FCNTL            43   // arg1 = fd, arg2 = cmd, arg3 = arg
 #define SYS_RENAME           44   // arg1 = old path, arg2 = new path
 #define SYS_IOCTL            45   // arg1 = handle, arg2 = cmd, arg3 = arg
+#define SYS_ACCESS           46   // arg1 = path, arg2 = mode
 
 // process / environment
 #define SYS_GET_CWD          51   // arg1 = buffer, arg2 = buffer size

@@ -821,8 +821,7 @@ static void runOnChild(const char *cmd) {
     }
 
     // Try to execute the program directly.
-    execve(argv[0], (char **)argv, NULL);
-    // execvp(argv[0], (char **) argv);
+    execvp(argv[0], (char **) argv);
 
     /*
      * The exec failed, so try to run the command using the shell

@@ -15,8 +15,5 @@
  * about the process's permissions on the given file path.
  */
 int access(const char *pathname, int mode) {
-    (void)pathname; // Suppress unused parameter warning
-    (void)mode;     // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
+    return syscall(SYS_ACCESS, (int)pathname, (int)mode, 0, 0, 0);
 }

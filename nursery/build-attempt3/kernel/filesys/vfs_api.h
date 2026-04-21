@@ -43,6 +43,7 @@ error_t vfs_closedir(open_file_t *dir);
 // metadata ops (resolve path or FD, call driver stat/truncate)
 error_t vfs_stat(vfs_context_t *ctx, const char *path, vfs_stat_t *out);
 error_t vfs_fstat(open_file_t *file, vfs_stat_t *out);
+error_t vfs_access(vfs_context_t *ctx, const char *path, int mode);
 error_t vfs_truncate(vfs_context_t *ctx, const char *path, size_t size);
 error_t vfs_ioctl(open_file_t *file, uint32_t cmd, long arg);
 
