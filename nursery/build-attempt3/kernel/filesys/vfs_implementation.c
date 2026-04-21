@@ -62,9 +62,6 @@ static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup
     if (path[part_offset] == '/') {
         curr = ctx->root_inode;
         part_offset++;
-
-        inodes.log("root inodex", &ctx->root_inode);
-
     } else {
         curr = ctx->cwd_inode;
     }

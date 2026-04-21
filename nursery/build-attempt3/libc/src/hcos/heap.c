@@ -85,7 +85,7 @@ void __init_heap() {
     heap.first_header = head;
     heap.last_header = tail;
 
-    syslog_trace("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
+    syslog_debug("Heap initialized, %d bytes at 0x%x", heap.end_address - heap.start_address, heap.start_address);
 }
 
 static void extend_heap() {
@@ -271,7 +271,7 @@ void *realloc(void *ptr, size_t size) {
 
             // Clean up the newly freed part of memory
             memset((char*)new_free + sizeof(block_header_t), 0, new_free->size);
-            syslog_trace("realloc(%p, %u): shrunk block and split new free block %p", ptr, size, (char*)new_free + sizeof(block_header_t));
+            // syslog_trace("realloc(%p, %u): shrunk block and split new free block %p", ptr, size, (char*)new_free + sizeof(block_header_t));
         }
         // If not enough to split (either size is not small enough, or remaining space is too small),
         // just keep the block as is. No data movement needed.
@@ -283,7 +283,7 @@ void *realloc(void *ptr, size_t size) {
     block_header_t *next_block = block->next;
     if (next_block != NULL && !next_block->used &&
         (current_size + sizeof(block_header_t) + next_block->size >= size)) {
-        syslog_trace("realloc(%p, %u): attempting to merge with next free block %p", ptr, size, (char*)next_block + sizeof(block_header_t));
+        // syslog_trace("realloc(%p, %u): attempting to merge with next free block %p", ptr, size, (char*)next_block + sizeof(block_header_t));
 
         // Remove next_block from the list
         block->next = next_block->next;
@@ -325,13 +325,13 @@ void *realloc(void *ptr, size_t size) {
             }
             heap.available_memory -= sizeof(block_header_t); // A new block header was created
             memset((char*)new_free + sizeof(block_header_t), 0, new_free->size); // Clear the new free memory
-            syslog_trace("realloc(%p, %u): merged with next free and then split", ptr, size);
+            // syslog_trace("realloc(%p, %u): merged with next free and then split", ptr, size);
         }
         return ptr; // Return the same pointer
     }
 
     // If unable to extend, allocate new memory, copy, and free old
-    syslog_trace("realloc(%p, %u): allocating new block, copying, freeing old", ptr, size);
+    // syslog_trace("realloc(%p, %u): allocating new block, copying, freeing old", ptr, size);
     void *new_ptr = malloc(size); // Use the macro for consistency
     if (new_ptr == NULL) {
         // Malloc failed, errno is already set
