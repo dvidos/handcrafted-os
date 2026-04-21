@@ -47,10 +47,8 @@ static substring_t get_path_first_substring(const char *path) {
 static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup_parent, inode_t *inod_out, const char **name_out) {
     log_trace("vfs_flex_lookup(path='%s', parent=%s)", path, lookup_parent ? "true" : "false");
     ASSERT(ctx != NULL);
-    if (path == NULL || *path == 0 || path[0] != '/')
+    if (path == NULL || *path == 0)
         return traceable(ERR_BAD_ARGUMENT);
-    if (mtab.get_entries_list() == NULL)
-        return traceable(ERR_NO_FS_MOUNTED);
 
     inode_t curr = inodes.empty();
     inode_t next = inodes.empty();
@@ -456,7 +454,7 @@ error_t vfs_opendir(vfs_context_t *ctx, const char *path, open_file_t **dir) {
 }
 
 ssize_t vfs_readdir(open_file_t *dir, vfs_dirent_t *out) {
-    log_trace("vfs_readdir(dir=%ld)", dir->inode.inode_num);
+    log_trace("vfs_readdir(dir=%ld) (size=%lu, offset=%lu)", dir->inode.inode_num, dir->size, dir->offset);
     int bytes;
 
     bytes = dir->sb->driver->readdir(dir, out);

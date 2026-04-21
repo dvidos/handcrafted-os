@@ -17,7 +17,7 @@
 
 #define	LISTSIZE	8192
 
-
+#undef S_ISLNK // let's see.
 #ifdef	S_ISLNK
 #define	LSTAT	lstat
 #else
@@ -140,6 +140,7 @@ void do_ls(int argc, const char ** argv)
 	listAllFiles(flags, displayWidth);
 	clearListNames();
 
+
 	// If directories were being listed as themselves, then we are done.
 	if (flags & LSF_DIR)
 		return;
@@ -151,7 +152,6 @@ void do_ls(int argc, const char ** argv)
 
 		if (LSTAT(name, &statBuf) < 0) { 
 			perror(name);
-
 			continue;
 		}
 
@@ -186,7 +186,6 @@ void do_ls(int argc, const char ** argv)
 			// Save the file name in the list.
 			if (!addListName(fullName)) { 
 				closedir(dirp);
-
 				return;
 			}
 		}

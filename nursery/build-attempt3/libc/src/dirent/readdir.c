@@ -35,7 +35,7 @@ struct dirent *readdir(DIR *dirp) {
     vfs_dirent_t kernel_dirent_buf;
     int ret = syscall(SYS_READ_DIR, dirp->fd, (int)&kernel_dirent_buf, 0, 0, 0);
 
-    if (ret < 0) {
+    if (ret <= 0) {
         if (ret == 0) { // End of directory
             return NULL;
         }
