@@ -1,4 +1,5 @@
 #include "../libc_internal.h"
+#include <unistd.h> // For uid_t, gid_t
 
 /**
  * @brief Changes the owner and group of a file.
@@ -12,9 +13,10 @@
  * @return 0 on success, or -1 on error with `errno` set.
  */
 int chown(const char *pathname, uid_t owner, gid_t group) {
-    (void)pathname; // Suppress unused parameter warning
-    (void)owner;    // Suppress unused parameter warning
-    (void)group;    // Suppress unused parameter warning
-    errno = ENOSYS; // Function not implemented
-    return -1;
+    int ret = syscall(SYS_CHOWN, (int)pathname, (int)owner, (int)group, 0, 0);
+    if (ret < 0) {
+        errno = -ret;
+        return -1;
+    }
+    return 0;
 }

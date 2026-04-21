@@ -17,6 +17,9 @@ struct inode {
     uint64_t atime;
     uint64_t mtime;
     uint64_t ctime;
+    uint16_t perms;
+    uid_t    user_id;
+    gid_t    group_id;
 };
 
 

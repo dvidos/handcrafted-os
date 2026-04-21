@@ -33,6 +33,10 @@
 #define SYS_RENAME           44   // arg1 = old path, arg2 = new path
 #define SYS_IOCTL            45   // arg1 = handle, arg2 = cmd, arg3 = arg
 #define SYS_ACCESS           46   // arg1 = path, arg2 = mode
+#define SYS_CHMOD            47   // arg1 = path, arg2 = mode
+#define SYS_FCHMOD           48   // arg1 = fd, arg2 = mode
+#define SYS_CHOWN            49   // arg1 = path, arg2 = owner, arg3 = group
+#define SYS_FCHOWN           50   // arg1 = fd, arg2 = owner, arg3 = group
 
 // process / environment
 #define SYS_GET_CWD          51   // arg1 = buffer, arg2 = buffer size

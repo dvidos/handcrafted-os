@@ -600,6 +600,29 @@ static error_t sfs_driver_stat(inode_t *n, vfs_stat_t *out) {
     return OK;
 }
 
+static error_t sfs_driver_chmod(inode_t *n, uint32_t mode) {
+    sfs_mount_data *md = (sfs_mount_data *)n->sb->driver_priv_data;
+    stored_inode *sin;
+    error_t err = md->inode_cache->ops->get(md->inode_cache, n->inode_num, (void **)&sin);
+    if (err) return err;
+
+    sin->type_perms = (sin->type_perms & ~0777) | (mode & 0777); // Preserve file type, update permissions
+    md->inode_cache->ops->mark_dirty(md->inode_cache, n->inode_num);
+    return OK;
+}
+
+static error_t sfs_driver_chown(inode_t *n, uid_t uid, gid_t gid) {
+    sfs_mount_data *md = (sfs_mount_data *)n->sb->driver_priv_data;
+    stored_inode *sin;
+    error_t err = md->inode_cache->ops->get(md->inode_cache, n->inode_num, (void **)&sin);
+    if (err) return err;
+
+    sin->user_id = uid;
+    sin->group_id = gid;
+    md->inode_cache->ops->mark_dirty(md->inode_cache, n->inode_num);
+    return OK;
+}
+
 static error_t sfs_driver_truncate(inode_t *n, size_t size) {
     sfs_mount_data *md = (sfs_mount_data *)n->sb->driver_priv_data;
     stored_inode *sin;
@@ -658,6 +681,8 @@ static fs_driver_ops_t console_fs_ops = {
     .rmdir        = sfs_driver_rmdir,
     .stat         = sfs_driver_stat,
     .truncate     = sfs_driver_truncate,
+    .chmod        = sfs_driver_chmod,
+    .chown        = sfs_driver_chown,
     .ioctl        = NULL,
 };
 

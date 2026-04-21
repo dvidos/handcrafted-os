@@ -1,4 +1,5 @@
 #include "../../libc_internal.h"
+#include <sys/stat.h> // For mode_t
 
 /**
  * @brief Changes the permissions of a file associated with a file descriptor.
@@ -15,11 +16,11 @@
  * It allows changing permissions on an already open file, which can be useful
  * when the path to the file is not easily accessible.
  */
-// int fchmod(int fd, mode_t mode) {
-//     // TODO: Implement fchmod for your operating system.
-//     // This typically involves a system call.
-//     (void)fd;   // Suppress unused parameter warning
-//     (void)mode; // Suppress unused parameter warning
-//     errno = ENOSYS; // Function not implemented
-//     return -1;
-// }
+int fchmod(int fd, mode_t mode) {
+    int ret = syscall(SYS_FCHMOD, fd, (int)mode, 0, 0, 0);
+    if (ret < 0) {
+        errno = -ret;
+        return -1;
+    }
+    return 0;
+}

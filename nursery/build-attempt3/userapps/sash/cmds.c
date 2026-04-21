@@ -239,59 +239,96 @@ do_chmod(int argc, const char ** argv)
 
 		argv++;
 	}
+
+
+
+void
+do_chown(int argc, const char ** argv)
+{
+	const char *	cp;
+	int		uid;
+	int		gid;
+
+	if (argc < 4) {
+		fprintf(stderr, "Usage: chown <uid> <gid> <file>...\n");
+		return;
+	}
+
+	// Parse UID
+	uid = 0;
+	cp = argv[1];
+	while (isDecimal(*cp))
+		uid = uid * 10 + (*cp++ - '0');
+	if (*cp) {
+		fprintf(stderr, "Bad uid value\n");
+		return;
+	}
+
+	// Parse GID
+	gid = 0;
+	cp = argv[2];
+	while (isDecimal(*cp))
+		gid = gid * 10 + (*cp++ - '0');
+	if (*cp) {
+		fprintf(stderr, "Bad gid value\n");
+		return;
+	}
+
+	argc -= 2; // Adjust argc for uid and gid arguments
+	argv += 2; // Adjust argv to point to file paths
+
+	while (argc-- > 1) // Iterate through file paths
+	{
+		if (chown(argv[1], uid, gid) < 0)
+			perror(argv[1]);
+
+		argv++;
+	}
 }
 
 
 void
 do_chown(int argc, const char ** argv)
 {
-	// const char *	cp;
-	// int		uid;
-	// struct passwd *	pwd;
-	// struct stat	statBuf;
+	const char *	cp;
+	int		uid;
+	int		gid;
 
-	// cp = argv[1];
+	if (argc < 4) {
+		fprintf(stderr, "Usage: chown <uid> <gid> <file>...\n");
+		return;
+	}
 
-	// if (isDecimal(*cp))
-	// {
-	// 	uid = 0;
+	// Parse UID
+	uid = 0;
+	cp = argv[1];
+	while (isDecimal(*cp))
+		uid = uid * 10 + (*cp++ - '0');
+	if (*cp) {
+		fprintf(stderr, "Bad uid value\n");
+		return;
+	}
 
-	// 	while (isDecimal(*cp))
-	// 		uid = uid * 10 + (*cp++ - '0');
+	// Parse GID
+	gid = 0;
+	cp = argv[2];
+	while (isDecimal(*cp))
+		gid = gid * 10 + (*cp++ - '0');
+	if (*cp) {
+		fprintf(stderr, "Bad gid value\n");
+		return;
+	}
 
-	// 	if (*cp)
-	// 	{
-	// 		fprintf(stderr, "Bad uid value\n");
+	argc -= 2; // Adjust argc for uid and gid arguments
+	argv += 2; // Adjust argv to point to file paths
 
-	// 		return;
-	// 	}
-	// } else {
-	// 	pwd = getpwnam(cp);
+	while (argc-- > 1) // Iterate through file paths
+	{
+		if (chown(argv[1], uid, gid) < 0)
+			perror(argv[1]);
 
-	// 	if (pwd == NULL)
-	// 	{
-	// 		fprintf(stderr, "Unknown user name\n");
-
-	// 		return;
-	// 	}
-
-	// 	uid = pwd->pw_uid;
-	// }
-
-	// argc--;
-	// argv++;
-
-	// while (argc-- > 1)
-	// {
-	// 	argv++;
-
-	// 	if ((stat(*argv, &statBuf) < 0) ||
-	// 		(chown(*argv, uid, statBuf.st_gid) < 0))
-	// 	{
-	// 		perror(*argv);
-	// 	}
-	// }
-	fprintf(stderr, "No supported\n");
+		argv++;
+	}
 }
 
 

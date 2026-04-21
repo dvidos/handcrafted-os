@@ -102,6 +102,10 @@ static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup
         if (!inodes.is_dir(&curr))
             return traceable(ERR_NOT_A_DIRECTORY);
         
+        // Check execute permission on the current directory before traversing into it.
+        error_t perm_err = vfs_permission(ctx, &curr, X_OK);
+        if (perm_err) return perm_err;
+        
         err = curr.sb->driver->lookup(&curr, part_buffer, &next);
         if (err) return err;
 
@@ -319,6 +323,27 @@ error_t vfs_open(vfs_context_t *ctx, const char *path, int flags, open_file_t **
 
     // At this point, 'n' contains the inode of the file to open (either existing or newly created).
 
+    // Determine requested access mode for the existing file
+    int requested_access_mode = 0;
+    if ((flags & O_ACCMODE) == O_RDONLY) {
+        requested_access_mode = R_OK;
+    } else if ((flags & O_ACCMODE) == O_WRONLY) {
+        requested_access_mode = W_OK;
+    } else if ((flags & O_ACCMODE) == O_RDWR) {
+        requested_access_mode = R_OK | W_OK;
+    }
+
+    // If O_TRUNC is set, it implies write access
+    if (flags & O_TRUNC) {
+        requested_access_mode |= W_OK;
+    }
+
+    // Perform permission check if access modes (R/W/X) are requested
+    if (!created && requested_access_mode != 0) { // No need to check permissions for newly created files, as they assume default permissions which are checked by creation.
+        err = vfs_permission(ctx, &n, requested_access_mode);
+        if (err) return err;
+    }
+
     // Handle O_TRUNC
     if ((flags & O_TRUNC) && !created) { // Don't truncate if just created, as it's already empty
         err = n.sb->driver->truncate(&n, 0);
@@ -416,6 +441,10 @@ error_t vfs_opendir(vfs_context_t *ctx, const char *path, open_file_t **dir) {
     if (!inodes.is_dir(&n))
         return traceable(ERR_NOT_A_DIRECTORY);
 
+    // Check read and execute permissions on the directory
+    err = vfs_permission(ctx, &n, R_OK | X_OK);
+    if (err) return err;
+
     err = n.sb->driver->opendir(&n, dir);
     if (err) return err;
 
@@ -482,13 +511,8 @@ error_t vfs_access(vfs_context_t *ctx, const char *path, int mode) {
 
     err = vfs_lookup(ctx, path, &n);
     if (err) {
-        if (mode == F_OK) {
-            // For F_OK, if lookup fails, it means the file does not exist, which is an error.
-            return err;
-        } else {
-            // For other modes, if lookup fails, it's an error.
-            return err;
-        }
+        // If lookup fails, it means the file does not exist, which is an error for all modes.
+        return err;
     }
 
     // If only F_OK is requested and lookup succeeded, then the file exists.
@@ -496,8 +520,17 @@ error_t vfs_access(vfs_context_t *ctx, const char *path, int mode) {
         return OK;
     }
 
+    // Now call the centralized permission check
+    return vfs_permission(ctx, &n, mode);
+}
+
+error_t vfs_permission(vfs_context_t *ctx, inode_t *n, int mode)
+{
+    log_trace("vfs_permission(inode=%ld, mode=%d)", n->inode_num, mode);
+    int err;
+
     vfs_stat_t stat_info;
-    err = n.sb->driver->stat(&n, &stat_info);
+    err = n->sb->driver->stat(n, &stat_info);
     if (err) {
         return err;
     }
@@ -534,6 +567,89 @@ error_t vfs_access(vfs_context_t *ctx, const char *path, int mode) {
     }
 }
 
+
+error_t vfs_chmod(vfs_context_t *ctx, const char *path, uint32_t mode)
+{
+    log_trace("vfs_chmod(path='%s', mode=%o)", path, mode);
+    inode_t n = inodes.empty();
+    int err;
+
+    err = vfs_lookup(ctx, path, &n);
+    if (err) return err;
+
+    vfs_stat_t stat_info;
+    err = n.sb->driver->stat(&n, &stat_info);
+    if (err) return err;
+
+    // Only root or owner can change permissions
+    if (ctx->uid != 0 && ctx->uid != stat_info.st_uid) {
+        return traceable(ERR_NOT_PERMITTED);
+    }
+    
+    // Only permission bits are allowed to be set
+    mode &= 0777;
+    return n.sb->driver->chmod(&n, mode);
+}
+
+error_t vfs_fchmod(vfs_context_t *ctx, open_file_t *file, uint32_t mode)
+{
+    log_trace("vfs_fchmod(ctx=%p, file=%ld, mode=%o)", ctx, file->inode.inode_num, mode);
+    inode_t n = file->inode;
+    int err;
+
+    vfs_stat_t stat_info;
+    err = n.sb->driver->stat(&n, &stat_info);
+    if (err) return err;
+
+    // Only root or owner can change permissions
+    if (ctx->uid != 0 && ctx->uid != stat_info.st_uid) {
+        return traceable(ERR_NOT_PERMITTED);
+    }
+
+    // Only permission bits are allowed to be set
+    mode &= 0777;
+    return file->sb->driver->chmod(&file->inode, mode);
+}
+
+error_t vfs_chown(vfs_context_t *ctx, const char *path, uid_t uid, gid_t gid)
+{
+    log_trace("vfs_chown(path='%s', uid=%d, gid=%d)", path, uid, gid);
+    inode_t n = inodes.empty();
+    int err;
+
+    err = vfs_lookup(ctx, path, &n);
+    if (err) return err;
+
+    vfs_stat_t stat_info;
+    err = n.sb->driver->stat(&n, &stat_info);
+    if (err) return err;
+
+    // Only root can change ownership
+    if (ctx->uid != 0) {
+        return traceable(ERR_NOT_PERMITTED);
+    }
+
+    return n.sb->driver->chown(&n, uid, gid);
+}
+
+error_t vfs_fchown(vfs_context_t *ctx, open_file_t *file, uid_t uid, gid_t gid)
+{
+    log_trace("vfs_fchown(ctx=%p, file=%ld, uid=%d, gid=%d)", ctx, file->inode.inode_num, uid, gid);
+    inode_t n = file->inode;
+    int err;
+
+    vfs_stat_t stat_info;
+    err = n.sb->driver->stat(&n, &stat_info);
+    if (err) return err;
+
+    // Only root can change ownership
+    if (ctx->uid != 0) {
+        return traceable(ERR_NOT_PERMITTED);
+    }
+
+    return file->sb->driver->chown(&n, uid, gid);
+}
+
 error_t vfs_truncate(vfs_context_t *ctx, const char *path, size_t size) {
     log_trace("vfs_truncate(file='%s')", path);
     inode_t n = inodes.empty();
@@ -553,6 +669,10 @@ error_t vfs_create(vfs_context_t *ctx, const char *path, int type) {
     int err = vfs_lookup_parent(ctx, path, &dir, &name_ptr);
     if (err) return err;
 
+    // Check write and execute permissions on the parent directory
+    err = vfs_permission(ctx, &dir, W_OK | X_OK);
+    if (err) return err;
+
     inode_t new_file = inodes.empty();
     err = dir.sb->driver->create(&dir, name_ptr, type, &new_file);
     if (err) return err;
@@ -565,6 +685,10 @@ error_t vfs_unlink(vfs_context_t *ctx, const char *path) {
     inode_t dir = inodes.empty();
     const char *name_ptr = NULL;
     int err = vfs_lookup_parent(ctx, path, &dir, &name_ptr);
+    if (err) return err;
+
+    // Check write and execute permissions on the parent directory
+    err = vfs_permission(ctx, &dir, W_OK | X_OK);
     if (err) return err;
 
     inode_t new_file = inodes.empty();
@@ -581,6 +705,10 @@ error_t vfs_mkdir(vfs_context_t *ctx, const char *path) {
     int err = vfs_lookup_parent(ctx, path, &parent_dir, &name_ptr);
     if (err) return err;
 
+    // Check write and execute permissions on the parent directory
+    err = vfs_permission(ctx, &parent_dir, W_OK | X_OK);
+    if (err) return err;
+
     inode_t new_dir = inodes.empty();
     err = parent_dir.sb->driver->mkdir(&parent_dir, name_ptr, &new_dir);
     if (err) return err;
@@ -593,6 +721,10 @@ error_t vfs_rmdir(vfs_context_t *ctx, const char *path) {
     inode_t dir = inodes.empty();
     const char *name_ptr = NULL;
     int err = vfs_lookup_parent(ctx, path, &dir, &name_ptr);
+    if (err) return err;
+
+    // Check write and execute permissions on the parent directory
+    err = vfs_permission(ctx, &dir, W_OK | X_OK);
     if (err) return err;
 
     err = dir.sb->driver->rmdir(&dir, name_ptr);
