@@ -233,3 +233,28 @@ int device_unregister(dev_t id);
 struct device_ops *device_get_ops(dev_t id);
 void *device_get_private(dev_t id);
 ```
+
+
+# The Input Chain: From Hardware to gets()
+
+Here follows the flow from the highest level of abstraction down to the hardware-blocking state.
+
+### 1. C Standard Library (User Space Buffering)
+
+* `gets()` / `fgets()`: High-level API. Operates on a `FILE *` stream.
+* `fgetc()`: Extracts a single character from the internal `FILE` buffer.
+* **Line-Caching Policy**: If the buffer is empty, it triggers a system call to refill it.
+* `read()` (libc): The POSIX wrapper that triggers the software interrupt (syscall).
+
+### 2. Virtual File System (Kernel Entry)
+
+* `sys_read()` / `vfs_read()`: The kernel-side entry point. It looks up the File Descriptor (FD) and finds the associated VFS object.
+* `dev_tty` operations: The VFS delegates the call to the driver associated with /dev/tty0.
+
+### 3. TTY Subsystem (The Logic Layer)
+
+* `tty_read()`: The generic TTY handler. This is where the "Line Discipline" usually lives.
+* **Line Discipline (N_TTY)**: Processes raw input. It handles backspaces, line buffering (canonical mode), and echo.
+* `tty_read_key_event()`: The driver-specific function that interfaces with the actual input hardware or a keyboard buffer.
+* **Blocking/Interrupt**: If the hardware buffer is empty, the process is put to sleep until a keyboard interrupt occurs.
+

@@ -1,4 +1,4 @@
-#include "dev_tty.h"
+#include "tty_fops.h"
 #include "../../../klib/string.h"
 #include "../../../devices/tty_manager.h"
 #include "../../../include/uapi/errors.h"
@@ -9,7 +9,6 @@
 MODULE("DEV_TTY", LOG_LEVEL_DEBUG);
 
 static superblock_t tty_superblock;
-
 
 
 

@@ -33,7 +33,7 @@
 #include "filesys/partitions/uefi_partition.h"
 #include "filesys/fs_drivers/skeleton_fs/skeleton_fs.h"
 #include "filesys/fs_drivers/sfs/sfs.h"
-#include "filesys/dev_drivers/tty/dev_tty.h"
+#include "filesys/dev_drivers/tty/tty_fops.h"
 
 #include "proc/semaphore.h"
 #include "proc/multitask.h"

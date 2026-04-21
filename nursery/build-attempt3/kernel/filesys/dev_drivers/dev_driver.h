@@ -18,7 +18,6 @@
 
 typedef struct device           device_t;
 typedef struct dev_driver       dev_driver_t;
-typedef struct dev_driver_ops   dev_driver_ops_t;
 
 
 struct dev_driver {
