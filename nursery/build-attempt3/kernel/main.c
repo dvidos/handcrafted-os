@@ -174,7 +174,8 @@ static void launch_initial_process() {
     // ideally init path should be settable by kernel cmd line
     err = process_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
-    proc_chdir(proc, "/");
+    // if (proc_chroot(proc, "/") != OK) panic("Cannot chroot on init process");
+    // if (proc_chdir(proc, "/") != OK) panic("Cannot chdir on root process");
     log_debug_fmt(proc_log_formatter, "init: ", proc);
     proc_set_reparenting_proc(proc);
     proc_start(proc);
@@ -329,7 +330,7 @@ static void initialize_storage_and_file_systems() {
             continue;
         
         log_info("Mounting device %s as root using driver '%s'", dev->id, driver->name);
-        err = vfs_mount("/", dev, driver->ops);
+        err = vfs_mount(NULL, "/", dev, driver->ops);
         if (err) {
             log_error("Mount device %s by driver %s failed: %d", dev->id, driver->name, err);
             continue;

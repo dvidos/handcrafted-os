@@ -92,6 +92,9 @@ static int sys_readdir(int handle, vfs_dirent_t *dirent) {
 static int sys_closedir(int handle) {
     return proc_closedir(running_process(), handle);
 }
+static int sys_stat(const char *path, vfs_stat_t *out) {
+    return vfs_stat(&running_process()->vfs_ctx, path, out);
+}
 static int sys_fstat(int handle, vfs_stat_t *out) {
     open_file_t *f = proc_get_open_file(running_process(), handle);
     if (f == NULL) return ERR_BAD_FILE;
@@ -101,6 +104,15 @@ static int sys_ioctl(int handle, uint32_t cmd, long arg) {
     open_file_t *f = proc_get_open_file(running_process(), handle);
     if (f == NULL) return ERR_BAD_FILE;
     return vfs_ioctl(f, cmd, arg);
+}
+static int sys_unlink(const char *path) {
+    return vfs_unlink(&running_process()->vfs_ctx, path);
+}
+static int sys_mkdir(const char *path) {
+    return vfs_mkdir(&running_process()->vfs_ctx, path);
+}
+static int sys_rmdir(const char *path) {
+    return vfs_rmdir(&running_process()->vfs_ctx, path);
 }
 static int sys_dup(int fd) {
     return proc_dup(running_process(), fd);    
@@ -120,10 +132,10 @@ static int sys_exec(char *path, char **argv, char **envp) {
 static int sys_spawn(char *path, char **argv, char **envp) {
     return proc_spawnve(running_process(), path, argv, envp);
 }
-static int sys_wait_any_child(int *exit_code) {
+static int sys_wait(int *exit_code) {
     return proc_wait(running_process(), exit_code);
 }
-static int sys_wait_spec_child(pid_t child_pid, int *exit_code, int mode) {
+static int sys_wait_pid(pid_t child_pid, int *exit_code, int mode) {
     return proc_waitpid(running_process(), child_pid, exit_code, mode);
 }
 static int sys_get_clocktime(clocktime_t *ct) {
@@ -221,23 +233,23 @@ void isr_syscall(interrupt_frame_t *frame) {
             // return_value = vfs_touch((char *)arg1);
             break;
         case SYS_STAT:   // arg1 = path, arg2 = stat struct pointer
-            return_value = vfs_stat((const char *)arg1, (vfs_stat_t *)arg2);
+            return_value = sys_stat((const char *)arg1, (vfs_stat_t *)arg2);
             break;
         case SYS_FSTAT:   // arg1 = fd, arg2 = stat struct pointer
             // we need to find 
             return_value = sys_fstat(arg1, (vfs_stat_t *)arg2);
             break;
         case SYS_UNLINK:   // arg1 = path (dir or file)
-            return_value = vfs_unlink((char *)arg1);
+            return_value = sys_unlink((char *)arg1);
             break;
         case SYS_IOCTL:  // arg1 = handle, arg2 = cmd, arg3 = arg
             return_value = sys_ioctl(arg1, arg2, arg3);
             break;
         case SYS_MKDIR:   // arg1 = path
-            return_value = vfs_mkdir((char *)arg1);
+            return_value = sys_mkdir((char *)arg1);
             break;
         case SYS_RMDIR:  // arg1 = path
-            return_value = vfs_rmdir((char *)arg1);
+            return_value = sys_rmdir((char *)arg1);
             break;
         case SYS_DUP:
             return_value = sys_dup(arg1);
@@ -265,10 +277,10 @@ void isr_syscall(interrupt_frame_t *frame) {
             return_value = sys_spawn((char *)arg1, (char **)arg2, (char **)arg3);
             break;
         case SYS_WAIT_ANY_CHILD:
-            return_value = sys_wait_any_child((int *)arg1);
+            return_value = sys_wait((int *)arg1);
             break;
         case SYS_WAIT_SPEC_CHILD:
-            return_value = sys_wait_spec_child((pid_t)arg1, (int *)arg2, arg3);
+            return_value = sys_wait_pid((pid_t)arg1, (int *)arg2, arg3);
             break;
         case SYS_YIELD:
             return_value = sys_yield();

@@ -102,7 +102,7 @@ struct process {
     pid_t terminated_child_pid;
     int   terminated_child_exit_code;
 
-    inode_t cwd_node;
+    vfs_context_t vfs_ctx;
     char *cwd_path;
 
     open_file_t *file_handles[MAX_FILE_HANDLES];
@@ -151,8 +151,10 @@ int proc_waitpid(process_t *proc, pid_t child_pid, int *exit_code, int mode); //
 void proc_destroy(process_t *proc);
 
 // cwd.c
+int proc_chroot(process_t *proc, const char *path);
 int proc_getcwd(process_t *proc, char *buffer, int size);
 int proc_chdir(process_t *proc, const char *path);
+
 
 // fork.c
 int proc_fork(process_t *proc); // clone, return child's PID on parent, zero on child

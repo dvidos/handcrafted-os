@@ -13,6 +13,6 @@
  * @return On success, `execv` does not return. On error, -1 is returned, and `errno` is set.
  */
 int execv(const char *path, char *const argv[]) {
-    char *envp[] = { NULL };
-    return syscall(SYS_EXEC, (int)path, (int)argv, (int)envp, 0, 0);
+    extern char **environ;
+    return syscall(SYS_EXEC, (int)path, (int)argv, (int)environ, 0, 0);
 }

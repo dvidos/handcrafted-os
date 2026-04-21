@@ -58,7 +58,7 @@ static int release_file_handle(process_t *proc, int handle) {
 int proc_open(process_t *proc, char *name) {
     open_file_t *file;
     // fast resolve relative to cwd (we'll need rewinddir() at least)
-    int err = vfs_open(name, 0, &file);
+    int err = vfs_open(&proc->vfs_ctx, name, 0, &file);
     if (err) return err;
 
     int handle = allocate_file_handle(proc, file, -1);
@@ -103,7 +103,7 @@ int proc_close(process_t *proc, int handle) {
 int proc_opendir(process_t *proc, char *name) {
     open_file_t *file;
     // fast resolve relative to cwd
-    int err = vfs_opendir(name, &file);
+    int err = vfs_opendir(&proc->vfs_ctx, name, &file);
     if (err) return err;
 
     int handle = allocate_file_handle(proc, file, -1);

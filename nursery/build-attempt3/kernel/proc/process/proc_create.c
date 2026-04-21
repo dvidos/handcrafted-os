@@ -604,11 +604,13 @@ error:
 }
 
 static error_t init_filesystem_stuff(process_t *proc) {
+    log_trace("init_filesystem_stuff(proc=%d)", proc);
     error_t err;
 
+    err = proc_chroot(proc, "/");
+    if (err) return err;
     err = proc_chdir(proc, "/");
     if (err) return err;
-
     
     err = proc_open(proc, "/dev/tty0");
     if (err < 0) return err;
@@ -620,11 +622,12 @@ static error_t init_filesystem_stuff(process_t *proc) {
 }    
 
 static error_t inherit_filesystem_stuff(process_t *child, process_t *parent) {
+    log_trace("inherit_filesystem_stuff(child=%d, parent=%d)", child, parent);
+
     ASSERT(parent != NULL);
 
-    child->cwd_node = parent->cwd_node;
-    if (parent->cwd_path != NULL)
-        child->cwd_path = strdup(parent->cwd_path);
+    memcpy(&child->vfs_ctx, &parent->vfs_ctx, sizeof(vfs_context_t));
+    parent->cwd_path = strdup(parent->cwd_path);
     
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
         if (parent->file_handles[i] == NULL)
@@ -636,7 +639,7 @@ static error_t inherit_filesystem_stuff(process_t *child, process_t *parent) {
 }
 
 static error_t destroy_filesystem_stuff(process_t *proc) {
-    proc->cwd_node = inodes.empty();
+
     if (proc->cwd_path) {
         kfree(proc->cwd_path);
         proc->cwd_path = NULL;
@@ -721,11 +724,6 @@ error_t process_create_for_spawn(process_t *parent, const char *file_path, char 
     process_t *child = NULL;
     page_dir_t pd = 0;
 
-    err = vfs_open(file_path, 0, &elf);
-    if (err) goto failed;
-    err = elf_verify_executable(elf); // verify early for better recovery
-    if (err) goto failed;
-
     pd = vmm_create_user_page_directory();
     if (pd == 0) { err = ERR_NO_MEMORY; goto failed; }
     
@@ -733,6 +731,16 @@ error_t process_create_for_spawn(process_t *parent, const char *file_path, char 
     if (err) goto failed;
     pd = 0; // from now on, proc_destroy() shall destroy the PD, not us
     
+    // prepare filesystem in order to be able to open the executable
+    if (parent == NULL) err = init_filesystem_stuff(child);
+    else err = inherit_filesystem_stuff(child, parent);
+    if (err) goto failed;
+
+    err = vfs_open(&child->vfs_ctx, file_path, 0, &elf);
+    if (err) goto failed;
+    err = elf_verify_executable(elf); // verify early for better recovery
+    if (err) goto failed;
+
     virt_addr_t user_exec_address = 0;
     err = allocate_and_load_all_elf_segments_from_file(child, elf, &user_exec_address);
     if (err) goto failed;
@@ -752,11 +760,6 @@ error_t process_create_for_spawn(process_t *parent, const char *file_path, char 
     if (err) goto failed;
 
     vfs_close(elf);
-
-    if (parent == NULL) 
-        init_filesystem_stuff(child);
-    else
-        inherit_filesystem_stuff(child, parent);
     
     *proc_ptr = child;
     return OK;
@@ -776,7 +779,7 @@ error_t process_replace_for_exec(process_t *proc, const char *file_path, char **
     error_t err = OK;
     open_file_t *elf = NULL;
 
-    err = vfs_open(file_path, 0, &elf);
+    err = vfs_open(&proc->vfs_ctx, file_path, 0, &elf);
     if (err) goto failed;
     err = elf_verify_executable(elf); // verify early for better recovery
     if (err) goto failed;
