@@ -9,6 +9,7 @@
 #include "../../proc/process/process.h"
 #include "../../utils/assert.h"
 #include "vconsole.h"
+#include "../../include/uapi/key_codes.h"
 
 MODULE("VCONS", LOG_LEVEL_INFO);
 
@@ -92,10 +93,31 @@ static uint16_t *get_screen_ptr(struct vconsole_data *vd, int row, int col) {
     return (vd->buffers[vd->current_buff_no] + (row * vd->screen.size.cols + col));
 }
 
+static void history_add_line(vconsole_t *vc, uint16_t *line_data) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    uint16_t *dest_line_ptr;
+
+    // Calculate the destination in the circular buffer
+    dest_line_ptr = vd->history.rows_array + (vd->history.head * vd->screen.size.cols);
+    memcpy(dest_line_ptr, line_data, vd->screen.size.cols * sizeof(uint16_t));
+
+    vd->history.head = (vd->history.head + 1) % vd->history.max_rows;
+
+    if (vd->history.count < vd->history.max_rows) {
+        vd->history.count++;
+    }
+}
+
 static void scroll_up(vconsole_t *vc, int count) {
     struct vconsole_data *vd = (struct vconsole_data *)vc->data;
     if (count <= 0 || count >= vd->screen.size.rows) {
         return; // nothing to scroll or scroll too much
+    }
+
+    // Save the lines that are about to scroll off the top to history
+    for (int i = 0; i < count; i++) {
+        uint16_t *line_to_save = get_screen_ptr(vd, vd->screen.scroll_lines.begin + i, 0);
+        history_add_line(vc, line_to_save);
     }
 
     // move lines up
@@ -153,6 +175,8 @@ static void insert_line(vconsole_t *vc, int row) {
     }
 }
 
+
+
 static void vconsole_clear(vconsole_t *vc) {
     struct vconsole_data *vd = (struct vconsole_data *)vc->data;
     push_notifications(vc);
@@ -170,6 +194,9 @@ static void vconsole_putc(vconsole_t *vc, char c) {
     push_notifications(vc);
     struct vconsole_data *vd = (struct vconsole_data *)vc->data;
     uint16_t *screen_mem;
+
+    // Reset view_offset to 0 when new output arrives
+    vd->view_offset = 0;
 
     switch (c) {
         case '\n': // Newline
@@ -540,6 +567,30 @@ static void vconsole_enqueue_key(vconsole_t *vc, key_event_t *event) {
     vd->keys.length++;
 }
 
+static uint16_t *vconsole_get_history_line(vconsole_t *vc, int index) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    if (index < 0 || index >= vd->history.count) {
+        return NULL; // Invalid index
+    }
+    int actual_index = (vd->history.head - vd->history.count + index + vd->history.max_rows) % vd->history.max_rows;
+    return vd->history.rows_array + (actual_index * vd->screen.size.cols);
+}
+
+static int vconsole_get_history_count(vconsole_t *vc) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    return vd->history.count;
+}
+
+static int vconsole_get_view_offset(vconsole_t *vc) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    return vd->view_offset;
+}
+
+static void vconsole_set_view_offset(vconsole_t *vc, int offset) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    vd->view_offset = offset;
+}
+
 static void vconsole_destroy(vconsole_t *vc) {
     if (vc == NULL)
         return;
@@ -587,6 +638,11 @@ static struct vconsole_ops ops = {
     
     .enqueue_key = vconsole_enqueue_key,
     .destroy = vconsole_destroy,
+    
+    .get_history_line = vconsole_get_history_line,
+    .get_history_count = vconsole_get_history_count,
+    .get_view_offset = vconsole_get_view_offset,
+    .set_view_offset = vconsole_set_view_offset,
 };
 
 vconsole_t *create_vconsole(int rows, int cols, console_buffer_modified_func *on_modified) {
@@ -612,11 +668,45 @@ vconsole_t *create_vconsole(int rows, int cols, console_buffer_modified_func *on
     vd->screen.cursor.visible = true;
 
     vd->canonical_buffer = kmalloc(CANONICAL_BUFFER_SIZE);
+    if (!vd->canonical_buffer) {
+        kfree(vc);
+        kfree(vd);
+        return NULL;
+    }
     vd->canonical_buffer[0] = 0;
+
+    // Initialize history buffer (circular array of lines)
+    vd->history.max_rows = vd->screen.size.rows * 2; // Store two full screens of history
+    // Each line in history stores characters with attributes (uint16_t)
+    vd->history.rows_array = kmalloc(vd->history.max_rows * vd->screen.size.cols * sizeof(uint16_t));
+    if (!vd->history.rows_array) {
+        kfree(vd->canonical_buffer);
+        kfree(vc);
+        kfree(vd);
+        return NULL;
+    }
+    memset(vd->history.rows_array, 0, vd->history.max_rows * vd->screen.size.cols * sizeof(uint16_t));
+    vd->history.count = 0; // No history lines stored yet
+    vd->history.head = 0;  // Next write position in the circular buffer
 
     size_t screen_buffer_size = cols * rows * 2;
     vd->buffers[0] = kmalloc(screen_buffer_size);
+    if (!vd->buffers[0]) {
+        kfree(vd->history.rows_array);
+        kfree(vd->canonical_buffer);
+        kfree(vc);
+        kfree(vd);
+        return NULL;
+    }
     vd->buffers[1] = kmalloc(screen_buffer_size);
+    if (!vd->buffers[1]) {
+        kfree(vd->buffers[0]);
+        kfree(vd->history.rows_array);
+        kfree(vd->canonical_buffer);
+        kfree(vc);
+        kfree(vd);
+        return NULL;
+    }
 
     vd->notification_counter = 0;
     vd->callbacks.on_modified = on_modified;

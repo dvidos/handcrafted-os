@@ -68,6 +68,12 @@ struct vconsole_ops {
     
     void (*enqueue_key)(vconsole_t *vc, key_event_t *key);
     void (*destroy)(vconsole_t *vc);
+    
+    // History getters for console manager
+    uint16_t *(*get_history_line)(vconsole_t *vc, int index);
+    int (*get_history_count)(vconsole_t *vc);
+    int (*get_view_offset)(vconsole_t *vc);
+    void (*set_view_offset)(vconsole_t *vc, int offset);
 };
 
 vconsole_t *create_vconsole(int rows, int cols, console_buffer_modified_func *on_modified);
