@@ -1,5 +1,5 @@
-#ifndef _KERNEL_KEYBOARD_H
-#define _KERNEL_KEYBOARD_H
+#pragma once
+
 
 #include "../include/ctypes.h"
 #include "../arch/stack_frames.h"
@@ -17,4 +17,3 @@ bool kbd_get_event_non_blocking(key_event_t *event);
 
 
 
-#endif

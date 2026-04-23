@@ -1,7 +1,7 @@
 #ifndef __KERNEL_DEVICES_CHAR_VT100_H__
 #define __KERNEL_DEVICES_CHAR_VT100_H__
 
-#include "text_screen.h"
+#include "vconsole.h"
 
 // States for the VT100 parser state machine
 typedef enum {
@@ -13,7 +13,7 @@ typedef enum {
 
 // Structure to hold VT100 emulator state
 typedef struct vt100 {
-    text_screen_t *screen;      // Dependency: the text screen to draw on
+    vconsole_t *vcons;      // Dependency: the text screen to draw on
 
     vt100_state_t state;        // Current state of the parser
     char params[16];            // Buffer for CSI parameters (e.g., "3;4" in ESC[3;4H)
@@ -30,7 +30,7 @@ typedef struct vt100 {
 } vt100_t;
 
 // Function to create and initialize a VT100 emulator instance
-vt100_t *create_vt100(text_screen_t *screen);
+vt100_t *create_vt100(vconsole_t *vcons);
 
 // Function to destroy a VT100 emulator instance
 void destroy_vt100(vt100_t *vt);

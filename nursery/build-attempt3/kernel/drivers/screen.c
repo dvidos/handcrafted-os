@@ -107,6 +107,21 @@ void screen_set_cursor(uint8_t row, uint8_t col) {
     outb(REG_SCREEN_DATA, LOW_BYTE(offset));
 }
 
+void screen_show_cursor() {
+    // Enable cursor (start scanline 14, end scanline 15 for a typical block cursor)
+    // This might vary based on the VGA card. Default values are often sufficient.
+    outb(0x3D4, 0x0A);
+    outb(0x3D5, (inb(0x3D5) & 0xC0) | 14); // Cursor Start Register
+    outb(0x3D4, 0x0B);
+    outb(0x3D5, (inb(0x3D5) & 0xE0) | 15); // Cursor End Register
+}
+
+void screen_hide_cursor() {
+    // Disable cursor by moving it off-screen or setting start > end
+    outb(0x3D4, 0x0A);
+    outb(0x3D5, 0x20); // Set bit 5 to disable cursor
+}
+
 uint8_t screen_get_color() {
 	return screen_color;
 }

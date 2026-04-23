@@ -5,180 +5,170 @@
 #include "../proc/procman/scheduler.h"
 #include "../proc/procman/proclist.h"
 #include "../devices/devices.h"
+#include "../devices/tty/console_mgr.h"
 #include "../memory/kheap.h"
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
 
 
-static void show_process(tty_t *tty, bool title, process_t *p, int *row) {
-    // we should find the tty from the process?
+// static void show_process(vconsole_t *vc, bool title, process_t *p, int *row) {
+//     // we should find the vc from the process?
 
-    tty_set_cursor(tty, *row, 0);
-    if (title) {
-        tty_printf(tty, "  PID  PPID Pr Status     Block Rsn  TTY  PgDir Heap Stack Name");
-        //      12345 12345 12 1234567890 1234567890 123 123456 1234  1234 12345678901234567890
-        (*row)++;
-    } else if (p != NULL) {
-        char tty_dev[3+1];
-        strcpy(tty_dev, "-");
+//     old_vcons_set_cursor(vc, *row, 0);
+//     if (title) {
+//         old_vcons_printf(vc, "  PID  PPID Pr Status     Block Rsn  TTY  PgDir Heap Stack Name");
+//         //      12345 12345 12 1234567890 1234567890 123 123456 1234  1234 12345678901234567890
+//         (*row)++;
+//     } else if (p != NULL) {
+//         char tty_dev[3+1];
+//         strcpy(tty_dev, "-");
         
-        tty_printf(tty, "%5d %5d %2d %-10s %-10s %3s %6x %4d  %4d %s",
-            p->pid,
-            p->parent == NULL ? 0 : p->parent->pid,
-            p->priority,
-            proc_get_status_name(p->state),
-            p->state == BLOCKED ? proc_get_block_reason_name(p->block_reason) : "",
-            tty_dev,
-            p->memory.page_dir,
-            p->memory.user_heap.size / 1024,
-            p->memory.user_stack.size / 1024,
-            p->name
-        );
-        (*row)++;
-    }
-}
+//         old_vcons_printf(vc, "%5d %5d %2d %-10s %-10s %3s %6x %4d  %4d %s",
+//             p->pid,
+//             p->parent == NULL ? 0 : p->parent->pid,
+//             p->priority,
+//             proc_get_status_name(p->state),
+//             p->state == BLOCKED ? proc_get_block_reason_name(p->block_reason) : "",
+//             tty_dev,
+//             p->memory.page_dir,
+//             p->memory.user_heap.size / 1024,
+//             p->memory.user_stack.size / 1024,
+//             p->name
+//         );
+//         (*row)++;
+//     }
+// }
 
-void show_process_list(tty_t *tty, proc_list_t *list, int *row) {
-    for (process_t *p = list->head; p != NULL; p = p->list_next)
-        show_process(tty, false, p, row);
-}
+// void show_process_list(vconsole_t *vc, proc_list_t *list, int *row) {
+//     for (process_t *p = list->head; p != NULL; p = p->list_next)
+//         show_process(vc, false, p, row);
+// }
 
-void process_monitor_main() {
-    tty_t *tty = tty_manager_get_device(4);
-    tty_set_title(tty, "Process Monitor");
+// void process_monitor_main() {
+//     vconsole_t *vc = console_mgr_get_old_vcons(4);
+//     old_vcons_set_title(vc, "Process Monitor");
 
-    real_time_clock_info_t time;
-    char *days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-    char *months[] = {"?", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+//     real_time_clock_info_t time;
+//     char *days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+//     char *months[] = {"?", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
-    /*
-         top:
-        top - 07:34:07 up 10 days, 11:12,  1 user,  load average: 0.46, 0.35, 0.45
-        Tasks: 519 total,   1 running, 518 sleeping,   0 stopped,   0 zombie
-        %Cpu(s):  0.1 us,  0.2 sy,  0.6 ni, 98.8 id,  0.1 wa,  0.0 hi,  0.2 si,  0.0 st
-        MiB Mem :  31435.9 total,  10378.0 free,   8114.0 used,  12943.8 buff/cache
-        MiB Swap:   4095.5 total,   4095.5 free,      0.0 used.  22653.8 avail Mem 
+//     /*
+//          top:
+//         top - 07:34:07 up 10 days, 11:12,  1 user,  load average: 0.46, 0.35, 0.45
+//         Tasks: 519 total,   1 running, 518 sleeping,   0 stopped,   0 zombie
+//         %Cpu(s):  0.1 us,  0.2 sy,  0.6 ni, 98.8 id,  0.1 wa,  0.0 hi,  0.2 si,  0.0 st
+//         MiB Mem :  31435.9 total,  10378.0 free,   8114.0 used,  12943.8 buff/cache
+//         MiB Swap:   4095.5 total,   4095.5 free,      0.0 used.  22653.8 avail Mem 
 
  
-            PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                                
-           4110 dimitris  25   5 1128.5g 292956 104016 S   6.3   0.9  10:47.57 chrome                                                                                 
-           3942 dimitris  25   5   32.4g 144708  92540 S   1.7   0.4  61:24.90 chrome                                                                                 
-           4595 dimitris  25   5   20.3g 178232  64084 S   1.0   0.6   8:58.36 code                                                                                   
-              1 root      20   0  167940  13420   8196 S   0.0   0.0   0:14.01 systemd                                                                                
-              2 root      20   0       0      0      0 S   0.0   0.0   0:00.54 kthreadd                                                                               
-              3 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 rcu_gp                                                                                 
-              4 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 rcu_par_gp                                                                             
-              5 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 netns                                                                                  
+//             PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                                
+//            4110 dimitris  25   5 1128.5g 292956 104016 S   6.3   0.9  10:47.57 chrome                                                                                 
+//            3942 dimitris  25   5   32.4g 144708  92540 S   1.7   0.4  61:24.90 chrome                                                                                 
+//            4595 dimitris  25   5   20.3g 178232  64084 S   1.0   0.6   8:58.36 code                                                                                   
+//               1 root      20   0  167940  13420   8196 S   0.0   0.0   0:14.01 systemd                                                                                
+//               2 root      20   0       0      0      0 S   0.0   0.0   0:00.54 kthreadd                                                                               
+//               3 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 rcu_gp                                                                                 
+//               4 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 rcu_par_gp                                                                             
+//               5 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 netns                                                                                  
   
-    */
+//     */
 
-    while (true) {
-        tty_clear_screen(tty);
+//     while (true) {
+//         old_vcons_clear_screen(vc);
 
-        // Memory          Total     Free     Used Used        Clock  Abc, 12 Abc 1234, 00:11:22
-        // Phys Pages   12345678 12345678 12345678 123%        Uptime 12d 12:23:23m
-        // Phys Mem KB  12345678 12345678 12345678 123%        CPU    123%
-        // Kern Heap KB 12345678 12345678 12345678 123%    
+//         // Memory          Total     Free     Used Used        Clock  Abc, 12 Abc 1234, 00:11:22
+//         // Phys Pages   12345678 12345678 12345678 123%        Uptime 12d 12:23:23m
+//         // Phys Mem KB  12345678 12345678 12345678 123%        CPU    123%
+//         // Kern Heap KB 12345678 12345678 12345678 123%    
 
-        get_real_time_clock(&time);
-        uint32_t up_secs = get_uptime_in_seconds();
-        uint32_t up_days = up_secs / (24*60*60);
-        up_secs = up_secs % (24*60*60);
-        uint32_t up_hours = up_secs / 3600;
-        up_secs = up_secs % 3600;
-        uint32_t up_mins = up_secs / 60;
-        up_secs = up_secs % 60;
+//         get_real_time_clock(&time);
+//         uint32_t up_secs = get_uptime_in_seconds();
+//         uint32_t up_days = up_secs / (24*60*60);
+//         up_secs = up_secs % (24*60*60);
+//         uint32_t up_hours = up_secs / 3600;
+//         up_secs = up_secs % 3600;
+//         uint32_t up_mins = up_secs / 60;
+//         up_secs = up_secs % 60;
         
-        // phys_mem_info_t phys_mem;
-        // get_physical_memory_info(&phys_mem);
-        // uint32_t phys_mem_kb_percent = (phys_mem.kb_used * 100) / phys_mem.kb_total;
-        // uint32_t phys_mem_pg_percent = (phys_mem.pages_used * 100) / phys_mem.pages_total;
+//         // phys_mem_info_t phys_mem;
+//         // get_physical_memory_info(&phys_mem);
+//         // uint32_t phys_mem_kb_percent = (phys_mem.kb_used * 100) / phys_mem.kb_total;
+//         // uint32_t phys_mem_pg_percent = (phys_mem.pages_used * 100) / phys_mem.pages_total;
 
-        uint32_t heap_total = kernel_heap_total_size() / 1024;
-        uint32_t heap_free = kernel_heap_free_size() / 1024;
-        uint32_t heap_used = heap_total - heap_free;
-        uint32_t heap_percent = (heap_used * 100) / heap_total;
+//         uint32_t heap_total = kernel_heap_total_size() / 1024;
+//         uint32_t heap_free = kernel_heap_free_size() / 1024;
+//         uint32_t heap_used = heap_total - heap_free;
+//         uint32_t heap_percent = (heap_used * 100) / heap_total;
 
-        tty_set_cursor(tty, 0, 0);
-        tty_printf(tty, "Memory          Total     Free     Used Used");
-        tty_set_cursor(tty, 1, 0);
-        // printf("Phys Mem KB  %8d %8d %8d %3d%%", phys_mem.kb_total, phys_mem.kb_free, phys_mem.kb_used, phys_mem_kb_percent);
-        // tty_set_cursor(2, 0);
-        // printf("Phys Pages   %8d %8d %8d %3d%%", phys_mem.pages_total, phys_mem.pages_free, phys_mem.pages_used, phys_mem_pg_percent);
-        // tty_set_cursor(3, 0);
-        // printf("Kern Heap KB %8d %8d %8d %3d%%", heap_total, heap_free, heap_used, heap_percent);
+//         old_vcons_set_cursor(vc, 0, 0);
+//         old_vcons_printf(vc, "Memory          Total     Free     Used Used");
+//         old_vcons_set_cursor(vc, 1, 0);
+//         // printf("Phys Mem KB  %8d %8d %8d %3d%%", phys_mem.kb_total, phys_mem.kb_free, phys_mem.kb_used, phys_mem_kb_percent);
+//         // old_vcons_set_cursor(2, 0);
+//         // printf("Phys Pages   %8d %8d %8d %3d%%", phys_mem.pages_total, phys_mem.pages_free, phys_mem.pages_used, phys_mem_pg_percent);
+//         // old_vcons_set_cursor(3, 0);
+//         // printf("Kern Heap KB %8d %8d %8d %3d%%", heap_total, heap_free, heap_used, heap_percent);
 
-        tty_set_cursor(tty, 0, 50);
-        tty_printf(tty, "%3s, %2d %3s %04d, %02d:%02d:%02d",
-            days[time.dow], time.days, months[time.months], time.years, 
-            time.hours, time.minutes, time.seconds
-        );
+//         old_vcons_set_cursor(vc, 0, 50);
+//         old_vcons_printf(vc, "%3s, %2d %3s %04d, %02d:%02d:%02d",
+//             days[time.dow], time.days, months[time.months], time.years, 
+//             time.hours, time.minutes, time.seconds
+//         );
 
-        tty_set_cursor(tty, 1, 50);
-        tty_printf(tty, "Uptime %2dd %02dh %02dm %02ds", up_days, up_hours, up_mins, up_secs);
+//         old_vcons_set_cursor(vc, 1, 50);
+//         old_vcons_printf(vc, "Uptime %2dd %02dh %02dm %02ds", up_days, up_hours, up_mins, up_secs);
 
-        // we shouldn't dive into multitasking internals, but how? 
-        int row = 5;
-        show_process(tty, true, NULL, &row);
-        show_process(tty, false, running_process(), &row);
-        for (int i = 0; i < PROCESS_PRIORITY_LEVELS; i++)
-            show_process_list(tty, &ready_lists[i], &row);
-        show_process_list(tty, &blocked_list, &row);
+//         // we shouldn't dive into multitasking internals, but how? 
+//         int row = 5;
+//         show_process(vc, true, NULL, &row);
+//         show_process(vc, false, running_process(), &row);
+//         for (int i = 0; i < PROCESS_PRIORITY_LEVELS; i++)
+//             show_process_list(vc, &ready_lists[i], &row);
+//         show_process_list(vc, &blocked_list, &row);
  
-        proc_sleep(running_process(), 1500);
-    }
-}
+//         proc_sleep(running_process(), 1500);
+//     }
+// }
 
 
-void vfs_monitor_main() {
-    tty_t *tty = tty_manager_get_device(5);
+// void vfs_monitor_main() {
+//     old_vcons_t *vc = console_mgr_get_old_vcons(5);
 
-    tty_set_title(tty, "VFS Monitor");
+//     old_vcons_set_title(vc, "VFS Monitor");
 
-    while (true) {
-        tty_clear_screen(tty);
-        int row = 0;
+//     while (true) {
+//         old_vcons_clear_screen(vc);
+//         int row = 0;
 
-        tty_set_cursor(tty, row++, 0);
-        tty_printf(tty, "---------- Block Devices ----------");
-        tty_set_cursor(tty, row++, 0);
-        tty_printf(tty, "ID         BlkSz     Blocks  Name");
-        //     |1234567890 12345 1234567890  123456789012345678901234567890
-        list_foreach(&block_devices_list, block_device_t, bdev) {
-            tty_set_cursor(tty, row++, 0);
-            tty_printf(tty, "%10s %5lu %10lu %s", bdev->id, bdev->block_size, bdev->total_blocks, bdev->name);
-        }
-        row++;
+//         old_vcons_set_cursor(vc, row++, 0);
+//         old_vcons_printf(vc, "---------- Block Devices ----------");
+//         old_vcons_set_cursor(vc, row++, 0);
+//         old_vcons_printf(vc, "ID         BlkSz     Blocks  Name");
+//         //     |1234567890 12345 1234567890  123456789012345678901234567890
+//         list_foreach(&block_devices_list, block_device_t, bdev) {
+//             old_vcons_set_cursor(vc, row++, 0);
+//             old_vcons_printf(vc, "%10s %5lu %10lu %s", bdev->id, bdev->block_size, bdev->total_blocks, bdev->name);
+//         }
+//         row++;
 
 
-        tty_set_cursor(tty, row++, 0);
-        tty_printf(tty, "---------- Char Devices ----------");
-        tty_set_cursor(tty, row++, 0);
-        tty_printf(tty, "ID Name                          ");
-        //     |1234567890 123456789012345678901234567890
-        list_foreach(&char_devices_list, char_device_t, cdev) {
-            tty_set_cursor(tty, row++, 0);
-            tty_printf(tty, "%10s %s", cdev->id, cdev->name);
-        }
-        row++;
+//         old_vcons_set_cursor(vc, row++, 0);
+//         old_vcons_printf(vc, "---------- Mounted Filesystems ----------");
+//         old_vcons_set_cursor(vc, row++, 0);
+//         old_vcons_printf(vc, "Host Dir     Root Dir    Flags");
+//         //     |
+//         mount_entry_t *mount_entry = mtab_entries_list_head;
+//         while (mount_entry != NULL) {
+//             old_vcons_set_cursor(vc, row++, 0);
+//             old_vcons_printf(vc, "%8d   %8d    %8d",
+//                 mount_entry->host_dir.inode_num,
+//                 mount_entry->root_dir.inode_num,
+//                 mount_entry->flags
+//             );
+//             mount_entry = mount_entry->next;
+//         }
+//         row++;
 
-        tty_set_cursor(tty, row++, 0);
-        tty_printf(tty, "---------- Mounted Filesystems ----------");
-        tty_set_cursor(tty, row++, 0);
-        tty_printf(tty, "Host Dir     Root Dir    Flags");
-        //     |
-        mount_entry_t *mount_entry = mtab_entries_list_head;
-        while (mount_entry != NULL) {
-            tty_set_cursor(tty, row++, 0);
-            tty_printf(tty, "%8d   %8d    %8d",
-                mount_entry->host_dir.inode_num,
-                mount_entry->root_dir.inode_num,
-                mount_entry->flags
-            );
-            mount_entry = mount_entry->next;
-        }
-        row++;
-
-        proc_sleep(running_process(), 2000);
-    }
-}
+//         proc_sleep(running_process(), 2000);
+//     }
+// }

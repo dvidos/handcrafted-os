@@ -44,7 +44,7 @@ KERNEL_C_FILES = \
 	$(wildcard devices/*.c) \
 	$(wildcard devices/pci/*.c) \
 	$(wildcard devices/block/*.c) \
-	$(wildcard devices/char/*.c) \
+	$(wildcard devices/tty/*.c) \
 	\
 	$(wildcard filesys/*.c) \
 	$(wildcard filesys/partitions/*.c) \

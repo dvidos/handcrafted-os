@@ -18,6 +18,10 @@ void screen_set_color(uint8_t color);
 void screen_get_cursor(uint8_t *row, uint8_t *col);
 void screen_set_cursor(uint8_t row, uint8_t col);
 
+void screen_show_cursor();
+void screen_hide_cursor();
+
+
 // for ttys to manipulate screen
 void screen_draw_char_at(char c, uint8_t color, uint8_t col, uint8_t row);
 void screen_draw_str_at(const char *str, uint8_t color, uint8_t col, uint8_t row);

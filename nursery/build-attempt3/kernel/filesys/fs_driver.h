@@ -3,16 +3,16 @@
 // this file contains the contract that drivers must implement,
 // in order to participate in the VFS system
 
-#include "../../include/uapi/errors.h"
-#include "../../include/uapi/vfs_mount_flags.h"
-#include "../../include/uapi/vfs_seek_flags.h"
-#include "../../include/uapi/vfs_file_flags.h"
-#include "../../include/uapi/vfs_stat.h"
-#include "../../include/uapi/vfs_dirent.h"
-#include "../../devices/block/block_device.h"
-#include "../vfs_objects/superblock.h"
-#include "../vfs_objects/inode.h"
-#include "../vfs_objects/open_file.h"
+#include "../include/uapi/errors.h"
+#include "../include/uapi/vfs_mount_flags.h"
+#include "../include/uapi/vfs_seek_flags.h"
+#include "../include/uapi/vfs_file_flags.h"
+#include "../include/uapi/vfs_stat.h"
+#include "../include/uapi/vfs_dirent.h"
+#include "../devices/block/block_device.h"
+#include "vfs_objects/superblock.h"
+#include "vfs_objects/inode.h"
+#include "vfs_objects/open_file.h"
 
 
 typedef struct fs_driver       fs_driver_t;

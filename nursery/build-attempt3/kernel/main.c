@@ -9,7 +9,7 @@
 #include "drivers/timer.h"
 #include "drivers/clock.h"
 #include "drivers/serial.h"
-#include "devices/tty_manager.h"
+#include "devices/tty/console_mgr.h"
 #include "memory/kmemmap.h"
 #include "memory/vmm.h"
 #include "memory/kheap.h"
@@ -26,6 +26,7 @@
 #include "devices/block/ata_block_device.h"
 #include "devices/block/sata_block_device.h"
 #include "devices/block/ram_block_device.h"
+#include "devices/tty/tty_dev_driver.h"
 
 #include "filesys/fs_api.h"
 #include "filesys/vfs_api.h"
@@ -33,7 +34,6 @@
 #include "filesys/partitions/uefi_partition.h"
 #include "filesys/fs_drivers/skeleton_fs/skeleton_fs.h"
 #include "filesys/fs_drivers/sfs/sfs.h"
-#include "filesys/dev_drivers/tty/tty_fops.h"
 
 #include "proc/semaphore.h"
 #include "proc/multitask.h"
@@ -141,19 +141,14 @@ void kernel_main(boot_info_t* boot)
     log_info("Initializing multi-tasking...");
     init_multitasking();
 
-    log_info("Giving the console to TTY manager...");
+    log_info("Giving the console to console manager...");
     logger_remove_appender(screen_log_appender, NULL);
-    init_tty_manager(7, 100);
+    init_console_mgr(5);
     fs_register_device("tty0", &tty_dev_driver, 0);
     fs_register_device("tty1", &tty_dev_driver, 1);
     fs_register_device("tty2", &tty_dev_driver, 2);
     fs_register_device("tty3", &tty_dev_driver, 3);
-    fs_register_device("tty4", &tty_dev_driver, 4);
-    fs_register_device("tty5", &tty_dev_driver, 5);
-    tty_set_title(tty_manager_get_device(4), "System Monitor");
-    tty_set_title(tty_manager_get_device(5), "VFS Monitor");
-    tty_set_title(tty_manager_get_device(6), "System log");
-    logger_add_appender(tty_log_appender, tty_manager_get_device(6), LOG_LEVEL_INFO);
+    logger_add_appender(vconsole_log_appender, console_mgr_get_vconsole(4), LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
     launch_initial_process();

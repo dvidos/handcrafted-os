@@ -3,7 +3,7 @@
 #include "../include/uapi/errors.h"
 #include "../include/uapi/vfs_seek_flags.h"
 #include "../include/uapi/vfs_dirent.h"
-#include "fs_drivers/fs_driver.h"
+#include "fs_driver.h"
 #include "vfs_objects/superblock.h"
 #include "vfs_objects/inode.h"
 #include "vfs_objects/open_file.h"

@@ -16,3 +16,17 @@
 #define FIONREAD    0x541B  // Get the number of bytes currently available to read in the input buffer
 #define TIOCFLUSH   0x540B  // Flush (discard) all data in the input or output queues
 
+
+// see flags in vconsole.h
+#define TTY_GET_CANONICAL_MODE     0x5501
+#define TTY_SET_CANONICAL_MODE     0x5502
+#define TTY_GET_ECHO               0x5503
+#define TTY_SET_ECHO               0x5504
+#define TTY_GET_SIGNAL_HANDLING    0x5505
+#define TTY_SET_SIGNAL_HANDLING    0x5506
+#define TTY_GET_CR_TO_LF           0x5507
+#define TTY_SET_CR_TO_LF           0x5508
+#define TTY_GET_FLOW_CONTROL       0x5509
+#define TTY_SET_FLOW_CONTROL       0x550a
+#define TTY_GET_LF_TO_CRLF         0x550b
+#define TTY_SET_LF_TO_CRLF         0x550c

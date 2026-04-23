@@ -3,9 +3,8 @@
 
 #include "../include/ctypes.h"
 #include "../utils/mutex.h"
-#include "../devices/tty_manager.h"
 #include "../filesys/vfs_api.h"
-#include "../filesys/fs_drivers/fs_driver.h"
+#include "../filesys/fs_driver.h"
 #include "../../memory/vmm.h"
 
 /**
