@@ -13,12 +13,18 @@
 MODULE("VCONS", LOG_LEVEL_INFO);
 
 
+#define KEYS_QUEUE_SIZE          16
+#define CANONICAL_BUFFER_SIZE   1024
+#define CHAR_CTRL_C             0x03   // kill
+#define CHAR_CTRL_D             0x04   // eof
+#define CHAR_BACKSPACE          0x08   // 0x7F in some keyboards
+#define CHAR_CTRL_U             0x15   // clear
 
-#define KEYS_BUFFER_SIZE  16
 
 struct vconsole_data {
     char *title;
     uint32_t flags;  // see vconsole_flag_t
+    char *canonical_buffer;
 
     struct screen {
         struct size {
@@ -50,7 +56,7 @@ struct vconsole_data {
     int view_offset; // for history?
 
     struct keys {
-        key_event_t queue[KEYS_BUFFER_SIZE];
+        key_event_t queue[KEYS_QUEUE_SIZE];
         int length;
     } keys;
 
@@ -147,22 +153,6 @@ static void insert_line(vconsole_t *vc, int row) {
     }
 }
 
-static void read_key_blocking(vconsole_t *vc, key_event_t *key) {
-    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
-    while (vd->keys.length == 0) {
-        log_trace("vconsole[%p] sleeping on user input", vc);
-        // assuming the running process is holding this tty
-        proc_block(running_process(), WAIT_USER_INPUT, vc);
-    }
-
-    ASSERT(vd->keys.length > 0);
-    *key = vd->keys.queue[0]; // copy value
-    vd->keys.length--;
-    memmove(vd->keys.queue, vd->keys.queue + 1, vd->keys.length * sizeof(key_event_t));
-}
-
-// ----------------------------
-
 static void vconsole_clear(vconsole_t *vc) {
     struct vconsole_data *vd = (struct vconsole_data *)vc->data;
     push_notifications(vc);
@@ -227,38 +217,183 @@ static void vconsole_puts(vconsole_t *vc, const char *str) {
     pop_notifications(vc);
 }
 
-static int vconsole_read(vconsole_t *vc, char *buff, int size) {
+static void read_key_blocking(vconsole_t *vc, key_event_t *key) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    while (vd->keys.length == 0) {
+        log_trace("vconsole[%p] sleeping on user input", vc);
+        // assuming the running process is holding this tty
+        proc_block(running_process(), WAIT_USER_INPUT, vc);
+    }
+
+    ASSERT(vd->keys.length > 0);
+    *key = vd->keys.queue[0]; // copy value
+    vd->keys.length--;
+    memmove(vd->keys.queue, vd->keys.queue + 1, vd->keys.length * sizeof(key_event_t));
+}
+
+static int read_in_canonical_mode(vconsole_t *vc, char *buff, int size) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    key_event_t event;
+    int bytes_read = 0;
+    int current_len = strlen(vd->canonical_buffer); // Initialize length once
+
+    while (true) {
+        read_key_blocking(vc, &event);
+        char c = event.ascii;
+        
+        if (c == 0) {
+            // Ignore key events that don't have an ASCII representation
+            continue;
+        }
+
+        // Handle CR_TO_LF transformation if enabled
+        if (c == '\r' && (vd->flags & CR_TO_LF)) {
+            c = '\n';
+        }
+
+        switch (c) {
+            case CHAR_CTRL_C: // Ctrl-C (0x03) - Clear line, don't return characters
+                if (vd->flags & ECHO) {
+                    // Visually clear the line
+                    for (int i = 0; i < current_len; i++) {
+                        vconsole_putc(vc, '\b');
+                        vconsole_putc(vc, ' ');
+                        vconsole_putc(vc, '\b');
+                    }
+                }
+                vd->canonical_buffer[0] = '\0'; // Clear internal buffer
+                current_len = 0; // Reset length
+                break;
+
+            case CHAR_CTRL_D: // Ctrl-D (0x04) - EOF or line terminator
+                if (current_len == 0) {
+                    // If buffer is empty, return 0 for EOF
+                    return 0;
+                } else {
+                    // If buffer is not empty, treat Ctrl-D as a line terminator
+                    // The current buffered data is returned.
+                    goto return_buffered_data;
+                }
+
+            case CHAR_CTRL_U: // Ctrl-U (0x15) - Clear line
+                if (vd->flags & ECHO) {
+                    // Visually clear the line
+                    for (int i = 0; i < current_len; i++) {
+                        vconsole_putc(vc, '\b');
+                        vconsole_putc(vc, ' ');
+                        vconsole_putc(vc, '\b');
+                    }
+                }
+                vd->canonical_buffer[0] = '\0'; // Clear internal buffer
+                current_len = 0; // Reset length
+                break;
+
+            case CHAR_BACKSPACE: // Backspace (0x08 or 0x7F) - Erase character
+                if (current_len > 0) {
+                    current_len--; // Decrement length first
+                    vd->canonical_buffer[current_len] = '\0'; // Null-terminate at new length
+                    if (vd->flags & ECHO) {
+                        vconsole_putc(vc, '\b');
+                        vconsole_putc(vc, ' ');
+                        vconsole_putc(vc, '\b');
+                    }
+                }
+                break;
+
+            case '\n': // Newline - Line terminator
+                // Append newline to canonical buffer
+                if (current_len + 1 < CANONICAL_BUFFER_SIZE) { // Check for space for char + null
+                    vd->canonical_buffer[current_len++] = c;
+                    vd->canonical_buffer[current_len] = '\0'; // Null-terminate
+                }
+                if (vd->flags & ECHO) {
+                    vconsole_putc(vc, c); // Echo newline
+                }
+                goto return_buffered_data;
+
+            default: // Regular character
+                if (current_len + 1 < CANONICAL_BUFFER_SIZE) { // Check for space for char + null
+                    vd->canonical_buffer[current_len++] = c;
+                    vd->canonical_buffer[current_len] = '\0'; // Null-terminate
+                    if (vd->flags & ECHO) {
+                        vconsole_putc(vc, c); // Echo character
+                    }
+                } else {
+                    // Buffer full, ignore character and potentially log a warning
+                    log_warn("Canonical buffer full, ignoring character '%c'", c);
+                }
+                break;
+        }
+    }
+
+return_buffered_data:
+    // Copy data from canonical buffer to user's buffer
+    bytes_read = current_len; // Use current_len for bytes_read
+    if (bytes_read > size) {
+        bytes_read = size; // Don't overflow user buffer
+    }
+    memcpy(buff, vd->canonical_buffer, bytes_read);
+    vd->canonical_buffer[0] = '\0'; // Clear canonical buffer after returning its content
+    // current_len will be re-initialized on next call or implicitly reset to 0 by the above line.
+
+    return bytes_read;
+}
+
+static int read_in_raw_mode(vconsole_t *vc, char *buff, int size) {
     struct vconsole_data *vd = (struct vconsole_data *)vc->data;
     key_event_t event;
     int bytes_read = 0;
 
-    // to honor cannonical mode here, 
-    // we need an input buffer per terminal 
-    // and return from here only when enter is encountered
-
-    while (size > 0) {
-        // if we drained the buffer, we can return
-        if (bytes_read > 0 && vd->keys.length == 0)
-            break;
-        
-        // this will block if there are no keys in the buffer
-        read_key_blocking(vc, &event);
+    // In raw mode, we return each key immediately as it's read,
+    // until the user's buffer is full or no more keys are available.
+    // This allows for multi-byte sequences to be read as individual bytes.
+    while (bytes_read < size) {
+        // Attempt to read a key without blocking initially if there are keys in the queue
+        if (vd->keys.length == 0) {
+            // If queue is empty, block until a key arrives
+            read_key_blocking(vc, &event);
+        } else {
+            // If keys are available, process them without blocking further
+            event = vd->keys.queue[0];
+            vd->keys.length--;
+            memmove(vd->keys.queue, vd->keys.queue + 1, vd->keys.length * sizeof(key_event_t));
+        }
 
         char c = event.ascii;
-        if (c == 0) // we'll convert into sequences in the future
+        if (c == 0) {
+            // Ignore key events that don't have an ASCII representation
             continue;
-        if (c == '\r' && vd->flags & CR_TO_LF)
+        }
+
+        // Handle CR_TO_LF transformation if enabled
+        if (c == '\r' && (vd->flags & CR_TO_LF)) {
             c = '\n';
-        
-        *buff++ = c;
-        size--;
-        bytes_read++;
-        
-        if (vd->flags & ECHO)
+        }
+
+        // Echo character if ECHO flag is set
+        if (vd->flags & ECHO) {
             vconsole_putc(vc, c);
+        }
+
+        // Store the character in the user's buffer
+        buff[bytes_read++] = c;
+
+        // If this was the last key in the queue, and we have read at least one byte,
+        // we can return early to prevent blocking for more input, unless the buffer isn't full.
+        if (vd->keys.length == 0 && bytes_read > 0 && bytes_read < size) {
+             break; // Return what we have
+        }
     }
 
     return bytes_read;
+}
+
+static int vconsole_read(vconsole_t *vc, char *buff, int size) {
+    struct vconsole_data *vd = (struct vconsole_data *)vc->data;
+    if (vd->flags & CANONICAL_MODE)
+        return read_in_canonical_mode(vc, buff, size);
+    else
+        return read_in_raw_mode(vc, buff, size);
 }
 
 static void vconsole_write(vconsole_t *vc, const char *buff, int size) {
@@ -396,7 +531,7 @@ static bool vconsole_get_flag(vconsole_t *vc, vconsole_flag_t flag) {
 
 static void vconsole_enqueue_key(vconsole_t *vc, key_event_t *event) {
     struct vconsole_data *vd = (struct vconsole_data *)vc->data;
-    if (vd->keys.length >= KEYS_BUFFER_SIZE) {
+    if (vd->keys.length >= KEYS_QUEUE_SIZE) {
         log_warn("enqueue_key_event(): buffer full, dropping key event");
         return;
     }
@@ -411,6 +546,7 @@ static void vconsole_destroy(vconsole_t *vc) {
 
     struct vconsole_data *vd = (struct vconsole_data *)vc->data;
     if (vd != NULL) {
+        if (vd->canonical_buffer)   kfree(vd->canonical_buffer);
         if (vd->buffers[0])         kfree(vd->buffers[0]);
         if (vd->buffers[1])         kfree(vd->buffers[1]);
         if (vd->history.rows_array) kfree(vd->history.rows_array);
@@ -474,6 +610,9 @@ vconsole_t *create_vconsole(int rows, int cols, console_buffer_modified_func *on
     vd->screen.scroll_lines.begin = 0;
     vd->screen.scroll_lines.end = vd->screen.size.rows;
     vd->screen.cursor.visible = true;
+
+    vd->canonical_buffer = kmalloc(CANONICAL_BUFFER_SIZE);
+    vd->canonical_buffer[0] = 0;
 
     size_t screen_buffer_size = cols * rows * 2;
     vd->buffers[0] = kmalloc(screen_buffer_size);

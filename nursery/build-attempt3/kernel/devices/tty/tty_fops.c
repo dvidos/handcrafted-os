@@ -6,7 +6,7 @@
 #include "../../logger/logger.h"
 
 
-MODULE("DEV_TTY", LOG_LEVEL_DEBUG);
+MODULE("DEV_TTY", LOG_LEVEL_INFO);
 
 static superblock_t tty_superblock;
 
@@ -48,7 +48,7 @@ static ssize_t tty_driver_read(open_file_t *file, void *buf, size_t len, off_t o
     vconsole_t *vc = (vconsole_t *)file->driver_priv_data;
 
     int bytes = vc->ops->read(vc, buf, len);
-    // log_info("vconsole.read() --> %d bytes, buf is '%s'", bytes, buf);
+    log_debug("vconsole.read() --> %d bytes, buf is '%s'", bytes, buf);
     return bytes;
 }
 
