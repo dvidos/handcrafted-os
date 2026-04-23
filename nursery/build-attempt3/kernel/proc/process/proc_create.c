@@ -627,7 +627,7 @@ static error_t inherit_filesystem_stuff(process_t *child, process_t *parent) {
     ASSERT(parent != NULL);
 
     memcpy(&child->vfs_ctx, &parent->vfs_ctx, sizeof(vfs_context_t));
-    parent->cwd_path = strdup(parent->cwd_path);
+    child->cwd_path = strdup(parent->cwd_path);
     
     for (int i = 0; i < MAX_FILE_HANDLES; i++) {
         if (parent->file_handles[i] == NULL)

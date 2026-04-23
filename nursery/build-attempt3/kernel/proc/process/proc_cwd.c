@@ -10,6 +10,7 @@ MODULE("PROC_CWD", LOG_LEVEL_WARN);
 
 
 error_t proc_getcwd(process_t *proc, char *buffer, int size) {
+    log_trace("proc_getcwd(%p, %p, %d)", proc, buffer, size);
     if (size < strlen(proc->cwd_path) + 1)
         return ERR_NO_SPACE_LEFT;
     

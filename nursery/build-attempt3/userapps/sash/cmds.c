@@ -57,7 +57,6 @@ do_pwd(int argc, const char ** argv)
 	if (getcwd(buf, PATH_LEN) == NULL)
 	{
 		fprintf(stderr, "Cannot get current directory\n");
-
 		return;
 	}
 
@@ -75,11 +74,9 @@ do_cd(int argc, const char ** argv)
 	else
 	{
 		path = getenv("HOME");
-
 		if (path == NULL)
 		{
 			fprintf(stderr, "No HOME environment variable\n");
-
 			return;
 		}
 	}
