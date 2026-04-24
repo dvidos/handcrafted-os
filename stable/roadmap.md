@@ -1,32 +1,32 @@
 # roadmap
 
-At high level, the steps will be:
 
-* ~~Make the sfs_tool to generate image~~
-* ~~Make and verify: fork(), execve(), spawn(), wait(), waitpid(), _exit(), elf loader, syscalls~~
-* ~~Make and put the tiniest executables, into the image~~
-* ~~Then bring in libc, on top of syscalls, make unit tests~~
-* ~~Then bring in the basic programs from : init, shell, edit, etc.~~
-* ~~kernel/libc/uapi --> libc/include/kernel --> rootfs/include/kernel~~
+## debugging improvements
 
-## porting sash to work as shell
-  * ~~merge branch to main~~
-  * ~~fix wait(), waitpid() and read() to not use EAGAIN~~
-  * ~~continue with keyboard input, now that we can unblock~~
-  * ~~implement readdir()~~
-  * ~~keyboard driver + input~~
-  * implement Kill, signal
-  * implement O_CREATE etc
-  * implement attributes, owners, groups
-  * implement symlinks, readlink, symlink, lstat etc
+See chat with [gemini here](https://gemini.google.com/app/e41922c6044c3e03)
 
+* implement addresses + symbols array
+* implement backtrace() (EBP hopping + symbol names)
+* improve panic() with a backtrace
+* create unit tests using assert() / panic(), `make run-tests`
+* improve page fault handler, with better visibility
+* interactive kernel shell, in COM1, where logs go to COM2
+  * ability to print values by address, based on formatters
 
-* Move from nursery to root, move root to graveyard
-* Create a filter in userapps for single-file programs, make appropriate makefile
-  * Create true, false, cat, and all those small things we need
+e.g. 
+
+* Dual UART (COM1/COM2) initialization.
+* i686 EBP-chain backtrace.
+* Two-pass Linker script for Symbol/Data mapping.
+* pp (Pretty Print) Registry for kernel objects.
 
 
-_(we are now in parity with existing kernel, move to project root)_
+## still missing
+
+* signals & handling them
+* soft links on filesystem
+* devfs
+
 
 Then the following efforts are possible
 
@@ -55,10 +55,32 @@ Target set of commands:
 * man (!!!)
 
 
-In the future, possible library with:
+## far future, possible library with
 
+* high level programming functionalities (entities, persistence, events)
 * Primitives: strings, numbers, booleans, blobs.
 * Containers: hashtables, maps, lists, queues, tries, trees, etc.
 * Predicates & functional approach
 * Parsing/formatting json, yaml
 * Key/Value store engine
+
+
+## completed
+
+* ~~Make the sfs_tool to generate image~~
+* ~~Make and verify: fork(), execve(), spawn(), wait(), waitpid(), _exit(), elf loader, syscalls~~
+* ~~Make and put the tiniest executables, into the image~~
+* ~~Then bring in libc, on top of syscalls, make unit tests~~
+* ~~Then bring in the basic programs from : init, shell, edit, etc.~~
+* ~~kernel/libc/uapi --> libc/include/kernel --> rootfs/include/kernel~~
+
+* ~~porting sash~~
+  * ~~merge branch to main~~
+  * ~~fix wait(), waitpid() and read() to not use EAGAIN~~
+  * ~~continue with keyboard input, now that we can unblock~~
+  * ~~implement readdir()~~
+  * ~~keyboard driver + input~~
+  * ~~implement O_CREATE etc~~
+  * ~~implement attributes, owners, groups~~
+
+* ~~Move from nursery to root, move root to graveyard~~
