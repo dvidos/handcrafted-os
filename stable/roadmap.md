@@ -16,8 +16,8 @@ See chat with [gemini here](https://gemini.google.com/app/e41922c6044c3e03)
 e.g. 
 
 * Dual UART (COM1/COM2) initialization.
-* i686 EBP-chain backtrace.
-* Two-pass Linker script for Symbol/Data mapping.
+* ~~i686 EBP-chain backtrace.~~
+* ~~Two-pass Linker script for Symbol/Data mapping.~~
 * pp (Pretty Print) Registry for kernel objects.
 
 

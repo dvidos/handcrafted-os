@@ -17,6 +17,7 @@
 #include "logger/mem_log.h"
 #include "utils/kcmd_line_args.h"
 #include "klib/string.h"
+#include "klib/backtrace.h"
 #include "memory/physmem.h"
 #include "memory/mem_region.h"
 

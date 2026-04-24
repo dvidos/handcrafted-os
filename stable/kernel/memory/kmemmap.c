@@ -49,8 +49,8 @@ void kmm_log_info() {
     kmm_log_info_region(NULL);
     kmm_log_info_region(&kmm.code);
     kmm_log_info_region(&kmm.data);
-    kmm_log_info_region(&kmm.rodata);
     kmm_log_info_region(&kmm.bss);
+    kmm_log_info_region(&kmm.rodata);
     kmm_log_info_region(&kmm.stack);
     kmm_log_info_region(&kmm.mapping_pages);
     kmm_log_info_region(&kmm.pmm_bitmap);

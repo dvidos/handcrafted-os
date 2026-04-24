@@ -27,14 +27,6 @@ SECTIONS
 	}
 	_segment_text_end = .;
 
-	/* Read-only data. */
-	_segment_rodata_start = .;
-	.rodata BLOCK(4K) : ALIGN(4K)
-	{
-		*(.rodata)
-	}
-	_segment_rodata_end = .;
-
 	/* Read-write data (initialized) */
 	_segment_init_data_start = .;
 	.data BLOCK(4K) : ALIGN(4K)
@@ -51,6 +43,21 @@ SECTIONS
 		*(.bss)
 	}
 	_segment_zero_data_end = .;
+
+	/* Read-only data. */
+	_segment_rodata_start = .;
+	.rodata BLOCK(4K) : ALIGN(4K)
+	{
+		*(.rodata)
+
+		/* Specific markers for the symbol table,
+		   Placed after all the previous sections to keep addresses correct */
+        _k_symtab_start = .;
+        *(.symtab_data) 
+        _k_symtab_end = .;
+	}
+	_segment_rodata_end = .;
+
 
 	/* The compiler may produce other sections, by default it will put them in
 	   a segment with the same name. Simply add stuff here as needed. */

@@ -9,10 +9,12 @@ extern kernel_main
 _start:
     cli             ; disable interrupts
 
-    ; optionally set up stack if stage2 didn't
+    ; setup stack, must be 16 bytes aligned
     mov esp, KERNEL_STACK_TOP
 
-    mov ebp, 0          ; to signify no previous frame
+    mov ebp, 0      ; signify no previous frame
+    push ebp        ; push a dummy return address (optional)
+    push ebp        ; push a dummy "previous EBP"
 
     ; EAX contains pointer to boot_info
     push eax

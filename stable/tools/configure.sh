@@ -4,6 +4,7 @@ CROSS=i686-elf-
 CROSS_CC=${CROSS}gcc
 CROSS_LD=${CROSS}ld
 CROSS_AS=${CROSS}as
+CROSS_NM=${CROSS}nm
 
 
 VERSION=0.1.0                              # in case this ever starts getting shared
@@ -64,9 +65,11 @@ echo Creating configuration included files...
 
 cat > config.inc.mk <<EOF
 # auto generated, do not edit, run configure.sh to generate
+CROSS                     := $CROSS
 CROSS_CC                  := $CROSS_CC
 CROSS_LD                  := $CROSS_LD
 CROSS_AS                  := $CROSS_AS
+CROSS_NM                  := $CROSS_NM
 VERSION                   := $VERSION
 GIT_HASH                  := $GIT_HASH
 DATE_BUILT                := $DATE_BUILT
