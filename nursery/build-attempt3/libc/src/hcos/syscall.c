@@ -1,4 +1,4 @@
-
+#include <hcos/syslog.h>
 
 /**
  * Central function to call int 80, observice our kernel's ABI
@@ -66,6 +66,14 @@ int syscall(int sysno, int arg1, int arg2, int arg3, int arg4, int arg5) {
         : "g"(sysno), "g"(arg1), "g"(arg2), "g"(arg3), "g"(arg4), "g"(arg5)
         : "%eax", "%ebx", "%ecx", "%edx", "%esi", "%edi"
     );
+
+    // convert from kernel to libc error handling
+    if (return_value <= -1 && return_value >= -4095) {
+        syslog_warn("syscall(%d) --> %d", sysno, return_value);
+        extern int errno;
+        errno = -return_value;
+        return_value = -1;
+    }
 
     return return_value;
 }

@@ -612,7 +612,7 @@ static error_t init_filesystem_stuff(process_t *proc) {
     err = proc_chdir(proc, "/");
     if (err) return err;
     
-    err = proc_open(proc, "/dev/tty0");
+    err = proc_open(proc, "/dev/tty0", 0);
     if (err < 0) return err;
 
     proc_dup2(proc, 0, proc, 1);

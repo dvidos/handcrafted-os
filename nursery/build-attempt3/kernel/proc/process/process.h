@@ -173,7 +173,7 @@ void proc_block(process_t *proc, int reason, void *channel); // blocks task, som
 void proc_unblock(process_t *proc);
 
 // file_ops.c
-int proc_open(process_t *proc, char *name);
+int proc_open(process_t *proc, char *name, int flags);
 int proc_read(process_t *proc, int handle, char *buffer, int length);
 int proc_write(process_t *proc, int handle, char *buffer, int length);
 int proc_seek(process_t *proc, int handle, int offset, int origin);

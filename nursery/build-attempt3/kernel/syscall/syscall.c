@@ -64,8 +64,8 @@ static int sys_get_cwd(char *buffer, int length) {
 static int sys_chdir(char *path) {
     return proc_chdir(running_process(), path);
 }
-static int sys_open(char *path) {
-    return proc_open(running_process(), path);
+static int sys_open(char *path, int flags) {
+    return proc_open(running_process(), path, flags);
 }
 static int sys_read(int handle, char *buffer, int length) {
     return proc_read(running_process(), handle, buffer, length);
@@ -208,8 +208,8 @@ void isr_syscall(interrupt_frame_t *frame) {
         case SYS_CHDIR: // arg1 = path
             return_value = sys_chdir((char *)arg1);
             break;
-        case SYS_OPEN:   // arg1 = file path, returns handle or error<0
-            return_value = sys_open((char *)arg1);
+        case SYS_OPEN:   // arg1 = file path, arg2 = flags, returns handle or error<0
+            return_value = sys_open((char *)arg1, arg2);
             break;
         case SYS_READ:   // arg1 = handle, arg2 = buffer, arg3 = len, returns len
             return_value = sys_read(arg1, (char *)arg2, arg3);

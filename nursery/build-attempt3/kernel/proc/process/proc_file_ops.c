@@ -55,10 +55,10 @@ static int release_file_handle(process_t *proc, int handle) {
      return err;
 }
 
-int proc_open(process_t *proc, char *name) {
+int proc_open(process_t *proc, char *name, int flags) {
     open_file_t *file;
     // fast resolve relative to cwd (we'll need rewinddir() at least)
-    int err = vfs_open(&proc->vfs_ctx, name, 0, &file);
+    int err = vfs_open(&proc->vfs_ctx, name, flags, &file);
     if (err) return err;
 
     int handle = allocate_file_handle(proc, file, -1);
@@ -84,10 +84,10 @@ int proc_write(process_t *proc, int handle, char *buffer, int length) {
     return vfs_write(proc->file_handles[handle], buffer, length);
 }
 
-int proc_seek(process_t *proc, int handle, int offset, int origin) {
+int proc_seek(process_t *proc, int handle, int offset, int whence) {
     if (!is_valid_handle(proc, handle))
         return ERR_BAD_ARGUMENT;
-    return vfs_seek(proc->file_handles[handle], offset, origin);
+    return vfs_seek(proc->file_handles[handle], offset, whence);
 }
 
 int proc_close(process_t *proc, int handle) {
