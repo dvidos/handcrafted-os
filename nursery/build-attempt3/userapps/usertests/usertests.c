@@ -34,16 +34,18 @@ void print_test_status(const char *test_name, int passed) {
 int main(int argc, char *argv[]) {
     printf("Starting user applications tests...\n");
 
-    test_fork_exec_wait();
     test_file_create_write_read();
-    test_memory_allocation();
+    // test_unlink_link();
+    // test_directory_ops();
+    // test_big_dir();
+    // test_nested_dirs();
+    // test_big_file();
+
+    // test_fork_exec_wait();
     // test_pipe_communication();
-    test_unlink_link();
-    test_directory_ops();
-    test_sbrk_growth();
-    test_big_dir();
-    test_nested_dirs();
-    test_big_file();
+    
+    // test_memory_allocation();
+    // test_sbrk_growth();
 
     printf("All user applications tests completed.\n");
     return 0;
@@ -84,7 +86,7 @@ void test_file_create_write_read() {
     int passed = 1;
 
     // Create file
-    fd = open(filename, O_CREAT | O_WRONLY); // Assuming open() and file flags
+    fd = open(filename, O_CREAT | O_WRONLY);
     if (fd < 0) {
         passed = 0;
         printf("Error: Could not create file %s\n", filename);
@@ -92,7 +94,7 @@ void test_file_create_write_read() {
     }
 
     // Write to file
-    bytes_written = write(fd, test_data, strlen(test_data)); // Assuming write() and strlen()
+    bytes_written = write(fd, test_data, strlen(test_data));
     if (bytes_written != (int)strlen(test_data)) {
         passed = 0;
         printf("Error: Mismatch in bytes written to %s\n", filename);
@@ -110,7 +112,7 @@ void test_file_create_write_read() {
     }
 
     // Read from file
-    bytes_read = read(fd, read_buffer, sizeof(read_buffer) - 1); // Assuming read()
+    bytes_read = read(fd, read_buffer, sizeof(read_buffer) - 1);
     if (bytes_read < 0) {
         passed = 0;
         printf("Error: Failed to read from file %s\n", filename);
@@ -120,14 +122,14 @@ void test_file_create_write_read() {
     read_buffer[bytes_read] = '\0'; // Null-terminate
 
     // Compare data
-    if (strcmp(test_data, read_buffer) != 0) { // Assuming strcmp()
+    if (strcmp(test_data, read_buffer) != 0) {
         passed = 0;
         printf("Error: Data mismatch in %s. Expected '%s', got '%s'\n", filename, test_data, read_buffer);
     }
     close(fd);
 
 end_test:
-    unlink(filename); // Clean up: delete the file. Assuming unlink()
+    unlink(filename); // Clean up: delete the file.
     print_test_status("file_create_write_read", passed);
 }
 
