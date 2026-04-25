@@ -3,6 +3,7 @@
 #include "../drivers/timer.h"
 #include "../drivers/kbd_drv.h"
 #include "../drivers/clock.h"
+#include "../drivers/serial.h"
 #include "../memory/vmm.h"
 #include "pic.h"
 #include "../logger/logger.h"
@@ -28,6 +29,12 @@ void interrupt_handler_c(interrupt_frame_t *frame) {
             break;
         case 0x21:
             keyboard_handler(frame);
+            break;
+        case 0x23: // com2
+            serial_interrupt_handler(1);
+            break;
+        case 0x24: // com1
+            serial_interrupt_handler(0);
             break;
         case 0x28:
             real_time_clock_interrupt_interrupt_handler(frame);

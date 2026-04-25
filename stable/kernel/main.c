@@ -116,7 +116,7 @@ void kernel_main(boot_info_t* boot)
     initialize_physical_memory(boot);
 
     log_info("Initializing Serial Port 1 for logging...");
-    init_serial_port();
+    init_serial_port(0);
 
     log_info("Switching logging to serial port");
     panic_set_writer(serial_panic_writer);
