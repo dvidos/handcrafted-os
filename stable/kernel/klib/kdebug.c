@@ -42,7 +42,7 @@ struct stack_frame {
     uint32_t return_addr;
 };
 
-void kernel_backtrace() {
+void kdebug_backtrace() {
     struct stack_frame *curr;
 
     // Inline assembly to capture the current EBP register

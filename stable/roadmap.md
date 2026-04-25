@@ -5,8 +5,8 @@
 
 See chat with [gemini here](https://gemini.google.com/app/e41922c6044c3e03)
 
-* implement addresses + symbols array
-* implement backtrace() (EBP hopping + symbol names)
+* ~~implement addresses + symbols array~~
+* ~~implement backtrace() (EBP hopping + symbol names)~~
 * improve panic() with a backtrace
 * create unit tests using assert() / panic(), `make run-tests`
 * improve page fault handler, with better visibility
