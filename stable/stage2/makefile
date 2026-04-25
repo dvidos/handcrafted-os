@@ -1,10 +1,12 @@
 include ../config.inc.mk
+ifeq ($(strip $(BUILD_DIR)),)
+    $(error BUILD_DIR is empty. Check your config.inc.mk)
+endif
+
 
 STAGE2_OBJS = \
 	stage2_asm.o \
 	stage2.o
-
-
 
 
 all: stage2.bin
@@ -26,6 +28,12 @@ stage2.elf: $(STAGE2_OBJS)
 
 stage2.bin: stage2.elf
 	objcopy -O binary -S $< $@
+
+
+.PHONY: install
+install: stage2.bin
+	mkdir -p $(BUILD_DIR)/kernel
+	cp stage2.bin -t $(BUILD_DIR)/kernel
 
 clean:
 	rm -f stage2.bin stage2.elf *.o

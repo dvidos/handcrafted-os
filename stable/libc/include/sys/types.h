@@ -1,7 +1,7 @@
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
 
-#include "../kernel/base.h" // Get uint*_t from here
+#include <kernel/base.h>
 #include "../stddef.h" // For size_t and ptrdiff_t
 
 // --- Pointer-sized integers ---

@@ -1,15 +1,16 @@
 include ../config.inc.mk
+ifeq ($(strip $(BUILD_DIR)),)
+    $(error BUILD_DIR is empty. Check your config.inc.mk)
+endif
 
-CC = i686-elf-gcc
-LD = i686-elf-ld
-AS = i686-elf-as
-AR = i686-elf-ar
 
+# pulls includes from both places (e.g. "#include <kernel/syscall.h>")
 CFLAGS = -std=gnu99 -ffreestanding   \
 	-nostdlib -nostdinc -fno-builtin \
 	-Wall -Wextra -Werror  \
 	-Wno-unused-parameter \
-	-O2 -g -I./include
+	-O2 -g \
+	-I./include -I$(BUILD_DIR)/rootfs/usr/include
 
 LIBC=libc.a
 C_FILES = \
@@ -39,40 +40,33 @@ ASM_FILES = $(wildcard src/hcos/*.asm)
 OBJ_FILES = $(ASM_FILES:.asm=.o) $(C_FILES:.c=.o) 
 DEP_FILES = $(C_FILES:.c=.d)
 
-HEADER_FILES = \
-	$(wildcard include/*.h) \
-	$(wildcard include/sys/*.h) \
-	$(wildcard include/hcos/*.h)
-
-UAPI_SRC_DIR = ../kernel/include/uapi
-UAPI_DEST_DIR = ./include/kernel
-UAPI_SRC_HEADERS = $(wildcard $(UAPI_SRC_DIR)/*.h)
-UAPI_DEST_HEADERS = $(patsubst $(UAPI_SRC_DIR)/%,$(UAPI_DEST_DIR)/%,$(UAPI_SRC_HEADERS))
-
-
-
 
 all: $(LIBC)
 
-$(LIBC): $(UAPI_DEST_HEADERS) $(OBJ_FILES)
+$(LIBC): $(OBJ_FILES)
 	$(AR) rcs $@ $(OBJ_FILES)
 
 %.o: %.c
-	$(CC) -MD -c $< -o $@ $(CFLAGS)
+	$(CROSS_CC) -MD -c $< -o $@ $(CFLAGS)
 
 %.o: %.asm
 	nasm -f elf $< -o $@
 
-$(UAPI_DEST_DIR)/%.h: $(UAPI_SRC_DIR)/%.h
-	@mkdir -p $(@D)
-	cp $< $@
+.PHONY: install
+install: $(LIBC)
+	mkdir -p $(BUILD_DIR)/rootfs/usr/lib
+	cp -a $(LIBC) -t $(BUILD_DIR)/rootfs/usr/lib
+
+.PHONY: install_headers
+install_headers:
+	mkdir -p $(BUILD_DIR)/rootfs/usr/include
+	cp -ar include/* -t $(BUILD_DIR)/rootfs/usr/include
 
 tests: $(LIBC)
 	# compile and run tests, against the library
 
 clean:
-	rm -f $(LIBC) $(OBJ_FILES) $(LIBC_OBJ_DEPS) $(UAPI_DEST_HEADERS)
-	rmdir $(UAPI_DEST_DIR)
+	rm -f $(LIBC) $(OBJ_FILES) $(LIBC_OBJ_DEPS)
 
 # include depenedencies files, produced by "gcc -MD"
 -include $(DEP_FILES)

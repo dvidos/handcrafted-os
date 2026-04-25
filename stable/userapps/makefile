@@ -1,22 +1,28 @@
 include ../config.inc.mk
 
-ROOTFS := ../build/rootfs
-SUBDIRS := init sash edit shell echo usertests
+
+SUBDIRS := \
+	init \
+	sash \
+	coreutils \
+	usertests
 
 
 # mark directories as phony to always build
 .PHONY: $(SUBDIRS)
 
-
-all: $(SUBDIRS) $(LIBC)
-	mkdir -p $(ROOTFS)/bin
-	for n in $(SUBDIRS); do \
-		cp $$n/$$n $(ROOTFS)/bin; \
-	done
+all: $(SUBDIRS)
 
 $(SUBDIRS):
 	make -C $@
 
+.PHONY: install
+install:
+	for d in $(SUBDIRS); do \
+		make -C $$d install; \
+	done
+
 clean:
-	for d in $(SUBDIRS); do make -C $$d clean; done
-	rm -f *.o
+	for d in $(SUBDIRS); do \
+		make -C $$d clean; \
+	done

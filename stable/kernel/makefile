@@ -1,4 +1,8 @@
 include ../config.inc.mk
+ifeq ($(strip $(BUILD_DIR)),)
+    $(error BUILD_DIR is empty. Check your config.inc.mk)
+endif
+
 
 # Common macros
 #   $@ is the target for multiple targets (separated by space)
@@ -84,8 +88,8 @@ LINKING_FLAGS = \
 	-nostdlib 
 
 
-
 all: $(KERNEL_BIN)
+
 
 print:
 	@echo ---- kernel binary -----
@@ -130,6 +134,20 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 
 %.o: %.S
 	$(CROSS_AS) $< -o $@
+
+
+
+.PHONY: install
+install: $(KERNEL_BIN)
+	mkdir -p $(BUILD_DIR)/kernel
+	cp -a $(KERNEL_BIN) -t $(BUILD_DIR)/kernel
+
+.PHONY: install_headers
+install_headers:
+	# these could be sanitized, i.e. only public parts of these files to be exposed
+	mkdir -p $(BUILD_DIR)/rootfs/usr/include/kernel
+	cp -a include/uapi/*.h -t $(BUILD_DIR)/rootfs/usr/include/kernel
+
 
 
 .PHONY: test

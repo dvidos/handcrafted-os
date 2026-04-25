@@ -23,16 +23,5 @@ find ./rootfs -type f -not -name ".gitkeep" | while read -r file; do
 done
 
 
-# copy libc so that programs can compile..?
-cp ./libc/libc.a $R/usr/lib
-cp -r ./libc/include/* $R/usr/include
-
-
-
-# these should be put there by their respective makefiles, upon "make install"
-cp ./userapps/init/init   $R/bin
-cp ./userapps/sash/sash   $R/bin
-cp ./userapps/shell/shell $R/bin
-cp ./userapps/edit/edit   $R/bin
 
 

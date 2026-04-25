@@ -5,10 +5,12 @@ EMU := qemu-system-i386
 # run configure.sh to generate the config.inc.mk file
 include config.inc.mk
 
+
 .PHONY: tools stage1 stage2 kernel libc userapps rootfs
 
 
-default: os.img
+default: image
+
 
 config.inc.mk: ./tools/configure.sh
 	./tools/configure.sh
@@ -19,45 +21,42 @@ config.inc.sh: ./tools/configure.sh
 config.inc.h: ./tools/configure.sh
 	./tools/configure.sh
 
-tools:
-	make -C tools
-
 stage1:
 	make -C stage1
-	mkdir -p build/kernel
-	cp stage1/stage1.bin -t build/kernel
+	make -C stage1 install
 
 stage2:
 	make -C stage2
-	mkdir -p build/kernel
-	cp stage2/stage2.bin -t build/kernel
+	make -C stage2 install
 
 kernel:
 	make -C kernel
-	mkdir -p build/kernel
-	cp kernel/kernel.bin -t build/kernel
+	make -C kernel install
+	make -C kernel install_headers
 
 libc:
 	make -C libc
-	mkdir -p build/rootfs/usr/lib
-	mkdir -p build/rootfs/usr/include
-	cp libc/libc.a -t build/rootfs/usr/lib
-	cp -r libc/include/* -t build/rootfs/usr/include
+	make -C libc install
+	make -C libc install_headers
 
-userapps: libc
+userapps:
 	make -C userapps
+	make -C userapps install
 
-rootfs: userapps
+tools:
+	make -C tools
+
+rootfs:
 	tools/make-root-fs.sh
 
-os.img: stage1 stage2 kernel tools rootfs
+image: rootfs stage1 stage2 kernel libc userapps tools
 	tools/make-os-img.sh
 
 run: run-sata
 #run: run-with-cpu-diags
 
 
-run-debugger: os.img
+run-debugger: image
 	$(EMU) -s -S \
 		-drive format=raw,file=os.img,if=none,id=disk0 \
 		-device ahci,id=ahci0 \
@@ -65,7 +64,7 @@ run-debugger: os.img
 		-serial stdio -m 4G
 
 # SATA drive
-run-sata: os.img
+run-sata: image
 	$(EMU) \
 		-drive format=raw,file=os.img,if=none,id=disk0 \
 		-device ahci,id=ahci0 \
@@ -73,12 +72,12 @@ run-sata: os.img
 		-serial stdio -m 4G
 
 # ATA / IDE drive
-run-ide: os.img  
+run-ide: image  
 	$(EMU) -drive format=raw,file=os.img -serial stdio -m 4G
 
 
 # lots of diagnostics about the CPU
-run-with-cpu-diags: os.img
+run-with-cpu-diags: image
 	$(EMU) -drive format=raw,file=os.img -m 4G -serial stdio -d int,cpu_reset,guest_errors -no-reboot -no-shutdown -D qemu.log
 
 clean: config.inc.mk

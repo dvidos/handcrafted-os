@@ -8,3 +8,9 @@ $(OUT): $(FILES) $(LIBC)
 
 clean:
 	rm -f $(OUT)
+
+.PHONY: install
+install: $(OUT)
+	mkdir -p $(BUILD_DIR)/rootfs/bin
+	cp $(OUT) -t $(BUILD_DIR)/rootfs/bin
+

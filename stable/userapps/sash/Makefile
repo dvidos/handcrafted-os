@@ -11,22 +11,17 @@ include ../user-config.mk
 # LIBS = -lc
 
 
-BINDIR = /bin
-# MANDIR = /usr/man/man1
-
-
+OUT = sash
 OBJS = sash.o cmds.o cmd_dd.o cmd_ed.o cmd_grep.o cmd_ls.o cmd_tar.o \
 	cmd_gzip.o cmd_find.o cmd_file.o cmd_chattr.o cmd_ar.o utils.o
 
 
-sash:	$(OBJS) $(LIBC)
-	$(CC) -o sash $(OBJS) $(LIBS) $(LDFLAGS)
+$(OUT): $(OBJS) $(LIBC) sash.h
+	$(CC) -o $@ $(OBJS) $(LIBS) $(LDFLAGS)
+
+install: $(OUT)
+	mkdir -p $(BUILD_DIR)/rootfs/bin
+	cp $(OUT) -t $(BUILD_DIR)/rootfs/bin
 
 clean:
-	rm -f $(OBJS) sash
-
-install: sash
-	# cp sash $(BINDIR)/sash
-	# cp sash.1 $(MANDIR)/sash.1
-
-$(OBJS):	sash.h
+	rm -f $(OBJS) $(OUT)

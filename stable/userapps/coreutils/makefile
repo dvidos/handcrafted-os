@@ -1,15 +1,18 @@
-include ../../config.inc.mk
-
-ROOTFS := ../../build/rootfs
+include ../user-config.mk
 
 PROGS := true false echo cat
 
 all: $(PROGS)
-	mkdir -p $(ROOTFS)/bin
-	for p in $(PROGS); do cp $$p $(ROOTFS)/bin; done
+
+.PHONY: install
+install: $(PROGS)
+	mkdir -p $(BUILD_DIR)/rootfs/bin
+	for p in $(PROGS); do \
+		cp $$p $(BUILD_DIR)/rootfs/bin; \
+	done
 
 $(PROGS): %: %.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
 	rm -f $(PROGS) *.o
