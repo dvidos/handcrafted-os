@@ -142,6 +142,8 @@ void kernel_main(boot_info_t* boot)
     log_info("Initializing multi-tasking...");
     init_multitasking();
 
+    // kshell();
+
     log_info("Giving the console to console manager...");
     logger_remove_appender(screen_log_appender, NULL);
     init_console_mgr(5);
