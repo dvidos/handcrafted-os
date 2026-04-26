@@ -39,7 +39,7 @@ void schedule_another_process() {
 
     ASSERT(next->state == READY);
     ASSERT(next->memory.page_dir != 0);
-    ASSERT(next->memory.tss_esp0_value != 0);
+    ASSERT(next->memory.ring0_stack_top != 0);
     
     // if current task is running (as opposed to be blocked or sleeping), put back to the ready list
     process_t *previous = (process_t *)running_proc;
@@ -60,7 +60,7 @@ void schedule_another_process() {
         &previous->memory.ring0_esp,
         running_proc->memory.ring0_esp,
         running_proc->memory.page_dir,
-        running_proc->memory.tss_esp0_value
+        running_proc->memory.ring0_stack_top
     );
 
     // we are now in a different stack / process

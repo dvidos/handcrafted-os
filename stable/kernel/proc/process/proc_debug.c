@@ -135,7 +135,7 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
 
     stream->printf(stream, "- Memory: (proc_pd=0x%x, curr_pd=0x%x)", proc->memory.page_dir, vmm_get_current_page_dir());
     stream->printf(stream, "    Region       Address          To        Size    KB  Usr  Wrt  Usage");
-    format_mem_region(stream, "kstack", &proc->memory.kernel_stack);
+    format_mem_region(stream, "kstack", &proc->memory.ring0_stack);
     format_mem_region(stream, "ustack", &proc->memory.user_stack);
     format_mem_region(stream, "uheap", &proc->memory.user_heap);
     if (!mem_region_is_empty(&proc->memory.elf_sections[0])) format_mem_region(stream, "elf #0", &proc->memory.elf_sections[0]);
@@ -143,12 +143,12 @@ void proc_log_formatter(log_write_stream_t *stream, va_list args) {
     if (!mem_region_is_empty(&proc->memory.elf_sections[2])) format_mem_region(stream, "elf #2", &proc->memory.elf_sections[2]);
     if (!mem_region_is_empty(&proc->memory.elf_sections[3])) format_mem_region(stream, "elf #3", &proc->memory.elf_sections[3]);
     
-    // trapframe will always be in kernel_stack, therefore always identity mapped
+    // trapframe will always be in ring0_stack, therefore always identity mapped
     c_frame_t *cframe = proc_get_c_frame(proc);
     stream->printf(stream, "- C-frame frame (ring0_esp=0x%08x)", proc->memory.ring0_esp);
     stream->print_fmt(stream, "   ", c_frame_log_formatter, cframe);
     interrupt_frame_t *iframe = proc_get_interrupt_frame(proc);
-    stream->printf(stream, "- Interrupt frame (tss_esp0=0x%08x)", proc->memory.tss_esp0_value);
+    stream->printf(stream, "- Interrupt frame (tss_esp0=0x%08x)", proc->memory.ring0_stack_top);
     stream->print_fmt(stream, "   ", interrupt_frame_log_formatter, iframe);
 
     // stream->printf(stream->context, "- Arguments");

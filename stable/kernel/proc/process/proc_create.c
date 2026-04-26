@@ -409,18 +409,18 @@ static error_t capture_argv_envp(char **argv, char **envp, uint32_t future_stack
 static error_t create_kernel_stack(process_t *proc, uint32_t user_entry_point, uint32_t user_stack_pointer, interrupt_frame_t *possible_parent_frame) {  // creates minimal ring0 stack to start a user process
     log_trace("create_kernel_stack(proc=%p, user_entry=%p, user_esp=%p, possible_parent_frame=%p)", proc, user_entry_point, user_stack_pointer, possible_parent_frame);
 
-    proc->memory.kernel_stack.size = 4096;
-    proc->memory.kernel_stack.address = (uintptr_t)kmalloc(proc->memory.kernel_stack.size);
-    if (proc->memory.kernel_stack.address == 0)
+    proc->memory.ring0_stack.size = 4096;
+    proc->memory.ring0_stack.address = (uintptr_t)kmalloc(proc->memory.ring0_stack.size);
+    if (proc->memory.ring0_stack.address == 0)
         return ERR_NO_MEMORY;
 
-    uint32_t ksp = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size;
+    uint32_t ksp = proc->memory.ring0_stack.address + proc->memory.ring0_stack.size;
     ksp -= sizeof(interrupt_frame_t); interrupt_frame_t *iframe = (interrupt_frame_t *)ksp;
     ksp -= sizeof(uint32_t);          uint32_t *ret_address = (uint32_t *)ksp;
     ksp -= sizeof(c_frame_t);         c_frame_t *cframe = (c_frame_t *)ksp;
 
     proc->memory.ring0_esp = (uint32_t)cframe;
-    proc->memory.tss_esp0_value = proc->memory.kernel_stack.address + proc->memory.kernel_stack.size;
+    proc->memory.ring0_stack_top = proc->memory.ring0_stack.address + proc->memory.ring0_stack.size;
 
     if (possible_parent_frame == NULL) {
         // this is a new frame, for spawn() or exec()
@@ -455,10 +455,10 @@ static error_t create_kernel_stack(process_t *proc, uint32_t user_entry_point, u
 static error_t destroy_kernel_stack(process_t *proc) {
     log_trace("destroy_kernel_stack(proc=%p)", proc);
 
-    if (proc->memory.kernel_stack.address != 0) {
-        kfree((void *)proc->memory.kernel_stack.address);
-        proc->memory.kernel_stack.address = 0;
-        proc->memory.kernel_stack.size = 0;
+    if (proc->memory.ring0_stack.address != 0) {
+        kfree((void *)proc->memory.ring0_stack.address);
+        proc->memory.ring0_stack.address = 0;
+        proc->memory.ring0_stack.size = 0;
     }
 
     return OK;
@@ -689,7 +689,7 @@ static error_t create_process_object(bool is_user_proc, page_dir_t pd, process_t
 
 failed:
     if (proc && proc->name) kfree(proc->name);
-    if (proc && proc->memory.kernel_stack.address) kfree((void *)proc->memory.kernel_stack.address);
+    if (proc && proc->memory.ring0_stack.address) kfree((void *)proc->memory.ring0_stack.address);
     if (proc) kfree(proc);
     return traceable(err);
 }
@@ -704,10 +704,10 @@ error_t process_create_for_kernel(const char *name, uintptr_t function_to_call, 
     err = create_kernel_stack(proc, function_to_call, 0, NULL);
     if (err) return err;
 
-    ASSERT(proc->memory.kernel_stack.address != 0);
-    ASSERT(proc->memory.kernel_stack.size != 0);
+    ASSERT(proc->memory.ring0_stack.address != 0);
+    ASSERT(proc->memory.ring0_stack.size != 0);
     ASSERT(proc->memory.ring0_esp != 0);
-    ASSERT(proc->memory.tss_esp0_value != 0);
+    ASSERT(proc->memory.ring0_stack_top != 0);
 
     // log_debug_fmt(proc_log_formatter, "process_create_for_kernel(): ", proc);
     *proc_ptr = proc;

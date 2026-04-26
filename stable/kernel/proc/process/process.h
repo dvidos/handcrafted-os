@@ -72,16 +72,17 @@ struct process {
     proc_priority_t priority;
     
     struct memory {
+        page_dir_t page_dir;       // defines all the virtual memory mappings of the process
+
         // this is the ESP inside ring 0, when we are serving an interrupt (e.g. syscall or switching)
         // it is saved when switching out, and put on ESP when switching in.
         uint32_t ring0_esp;
-        uint32_t tss_esp0_value;   // top of kernel stack, used in scheduler
-        page_dir_t page_dir;       // defines all the virtual memory mappings of the process
-        
-        mem_region_t kernel_stack; // allocated from kernel heap
+        uint32_t ring0_stack_top;   // top of kernel stack, used in scheduler
+        mem_region_t ring0_stack; // allocated from kernel heap
+
+        mem_region_t elf_sections[MAX_PROCESS_ELF_SECTIONS]; // can be .text, .data, .rodata, .bss, etc.
         mem_region_t user_stack;   // could have a guard page, for stack underflow
         mem_region_t user_heap;    // could have a guard page, for heap overflow
-        mem_region_t elf_sections[MAX_PROCESS_ELF_SECTIONS]; // can be .text, .data, .rodata, .bss, etc.
     } memory;
 
     // should mirror where the process is: running_proc variable, ready_list, block_list, terminated_list.
@@ -113,7 +114,7 @@ static inline pid_t proc_get_ppid(process_t *proc) { return proc == NULL ? 0 : (
 static inline bool  proc_is_user_proc(process_t *proc) { return proc == NULL ? false : proc->is_user; }
 static inline bool  proc_is_kernel_proc(process_t *proc) { return proc == NULL ? false : !proc->is_user; }
 static inline int   proc_used_elf_sections(process_t *proc) { int count = 0; for (int i = 0; i < MAX_PROCESS_ELF_SECTIONS; i++) { if (!mem_region_is_empty(&proc->memory.elf_sections[i])) count++; }; return count; }
-static inline interrupt_frame_t *proc_get_interrupt_frame(process_t *proc) { return (interrupt_frame_t *)(proc->memory.kernel_stack.address + proc->memory.kernel_stack.size - sizeof(interrupt_frame_t)); }
+static inline interrupt_frame_t *proc_get_interrupt_frame(process_t *proc) { return (interrupt_frame_t *)(proc->memory.ring0_stack.address + proc->memory.ring0_stack.size - sizeof(interrupt_frame_t)); }
 static inline c_frame_t *proc_get_c_frame(process_t *proc) { return (c_frame_t *)proc->memory.ring0_esp; }
 
 
