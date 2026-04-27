@@ -196,7 +196,7 @@ static inline char is_printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-void logger_append_hex(const char *module_name, log_level_t level,  uint8_t *buffer, size_t length, uint32_t start_address) {
+void logger_append_hex(const char *module_name, log_level_t level, const uint8_t *buffer, size_t length, uint32_t start_address) {
     char last_row[16];
     bool have_last_row = false;
     bool star_given = false;

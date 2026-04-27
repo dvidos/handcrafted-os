@@ -6,12 +6,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <ctype.h>
+#include <errno.h>
 
 
 
 // Heavily inspired by xv6 usertests.c
 
 // Forward declarations for test functions
+void test_file_open_read();
 void test_fork_exec_wait();
 void test_file_create_write_read();
 void test_memory_allocation();
@@ -34,14 +37,17 @@ void print_test_status(const char *test_name, int passed) {
 int main(int argc, char *argv[]) {
     printf("Starting user applications tests...\n");
 
-    test_file_create_write_read();
+    test_file_open_read();
+
+    // test_file_create_write_read();
+
     // test_unlink_link();
     // test_directory_ops();
     // test_big_dir();
     // test_nested_dirs();
     // test_big_file();
 
-    // test_fork_exec_wait();
+    test_fork_exec_wait();
     // test_pipe_communication();
     
     // test_memory_allocation();
@@ -59,8 +65,11 @@ void test_fork_exec_wait() {
         printf("Child process: Executing echo...\n");
         char *argv[] = { "echo", "Hello from child!", 0 };
         // Assuming exec() system call, and 'echo' is an available user program
-        execv("echo", argv);
-        printf("Child process: exec failed!\n"); // Should not reach here if exec succeeds
+        int err = execvp("echo", argv);
+        if (err != 0) {
+            // oh, if exec is failing, it can be anything wrong...
+            printf("Child process: exec failed (err=%d, errno=%d)!\n", err, errno); // Should not reach here if exec succeeds
+        }
         exit(1);
     } else if (pid > 0) {
         // Parent process
@@ -131,6 +140,52 @@ void test_file_create_write_read() {
 end_test:
     unlink(filename); // Clean up: delete the file.
     print_test_status("file_create_write_read", passed);
+}
+
+void test_file_open_read() {
+    const char *filename = "/etc/initrc";
+    char read_buffer[32 + 1];
+    int fd, bytes_written, bytes_read;
+    int passed = 1;
+
+    // Open file for reading
+    fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        passed = 0;
+        printf("Error: Could not open file %s for reading\n", filename);
+        goto end_test;
+    }
+
+    // Read from file
+    bytes_read = read(fd, read_buffer, sizeof(read_buffer) - 1);
+    if (bytes_read < 0) {
+        passed = 0;
+        printf("Error: Failed to read from file %s\n", filename);
+        close(fd);
+        goto end_test;
+    }
+    read_buffer[bytes_read] = '\0'; // Null-terminate
+
+    if (bytes_read != sizeof(read_buffer) - 1) {
+        printf("Error: Expected to read %d bytes, but read %d\n", sizeof(read_buffer) - 1);
+        passed = 0;
+        goto end_test;
+    }
+
+    for (int i = 0; i < (int)sizeof(read_buffer) - 1; i++) {
+        int c = read_buffer[i];
+        if (isspace(c) || isalnum(c) || isgraph(c) || c == '\n')
+            continue;
+
+        printf("Error: Char at offset %d is '%c' (0x%02x)\n", i, c, (unsigned char)c);
+        passed = 0;
+        goto end_test;
+    }
+
+    close(fd);
+
+end_test:
+    print_test_status("test_file_open_read", passed);
 }
 
 // Test: Dynamic memory allocation (sbrk equivalent)

@@ -7,6 +7,9 @@
 #include "../memory/mem_map.h"
 #include "../arch/stack_frames.h"
 
+static inline virt_addr_t vmm_rmw_base_address()               { return 0xFFC00000; } // 4GB - 4MB
+static inline virt_addr_t vmm_rmw_pd_address()                 { return 0xFFFFF000; } // 4GB - 4KB (very last page)
+
 static inline uint32_t vmm_page_size()                         { return PAGE_SIZE; }
 static inline uint32_t vmm_round_up(uint32_t address)          { return ((address + vmm_page_size() - 1) / vmm_page_size()) * vmm_page_size(); }
 static inline uint32_t vmm_round_down(uint32_t address)        { return ((address                      ) / vmm_page_size()) * vmm_page_size(); }

@@ -37,7 +37,7 @@ static known_formatter known_formatters[] = {
     { "proc", "Process struct", proc_log_formatter },
     { "if", "Interrupt frame struct", interrupt_frame_log_formatter },
     { "cf", "C frame struct", c_frame_log_formatter },
-    { "of", "open_file_t struct", open_file_log_formatter },
+    // { "of", "open_file_t struct", open_file_log_formatter },
     { "mm", "mem_map_t struct", mem_map_formatter },
     { "mr", "mem_regiot_t struct", mem_region_formatter },
     { "pd", "page directory", vmm_pagedir_log_formatter },
@@ -130,7 +130,7 @@ static void shell_addr(char *args) {
     // vmm area
     // ?
     bool is_kernel_space = (addr < vmm_get_kernel_area_end());
-    bool is_mapping_window = (addr >= vmm_rmw_base_address);
+    bool is_mapping_window = (addr >= vmm_rmw_base_address());
     
     if (is_kernel_space) {
         shprintf("This is a kernel space pointer\n");
@@ -148,7 +148,7 @@ static void shell_addr(char *args) {
         else if (mem_region_contains_address(&kmm.pmm_bitmap, addr))    { region_name = "pmm bitmap pages";  is_data = false; }
         shprintf("Kernel region: %s\n", region_name);
 
-        char *symbol_name = is_kernel_space ? kdebug_get_symbol(addr) : NULL;
+        const char *symbol_name = is_kernel_space ? kdebug_get_symbol(addr) : NULL;
 
         if (mem_region_contains_address(&kmm.heap, addr)) {
             shprintf("Checking heap pointer integrity...\n");
@@ -199,8 +199,6 @@ static void shell_addr(char *args) {
             log_debug_hex((void *)addr, 64, addr);
         }
     }
-
-
 }
 
 static void shell_pretty_print(char *args) {

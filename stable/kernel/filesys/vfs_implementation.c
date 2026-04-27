@@ -12,11 +12,12 @@
 #include "../logger/logger.h"
 #include "../utils/assert.h"
 #include "../klib/strerror.h"
+#include "../klib/kdebug.h"
 #include "../filesys/fs_api.h"
 #include "../include/uapi/vfs_file_flags.h" // For F_OK, R_OK, W_OK, X_OK and S_I* macros
 #include "../include/uapi/vfs_stat.h"       // For vfs_stat_t
 
-MODULE("VFS", LOG_LEVEL_INFO);
+MODULE("VFS", LOG_LEVEL_TRACE);
 
 
 typedef struct substring {
@@ -391,6 +392,13 @@ ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
     // If O_APPEND is set, set the offset to the end of the file before writing
     if (file->flags & O_APPEND) {
         file->offset = file->size;
+    }
+
+    if (file == NULL || file->sb == NULL || file->sb->driver == NULL || file->sb->driver->write == NULL) {
+        log_error("Something is not write here!");
+        log_debug_hex(buf, len, (uint32_t)buf);
+        kdebug_backtrace();
+        for(;;);
     }
 
     ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
