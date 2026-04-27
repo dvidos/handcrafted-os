@@ -723,6 +723,7 @@ error_t process_create_for_spawn(process_t *parent, const char *file_path, char 
     open_file_t *elf = NULL;
     process_t *child = NULL;
     page_dir_t pd = 0;
+    char *page_buffer = NULL; // initialize before error handling.
 
     pd = vmm_create_user_page_directory();
     if (pd == 0) { err = ERR_NO_MEMORY; goto failed; }
@@ -748,12 +749,11 @@ error_t process_create_for_spawn(process_t *parent, const char *file_path, char 
     err = create_user_heap(child);
     if (err) goto failed;
 
-    char *user_stack_top_page = NULL;
     uint32_t user_stack_pointer;
-    err = capture_argv_envp(argv, envp, 2 * GB, &user_stack_top_page, &user_stack_pointer);
+    err = capture_argv_envp(argv, envp, 2 * GB, &page_buffer, &user_stack_pointer);
     if (err) goto failed;
 
-    err = create_user_stack(child, 2 * GB, user_stack_top_page);
+    err = create_user_stack(child, 2 * GB, page_buffer);
     if (err) goto failed;
 
     err = create_kernel_stack(child, user_exec_address, user_stack_pointer, NULL);
@@ -778,16 +778,16 @@ error_t process_replace_for_exec(process_t *proc, const char *file_path, char **
 
     error_t err = OK;
     open_file_t *elf = NULL;
+    char *page_buffer = NULL;  // initialize before error handling next time!!!!
 
     err = vfs_open(&proc->vfs_ctx, file_path, 0, &elf);
     if (err) goto failed;
     err = elf_verify_executable(elf); // verify early for better recovery
     if (err) goto failed;
 
-    // capture arguments passed in, before destroing the heap.
-    char *user_stack_top_page = NULL;
+    // capture arguments passed in, before destroying the heap.
     uint32_t user_stack_pointer;
-    err = capture_argv_envp(argv, envp, 2 * GB, &user_stack_top_page, &user_stack_pointer);
+    err = capture_argv_envp(argv, envp, 2 * GB, &page_buffer, &user_stack_pointer);
     if (err) goto failed;
 
     // improve this:
@@ -817,7 +817,7 @@ error_t process_replace_for_exec(process_t *proc, const char *file_path, char **
     err = create_user_heap(proc);
     if (err) goto failed;
 
-    err = create_user_stack(proc, 2 * GB, user_stack_top_page);
+    err = create_user_stack(proc, 2 * GB, page_buffer);
     if (err) goto failed;
 
     // we maintain the same kernel stack (same esp0), but need to change the user addresses
@@ -831,7 +831,7 @@ error_t process_replace_for_exec(process_t *proc, const char *file_path, char **
 
 failed:
     if (elf) vfs_close(elf);
-    if (user_stack_top_page) kfree(user_stack_top_page);
+    if (page_buffer) kfree(page_buffer);
     // we may be in a pretty unrunnable state! 
     // real kernels solve this by loading new image and if success, swap. not blindly destroying first
     return traceable(err);

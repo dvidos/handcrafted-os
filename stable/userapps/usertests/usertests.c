@@ -145,7 +145,7 @@ end_test:
 void test_file_open_read() {
     const char *filename = "/etc/initrc";
     char read_buffer[32 + 1];
-    int fd, bytes_written, bytes_read;
+    int fd, bytes_read;
     int passed = 1;
 
     // Open file for reading
