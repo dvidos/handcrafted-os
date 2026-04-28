@@ -28,9 +28,9 @@ void test_big_file();
 
 void print_test_status(const char *test_name, int passed) {
     if (passed) {
-        printf("TEST %s: PASSED\n", test_name);
+        printf("test passed: %s\n", test_name);
     } else {
-        printf("TEST %s: FAILED\n", test_name);
+        printf("** TEST FAILED: ** %s\n", test_name);
     }
 }
 
@@ -38,8 +38,7 @@ int main(int argc, char *argv[]) {
     printf("Starting user applications tests...\n");
 
     test_file_open_read();
-
-    // test_file_create_write_read();
+    test_file_create_write_read();
 
     // test_unlink_link();
     // test_directory_ops();

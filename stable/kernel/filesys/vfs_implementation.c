@@ -48,6 +48,8 @@ static substring_t get_path_first_substring(const char *path) {
 static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup_parent, inode_t *inod_out, const char **name_out) {
     log_trace("vfs_flex_lookup(path='%s', parent=%s)", path, lookup_parent ? "true" : "false");
     ASSERT(ctx != NULL);
+    ASSERT(inod_out != NULL);
+    ASSERT(name_out != NULL);
     if (path == NULL || *path == 0)
         return traceable(ERR_BAD_ARGUMENT);
 
@@ -123,6 +125,9 @@ static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup
 
 error_t vfs_lookup(vfs_context_t *ctx, const char *path, inode_t *target_out) {
     log_trace("vfs_lookup(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+    ASSERT(target_out != NULL);
 
     const char *name_out;
     int err = vfs_flex_lookup(ctx, path, false, target_out, &name_out);
@@ -133,6 +138,10 @@ error_t vfs_lookup(vfs_context_t *ctx, const char *path, inode_t *target_out) {
 
 static error_t vfs_lookup_parent(vfs_context_t *ctx, const char *path, inode_t *parent_out, const char **final_name_out) {
     log_trace("vfs_lookup_parent(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+    ASSERT(parent_out != NULL);
+    ASSERT(final_name_out != NULL);
 
     int err = vfs_flex_lookup(ctx, path, true, parent_out, final_name_out);
     if (err) return err;
@@ -141,6 +150,8 @@ static error_t vfs_lookup_parent(vfs_context_t *ctx, const char *path, inode_t *
 }
 
 void vfs_canonicalize(char *path) {
+    ASSERT(path != NULL);
+
     // converts "/usr/../etc/./init" into "/etc/init"
     char *out = path; // write pointer
     char *in = path;  // read pointer
@@ -183,7 +194,11 @@ void vfs_canonicalize(char *path) {
 // ----------------------------------------------------------------------------------------
 
 error_t vfs_mount(vfs_context_t *ctx, const char *path, block_device_t *dev, fs_driver_ops_t *driver) {
-    log_trace("vfs_mount(path='%s', dev='%s')", path, dev->id);
+    log_trace("vfs_mount(ctx=%p, path='%s', dev='%s')", ctx, path, dev->id);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+    ASSERT(dev != NULL);
+    ASSERT(driver != NULL);
     int err;
     inode_t host_dir = inodes.empty();
 
@@ -239,6 +254,8 @@ error_t vfs_sync(void) {
 
 error_t vfs_unmount(vfs_context_t *ctx, const char *path) {
     log_trace("vfs_unmount(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
     int err;
     inode_t dir = inodes.empty();
 
@@ -263,6 +280,8 @@ error_t vfs_unmount(vfs_context_t *ctx, const char *path) {
 
 static error_t vfs_open_device(const char *path, int flags, open_file_t **file) {
     log_trace("vfs_open_device(path='%s')", path);
+    ASSERT(path != NULL);
+    ASSERT(file != NULL);
 
     const device_t *dev = fs_lookup_device(path);
     if (dev == NULL)
@@ -275,6 +294,9 @@ static error_t vfs_open_device(const char *path, int flags, open_file_t **file) 
 
 error_t vfs_open(vfs_context_t *ctx, const char *path, int flags, open_file_t **file) {
     log_trace("vfs_open(path='%s', flags=%d)", path, flags);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+    ASSERT(file != NULL);
     int err;
     inode_t n = inodes.empty();
     inode_t parent_inode = inodes.empty();
@@ -345,10 +367,16 @@ error_t vfs_open(vfs_context_t *ctx, const char *path, int flags, open_file_t **
 
     // Handle O_TRUNC
     if ((flags & O_TRUNC) && !created) { // Don't truncate if just created, as it's already empty
+        ASSERT(n.sb != NULL);
+        ASSERT(n.sb->driver != NULL);
+        ASSERT(n.sb->driver->truncate != NULL);
         err = n.sb->driver->truncate(&n, 0);
         if (err) return err;
     }
 
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->open != NULL);
     err = n.sb->driver->open(&n, flags, file);
     if (err) return err;
 
@@ -368,6 +396,7 @@ error_t vfs_open(vfs_context_t *ctx, const char *path, int flags, open_file_t **
 
 error_t vfs_close(open_file_t *file) {
     log_trace("vfs_close(file=%ld)", file->inode);
+    ASSERT(file != NULL);
     int err = file->sb->driver->close(file);
     if (err) return err;
 
@@ -377,6 +406,8 @@ error_t vfs_close(open_file_t *file) {
 
 ssize_t vfs_read(open_file_t *file, void *buf, size_t len) {
     log_trace("vfs_read(file=%ld, len=%d)", file->inode.inode_num, len);
+    ASSERT(file != NULL);
+    ASSERT(buf != NULL);
     ssize_t bytes = file->sb->driver->read(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
@@ -388,19 +419,17 @@ ssize_t vfs_read(open_file_t *file, void *buf, size_t len) {
 
 ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
     log_trace("vfs_write(file=%p, buff=%p, len=%d)", file, buf, len);
+    ASSERT(file != NULL);
+    ASSERT(buf != NULL);
     
     // If O_APPEND is set, set the offset to the end of the file before writing
     if (file->flags & O_APPEND) {
         file->offset = file->size;
     }
 
-    if (file == NULL || file->sb == NULL || file->sb->driver == NULL || file->sb->driver->write == NULL) {
-        log_error("Something is not write here!");
-        log_debug_hex(buf, len, (uint32_t)buf);
-        kdebug_backtrace();
-        for(;;);
-    }
-
+    ASSERT(file->sb != NULL);
+    ASSERT(file->sb->driver != NULL);
+    ASSERT(file->sb->driver->write != NULL);
     ssize_t bytes = file->sb->driver->write(file, buf, len, file->offset);
     if (bytes < 0) // negative numbers are errors
         return bytes;
@@ -416,6 +445,7 @@ ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
 
 off_t vfs_seek(open_file_t *file, off_t offset, int whence) {
     log_trace("vfs_seek(file=%ld, off=%d, whence=%d)", file->inode.inode_num, offset, whence);
+    ASSERT(file != NULL);
     off_t new_offset;
     switch (whence) {
         case SEEK_SET: new_offset = offset; break;
@@ -431,6 +461,7 @@ off_t vfs_seek(open_file_t *file, off_t offset, int whence) {
 
 error_t vfs_flush(open_file_t *file) {
     log_trace("vfs_flush(file=%ld)");
+    ASSERT(file != NULL);
     int err = file->sb->driver->flush(file);
     if (err) return err;
 
@@ -439,6 +470,9 @@ error_t vfs_flush(open_file_t *file) {
 
 error_t vfs_opendir(vfs_context_t *ctx, const char *path, open_file_t **dir) {
     log_trace("vfs_opendir(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+    ASSERT(dir != NULL);
     int err;
     inode_t n = inodes.empty();
 
@@ -451,6 +485,9 @@ error_t vfs_opendir(vfs_context_t *ctx, const char *path, open_file_t **dir) {
     err = vfs_permission(ctx, &n, R_OK | X_OK);
     if (err) return err;
 
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->opendir != NULL);
     err = n.sb->driver->opendir(&n, dir);
     if (err) return err;
 
@@ -463,8 +500,13 @@ error_t vfs_opendir(vfs_context_t *ctx, const char *path, open_file_t **dir) {
 
 ssize_t vfs_readdir(open_file_t *dir, vfs_dirent_t *out) {
     log_trace("vfs_readdir(dir=%ld) (size=%lu, offset=%lu)", dir->inode.inode_num, dir->size, dir->offset);
+    ASSERT(dir != NULL);
+    ASSERT(out != NULL);
     int bytes;
 
+    ASSERT(dir->sb != NULL);
+    ASSERT(dir->sb->driver != NULL);
+    ASSERT(dir->sb->driver->readdir != NULL);
     bytes = dir->sb->driver->readdir(dir, out);
     if (bytes < 0) return bytes; // negative numbers are errors
 
@@ -476,6 +518,10 @@ ssize_t vfs_readdir(open_file_t *dir, vfs_dirent_t *out) {
 
 error_t vfs_rewinddir(open_file_t *dir) {
     log_trace("vfs_rewinddir(dir=%ld)", dir->inode.inode_num);
+    ASSERT(dir != NULL);
+    ASSERT(dir->sb->driver != NULL);
+    ASSERT(dir->sb->driver->rewinddir != NULL);
+
     int err = dir->sb->driver->rewinddir(dir);
     if (err) return err;
 
@@ -485,6 +531,10 @@ error_t vfs_rewinddir(open_file_t *dir) {
 
 error_t vfs_closedir(open_file_t *dir) {
     log_trace("vfs_closedir(dir=%ld)", dir->inode.inode_num);
+    ASSERT(dir != NULL);
+    ASSERT(dir->sb->driver != NULL);
+    ASSERT(dir->sb->driver->closedir != NULL);
+
     int err = dir->sb->driver->closedir(dir);
     if (err) return err;
 
@@ -494,9 +544,17 @@ error_t vfs_closedir(open_file_t *dir) {
 
 error_t vfs_stat(vfs_context_t *ctx, const char *path, vfs_stat_t *out) {
     log_trace("vfs_stat(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+    ASSERT(out != NULL);
+
     inode_t n = inodes.empty();
     int err = vfs_lookup(ctx, path, &n);
     if (err) return err;
+
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->stat != NULL);
 
     err = n.sb->driver->stat(&n, out);
     if (err) return err;
@@ -506,12 +564,21 @@ error_t vfs_stat(vfs_context_t *ctx, const char *path, vfs_stat_t *out) {
 
 error_t vfs_fstat(open_file_t *file, vfs_stat_t *out) {
     log_trace("vfs_fstat(file=%ld)", file->inode.inode_num);
+    ASSERT(file != NULL);
+    ASSERT(out != NULL);
+    ASSERT(file->sb != NULL);
+    ASSERT(file->sb->driver != NULL);
+    ASSERT(file->sb->driver->stat != NULL);
+
     return file->sb->driver->stat(&file->inode, out);
 }
 
 // Check file access permissions
 error_t vfs_access(vfs_context_t *ctx, const char *path, int mode) {
     log_trace("vfs_access(path='%s', mode=%d)", path, mode);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+
     inode_t n = inodes.empty();
     int err;
 
@@ -530,9 +597,10 @@ error_t vfs_access(vfs_context_t *ctx, const char *path, int mode) {
     return vfs_permission(ctx, &n, mode);
 }
 
-error_t vfs_permission(vfs_context_t *ctx, inode_t *n, int mode)
-{
+error_t vfs_permission(vfs_context_t *ctx, inode_t *n, int mode) {
     log_trace("vfs_permission(inode=%ld, mode=%d)", n->inode_num, mode);
+    ASSERT(ctx != NULL);
+    ASSERT(n != NULL);
     int err;
 
     vfs_stat_t stat_info;
@@ -574,14 +642,19 @@ error_t vfs_permission(vfs_context_t *ctx, inode_t *n, int mode)
 }
 
 
-error_t vfs_chmod(vfs_context_t *ctx, const char *path, uint32_t mode)
-{
+error_t vfs_chmod(vfs_context_t *ctx, const char *path, uint32_t mode) {
     log_trace("vfs_chmod(path='%s', mode=%o)", path, mode);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
     inode_t n = inodes.empty();
     int err;
 
     err = vfs_lookup(ctx, path, &n);
     if (err) return err;
+
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->stat != NULL);
 
     vfs_stat_t stat_info;
     err = n.sb->driver->stat(&n, &stat_info);
@@ -597,11 +670,17 @@ error_t vfs_chmod(vfs_context_t *ctx, const char *path, uint32_t mode)
     return n.sb->driver->chmod(&n, mode);
 }
 
-error_t vfs_fchmod(vfs_context_t *ctx, open_file_t *file, uint32_t mode)
-{
+error_t vfs_fchmod(vfs_context_t *ctx, open_file_t *file, uint32_t mode) {
     log_trace("vfs_fchmod(ctx=%p, file=%ld, mode=%o)", ctx, file->inode.inode_num, mode);
+    ASSERT(ctx != NULL);
+    ASSERT(file != NULL);
+
     inode_t n = file->inode;
     int err;
+
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->stat != NULL);
 
     vfs_stat_t stat_info;
     err = n.sb->driver->stat(&n, &stat_info);
@@ -617,15 +696,20 @@ error_t vfs_fchmod(vfs_context_t *ctx, open_file_t *file, uint32_t mode)
     return file->sb->driver->chmod(&file->inode, mode);
 }
 
-error_t vfs_chown(vfs_context_t *ctx, const char *path, uid_t uid, gid_t gid)
-{
+error_t vfs_chown(vfs_context_t *ctx, const char *path, uid_t uid, gid_t gid) {
     log_trace("vfs_chown(path='%s', uid=%d, gid=%d)", path, uid, gid);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
     inode_t n = inodes.empty();
     int err;
 
     err = vfs_lookup(ctx, path, &n);
     if (err) return err;
 
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->stat != NULL);
+    
     vfs_stat_t stat_info;
     err = n.sb->driver->stat(&n, &stat_info);
     if (err) return err;
@@ -634,15 +718,25 @@ error_t vfs_chown(vfs_context_t *ctx, const char *path, uid_t uid, gid_t gid)
     if (ctx->uid != 0) {
         return traceable(ERR_NOT_PERMITTED);
     }
+
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->chown != NULL);
 
     return n.sb->driver->chown(&n, uid, gid);
 }
 
-error_t vfs_fchown(vfs_context_t *ctx, open_file_t *file, uid_t uid, gid_t gid)
-{
+error_t vfs_fchown(vfs_context_t *ctx, open_file_t *file, uid_t uid, gid_t gid) {
     log_trace("vfs_fchown(ctx=%p, file=%ld, uid=%d, gid=%d)", ctx, file->inode.inode_num, uid, gid);
+    ASSERT(ctx != NULL);
+    ASSERT(file != NULL);
+
     inode_t n = file->inode;
     int err;
+
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->stat != NULL);
 
     vfs_stat_t stat_info;
     err = n.sb->driver->stat(&n, &stat_info);
@@ -652,15 +746,26 @@ error_t vfs_fchown(vfs_context_t *ctx, open_file_t *file, uid_t uid, gid_t gid)
     if (ctx->uid != 0) {
         return traceable(ERR_NOT_PERMITTED);
     }
+
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->chown != NULL);
 
     return file->sb->driver->chown(&n, uid, gid);
 }
 
 error_t vfs_truncate(vfs_context_t *ctx, const char *path, size_t size) {
     log_trace("vfs_truncate(file='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+
     inode_t n = inodes.empty();
     int err = vfs_lookup(ctx, path, &n);
     if (err) return err;
+
+    ASSERT(n.sb != NULL);
+    ASSERT(n.sb->driver != NULL);
+    ASSERT(n.sb->driver->truncate!= NULL);
 
     err = n.sb->driver->truncate(&n, size);
     if (err) return err;
@@ -670,6 +775,9 @@ error_t vfs_truncate(vfs_context_t *ctx, const char *path, size_t size) {
 
 error_t vfs_create(vfs_context_t *ctx, const char *path, int type) {
     log_trace("vfs_create(path='%s', type=%d)", path, type);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+
     inode_t dir = inodes.empty();
     const char *name_ptr = NULL;
     int err = vfs_lookup_parent(ctx, path, &dir, &name_ptr);
@@ -678,6 +786,10 @@ error_t vfs_create(vfs_context_t *ctx, const char *path, int type) {
     // Check write and execute permissions on the parent directory
     err = vfs_permission(ctx, &dir, W_OK | X_OK);
     if (err) return err;
+
+    ASSERT(dir.sb != NULL);
+    ASSERT(dir.sb->driver != NULL);
+    ASSERT(dir.sb->driver->create != NULL);
 
     inode_t new_file = inodes.empty();
     err = dir.sb->driver->create(&dir, name_ptr, type, &new_file);
@@ -688,6 +800,9 @@ error_t vfs_create(vfs_context_t *ctx, const char *path, int type) {
 
 error_t vfs_unlink(vfs_context_t *ctx, const char *path) {
     log_trace("vfs_unlink(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+
     inode_t dir = inodes.empty();
     const char *name_ptr = NULL;
     int err = vfs_lookup_parent(ctx, path, &dir, &name_ptr);
@@ -696,6 +811,10 @@ error_t vfs_unlink(vfs_context_t *ctx, const char *path) {
     // Check write and execute permissions on the parent directory
     err = vfs_permission(ctx, &dir, W_OK | X_OK);
     if (err) return err;
+
+    ASSERT(dir.sb != NULL);
+    ASSERT(dir.sb->driver != NULL);
+    ASSERT(dir.sb->driver->unlink!= NULL);
 
     inode_t new_file = inodes.empty();
     err = dir.sb->driver->unlink(&dir, name_ptr);
@@ -706,6 +825,9 @@ error_t vfs_unlink(vfs_context_t *ctx, const char *path) {
 
 error_t vfs_mkdir(vfs_context_t *ctx, const char *path) {
     log_trace("vfs_mkdir(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+
     inode_t parent_dir = inodes.empty();
     const char *name_ptr = NULL;
     int err = vfs_lookup_parent(ctx, path, &parent_dir, &name_ptr);
@@ -714,6 +836,10 @@ error_t vfs_mkdir(vfs_context_t *ctx, const char *path) {
     // Check write and execute permissions on the parent directory
     err = vfs_permission(ctx, &parent_dir, W_OK | X_OK);
     if (err) return err;
+
+    ASSERT(parent_dir.sb != NULL);
+    ASSERT(parent_dir.sb->driver != NULL);
+    ASSERT(parent_dir.sb->driver->mkdir != NULL);
 
     inode_t new_dir = inodes.empty();
     err = parent_dir.sb->driver->mkdir(&parent_dir, name_ptr, &new_dir);
@@ -724,6 +850,9 @@ error_t vfs_mkdir(vfs_context_t *ctx, const char *path) {
 
 error_t vfs_rmdir(vfs_context_t *ctx, const char *path) {
     log_trace("vfs_rmdir(path='%s')", path);
+    ASSERT(ctx != NULL);
+    ASSERT(path != NULL);
+
     inode_t dir = inodes.empty();
     const char *name_ptr = NULL;
     int err = vfs_lookup_parent(ctx, path, &dir, &name_ptr);
@@ -733,6 +862,10 @@ error_t vfs_rmdir(vfs_context_t *ctx, const char *path) {
     err = vfs_permission(ctx, &dir, W_OK | X_OK);
     if (err) return err;
 
+    ASSERT(dir.sb != NULL);
+    ASSERT(dir.sb->driver != NULL);
+    ASSERT(dir.sb->driver->rmdir != NULL);
+
     err = dir.sb->driver->rmdir(&dir, name_ptr);
     if (err) return err;
 
@@ -741,6 +874,11 @@ error_t vfs_rmdir(vfs_context_t *ctx, const char *path) {
 
 error_t vfs_ioctl(open_file_t *file, uint32_t cmd, long arg) {
     log_trace("vfs_ioctl(file=%ld)", file->inode.inode_num);
+    ASSERT(file != NULL);
+    ASSERT(file->sb != NULL);
+    ASSERT(file->sb->driver != NULL);
+    ASSERT(file->sb->driver->ioctl != NULL);
+
     if (file->sb->driver->ioctl == NULL)
         return ERR_NOT_SUPPORTED;
     

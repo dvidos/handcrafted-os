@@ -1,5 +1,6 @@
 #include "panic.h"
 #include "../klib/string.h"
+#include "../klib/kdebug.h"
 
 static panic_writer_func *_panic_writer = 0;
 
@@ -21,6 +22,8 @@ void panic(const char *fmt, ...) {
         _panic_writer("\n");
     }
 
+    kdebug_backtrace();
+    
     for(;;)
         asm("hlt");
 }

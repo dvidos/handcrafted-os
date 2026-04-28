@@ -6,7 +6,6 @@ CROSS_LD=${CROSS}ld
 CROSS_AS=${CROSS}as
 CROSS_NM=${CROSS}nm
 
-
 # Get the directory where the script is located
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
@@ -50,7 +49,7 @@ STAGE2_STACK_TOP=0x7C00     # at 31KB, right below stage 1
 STAGE2_SECTOR_COUNT=$(($STAGE2_SIZE_KB * 1024 / $SECTOR_SIZE))
 STAGE2_FIRST_SECTOR=$(($STAGE1_SECTOR_COUNT))
 
-KERNEL_SIZE_KB=192          # can go up to 608 KB, but keep an eye for stack!
+KERNEL_SIZE_KB=256          # can go up to 608 KB, but keep an eye for stack!
 KERNEL_LOAD_ADDRESS=0x8000  # at 32KB, below upper memory (640KB), must be < 1MB, to be loaded in real mode.
 KERNEL_STACK_TOP=0x9FBFF    # at 639KB, below bios
 KERNEL_SECTOR_COUNT=$(($KERNEL_SIZE_KB * 1024 / $SECTOR_SIZE))
