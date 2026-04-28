@@ -89,14 +89,14 @@ static void _append_one_appender(const char *timing, const char *module_name, co
 
     if (file != NULL && line != 0) {
         char *sep = strrchr(file, '/');
-        sprintfn(buffer, sizeof(buffer), "%s:%u", sep == NULL ? file : sep + 1, line);
+        sprintfn(buffer, sizeof(buffer), "%s:%u ", sep == NULL ? file : sep + 1, line);
     } else if (proc_name != NULL && pid != 0) {
-        sprintfn(buffer, sizeof(buffer), "%s[%u]", proc_name, pid);
+        sprintfn(buffer, sizeof(buffer), "%s[%u] ", proc_name, pid);
     } else {
         strcpy(buffer, "");
     }
     app->write(app->context, buffer);
-    for (int i = 0; i < 15 - strlen(buffer); i++) app->write(app->context, " ");
+    for (int i = 0; i < 18 - strlen(buffer); i++) app->write(app->context, " ");
 
     app->write(app->context, level_captions[level]);
     app->write(app->context, "  ");

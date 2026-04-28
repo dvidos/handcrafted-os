@@ -74,7 +74,6 @@ error_t sfs_node_dir_is_empty(sfs_mount_data *mt, stored_inode *sin, bool ignore
 // ---
 error_t sfs_inodes_db_append(sfs_mount_data *mt, stored_inode *sin, inode_no_t *inode_no);
 
-
 // sfs_data_blocks.c
 error_t sfs_node_resolve_data_block(sfs_mount_data *mt, stored_inode *sin, uint32_t block_index, block_no_t *block_no);
 error_t sfs_node_expand_data_blocks(sfs_mount_data *md, stored_inode *sin, inode_no_t inode_num);
@@ -84,6 +83,7 @@ error_t sfs_node_release_all_data_blocks(sfs_mount_data *md, block_no_t inode_nu
 
 // sfs_debug.c
 void sfs_stored_inode_log_debug(const char *prefix, stored_inode *sin);
+error_t sfs_inodes_db_dump_log(sfs_mount_data *mt, uint32_t first_inode_no, uint32_t count);
 
 
 

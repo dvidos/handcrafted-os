@@ -46,7 +46,7 @@ static substring_t get_path_first_substring(const char *path) {
 
 
 static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup_parent, inode_t *inod_out, const char **name_out) {
-    log_trace("vfs_flex_lookup(path='%s', parent=%s)", path, lookup_parent ? "true" : "false");
+    // log_trace("vfs_flex_lookup(path='%s', parent=%s)", path, lookup_parent ? "true" : "false");
     ASSERT(ctx != NULL);
     ASSERT(inod_out != NULL);
     ASSERT(name_out != NULL);
@@ -70,7 +70,7 @@ static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup
     }
 
     while (part_offset < path_len) {
-        log_debug("vfs_flex_lookup(), remaining='%s', curr=%d, next=%d", path + part_offset, curr.inode_num, next.inode_num);
+        // log_debug("vfs_flex_lookup(), remaining='%s', curr=%d, next=%d", path + part_offset, curr.inode_num, next.inode_num);
 
         // see if we are looking for parent dir and we are done
         if (lookup_parent && strchr(path + part_offset, '/') == 0) {
@@ -86,7 +86,7 @@ static error_t vfs_flex_lookup(vfs_context_t *ctx, const char *path, bool lookup
         memcpy(part_buffer, ss.ptr, ss.len);
         part_buffer[ss.len] = 0;
         part_offset += strlen(part_buffer) + 1;
-        log_debug("vfs_flex_lookup(), part='%s'", part_buffer);
+        // log_debug("vfs_flex_lookup(), part='%s'", part_buffer);
 
         // skip over empty parts or same dir
         if (strlen(part_buffer) == 0 || strcmp(part_buffer, ".") == 0)
@@ -133,6 +133,7 @@ error_t vfs_lookup(vfs_context_t *ctx, const char *path, inode_t *target_out) {
     int err = vfs_flex_lookup(ctx, path, false, target_out, &name_out);
     if (err) return err;
 
+    log_trace("vfs_lookup(path='%s') --> target_inode=%llu", path, target_out->inode_num);
     return OK;
 }
 
@@ -146,6 +147,7 @@ static error_t vfs_lookup_parent(vfs_context_t *ctx, const char *path, inode_t *
     int err = vfs_flex_lookup(ctx, path, true, parent_out, final_name_out);
     if (err) return err;
 
+    log_trace("vfs_lookup_parent(path='%s') --> parent_inode=%llu, name='%s'", path, parent_out->inode_num, *final_name_out);
     return OK;
 }
 
@@ -444,8 +446,9 @@ ssize_t vfs_write(open_file_t *file, const void *buf, size_t len) {
 }
 
 off_t vfs_seek(open_file_t *file, off_t offset, int whence) {
-    log_trace("vfs_seek(file=%ld, off=%d, whence=%d)", file->inode.inode_num, offset, whence);
+    log_trace("vfs_seek(file=%llu, off=%ld, whence=%d)", file->inode.inode_num, offset, whence);
     ASSERT(file != NULL);
+    ASSERT(whence == SEEK_SET || whence == SEEK_CUR || whence == SEEK_END);
     off_t new_offset;
     switch (whence) {
         case SEEK_SET: new_offset = offset; break;

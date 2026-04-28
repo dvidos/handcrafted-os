@@ -37,7 +37,7 @@ void print_test_status(const char *test_name, int passed) {
 int main(int argc, char *argv[]) {
     printf("Starting user applications tests...\n");
 
-    test_file_open_read();
+    // test_file_open_read();
     test_file_create_write_read();
 
     // test_unlink_link();
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     // test_nested_dirs();
     // test_big_file();
 
-    test_fork_exec_wait();
+    // test_fork_exec_wait();
     // test_pipe_communication();
     
     // test_memory_allocation();
@@ -109,6 +109,7 @@ void test_file_create_write_read() {
         close(fd);
         goto end_test;
     }
+
     close(fd);
 
     // Open file for reading

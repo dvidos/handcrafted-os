@@ -75,8 +75,8 @@ typedef struct { const char *name; log_level_t level; } module_log_cfg_t;
     #define traceable(err)     \
         ((err) == OK ? OK : (\
             logger_append(__module_log_configuration__.name, __FILE__, __LINE__, NULL, 0, LOG_LEVEL_WARN, \
-                "%s() at %s:%d returning %s (%d)", \
-                __FUNCTION__, __FILE__, __LINE__, strerror(err), err), \
+                "%s() { return %s; (%d) }", \
+                __FUNCTION__, strerror(err), err), \
             (err) \
         ))
 #else 

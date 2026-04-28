@@ -15,8 +15,7 @@ void sfs_stored_inode_log_debug(const char *prefix, stored_inode *n) {
     if ((n->type_perms & STORED_INODE_TYPE_BLOCK) == STORED_INODE_TYPE_BLOCK) type = 'b';
     if ((n->type_perms & STORED_INODE_TYPE_SYM)   == STORED_INODE_TYPE_SYM)   type = 's';
 
-    log_debug("%sstored_inode(size=%lu, blocks=%lu, type/perms=0x%x (type=%c, perms=%c%c%c|%c%c%c|%c%c%c), \n"
-        "  created=%lu, modified=%lu, user=%d, group=%d, ranges=[%lu:%lu, %lu:%lu, %lu:%lu, %lu:%lu], indirect=%lu, dbl indirect=%lu)",
+    log_debug("%s stored_inode(size=%lu, blocks=%lu, type/perms=0x%x (type=%c, perms=%c%c%c|%c%c%c|%c%c%c), created=%lu, modified=%lu, user=%d, group=%d, ranges=[%lu:%lu, %lu:%lu, %lu:%lu, %lu:%lu], indirect=%lu, dbl indirect=%lu)",
 
         prefix,
         n->file_size, n->allocated_blocks,
@@ -44,5 +43,25 @@ void sfs_stored_inode_log_debug(const char *prefix, stored_inode *n) {
     );
 }
 
+
+error_t sfs_inodes_db_dump_log(sfs_mount_data *mt, uint32_t first_inode_no, uint32_t count) {
+    stored_inode *inodes_db;
+    error_t err = mt->inode_cache->ops->get(mt->inode_cache, INODE_DB_INODE_ID, (void **)&inodes_db);
+    if (err) return err;
+
+    uint32_t records = (uint32_t)(inodes_db->file_size / sizeof(stored_inode));
+    stored_inode si;
+    char prefix[16];
+
+    for (unsigned i = 0; i < count; i++) {
+        ssize_t bytes = sfs_node_read_file_rec(mt, inodes_db, sizeof(stored_inode), first_inode_no + i, &si);
+        if (bytes < 0) return (error_t) bytes;
+        if (bytes != sizeof(stored_inode)) return ERR_CORRUPTION_DETECTED;
+
+        sprintfn(prefix, sizeof(prefix), "inodes_db[%u]", first_inode_no + i);
+        sfs_stored_inode_log_debug(prefix, &si);
+    }
+    return OK;
+}
 
 
