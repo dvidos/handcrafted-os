@@ -36,7 +36,7 @@ log_level_t _logger_global_minimum_log_level;
 
 void logger_add_appender(log_appender_func *write, void *context, log_level_t level) {
     if (appender_count >= MAX_APPENDERS) {
-        logger_append("LOGGER", LOG_LEVEL_WARN, "Log appenders array full, increase array size");
+        logger_append("LOGGER", NULL, 0, NULL, 0, LOG_LEVEL_WARN, "Log appenders array full, increase array size");
         return;
     }
 
@@ -72,32 +72,45 @@ void logger_set_global_minimum_log_level(log_level_t level) {
 
 // --------------------------------------------------------------------------------------------------
 
-static void _append_one_appender(const char *timing, const char *module_name, log_level_t level, const char *prompt, const char *message, appender_t *app) {
-    if (app->write) {
-        app->write(app->context, timing);
-        app->write(app->context, " ");
+static void _append_one_appender(const char *timing, const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const char *prompt, const char *message, appender_t *app) {
+    if (!app->write)
+        return;
+    
+    char buffer[128] = {0,};
 
-        if (module_name != NULL && module_name[0] != 0) {
-            app->write(app->context, module_name);
-            for (int i = 0; i < 12 - strlen(module_name); i++)
-                app->write(app->context, " ");
-            app->write(app->context, " ");
-        }
+    app->write(app->context, timing);
+    app->write(app->context, " ");
 
-        app->write(app->context, level_captions[level]);
-        app->write(app->context, " ");
-
-        if (prompt != NULL && prompt[0] != 0) {
-            app->write(app->context, prompt);
-            app->write(app->context, " ");
-        }
-
-        app->write(app->context, message);
-        app->write(app->context, "\n");
+    if (module_name != NULL) {
+        strcpy(buffer, module_name);
     }
+    app->write(app->context, buffer);
+    for (int i = 0; i < 10 - strlen(module_name); i++) app->write(app->context, " ");
+
+    if (file != NULL && line != 0) {
+        char *sep = strrchr(file, '/');
+        sprintfn(buffer, sizeof(buffer), "%s:%u", sep == NULL ? file : sep + 1, line);
+    } else if (proc_name != NULL && pid != 0) {
+        sprintfn(buffer, sizeof(buffer), "%s[%u]", proc_name, pid);
+    } else {
+        strcpy(buffer, "");
+    }
+    app->write(app->context, buffer);
+    for (int i = 0; i < 15 - strlen(buffer); i++) app->write(app->context, " ");
+
+    app->write(app->context, level_captions[level]);
+    app->write(app->context, "  ");
+
+    if (prompt != NULL && prompt[0] != 0) {
+        app->write(app->context, prompt);
+        app->write(app->context, " ");
+    }
+
+    app->write(app->context, message);
+    app->write(app->context, "\n");
 }
 
-static void _append_all_appenders(const char *module_name, log_level_t level, const char *prompt, const char *message) {
+static void _append_all_appenders(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const char *prompt, const char *message) {
     char timing[64];
     uint32_t msecs = (uint32_t)timer_get_uptime_msecs();
     sprintfn(timing, sizeof(timing), "%u.%03u", msecs / 1000, msecs % 1000);
@@ -105,13 +118,13 @@ static void _append_all_appenders(const char *module_name, log_level_t level, co
     for (int i = 0; i < appender_count; i++) {
         appender_t *app = &appenders[i];
         if (app->write == 0)    continue;
-        _append_one_appender(timing, module_name, level, prompt, message, app);
+        _append_one_appender(timing, module_name, file, line, proc_name, pid, level, prompt, message, app);
     }
 }
 
 // ----------------------------------------------------------------------
 
-void logger_append(const char *module_name, log_level_t level, const char *format, ...) {
+void logger_append(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const char *format, ...) {
     if (format == NULL || strlen(format) == 0)
         return;
 
@@ -121,13 +134,17 @@ void logger_append(const char *module_name, log_level_t level, const char *forma
     vsprintfn(message, sizeof(message), format, args);
     va_end(args);
 
-    _append_all_appenders(module_name, level, NULL, message);
+    _append_all_appenders(module_name, file, line, proc_name, pid, level, NULL, message);
 }
 
 
 struct _log_stream_printf_context {
     const char *timing;
     const char *module_name;
+    const char *file;
+    unsigned line;
+    const char *proc_name;
+    pid_t pid;
     log_level_t level;
     const char *prompt;
 };
@@ -141,7 +158,7 @@ static void _log_stream_printf(log_write_stream_t *stream, const char *format, .
     vsprintfn(message, sizeof(message), format, args);
     va_end(args);
 
-    _append_all_appenders(ctx->module_name, ctx->level, ctx->prompt, message);
+    _append_all_appenders(ctx->module_name, ctx->file, ctx->line, ctx->proc_name, ctx->pid, ctx->level, ctx->prompt, message);
 }
 
 static void _log_stream_print_fmt(log_write_stream_t *stream, char *prefix, log_formatter_t *formatter, ...) {
@@ -164,7 +181,7 @@ static void _log_stream_print_fmt(log_write_stream_t *stream, char *prefix, log_
     ctx->prompt = original_prompt;
 }
 
-void logger_append_using_formatter(const char *module_name, log_level_t level, const char *prompt, log_formatter_t *formatter, ...) {
+void logger_append_using_formatter(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const char *prompt, log_formatter_t *formatter, ...) {
 
     if (formatter == NULL)
         return;
@@ -176,6 +193,10 @@ void logger_append_using_formatter(const char *module_name, log_level_t level, c
     struct _log_stream_printf_context stream_context = {
         .level = level,
         .module_name = module_name,
+        .file = file,
+        .line = line,
+        .proc_name = proc_name,
+        .pid = pid,
         .timing = timing,
         .prompt = prompt
     };
@@ -196,7 +217,7 @@ static inline char is_printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-void logger_append_hex(const char *module_name, log_level_t level, const uint8_t *buffer, size_t length, uint32_t start_address) {
+void logger_append_hex(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const uint8_t *buffer, size_t length, uint32_t start_address) {
     char last_row[16];
     bool have_last_row = false;
     bool star_given = false;
@@ -208,7 +229,7 @@ void logger_append_hex(const char *module_name, log_level_t level, const uint8_t
     while (length > 0) {
         if (have_last_row && memcmp(buffer, last_row, 16) == 0) {
             if (!star_given) {
-                logger_append(module_name, level, "*");
+                logger_append(module_name, file, line, proc_name, pid, level, "*");
                 star_given = true;
             }
 
@@ -218,7 +239,7 @@ void logger_append_hex(const char *module_name, log_level_t level, const uint8_t
             continue;
         }
 
-        logger_append(module_name, level,
+        logger_append(module_name, file, line, proc_name, pid, level,
             "%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
             start_address,
             buffer[0], buffer[1], buffer[2], buffer[3], 

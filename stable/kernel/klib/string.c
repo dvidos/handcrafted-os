@@ -240,6 +240,16 @@ char *strchr(const char *str, char c) {
     return NULL;
 }
 
+char *strrchr(const char *str, char c) {
+    char *p = (char *)(str + strlen(str) - 1);
+    while (p >= str) {
+        if (*p == c)
+            return (char *)p;
+        p--;
+    }
+    return NULL;
+}
+
 char *strstr(char *haystack, char *needle) {
     // there's ton of room for improvement and complex algorithms here
     // but for now, we just want an implementation that works, even a slow one

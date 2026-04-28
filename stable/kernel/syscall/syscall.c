@@ -20,13 +20,13 @@ _Static_assert(sizeof(uint32_t) == sizeof(void *));
 
 
 static void sys_log_entry(process_t *proc, int level, uint8_t *buffer) {
-    logger_append("SYSLOG", level, "%s[%d]  %s", proc->name, proc->pid, buffer);
+    logger_append("SYSLOG", NULL, 0, proc->name, proc->pid, level, "%s", buffer);
 }
 static void sys_log_hex(process_t *proc, int level, uint8_t *address, uint32_t length, uint32_t starting_num) {
-    logger_append_hex("SYSLOG", level, address, length, starting_num);
+    logger_append_hex("SYSLOG", NULL, 0, proc->name, proc->pid, level, address, length, starting_num);
 }
 static void sys_log_proc(process_t *proc, int level) {
-    logger_append_using_formatter("SYSLOG", level, "|", proc_log_formatter, proc);
+    logger_append_using_formatter("SYSLOG", NULL, 0, proc->name, proc->pid, level, "|", proc_log_formatter, proc);
 }
 
 
