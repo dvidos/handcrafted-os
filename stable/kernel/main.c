@@ -96,8 +96,6 @@ void kernel_main(boot_info_t* boot)
     set_log_level_from_cmdline();
 
     log_info("Initializing Global Descriptor Table...");
-    // kernel code segment selector: 0x08 (8)
-    // kernel data segment selector: 0x10 (16)
     init_gdt();
 
     log_info("Initializing Interrupts Descriptor Table...");
@@ -127,21 +125,28 @@ void kernel_main(boot_info_t* boot)
 
     log_info("Initializing virtual memory mapping...");
     vmm_initialize(kmm.reserved_start, kmm.reserved_end, kmm.mapping_pages.address, kmm.mapping_pages.size);
-
+    
     log_info("Enabling interrupts & NMI...");
     sti();
     enable_nmi();
-
+    
     log_info("Detecting PCI devices...");
     discover_all_pci_devices();
     log_all_pci_devices();
-
+    
     log_info("Initializing file system...");
     initialize_storage_and_file_systems();
-
+    
     log_info("Initializing multi-tasking...");
     init_multitasking();
+    
 
+    #ifdef ENABLE_UNIT_TESTS
+        log_info("Running Unit Tests...");
+        extern void backed_cache_unit_tests();
+        backed_cache_unit_tests();
+    #endif
+    
     // kshell();
 
     log_info("Giving the console to console manager...");
@@ -233,10 +238,10 @@ static void populate_kernel_memory_map(boot_info_t *info) {
 
     // these are fixed
     kmm.code = mem_region_kernel_other((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start), ".code");
-    kmm.rodata = mem_region_kernel_other((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start), ".rodata");
     kmm.data = mem_region_kernel_other((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start), ".data");
     kmm.bss = mem_region_kernel_other((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start), ".bss");
-    kmm.stack = mem_region_kernel_other((phys_addr_t)_segment_zero_data_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_zero_data_end), "stack");
+    kmm.rodata = mem_region_kernel_other((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start), ".rodata");
+    kmm.stack = mem_region_kernel_other((phys_addr_t)_segment_rodata_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_rodata_end), "stack");
 }
 
 static void initialize_physical_memory(boot_info_t *info) {

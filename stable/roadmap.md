@@ -7,7 +7,14 @@ See chat with [gemini here](https://gemini.google.com/app/e41922c6044c3e03)
 
 * ~~implement addresses + symbols array~~
 * ~~implement backtrace() (EBP hopping + symbol names)~~
-* improve panic() with a backtrace
+* ~~improve panic() with a backtrace~~
+
+To secure code, we need unit terst.
+
+To debug unit tests, it seems we do need visibility, so a stream->printf() seems absolutely necessary.
+
+So, either a magic pointer, or a magic number as the first member...
+
 * create unit tests using assert() / panic(), `make run-tests`
 * improve page fault handler, with better visibility
 * interactive kernel shell, in COM1, where logs go to COM2

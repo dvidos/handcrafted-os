@@ -20,6 +20,8 @@ extern struct symbol _k_symtab_end[];
 
 const char* kdebug_get_symbol(uint32_t addr) {
     const char* name = "unknown";
+
+    log_debug("ksym: start=%p, end=%p, size=%d, count=%d", _k_symtab_start, _k_symtab_end, _k_symtab_end - _k_symtab_start, (_k_symtab_end - _k_symtab_start) / sizeof(struct symbol));
     
     // Calculate how many actual elements are in the memory region
     // between the two linker-defined addresses.
@@ -28,6 +30,7 @@ const char* kdebug_get_symbol(uint32_t addr) {
     for (size_t i = 0; i < total; i++) {
         // Use the start pointer directly
         struct symbol *s = &_k_symtab_start[i];
+        log_debug("symbols[%i] (at %p) = { %p, \"%s\" }", i, s, s->addr, s->name);
 
         if (s->addr > addr)
             break;

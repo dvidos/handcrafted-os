@@ -5,7 +5,7 @@
 #include "../logger/logger.h"
 #include "string.h"
 
-MODULE("BCACHE", LOG_LEVEL_WARN);
+MODULE("BCACHE", LOG_LEVEL_DEBUG);
 
 
 #define in_range(value, low, hi)     ((value) < (low) ? (low) : ((value) > (hi) ? (hi) : (value)))
@@ -35,6 +35,7 @@ static int murmur_hash3(uint64_t key, int hash_slots) {
 }
 
 static backed_cache_node *find_node_in_hashtable(backed_cache_t *cache, int hash_index, uint64_t key) {
+    log_trace("backed_cache.find_node_in_hashtable(cache=%p, idx=%d, key=%llu)", cache, hash_index, key);
     backed_cache_node *node = cache->hashtable_ptrs[hash_index];
     while (node != NULL) {
         if (node->key == key) return node;
@@ -44,6 +45,7 @@ static backed_cache_node *find_node_in_hashtable(backed_cache_t *cache, int hash
 }
 
 static void promote_node_to_newest(backed_cache_t *cache, backed_cache_node *node) {
+    log_trace("backed_cache.promote_node_to_newest(cache=%p, node=%p)", cache, node);
     if (node == NULL || node == cache->lru_newest)
         return;
 
@@ -61,6 +63,7 @@ static void promote_node_to_newest(backed_cache_t *cache, backed_cache_node *nod
 }
 
 static backed_cache_node *find_an_unused_node(backed_cache_t *cache) {
+    log_trace("backed_cache.find_an_unused_node(cache=%p)", cache);
     for (backed_cache_node *n = cache->lru_oldest; n != NULL; n = n->lru_newer) {
         if (!n->is_used)
             return n;
@@ -69,6 +72,7 @@ static backed_cache_node *find_an_unused_node(backed_cache_t *cache) {
 }
 
 static backed_cache_node *find_an_old_unreferenced_node(backed_cache_t *cache) {
+    log_trace("backed_cache.find_an_old_unreferenced_node(cache=%p)", cache);
     for (backed_cache_node *n = cache->lru_oldest; n != NULL; n = n->lru_newer) {
         if (n->ref_count == 0)
             return n;
@@ -77,12 +81,14 @@ static backed_cache_node *find_an_old_unreferenced_node(backed_cache_t *cache) {
 }
 
 static void add_node_to_hashtable(backed_cache_t *cache, int hash_index, backed_cache_node *node) {
+    log_trace("backed_cache.add_node_to_hashtable(cache=%p, idx=%d, node=%p)", cache, hash_index, node);
     // insert at head, no matter if slot is currently NULL or not
     node->hash_next = cache->hashtable_ptrs[hash_index];
     cache->hashtable_ptrs[hash_index] = node;
 }
 
 static void remove_node_from_hashtable(backed_cache_t *cache, int hash_index, backed_cache_node *node) {
+    log_trace("backed_cache.remove_node_from_hashtable(cache=%p, idx=%d, node=%p)", cache, hash_index, node);
     if (cache->hashtable_ptrs[hash_index] == node) {
         cache->hashtable_ptrs[hash_index] = node->hash_next;
     } else {
@@ -97,6 +103,7 @@ static void remove_node_from_hashtable(backed_cache_t *cache, int hash_index, ba
 }
 
 static error_t save_node(backed_cache_t *cache, backed_cache_node *node) {
+    log_trace("backed_cache.save_node(cache=%p, node=%p)", cache, node);
     if (cache->backend.write == NULL)
         return OK;
     
@@ -111,7 +118,7 @@ static error_t save_node(backed_cache_t *cache, backed_cache_node *node) {
 }
 
 static error_t load_key_into_node(backed_cache_t *cache, uint64_t key, backed_cache_node *node) {
-    log_trace("load_key_into_node(key=%llu, node=%p, node->data=%p)", key, node, node->data_ptr);
+    log_trace("backed_cache.load_key_into_node(key=%llu, node=%p, node->data=%p)", key, node, node->data_ptr);
     node->key = key;
     if (cache->backend.load == NULL) {
         memset(node->data_ptr, 0, cache->obj_size);
@@ -128,6 +135,7 @@ static error_t load_key_into_node(backed_cache_t *cache, uint64_t key, backed_ca
 }
 
 static void make_node_unused_again(backed_cache_t *cache, backed_cache_node *node) {
+    log_trace("backed_cache.make_node_unused_again(cache=%p, node=%p)", cache, node);
 
     // caller MUST ensure that node is not referenced at all
     ASSERT(node->ref_count == 0);
@@ -145,7 +153,7 @@ static void make_node_unused_again(backed_cache_t *cache, backed_cache_node *nod
 }
 
 static error_t ensure_node_in_cache(backed_cache_t *cache, uint64_t key, backed_cache_node **out_ptr) {
-    log_trace("ensure_node_in_cache(key=%llu)", key);
+    log_trace("backed_cache.ensure_node_in_cache(cache=%p, key=%llu)", cache, key);
     error_t err;
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     
@@ -175,7 +183,9 @@ static error_t ensure_node_in_cache(backed_cache_t *cache, uint64_t key, backed_
     }
 
     log_trace("loading, hashing & promoting node (node=%p)", node);
-    load_key_into_node(cache, key, node);
+    err = load_key_into_node(cache, key, node);
+    if (err) return err;
+    
     add_node_to_hashtable(cache, hash_index, node);
     promote_node_to_newest(cache, node);
     *out_ptr = node;
@@ -185,6 +195,7 @@ static error_t ensure_node_in_cache(backed_cache_t *cache, uint64_t key, backed_
 // --------------------------------------------------------------------------
 
 static error_t backed_cache_get(backed_cache_t *cache, uint64_t key, void **out_ptr) {
+    log_trace("backed_cache.get(cache=%p, key=%llu)", cache, key);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -197,6 +208,7 @@ static error_t backed_cache_get(backed_cache_t *cache, uint64_t key, void **out_
 }
 
 static error_t backed_cache_lock(backed_cache_t *cache, uint64_t key) {
+    log_trace("backed_cache.lock(cache=%p, key=%llu)", cache, key);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -210,6 +222,7 @@ static error_t backed_cache_lock(backed_cache_t *cache, uint64_t key) {
 }
 
 static error_t backed_cache_unlock(backed_cache_t *cache, uint64_t key) {
+    log_trace("backed_cache.unlock(cache=%p, key=%llu)", cache, key);
 
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
@@ -228,6 +241,7 @@ static error_t backed_cache_unlock(backed_cache_t *cache, uint64_t key) {
 }
 
 static bool backed_cache_is_locked(backed_cache_t *cache, uint64_t key) {
+    log_trace("backed_cache.is_locked(cache=%p, key=%llu)", cache, key);
 
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
@@ -235,6 +249,7 @@ static bool backed_cache_is_locked(backed_cache_t *cache, uint64_t key) {
 }
 
 static error_t backed_cache_mark_dirty(backed_cache_t *cache, uint64_t key) {
+    log_trace("backed_cache.mark_dirty(cache=%p, key=%llu)", cache, key);
     
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
@@ -253,6 +268,7 @@ static error_t backed_cache_mark_dirty(backed_cache_t *cache, uint64_t key) {
 }
 
 static bool backed_cache_is_dirty(backed_cache_t *cache, uint64_t key) {
+    log_trace("backed_cache.is_dirty(cache=%p, key=%llu)", cache, key);
 
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
     backed_cache_node *node = find_node_in_hashtable(cache, hash_index, key);
@@ -260,6 +276,7 @@ static bool backed_cache_is_dirty(backed_cache_t *cache, uint64_t key) {
 }
 
 static error_t backed_cache_read(backed_cache_t *cache, uint64_t key, void *buffer) {
+    log_trace("backed_cache.read(cache=%p, key=%llu)", cache, key);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -272,6 +289,7 @@ static error_t backed_cache_read(backed_cache_t *cache, uint64_t key, void *buff
 }
 
 static error_t backed_cache_write(backed_cache_t *cache, uint64_t key, void *buffer) {
+    log_trace("backed_cache.write(cache=%p, key=%llu)", cache, key);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -288,6 +306,7 @@ static error_t backed_cache_write(backed_cache_t *cache, uint64_t key, void *buf
 }
 
 static error_t backed_cache_fill(backed_cache_t *cache, uint64_t key, char value) {
+    log_trace("backed_cache.fill(cache=%p, key=%llu)", cache, key);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -304,7 +323,7 @@ static error_t backed_cache_fill(backed_cache_t *cache, uint64_t key, char value
 }
 
 static error_t backed_cache_read_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
-    log_debug("tada");
+    log_trace("backed_cache.read_part(cache=%p, key=%llu, offset=%d, buffer=%p, size=%d)", cache, key, offset, part_buffer, part_len);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -319,6 +338,7 @@ static error_t backed_cache_read_part(backed_cache_t *cache, uint64_t key, size_
 }
 
 static error_t backed_cache_write_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
+    log_trace("backed_cache.write_part(cache=%p, key=%llu, offset=%d, buffer=%p, size=%d)", cache, key, offset, part_buffer, part_len);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -337,6 +357,7 @@ static error_t backed_cache_write_part(backed_cache_t *cache, uint64_t key, size
 }
 
 static error_t backed_cache_fill_part(backed_cache_t *cache, uint64_t key, size_t offset, char value, size_t part_len) {
+    log_trace("backed_cache.fill_part(cache=%p, key=%llu, offset=%d, val=0x%02x, size=%d)", cache, key, offset, value, part_len);
     mutex_acquire(&cache->lock);
 
     backed_cache_node *node;
@@ -355,6 +376,7 @@ static error_t backed_cache_fill_part(backed_cache_t *cache, uint64_t key, size_
 }
 
 static error_t backed_cache_invalidate(backed_cache_t *cache, uint64_t key) {
+    log_trace("backed_cache.invalidate(cache=%p, key=%llu)", cache, key);
     mutex_acquire(&cache->lock);
 
     int hash_index = murmur_hash3(key, cache->hashtable_capacity);
@@ -369,6 +391,7 @@ static error_t backed_cache_invalidate(backed_cache_t *cache, uint64_t key) {
 }
 
 static error_t backed_cache_flush(backed_cache_t *cache, uint64_t key) {
+    log_trace("backed_cache.flush(cache=%p, key=%llu)", cache, key);
     if (cache->backend.write == NULL)
         return traceable(ERR_NOT_SUPPORTED);
     
@@ -384,6 +407,7 @@ static error_t backed_cache_flush(backed_cache_t *cache, uint64_t key) {
 }
 
 static error_t backed_cache_flush_all(backed_cache_t *cache) {
+    log_trace("backed_cache.flush_all(cache=%p)", cache);
     if (cache->backend.write == NULL)
         return traceable(ERR_NOT_SUPPORTED);
     
@@ -397,6 +421,7 @@ static error_t backed_cache_flush_all(backed_cache_t *cache) {
 }
 
 static error_t backed_cache_destroy(backed_cache_t *cache) {
+    log_trace("backed_cache.destroy(cache=%p)", cache);
     ASSERT(cache != NULL);
     if (cache->objs_arr)       kfree(cache->objs_arr);
     if (cache->nodes_arr)      kfree(cache->nodes_arr);

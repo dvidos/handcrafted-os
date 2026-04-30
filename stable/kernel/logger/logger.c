@@ -96,7 +96,7 @@ static void _append_one_appender(const char *timing, const char *module_name, co
         strcpy(buffer, "");
     }
     app->write(app->context, buffer);
-    for (int i = 0; i < 18 - strlen(buffer); i++) app->write(app->context, " ");
+    for (int i = 0; i < 21 - strlen(buffer); i++) app->write(app->context, " ");
 
     app->write(app->context, level_captions[level]);
     app->write(app->context, "  ");
@@ -217,23 +217,24 @@ static inline char is_printable(char c) {
     return (c >= ' ' && 'c' <= '~' ? c : '.');
 }
 
-void logger_append_hex(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const uint8_t *buffer, size_t length, uint32_t start_address) {
+void logger_append_hex(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const void *buffer, size_t length, uint32_t start_address) {
     char last_row[16];
     bool have_last_row = false;
     bool star_given = false;
+    const unsigned char *cptr = buffer;
 
     if (length == 0)
         return;
 
     
     while (length > 0) {
-        if (have_last_row && memcmp(buffer, last_row, 16) == 0) {
+        if (have_last_row && memcmp(cptr, last_row, 16) == 0) {
             if (!star_given) {
                 logger_append(module_name, file, line, proc_name, pid, level, "*");
                 star_given = true;
             }
 
-            buffer += 16;
+            cptr += 16;
             length -= length > 16 ? 16 : length;
             start_address += 16;
             continue;
@@ -242,21 +243,21 @@ void logger_append_hex(const char *module_name, const char *file, unsigned line,
         logger_append(module_name, file, line, proc_name, pid, level,
             "%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
             start_address,
-            buffer[0], buffer[1], buffer[2], buffer[3], 
-            buffer[4], buffer[5], buffer[6], buffer[7],
-            buffer[8], buffer[9], buffer[10], buffer[11], 
-            buffer[12], buffer[13], buffer[14], buffer[15],
-            is_printable(buffer[0]), is_printable(buffer[1]), is_printable(buffer[2]), is_printable(buffer[3]),
-            is_printable(buffer[4]), is_printable(buffer[5]), is_printable(buffer[6]), is_printable(buffer[7]),
-            is_printable(buffer[8]), is_printable(buffer[9]), is_printable(buffer[10]), is_printable(buffer[11]),
-            is_printable(buffer[12]), is_printable(buffer[13]), is_printable(buffer[14]), is_printable(buffer[15])
+            cptr[0], cptr[1], cptr[2], cptr[3], 
+            cptr[4], cptr[5], cptr[6], cptr[7],
+            cptr[8], cptr[9], cptr[10], cptr[11], 
+            cptr[12], cptr[13], cptr[14], cptr[15],
+            is_printable(cptr[0]), is_printable(cptr[1]), is_printable(cptr[2]), is_printable(cptr[3]),
+            is_printable(cptr[4]), is_printable(cptr[5]), is_printable(cptr[6]), is_printable(cptr[7]),
+            is_printable(cptr[8]), is_printable(cptr[9]), is_printable(cptr[10]), is_printable(cptr[11]),
+            is_printable(cptr[12]), is_printable(cptr[13]), is_printable(cptr[14]), is_printable(cptr[15])
         );
 
-        memcpy(last_row, buffer, 16);
+        memcpy(last_row, cptr, 16);
         have_last_row = true;
         star_given = false;
 
-        buffer += 16;
+        cptr += 16;
         length -= length > 16 ? 16 : length;
         start_address += 16;
     }

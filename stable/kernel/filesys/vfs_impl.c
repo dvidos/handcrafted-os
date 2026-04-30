@@ -17,7 +17,7 @@
 #include "../include/uapi/vfs_file_flags.h" // For F_OK, R_OK, W_OK, X_OK and S_I* macros
 #include "../include/uapi/vfs_stat.h"       // For vfs_stat_t
 
-MODULE("VFS", LOG_LEVEL_TRACE);
+MODULE("VFS", LOG_LEVEL_DEBUG);
 
 
 typedef struct substring {

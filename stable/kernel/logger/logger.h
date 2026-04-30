@@ -43,7 +43,7 @@ struct log_stream_writer {
 
 void logger_append(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const char *format, ...);
 void logger_append_using_formatter(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const char *prompt, log_formatter_t *formatter, ...);
-void logger_append_hex(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const uint8_t *buffer, size_t length, uint32_t start_address);
+void logger_append_hex(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const void *buffer, size_t length, uint32_t start_address);
 
 
 typedef struct { const char *name; log_level_t level; } module_log_cfg_t;

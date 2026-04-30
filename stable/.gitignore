@@ -1,6 +1,8 @@
-config.inc.h
-config.inc.mk
-config.inc.sh
+
+
+# config.inc.h
+# config.inc.mk
+# config.inc.sh
 
 stage1/stage1.bin
 stage2/stage2.elf

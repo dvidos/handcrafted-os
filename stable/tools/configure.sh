@@ -22,13 +22,16 @@ NETWORK_SUPPORT=1   # support for network
 SMP_SUPPORT=1       # support for SMP
 
 # compilation mode
-DEBUG_VERSION=0     # support for gdb, and other macros
-HOSTED_FLAG=0       # build run for hosted linux, as opposed to standalone
-ASSERTS=1           # whether asserts are run or ignored
-TRACE_RETURNS=1     # whether returned errors generate trace logs
-LOG_LEVEL=INFO      # initial log level TRACE, DEBUG, INFO, WARN, ERROR
-TRACE_SYSCALLS=0    # to trace all syscalls
-TRACE_IPC=0         # to trace IPC between processes
+ENABLE_UNIT_TESTS=1   # set to 1 to include & execute unit tests
+ENABLE_ASSERTIONS=1   # set to 1 for assertions to be exercised
+
+DEBUG_VERSION=0       # support for gdb, and other macros
+HOSTED_FLAG=0         # build run for hosted linux, as opposed to standalone
+ASSERTS=1             # whether asserts are run or ignored
+TRACE_RETURNS=1       # whether returned errors generate trace logs
+LOG_LEVEL=INFO        # initial log level TRACE, DEBUG, INFO, WARN, ERROR
+TRACE_SYSCALLS=0      # to trace all syscalls
+TRACE_IPC=0           # to trace IPC between processes
 
 # other filesystem options, supported formats, init ram disk, sizes, etc.
 # various drivers support options, (hardware, fs, network, cpu features, debugging etc)
@@ -65,6 +68,8 @@ PARTITION_1_SECTOR_COUNT=$(($DISK_IMAGE_SECTOR_COUNT - $PARTITION_1_FIRST_SECTOR
 # -------------------------------------------------
 
 echo Creating configuration included files...
+if [ "$ENABLE_UNIT_TESTS" = "1" ]; then ENABLE_UNIT_TESTS_DEFINITION="#define ENABLE_UNIT_TESTS"; fi
+if [ "$ENABLE_ASSERTIONS" = "1" ]; then ENABLE_ASSERTIONS_DEFINITION="#define ENABLE_ASSERTIONS"; fi
 
 
 cat > config.inc.mk <<EOF
@@ -84,6 +89,8 @@ VERSION                   := $VERSION
 GIT_HASH                  := $GIT_HASH
 DATE_BUILT                := $DATE_BUILT
 TRACE_RETURNS             := $TRACE_RETURNS
+ENABLE_UNIT_TESTS         := $ENABLE_UNIT_TESTS
+ENABLE_ASSERTIONS         := $ENABLE_ASSERTIONS
 STAGE1_LOAD_ADDRESS       := $STAGE1_LOAD_ADDRESS
 STAGE1_STACK_TOP          := $STAGE1_STACK_TOP
 STAGE1_SIZE               := $STAGE1_SIZE
@@ -115,6 +122,8 @@ cat > config.inc.h <<EOF
 #define GIT_HASH                  "$GIT_HASH"
 #define DATE_BUILT                "$DATE_BUILT"
 #define TRACE_RETURNS             $TRACE_RETURNS
+$ENABLE_UNIT_TESTS_DEFINITION
+$ENABLE_ASSERTIONS_DEFINITION
 #define STAGE1_LOAD_ADDRESS       $STAGE1_LOAD_ADDRESS
 #define STAGE1_STACK_TOP          $STAGE1_STACK_TOP
 #define STAGE1_SIZE               $STAGE1_SIZE

@@ -1,8 +1,8 @@
 #include "panic.h"
-
+#include "../../config.inc.h"  // for switch to enable assertions
 
 // these are mainly for development
-#ifndef NO_ASSERTS
+#ifdef ENABLE_ASSERTIONS
     #define ASSERT_FAILED(msg)   panic("Assert failed: %s at %s:%d", msg, __FILE__, __LINE__)
     #define ASSERT(x)            do { if (!(x)) ASSERT_FAILED(#x);  } while(0)
     #define ASSERT_MSG(x, msg)   do { if (!(x)) ASSERT_FAILED(msg);  } while(0)

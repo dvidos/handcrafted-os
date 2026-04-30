@@ -1,8 +1,7 @@
 include ../config.inc.mk
 ifeq ($(strip $(BUILD_DIR)),)
-    $(error BUILD_DIR is empty. Check your config.inc.mk)
+  $(error BUILD_DIR is empty. Check your config.inc.mk)
 endif
-
 
 # Common macros
 #   $@ is the target for multiple targets (separated by space)

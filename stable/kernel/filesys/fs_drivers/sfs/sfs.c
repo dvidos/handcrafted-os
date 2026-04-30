@@ -8,7 +8,7 @@
 #include "../../../logger/logger.h"
 #include "sfs_internal.h"
 
-MODULE("SFS", LOG_LEVEL_WARN);
+MODULE("SFS", LOG_LEVEL_DEBUG);
 
 
 static bool sb_recognized(block_device_t *dev) {
@@ -529,7 +529,10 @@ static error_t sfs_driver_create(inode_t *parent, const char *name, int type, in
     sin.created_at = get_seconds_since_1970();
     err = sfs_inodes_db_append(md, &sin, &inode_no);
     if (err) return traceable(err);
-    // sfs_inodes_db_dump_log(md, 59, 3);  // this prints expected and reasonable values
+
+    // invalidate inode just in case
+    err = md->inode_cache->ops->invalidate(md->inode_cache, inode_no);
+    if (err) return traceable(err);
 
     // add the entry in the directory
     err = sfs_node_dir_add_entry(md, parent->inode_num, parent_sin, name, inode_no);
