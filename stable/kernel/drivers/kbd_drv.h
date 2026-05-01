@@ -10,10 +10,10 @@ typedef void (key_event_hook_t)(key_event_t *event, bool *handled);
 bool keyboard_register_hook(key_event_hook_t hook);
 void keyboard_unregister_hook(key_event_hook_t hook);
 
-void keyboard_handler(interrupt_frame_t* regs);
+void keyboard_interrupt_handler(interrupt_frame_t* regs);
 void reboot();
 
-bool kbd_get_event_non_blocking(key_event_t *event);
+void kbd_wait_get_event(key_event_t *event);
 
 
 

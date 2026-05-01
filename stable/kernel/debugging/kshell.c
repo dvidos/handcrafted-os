@@ -1,4 +1,4 @@
-#include "../klib/kdebug.h"
+#include "../debugging/kdebug.h"
 #include "../include/ctypes.h"
 #include "../klib/string.h"
 #include "../logger/logger.h"

@@ -28,7 +28,7 @@ void interrupt_handler_c(interrupt_frame_t *frame) {
             multitasking_timer_ticked();
             break;
         case 0x21:
-            keyboard_handler(frame);
+            keyboard_interrupt_handler(frame);
             break;
         case 0x23: // com2
             serial_interrupt_handler(1);

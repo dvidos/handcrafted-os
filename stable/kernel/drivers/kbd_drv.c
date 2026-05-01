@@ -183,7 +183,7 @@ static inline void on_key_event(key_event_t *event) {
         key_event_hook(event, &handled);
 }
 
-void keyboard_handler(interrupt_frame_t* regs) {
+void keyboard_interrupt_handler(interrupt_frame_t* regs) {
     (void)regs;
 
     uint8_t scancode = inb(KBD_DATA_PORT);
@@ -309,6 +309,29 @@ void keyboard_unregister_hook(key_event_hook_t hook) {
 
     key_event_hook = NULL;
 }
+
+// ----------------------------------------------------
+
+static volatile key_event_t _wait_event = { .ascii = 0 };
+
+static void _kbd_wait_event_hook(key_event_t *event, bool *handled) {
+    _wait_event = *event;
+    *handled = true;
+}
+
+void kbd_wait_get_event(key_event_t *event) {
+    _wait_event.ascii = 0;
+    keyboard_register_hook(_kbd_wait_event_hook);
+
+    while (_wait_event.ascii == 0);
+
+    keyboard_unregister_hook(_kbd_wait_event_hook);
+    *event = _wait_event;
+}
+
+
+
+
 
 
 // rebooting using the 8042 keyboard controller

@@ -12,7 +12,6 @@
 #include "../logger/logger.h"
 #include "../utils/assert.h"
 #include "../klib/strerror.h"
-#include "../klib/kdebug.h"
 #include "../filesys/fs_api.h"
 #include "../include/uapi/vfs_file_flags.h" // For F_OK, R_OK, W_OK, X_OK and S_I* macros
 #include "../include/uapi/vfs_stat.h"       // For vfs_stat_t

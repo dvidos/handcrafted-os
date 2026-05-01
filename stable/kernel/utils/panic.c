@@ -1,6 +1,6 @@
 #include "panic.h"
 #include "../klib/string.h"
-#include "../klib/kdebug.h"
+#include "../debugging/kdebug.h"
 
 static panic_writer_func *_panic_writer = 0;
 

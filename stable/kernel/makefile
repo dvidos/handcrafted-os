@@ -40,6 +40,7 @@ KERNEL_C_FILES = \
 	$(wildcard arch/*.c) \
 	$(wildcard klib/*.c) \
 	$(wildcard logger/*.c) \
+	$(wildcard debugging/*.c) \
 	\
 	$(wildcard memory/*.c) \
 	$(wildcard drivers/*.c) \
