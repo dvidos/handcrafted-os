@@ -62,7 +62,7 @@ static inline error_t _find_block_index_in_double_indirect_block(sfs_mount_data 
 
 error_t sfs_node_resolve_data_block(sfs_mount_data *md, stored_inode *sin, block_no_t block_index, block_no_t *data_block_no) {
     error_t err;
-    bool found;
+    bool found = false;
 
     if (_find_block_in_range_array(sin->ranges, RANGES_IN_INODE, &block_index, data_block_no)) {
         return OK;

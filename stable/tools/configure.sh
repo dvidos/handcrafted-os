@@ -54,7 +54,7 @@ STAGE2_FIRST_SECTOR=$(($STAGE1_SECTOR_COUNT))
 
 KERNEL_SIZE_KB=256          # can go up to 608 KB, but keep an eye for stack!
 KERNEL_LOAD_ADDRESS=0x8000  # at 32KB, below upper memory (640KB), must be < 1MB, to be loaded in real mode.
-KERNEL_STACK_TOP=0x9FBFF    # at 639KB, below bios
+KERNEL_STACK_TOP=0x9FC00    # at 639KB, below bios, be aligned to 4 bytes at least!
 KERNEL_SECTOR_COUNT=$(($KERNEL_SIZE_KB * 1024 / $SECTOR_SIZE))
 KERNEL_FIRST_SECTOR=$(($STAGE1_SECTOR_COUNT + $STAGE2_SECTOR_COUNT))
 
