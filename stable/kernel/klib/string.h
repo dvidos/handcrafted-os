@@ -8,7 +8,7 @@ int strlen(const char* str);
 int strcmp(const char *a, const char *b);
 int strcpy(char *target, const char *source);
 int strcat(char *target, const char *source);
-void strncpy(char *target, const char *source, size_t target_size);
+void strscpy(char *target, const char *source, size_t target_size);
 char *strncat(char *dest, const char *src, size_t n);
 
 char *strchr(const char *str, char c);

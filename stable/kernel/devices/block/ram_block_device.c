@@ -47,8 +47,8 @@ static void ram_disk_destroy(block_device_t *dev) {
 }
 
 static struct block_device_ops ram_disk_ops = {
-    .read = ram_disk_read,
-    .write = ram_disk_write,
+    .read_sectors = ram_disk_read,
+    .write_sectors = ram_disk_write,
     .flush = ram_disk_flush,
     .destroy = ram_disk_destroy,
 };

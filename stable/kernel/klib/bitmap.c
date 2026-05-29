@@ -20,6 +20,18 @@ static void bitmap_mark_free(bitmap_t *bm, uint32_t bit) {
     bm->words[bit / 64] &= ~(1ULL << (bit % 64));
 }
 
+static void bitmap_mark_all_used(bitmap_t *bm) {
+    for (uint32_t w = 0; w < bm->words_count; w++) {
+        bm->words[w] = 0xFFFFFFFFFFFFFFFFLLU;
+    }
+}
+
+static void bitmap_mark_all_free(bitmap_t *bm) {
+    for (uint32_t w = 0; w < bm->words_count; w++) {
+        bm->words[w] = 0;
+    }
+}
+
 static bool bitmap_find_next_free(bitmap_t *bm, uint32_t *bit) {
     uint32_t start_word = bm->bit_hint / 64;
 
@@ -69,6 +81,8 @@ static bitmap_ops ops = {
     .is_free        = bitmap_is_free,
     .mark_used      = bitmap_mark_used,
     .mark_free      = bitmap_mark_free,
+    .mark_all_used  = bitmap_mark_all_used,
+    .mark_all_free  = bitmap_mark_all_free,
     .find_next_free = bitmap_find_next_free,
     .destroy        = bitmap_destroy
 };

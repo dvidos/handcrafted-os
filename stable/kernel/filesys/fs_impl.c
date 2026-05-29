@@ -43,13 +43,14 @@ error_t fs_mkfs(block_device_t *dev, fs_driver_t *drv) {
 }
 
 
-void fs_register_device(const char *name, dev_driver_t *drv, int dev_number) {
+void fs_register_device(const char *name, dev_driver_t *drv, int dev_number, bool is_stream) {
     device_t *dev = kmalloc(sizeof(device_t));
     memset(dev, 0, sizeof(device_t));
 
     dev->name = kstrdup(name);
     dev->driver = drv;
     dev->dev_number = dev_number;
+    dev->is_stream = is_stream;
     
     if (registered_devices_list == 0) {
         registered_devices_list = dev;

@@ -6,16 +6,37 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/kernel/kernel.elf",
-      "miDebuggerServerAddress": "localhost:1234",
+      "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "cwd": "${workspaceFolder}",
-      "MIMode": "gdb",
       "externalConsole": false,
       "setupCommands": [
-        { 
-            "text": "set architecture i386"
+        {
+          "description": "Explicitly load symbols from the ELF file",
+          "text": "file ${workspaceFolder}/kernel/kernel.elf",
+          "ignoreFailures": false
+        },
+        {
+          "description": "Set architecture",
+          "text": "set architecture i386",
+          "ignoreFailures": false
+        },
+        {
+          "description": "Connect to QEMU manually (guarantees order)",
+          "text": "target remote localhost:1234",
+          "ignoreFailures": false
         }
-      ]
+        // ,
+        // {
+	 			// 	"description": "Break at kernel's kernel_main()",
+	 			// 	"text": "break kernel_main",
+	 			// 	"ignoreFailures": false
+        // }
+      ],
+      "launchCompleteCommand": "None",
+      "logging": {
+        "engineLogging": true
+      }
     }
   ]
 }

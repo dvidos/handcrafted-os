@@ -19,6 +19,8 @@ struct bitmap_ops {
     bool (*is_free)(bitmap_t *bm, uint32_t bit);
     void (*mark_used)(bitmap_t *bm, uint32_t bit);
     void (*mark_free)(bitmap_t *bm, uint32_t bit);
+    void (*mark_all_used)(bitmap_t *bm);
+    void (*mark_all_free)(bitmap_t *bm);
     bool (*find_next_free)(bitmap_t *bm, uint32_t *bit);
     void (*destroy)(bitmap_t *bm);
 };

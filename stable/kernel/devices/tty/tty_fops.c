@@ -21,7 +21,7 @@ static error_t tty_driver_open(inode_t *n, int flags, open_file_t **file_handle)
     if (vc == NULL)
         return ERR_BAD_ARGUMENT;
 
-    open_file_t *f = open_files.create(&tty_superblock, n);
+    open_file_t *f = open_files.create(&tty_superblock, n, flags);
     f->driver_priv_data = vc;
 
     *file_handle = f;

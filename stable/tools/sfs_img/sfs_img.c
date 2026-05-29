@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <time.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include "functions.h"
@@ -14,7 +13,7 @@
 // ---------------------------------------------------------
 
 #define EXPECTED_ROOT_DIR_ENTRIES     32
-#define EXPECTED_INODES              128
+#define EXPECTED_INODES              256
 
 // ---------------------------------------------------------
 
@@ -29,45 +28,62 @@ static void initialize_by_creating(const char *img_file, size_t img_size, size_t
     ctx->fs_offset = fs_offset;
 
     // prepare superblock
-    memset(&ctx->superblock, 0, sizeof(stored_superblock));
-    memcpy(ctx->superblock.magic, "SFS1", 4);
-    ctx->superblock.block_size_in_bytes = BLOCK_SIZE;
-    ctx->superblock.blocks_in_device = bytes_to_blocks(img_size - fs_offset);
-    ctx->superblock.blocks_bitmap_first_block  = 1;
-    ctx->superblock.blocks_bitmap_blocks_count = bits_to_blocks(ctx->superblock.blocks_in_device);
-    ctx->superblock.direntry_size = sizeof(stored_dir_entry);
-    ctx->superblock.inode_size = sizeof(stored_inode);
-    ctx->superblock.sector_size = SECTOR_SIZE;
-    ctx->superblock.sectors_per_block = BLOCK_SIZE / SECTOR_SIZE;
-    strcpy(ctx->superblock.volume_label, "HCOS");
+    memset(&ctx->sb, 0, sizeof(stored_superblock));
+    memcpy(ctx->sb.magic, "SFS1", 4);
+    ctx->sb.block_size_in_bytes = BLOCK_SIZE;
+    ctx->sb.blocks_in_device = bytes_to_blocks(img_size - fs_offset);
+    ctx->sb.direntry_size = sizeof(stored_dir_entry);
+    ctx->sb.inode_size = sizeof(stored_inode);
+    ctx->sb.sector_size = SECTOR_SIZE;
+    ctx->sb.sectors_per_block = BLOCK_SIZE / SECTOR_SIZE;
+    ctx->sb.num_inodes = EXPECTED_INODES;
+    ctx->sb.ranges_per_block = BLOCK_SIZE / sizeof(block_range);
+    ctx->sb.inodes_per_block = BLOCK_SIZE / sizeof(stored_inode);
+    strcpy(ctx->sb.volume_label, "HCOS");
+    
+    // prepare inode bitmap
+    ctx->sb.inodes_bitmap_first_block = 1;
+    ctx->sb.inodes_bitmap_num_blocks = bits_to_blocks(ctx->sb.num_inodes);
+    
+    ctx->sb.inodes_array_first_block = ctx->sb.inodes_bitmap_first_block + ctx->sb.inodes_bitmap_num_blocks;
+    ctx->sb.inodes_array_num_blocks = bytes_to_blocks(ctx->sb.num_inodes * sizeof(stored_inode));
+
+    ctx->sb.blocks_bitmap_first_block  = ctx->sb.inodes_array_first_block + ctx->sb.inodes_array_num_blocks;
+    ctx->sb.blocks_bitmap_num_blocks = bits_to_blocks(ctx->sb.blocks_in_device);
+
+    // prepare bitmaps
+    inode_bitmap_create(ctx->sb.num_inodes);
+    block_bitmap_create(ctx->sb.blocks_in_device);
+
+    // mark used blocks
+    block_bitmap_mark_used(0); // superblock itself
+    for (uint32_t i = 0; i < ctx->sb.blocks_bitmap_num_blocks; i++) block_bitmap_mark_used(ctx->sb.blocks_bitmap_first_block + i);
+    for (uint32_t i = 0; i < ctx->sb.inodes_bitmap_num_blocks; i++) block_bitmap_mark_used(ctx->sb.inodes_bitmap_first_block + i);
+    for (uint32_t i = 0; i < ctx->sb.inodes_array_num_blocks;  i++) block_bitmap_mark_used(ctx->sb.inodes_array_first_block  + i);
     
 
-    // prepare bitmap
-    block_bitmap_create(ctx->superblock.blocks_in_device);
-    block_bitmap_mark_used(0);
-    for (uint32_t i = 0; i < ctx->superblock.blocks_bitmap_blocks_count; i++)
-        block_bitmap_mark_used(ctx->superblock.blocks_bitmap_first_block + i);
+    // save FS data: superblock, block bitmap, inode bitmap (zeroed), inode array (zeroed)
+    memcpy(block_buffer, &ctx->sb, sizeof(stored_superblock));
+    write_fs_block(ctx, 0, block_buffer); // Write superblock
 
-    // we now need to allocate for the inodes and the root dir.
-    uint32_t block_count = bytes_to_blocks(EXPECTED_INODES * sizeof(stored_inode));
-    uint32_t block_no = block_bitmap_allocate(block_count);
-    ctx->superblock.root_dir_inode.type_perms = STORED_INODE_TYPE_FILE;
-    ctx->superblock.inodes_db_inode.allocated_blocks = block_count;
-    ctx->superblock.inodes_db_inode.ranges[0].first_block_no = block_no;
-    ctx->superblock.inodes_db_inode.ranges[0].blocks_count = block_count;
+    // Write inode bitmap (zeroed, except for inode 0 and 1)
+    for (uint32_t i = 0; i < ctx->sb.inodes_bitmap_num_blocks; i++)
+        write_fs_block(ctx, ctx->sb.inodes_bitmap_first_block + i, inode_bitmap_get_bytes_ptr(i));
+        
+    // Write inode array (zeroed)
+    memset(block_buffer, 0, BLOCK_SIZE);
+    for (uint32_t i = 0; i < ctx->sb.inodes_array_num_blocks; i++)
+        write_fs_block(ctx, ctx->sb.inodes_array_first_block + i, block_buffer);
 
-    block_count = bytes_to_blocks(EXPECTED_INODES * sizeof(stored_dir_entry));
-    block_no = block_bitmap_allocate(block_count);
-    ctx->superblock.root_dir_inode.type_perms = STORED_INODE_TYPE_DIR;
-    ctx->superblock.root_dir_inode.allocated_blocks = block_count;
-    ctx->superblock.root_dir_inode.ranges[0].first_block_no = block_no;
-    ctx->superblock.root_dir_inode.ranges[0].blocks_count = block_count;
+    // Root directory inode (Inode 1)
+    uint32_t root_dir_inode_num;
+    stored_inode root_dir = create_new_inode(&ctx->sb, false, 16 * sizeof(stored_dir_entry), &root_dir_inode_num); // let's assume about 16 files in root dir
+    if (root_dir_inode_num != 1) fatal("Root dir inode should be 1 per convention, it is %lu", root_dir_inode_num);
+    persist_inode(ctx, 1, &root_dir);
 
-    // save FS data
-    memcpy(block_buffer, &ctx->superblock, sizeof(stored_superblock));
-    write_fs_block(ctx, 0, block_buffer);
-    for (uint32_t i = 0; i < ctx->superblock.blocks_bitmap_blocks_count; i++)
-        write_fs_block(ctx, ctx->superblock.blocks_bitmap_first_block + i, block_bitmap_get_bytes_ptr(i));
+    // Write block bitmap
+    for (uint32_t i = 0; i < ctx->sb.blocks_bitmap_num_blocks; i++)
+        write_fs_block(ctx, ctx->sb.blocks_bitmap_first_block + i, block_bitmap_get_bytes_ptr(i));
 
     free(block_buffer);
 }
@@ -83,18 +99,22 @@ static void initialize_by_opening(const char *img_file, context *ctx) {
 
     // load FS data
     read_fs_block(ctx, 0, block_buffer);
-    memcpy(&ctx->superblock, block_buffer, sizeof(stored_superblock));
+    memcpy(&ctx->sb, block_buffer, sizeof(stored_superblock));
 
-    if (memcmp(ctx->superblock.magic, "SFS1", 4) != 0) fatal("Superblock bad magic: 0x%02x 0x%02x 0x%02x 0x%02x\n", ctx->superblock.magic[0], ctx->superblock.magic[1], ctx->superblock.magic[2], ctx->superblock.magic[3]);
-    if (ctx->superblock.block_size_in_bytes != BLOCK_SIZE) fatal("Superblock bad block size");
-    if (ctx->superblock.sector_size != SECTOR_SIZE) fatal("Superblock bad sector size");
-    if (ctx->superblock.inode_size != sizeof(stored_inode)) fatal("Superblock bad inode size");
-    if (ctx->superblock.direntry_size != sizeof(stored_dir_entry)) fatal("Superblock bad direntry size");
+    if (memcmp(ctx->sb.magic, "SFS1", 4) != 0) fatal("Superblock bad magic: 0x%02x 0x%02x 0x%02x 0x%02x\n", ctx->sb.magic[0], ctx->sb.magic[1], ctx->sb.magic[2], ctx->sb.magic[3]);
+    if (ctx->sb.block_size_in_bytes != BLOCK_SIZE) fatal("Superblock bad block size");
+    if (ctx->sb.sector_size != SECTOR_SIZE) fatal("Superblock bad sector size");
+    if (ctx->sb.inode_size != sizeof(stored_inode)) fatal("Superblock bad inode size");
+    if (ctx->sb.direntry_size != sizeof(stored_dir_entry)) fatal("Superblock bad direntry size");
+
+    inode_bitmap_create(ctx->sb.num_inodes);
+    for (uint32_t i = 0; i < ctx->sb.inodes_bitmap_num_blocks; i++)
+        read_fs_block(ctx, ctx->sb.inodes_bitmap_first_block + i, inode_bitmap_get_bytes_ptr(i));
 
     // we can trust it. init and load bitmap
-    block_bitmap_create(ctx->superblock.blocks_in_device);
-    for (uint32_t i = 0; i < ctx->superblock.blocks_bitmap_blocks_count; i++)
-        read_fs_block(ctx, ctx->superblock.blocks_bitmap_first_block + i, block_bitmap_get_bytes_ptr(i));
+    block_bitmap_create(ctx->sb.blocks_in_device);
+    for (uint32_t i = 0; i < ctx->sb.blocks_bitmap_num_blocks; i++)
+        read_fs_block(ctx, ctx->sb.blocks_bitmap_first_block + i, block_bitmap_get_bytes_ptr(i));
 
     free(block_buffer);
 }
@@ -104,41 +124,13 @@ static void finalize(context *ctx) {
     write_partition_entry(ctx->img, bytes_to_sectors(ctx->fs_offset), bytes_to_sectors(ctx->img_size - ctx->fs_offset));
     write_bootable_mbr(ctx->img);
 
-    write_fs_block_part(ctx, 0, 0, &ctx->superblock, sizeof(stored_superblock));
-    for (uint32_t i = 0; i < ctx->superblock.blocks_bitmap_blocks_count; i++)
-        write_fs_block(ctx, ctx->superblock.blocks_bitmap_first_block + i, block_bitmap_get_bytes_ptr(i));
+    write_fs_block_part(ctx, 0, 0, &ctx->sb, sizeof(stored_superblock));
+    for (uint32_t i = 0; i < ctx->sb.inodes_bitmap_num_blocks; i++)
+        write_fs_block(ctx, ctx->sb.inodes_bitmap_first_block + i, inode_bitmap_get_bytes_ptr(i));
+    for (uint32_t i = 0; i < ctx->sb.blocks_bitmap_num_blocks; i++)
+        write_fs_block(ctx, ctx->sb.blocks_bitmap_first_block + i, block_bitmap_get_bytes_ptr(i));
 
     fclose(ctx->img);
-}
-
-// ---------------------------------------------------------
-
-static stored_inode create_new_inode(stored_superblock *superblock, bool is_file, size_t file_size, inode_no_t *inode_no) {
-    stored_inode n;
-    memset(&n, 0, sizeof(stored_inode));
-
-    // allocate as many blocks as needed
-    int blocks_needed = bytes_to_blocks(file_size);
-    int first_block = block_bitmap_allocate(blocks_needed);
-
-    n.type_perms = is_file ? STORED_INODE_TYPE_FILE : STORED_INODE_TYPE_DIR;
-    n.user_id = 0;
-    n.group_id = 0;
-    n.file_size = 0;
-    n.allocated_blocks = blocks_needed;
-    n.padding = 0;
-    n.created_at = time(NULL);
-    n.modified_at = time(NULL);
-    n.ranges[0].first_block_no = first_block;
-    n.ranges[0].blocks_count = blocks_needed;
-    n.indirect_ranges_block_no = 0;
-    n.double_indirect_block_no = 0;
-    
-    // grab inode num, and increase
-    *inode_no = superblock->inodes_db_rec_count;
-    superblock->inodes_db_rec_count += 1;
-
-    return n;
 }
 
 // ---------------------------------------------------------
@@ -195,7 +187,7 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
         if (entry->d_type == DT_DIR) {
 
             size_t num_entries = count_entries_in_host_dir(entry_path);
-            new_inode = create_new_inode(&ctx->superblock, false, num_entries * sizeof(stored_dir_entry), &new_inode_no);
+            new_inode = create_new_inode(&ctx->sb, false, num_entries * sizeof(stored_dir_entry), &new_inode_no);
             import_dir_contents_recursively(ctx, entry_path, &new_inode, new_inode_no, dir_count, file_count);
             persist_inode(ctx, new_inode_no, &new_inode);
             
@@ -205,7 +197,7 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
         } else if (entry->d_type == DT_REG) {
 
             size_t file_size = get_host_file_size(entry_path);
-            new_inode = create_new_inode(&ctx->superblock, true, file_size, &new_inode_no);
+            new_inode = create_new_inode(&ctx->sb, true, file_size, &new_inode_no);
             import_file_from_host(ctx, entry_path, &new_inode, new_inode_no);
             persist_inode(ctx, new_inode_no, &new_inode);
             
@@ -219,19 +211,6 @@ void import_dir_contents_recursively(context *ctx, const char *host_dir, stored_
 }
 
 // ---------------------------------------------------------
-
-static inline void print_inode(stored_inode *inode, const char *name, uint32_t inode_num, int depth) {
-    printf("%*s%-12s inode=%-5u size=%-7u blocks=%-3u type/perms=0x%x rng0=%u,%u\n",
-        depth * 3, "",
-        name,
-        inode_num,
-        inode->file_size,
-        inode->allocated_blocks,
-        inode->type_perms,
-        inode->ranges[0].first_block_no,
-        inode->ranges[0].blocks_count
-    );
-}
 
 void list_dir_contents_recursively(context *ctx, stored_inode dir_inode, inode_no_t dir_no, int depth) {
     size_t total_entries = dir_inode.file_size / sizeof(stored_dir_entry);
@@ -317,9 +296,12 @@ void do_import_dir_contents(int argc, char *argv[]) {
     context ctx;
     initialize_by_opening(image_file, &ctx);
 
+    stored_inode root_dir;
+    load_inode(&ctx, 1, &root_dir);
+
     int dir_count = 0;
     int file_count = 0;
-    import_dir_contents_recursively(&ctx, host_dir, &ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID, &dir_count, &file_count);
+    import_dir_contents_recursively(&ctx, host_dir, &root_dir, 1, &dir_count, &file_count);
 
     finalize(&ctx);
     printf("Imported contents of %s into image '%s': %d dirs, %d files\n", host_dir, sfs_dir, dir_count, file_count);
@@ -332,10 +314,12 @@ void do_list(int argc, char *argv[]) {
     context ctx;
     initialize_by_opening(image_file, &ctx);
 
+    stored_inode root_dir;
+    load_inode(&ctx, 1, &root_dir);
+
     printf("Contents of SFS file system in '%s'\n", image_file);
-    print_inode(&ctx.superblock.inodes_db_inode, "Inodes DB", INODE_DB_INODE_ID, 1);
-    print_inode(&ctx.superblock.root_dir_inode, "Root Dir", ROOT_DIR_INODE_ID, 1);
-    list_dir_contents_recursively(&ctx, ctx.superblock.root_dir_inode, ROOT_DIR_INODE_ID, 2);
+    print_inode(&root_dir, "(root dir)", 1, 1);
+    list_dir_contents_recursively(&ctx, root_dir, 1, 2);
 }
 
 int main(int argc, char *argv[]) {

@@ -66,12 +66,13 @@ static void _inode_log_info(const char *var_name, inode_t *n) {
     if (n == NULL) {
         log_info("%s: (null)", var_name);
     } else {
-        log_info("%s: sb=%p, inode_no=%llu, mode=%lx (%s), size=%lld, blocks=%lld, atime=%lld, mtime=%lld, ctime=%lld", 
+        log_info("%s: sb=%p, inode_no=%llu, mode=0x%lx (%s), perms=0x%x, size=%lld, blocks=%lld, atime=%lld, mtime=%lld, ctime=%lld", 
             var_name, 
             n->sb,
             n->inode_num,
             n->mode,
             _inode_is_dir(n) ? "dir" : (_inode_is_file(n) ? "reg" : "other"),
+            n->perms,
             n->size,
             n->blocks,
             n->atime,

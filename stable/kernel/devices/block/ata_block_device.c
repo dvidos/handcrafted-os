@@ -466,8 +466,8 @@ static void block_device_destroy(block_device_t *dev) {
 }
 
 static struct block_device_ops block_device_ops = {
-    .read =    block_device_read,
-    .write =   block_device_write,
+    .read_sectors =    block_device_read,
+    .write_sectors =   block_device_write,
     .flush =   block_device_flush,
     .destroy = block_device_destroy,
 };

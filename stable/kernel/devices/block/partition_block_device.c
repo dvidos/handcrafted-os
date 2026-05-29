@@ -20,7 +20,7 @@ static error_t partition_read(block_device_t *dev, uint64_t lba, uint32_t count,
     if (lba + count > priv->num_blocks) {
         return traceable(ERR_INVALID_ARGS);
     }
-    return priv->underlying->ops->read(priv->underlying, priv->first_block + lba, count, buffer);
+    return priv->underlying->ops->read_sectors(priv->underlying, priv->first_block + lba, count, buffer);
 }
 
 static error_t partition_write(block_device_t *dev, uint64_t lba, uint32_t count, const void *buffer) {
@@ -28,7 +28,7 @@ static error_t partition_write(block_device_t *dev, uint64_t lba, uint32_t count
     if (lba + count > priv->num_blocks) {
         return traceable(ERR_INVALID_ARGS);
     }
-    return priv->underlying->ops->write(priv->underlying, priv->first_block + lba, count, buffer);
+    return priv->underlying->ops->write_sectors(priv->underlying, priv->first_block + lba, count, buffer);
 }
 
 static error_t partition_flush(block_device_t *dev) {
@@ -46,8 +46,8 @@ static void partition_destroy(block_device_t *dev) {
 }
 
 static struct block_device_ops partition_ops = {
-    .read = partition_read,
-    .write = partition_write,
+    .read_sectors = partition_read,
+    .write_sectors = partition_write,
     .flush = partition_flush,
     .destroy = partition_destroy,
 };

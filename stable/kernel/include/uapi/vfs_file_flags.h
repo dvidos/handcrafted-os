@@ -32,29 +32,39 @@
 
     // used by create(), mkdir(), mknod(), stat.st_mode
     // File type (pick only one)
-    #define S_IFMT   0170000  // mask for file type bits
-    #define S_IFREG  0100000  // regular file
-    #define S_IFDIR  0040000  // directory
-    #define S_IFCHR  0020000  // character device
-    #define S_IFBLK  0060000  // block device
-    #define S_IFIFO  0010000  // FIFO / named pipe
-    #define S_IFLNK  0120000  // symbolic link
+    #define S_IFMT     0170000  // [0xF000, 61440] mask for file type bits
+    #define S_IRWXUGO  0000777  // [0x1FF,    511] mask for file permission bits
+
+    // file types
+    #define S_IFREG    0100000  // [0x8000, 32768] regular file
+    #define S_IFDIR    0040000  // [0x4000, 16384] directory
+    #define S_IFCHR    0020000  // [0x2000,  8192] character device
+    #define S_IFBLK    0060000  // [0x6000, 24576] block device
+    #define S_IFIFO    0010000  // [0x1000,  4096] FIFO / named pipe
+    #define S_IFLNK    0120000  // [0xA000, 40960] symbolic link
 
     // Owner permissions
-    #define S_IRUSR  00400  // owner can read
-    #define S_IWUSR  00200  // owner can write
-    #define S_IXUSR  00100  // owner can execute
+    #define S_IRUSR    0000400  // [0x0100,  256] owner can read
+    #define S_IWUSR    0000200  // [0x0080,  128] owner can write
+    #define S_IXUSR    0000100  // [0x0040,   64] owner can execute
 
     // Group permissions
-    #define S_IRGRP  00040  // group can read
-    #define S_IWGRP  00020  // group can write
-    #define S_IXGRP  00010  // group can execute
+    #define S_IRGRP    0000040  // [0x0020,  32] group can read
+    #define S_IWGRP    0000020  // [0x0010,  16] group can write
+    #define S_IXGRP    0000010  // [0x0008,   8] group can execute
 
     // Others permissions
-    #define S_IROTH  00004  // others can read
-    #define S_IWOTH  00002  // others can write
-    #define S_IXOTH  00001  // others can execute
+    #define S_IROTH    0000004  // [0x0004,  4] others can read
+    #define S_IWOTH    0000002  // [0x0002,  2] others can write
+    #define S_IXOTH    0000001  // [0x0001,  1] others can execute
 
+    // Convenience macros
+    #define S_ISREG(m)  (((m) & S_IFMT) == S_IFREG)
+    #define S_ISDIR(m)  (((m) & S_IFMT) == S_IFDIR)
+    #define S_ISCHR(m)  (((m) & S_IFMT) == S_IFCHR)
+    #define S_ISBLK(m)  (((m) & S_IFMT) == S_IFBLK)
+    #define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
+    #define S_ISLNK(m)  (((m) & S_IFMT) == S_IFLNK)
 
     // ----------- Access modes below -----------------------
     #define F_OK        0       /* Test for existence.  */

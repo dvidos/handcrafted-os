@@ -240,8 +240,13 @@ void logger_append_hex(const char *module_name, const char *file, unsigned line,
             continue;
         }
 
+        uint32_t w0 = *(uint32_t *)(cptr +  0);
+        uint32_t w1 = *(uint32_t *)(cptr +  4);
+        uint32_t w2 = *(uint32_t *)(cptr +  8);
+        uint32_t w3 = *(uint32_t *)(cptr + 12);
+
         logger_append(module_name, file, line, proc_name, pid, level,
-            "%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
+            "%08x: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x   %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c   %4d %4d %4d %4d",
             start_address,
             cptr[0], cptr[1], cptr[2], cptr[3], 
             cptr[4], cptr[5], cptr[6], cptr[7],
@@ -250,7 +255,8 @@ void logger_append_hex(const char *module_name, const char *file, unsigned line,
             is_printable(cptr[0]), is_printable(cptr[1]), is_printable(cptr[2]), is_printable(cptr[3]),
             is_printable(cptr[4]), is_printable(cptr[5]), is_printable(cptr[6]), is_printable(cptr[7]),
             is_printable(cptr[8]), is_printable(cptr[9]), is_printable(cptr[10]), is_printable(cptr[11]),
-            is_printable(cptr[12]), is_printable(cptr[13]), is_printable(cptr[14]), is_printable(cptr[15])
+            is_printable(cptr[12]), is_printable(cptr[13]), is_printable(cptr[14]), is_printable(cptr[15]),
+            w0, w1, w2, w3
         );
 
         memcpy(last_row, cptr, 16);
@@ -262,3 +268,28 @@ void logger_append_hex(const char *module_name, const char *file, unsigned line,
         start_address += 16;
     }
 }
+
+// --------------------------------------------------------------------------------------------
+
+log_level_t string_to_log_level(const char *level_str, log_level_t default_value) {
+    if (!level_str) 
+        return default_value;
+
+    // Convert to lowercase for case-insensitive comparison
+    char lower_level_str[32]; // Max length of log level string + null terminator
+    strscpy(lower_level_str, level_str, sizeof(lower_level_str) - 1);
+    lower_level_str[sizeof(lower_level_str) - 1] = '\0';
+    for (int i = 0; lower_level_str[i]; i++) {
+        lower_level_str[i] = tolower(lower_level_str[i]);
+    }
+
+    if (strcmp(lower_level_str, "critical") == 0) return LOG_LEVEL_CRIT;
+    if (strcmp(lower_level_str, "error") == 0) return LOG_LEVEL_ERROR;
+    if (strcmp(lower_level_str, "warn") == 0 || strcmp(lower_level_str, "warning") == 0) return LOG_LEVEL_WARN;
+    if (strcmp(lower_level_str, "info") == 0) return LOG_LEVEL_INFO;
+    if (strcmp(lower_level_str, "debug") == 0) return LOG_LEVEL_DEBUG;
+    if (strcmp(lower_level_str, "trace") == 0) return LOG_LEVEL_TRACE;
+
+    return default_value;
+}
+

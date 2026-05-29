@@ -56,7 +56,13 @@ run: run-sata
 #run: run-with-cpu-diags
 
 
-run-debugger: image
+run-for-gdb: image
+	# run "gdb kernel/kernel.elf", then "target remote :1234", then "tui enable"
+	# then "hbreak *0x8000" <-- will break at entry of kernel (the _start symbol)
+	# then "c" for continue, it will stop at "_start", then "s" to step into C and the file will appear!!!!
+	# then: n=next, s=step, fin=finish, "until 45"=run-to-line, bt=stack, p=print ("set print pretty on"), ptype, 
+	# "i lo"=info-locals, "i ar"=info-args, up/down the frames.
+	# OR one can launch debugger on vscode for smooth ui!
 	$(EMU) -s -S \
 		-drive format=raw,file=os.img,if=none,id=disk0 \
 		-device ahci,id=ahci0 \

@@ -5,13 +5,13 @@
 MODULE("OPEN_FILE", LOG_LEVEL_DEBUG);
 
 
-static open_file_t *_open_file_create(superblock_t *sb, inode_t *n) {
+static open_file_t *_open_file_create(superblock_t *sb, inode_t *n, int flags) {
     open_file_t *f = (open_file_t *)kmalloc(sizeof(open_file_t));
 
     f->sb = sb;     // superblock (operations)
     f->inode = *n;  // copy the value object
     f->offset = 0;  // VFS-owned file position
-    f->flags = 0;   // RDONLY, WRONLY, APPEND, etc
+    f->flags = flags;   // RDONLY, WRONLY, APPEND, etc
     f->driver_priv_data = 0; // driver-specific open context
     f->lock = 0;    // protects offset & state
 

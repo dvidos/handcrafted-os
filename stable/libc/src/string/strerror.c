@@ -57,6 +57,7 @@ char *strerror(int errnum) {
         case ERR_READ_ONLY_SYSTEM:             return "Read only system";
         case ERR_BROKEN_PIPE:                  return "Broken pipe";
         case ERR_OUT_OF_RANGE:                 return "Out of range";
+        case ERR_ILLEGAL_SEEK:                 return "Illegal seek";
         case ERR_IDE_DEVICE_FAULT:             return "IDE device fault";
         case ERR_IDE_STATUS_ERROR:             return "IDE status error";
         case ERR_IDE_NO_DATA_REQ:              return "IDE no data req";

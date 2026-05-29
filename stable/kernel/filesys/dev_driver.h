@@ -34,6 +34,7 @@ struct device {
     const char *name;
     dev_driver_t *driver;
     int dev_number;
+    bool is_stream;
 
     struct device *next;
 };

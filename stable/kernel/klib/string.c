@@ -45,7 +45,7 @@ void strcat(char *target, const char *source) {
     *dest = *source; // final null char
 }
 
-void strncpy(char *target, const char *source, size_t target_size) {
+void strscpy(char *target, const char *source, size_t target_size) {
     while (*source != '\0' && target_size-- > 1) {
         *target++ = *source++;
     }

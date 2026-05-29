@@ -13,5 +13,5 @@ error_t fs_mkfs(block_device_t *dev, fs_driver_t *drv);
 
 
 
-void fs_register_device(const char *name, dev_driver_t *drv, int dev_number);
+void fs_register_device(const char *name, dev_driver_t *drv, int dev_number, bool is_stream);
 const device_t *fs_lookup_device(const char *name);

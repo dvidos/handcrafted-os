@@ -60,13 +60,12 @@
 MODULE("MAIN", LOG_LEVEL_INFO);
 
 
-static void launch_initial_process();
-static void shell_launcher();
-static void initialize_physical_memory(boot_info_t *info);
-static void initialize_storage_and_file_systems();
 static void print_stage2_boot_info(boot_info_t *info);
-static log_level_t string_to_log_level(const char *level_str);
+static void initialize_physical_memory(boot_info_t *info);
+static mount_table_t *initialize_storage_and_file_systems();
+static void launch_initial_process(mount_table_t *mt);
 static void set_log_level_from_cmdline();
+static void check_and_run_unit_tests();
 
 
 boot_info_t saved_multiboot_info;
@@ -135,31 +134,26 @@ void kernel_main(boot_info_t* boot)
     log_all_pci_devices();
     
     log_info("Initializing file system...");
-    initialize_storage_and_file_systems();
+    mount_table_t *mt = initialize_storage_and_file_systems();
     
     log_info("Initializing multi-tasking...");
     init_multitasking();
     
-
-    #ifdef ENABLE_UNIT_TESTS
-        log_info("Running Unit Tests...");
-        extern void backed_cache_unit_tests();
-        backed_cache_unit_tests();
-    #endif
+    check_and_run_unit_tests();
     
     // kshell();
 
     log_info("Giving the console to console manager...");
     logger_remove_appender(screen_log_appender, NULL);
     init_console_mgr(5);
-    fs_register_device("tty0", &tty_dev_driver, 0);
-    fs_register_device("tty1", &tty_dev_driver, 1);
-    fs_register_device("tty2", &tty_dev_driver, 2);
-    fs_register_device("tty3", &tty_dev_driver, 3);
+    fs_register_device("tty0", &tty_dev_driver, 0, true);
+    fs_register_device("tty1", &tty_dev_driver, 1, true);
+    fs_register_device("tty2", &tty_dev_driver, 2, true);
+    fs_register_device("tty3", &tty_dev_driver, 3, true);
     logger_add_appender(vconsole_log_appender, console_mgr_get_vconsole(4), LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
-    launch_initial_process();
+    launch_initial_process(mt);
 
     // start_multitasking() will never return
     log_info("Starting multitasking, goodbye from main()");
@@ -167,7 +161,7 @@ void kernel_main(boot_info_t* boot)
     panic("start_multitasking() returned to main");
 }
 
-static void launch_initial_process() {
+static void launch_initial_process(mount_table_t *mt) {
     
     process_t *proc;
     error_t err;
@@ -175,10 +169,9 @@ static void launch_initial_process() {
     char *envp[] = { NULL };
 
     // ideally init path should be settable by kernel cmd line
-    err = process_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, &proc);
+    err = process_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, mt, &proc);
     if (err) panic("Cannot create init process: %s", strerror(err));
-    // if (proc_chroot(proc, "/") != OK) panic("Cannot chroot on init process");
-    // if (proc_chdir(proc, "/") != OK) panic("Cannot chdir on root process");
+
     log_debug_fmt(proc_log_formatter, "init: ", proc);
     proc_set_reparenting_proc(proc);
     proc_start(proc);
@@ -291,7 +284,7 @@ static void print_stage2_boot_info(boot_info_t *info) {
         info->fb.pitch);
 }
 
-static void initialize_storage_and_file_systems() {
+static mount_table_t *initialize_storage_and_file_systems() {
     error_t err;
     int count;
     block_device_t *dev;
@@ -326,58 +319,65 @@ static void initialize_storage_and_file_systems() {
     fs_register(&simple_fs);
 
     // let's go with the first, first.
-    bool mounted_one = false;
+    mount_table_t *mt = create_mount_table();
+    vfs_context_t ctx = { .mtab = mt };
+
     list_foreach(&block_devices_list, block_device_t, dev) {
         fs_driver_t *driver = fs_probe(dev);
         if (driver == NULL)
             continue;
         
         log_info("Mounting device %s as root using driver '%s'", dev->id, driver->name);
-        vfs_context_t ctx = { };
         err = vfs_mount(&ctx, "/", dev, driver->ops);
         if (err) {
             log_error("Mount device %s by driver %s failed: %d", dev->id, driver->name, err);
             continue;
         }
 
-        mounted_one = true;
         break;
     }
 
-    if (!mounted_one)
+    if (mt->ops->count_entries(mt) == 0)
         panic("Could not mount a root device");
-}
-
-static log_level_t string_to_log_level(const char *level_str) {
-    if (!level_str) {
-        return LOG_LEVEL_INFO; // Default if no level specified
-    }
-
-    // Convert to lowercase for case-insensitive comparison
-    char lower_level_str[32]; // Max length of log level string + null terminator
-    strncpy(lower_level_str, level_str, sizeof(lower_level_str) - 1);
-    lower_level_str[sizeof(lower_level_str) - 1] = '\0';
-    for (int i = 0; lower_level_str[i]; i++) {
-        lower_level_str[i] = tolower(lower_level_str[i]);
-    }
-
-    if (strcmp(lower_level_str, "critical") == 0) return LOG_LEVEL_CRIT;
-    if (strcmp(lower_level_str, "error") == 0) return LOG_LEVEL_ERROR;
-    if (strcmp(lower_level_str, "warn") == 0 || strcmp(lower_level_str, "warning") == 0) return LOG_LEVEL_WARN;
-    if (strcmp(lower_level_str, "info") == 0) return LOG_LEVEL_INFO;
-    if (strcmp(lower_level_str, "debug") == 0) return LOG_LEVEL_DEBUG;
-    if (strcmp(lower_level_str, "trace") == 0) return LOG_LEVEL_TRACE;
-
-    return LOG_LEVEL_INFO; // Default to INFO if unrecognized
+    return mt;
 }
 
 static void set_log_level_from_cmdline() {
     const char *loglevel_str = kcmd_get("loglevel");
     if (loglevel_str) {
-        log_level_t new_level = string_to_log_level(loglevel_str);
+        log_level_t new_level = string_to_log_level(loglevel_str, LOG_LEVEL_INFO);
         logger_set_global_minimum_log_level(new_level);
         log_info("Global log level set to '%s' (%u) from kernel command line.", loglevel_str, new_level);
     } else {
         log_info("No 'loglevel' specified in kernel command line. Using default.");
     }
+}
+
+static void check_and_run_unit_tests() {
+    bool tests_wanted = kcmd_has("unit_tests") || kcmd_has("tests");
+
+    // tests_wanted = true; // temporarily
+
+    if (tests_wanted) {
+        #ifndef ENABLE_UNIT_TESTS
+            log_info("Unit tests requested, but not compiled in. ENABLE_UNIT_TESTS in config and rebuild");
+            return;
+        #endif
+    } else {
+        log_info("Unit tests not requested. Pass 'tests' to kernel cmd line to request");
+        return;
+    }
+
+#ifdef ENABLE_UNIT_TESTS
+    log_info("Running Unit Tests...");
+
+    extern void sfs_unit_tests();
+    sfs_unit_tests();
+
+    extern void backed_cache_unit_tests();
+    backed_cache_unit_tests();
+
+
+    log_info("Finished Unit Tests...");
+#endif // ENABLE_UNIT_TESTS
 }

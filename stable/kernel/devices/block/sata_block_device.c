@@ -584,8 +584,8 @@ static error_t block_dev_flush(block_device_t *dev) {
 }
 
 static struct block_device_ops sata_ops = {
-    .read = block_dev_read,
-    .write = block_dev_write,
+    .read_sectors = block_dev_read,
+    .write_sectors = block_dev_write,
     .flush = block_dev_flush,
     .destroy = NULL
 };

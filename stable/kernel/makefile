@@ -58,17 +58,15 @@ KERNEL_C_FILES = \
 	$(wildcard proc/procman/*.c) \
 	\
 	$(wildcard devices/*.c) \
-	$(wildcard devices/pci/*.c) \
 	$(wildcard devices/block/*.c) \
+	$(wildcard devices/pci/*.c) \
 	$(wildcard devices/tty/*.c) \
 	\
 	$(wildcard filesys/*.c) \
+	$(wildcard filesys/fs_drivers/sfs/*.c) \
+	$(wildcard filesys/fs_drivers/skeleton_fs/*.c) \
 	$(wildcard filesys/partitions/*.c) \
 	$(wildcard filesys/vfs_objects/*.c) \
-	$(wildcard filesys/dev_drivers/tty/*.c) \
-	$(wildcard filesys/fs_drivers/skeleton_fs/*.c) \
-	$(wildcard filesys/fs_drivers/dummy_fs/*.c) \
-	$(wildcard filesys/fs_drivers/sfs/*.c) \
 	\
 	$(wildcard syscall/*.c) \
 	$(wildcard tasks/*.c)
@@ -140,10 +138,10 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 	$(CROSS_CC) -MD -c $< -o $@ $(CFLAGS)
 
 %.o: %.asm
-	nasm -f elf -DKERNEL_STACK_TOP=$(KERNEL_STACK_TOP) $< -o $@
+	nasm -g -f elf -DKERNEL_STACK_TOP=$(KERNEL_STACK_TOP) $< -o $@
 
 %.o: %.S
-	$(CROSS_AS) $< -o $@
+	$(CROSS_AS) -g $< -o $@
 
 
 .PHONY: install

@@ -288,7 +288,7 @@ static error_t backed_cache_read(backed_cache_t *cache, uint64_t key, void *buff
     return OK;
 }
 
-static error_t backed_cache_write(backed_cache_t *cache, uint64_t key, void *buffer) {
+static error_t backed_cache_write(backed_cache_t *cache, uint64_t key, const void *buffer) {
     log_trace("backed_cache.write(cache=%p, key=%llu)", cache, key);
     mutex_acquire(&cache->lock);
 
@@ -337,7 +337,7 @@ static error_t backed_cache_read_part(backed_cache_t *cache, uint64_t key, size_
     return OK;
 }
 
-static error_t backed_cache_write_part(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len) {
+static error_t backed_cache_write_part(backed_cache_t *cache, uint64_t key, size_t offset, const void *part_buffer, size_t part_len) {
     log_trace("backed_cache.write_part(cache=%p, key=%llu, offset=%d, buffer=%p, size=%d)", cache, key, offset, part_buffer, part_len);
     mutex_acquire(&cache->lock);
 

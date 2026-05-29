@@ -137,7 +137,7 @@ process_t *proc_find_child(process_t *parent, pid_t child_pid);
 
 // proc_create.c
 error_t process_create_for_kernel(const char *name, uintptr_t function_to_call, proc_priority_t priority, process_t **proc_ptr);
-error_t process_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, process_t **proc_ptr);
+error_t process_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, mount_table_t *mtab, process_t **proc_ptr);
 error_t process_replace_for_exec(process_t *proc, const char *file_path, char **argv, char **envp);
 error_t process_create_for_fork(process_t *parent, process_t **proc_ptr);
 

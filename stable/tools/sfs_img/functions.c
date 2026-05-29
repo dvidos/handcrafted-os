@@ -8,6 +8,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "functions.h"
+#include <time.h>
 
 
 
@@ -212,6 +213,61 @@ uint8_t *block_bitmap_get_bytes_ptr(int bitmap_block_no) {
 
 // -----------------------------------------------------------------------------
 
+// Inode bitmap management
+static uint8_t *inode_bitmap_buffer;
+static uint32_t inode_bitmap_inodes_to_track;
+static uint32_t inode_bitmap_next_free_inode;
+
+static inline bool inode_bitmap_is_used(uint32_t inode_no) { return inode_bitmap_buffer[inode_no / 8] & (1 << (inode_no % 8)); }
+
+void inode_bitmap_create(uint32_t inodes_to_track) {
+    uint32_t bytes_needed = bits_to_bytes(inodes_to_track);
+    uint32_t blocks_needed = bytes_to_blocks(bytes_needed);
+    uint32_t bitmap_size = blocks_to_bytes(blocks_needed);
+    
+    // printf("inode_bitmap_create: Initializing bitmap for %u inodes, size %u bytes\n", inodes_to_track, bitmap_size);
+    inode_bitmap_buffer = malloc(bitmap_size);
+    memset(inode_bitmap_buffer, 0, bitmap_size);
+    inode_bitmap_inodes_to_track = inodes_to_track;
+    inode_bitmap_next_free_inode = 0; // Will be set to 2 after marking 0 and 1
+
+    // Mark inode 0 as used (empty/null convention)
+    inode_bitmap_mark_used(0);
+    inode_bitmap_next_free_inode = 1;
+}
+
+uint32_t inode_bitmap_allocate(void) {
+    uint32_t allocated_inode = INVALID_INODE_NO; // Use INVALID_INODE_NO as initial value
+
+    // printf("inode_bitmap_allocate: searching from %u to %u\n", inode_bitmap_next_free_inode, inode_bitmap_inodes_to_track);
+
+    while (inode_bitmap_next_free_inode < inode_bitmap_inodes_to_track) {
+        if (!inode_bitmap_is_used(inode_bitmap_next_free_inode)) {
+            allocated_inode = inode_bitmap_next_free_inode;
+            inode_bitmap_next_free_inode++; // Move to next potential free inode for quicker search
+            inode_bitmap_mark_used(allocated_inode);
+            // printf("inode_bitmap_allocate: Allocated inode %u. Next free is %u\n", allocated_inode, inode_bitmap_next_free_inode);
+            return allocated_inode;
+        }
+        inode_bitmap_next_free_inode++;
+    }
+
+    fatal("Cannot allocate inode, all are exhausted");
+    return INVALID_INODE_NO; // Should not reach here
+}
+
+void inode_bitmap_mark_used(uint32_t inode_no) {
+    // printf("inode_bitmap_mark_used: marking inode %u. Limit %u\n", inode_no, inode_bitmap_inodes_to_track);
+    if (inode_no >= inode_bitmap_inodes_to_track) fatal("Attempted to mark inode %u beyond bitmap track limit %u", inode_no, inode_bitmap_inodes_to_track);
+    inode_bitmap_buffer[inode_no / 8] |= (1 << (inode_no % 8));
+}
+
+uint8_t *inode_bitmap_get_bytes_ptr(int bitmap_block_no) {
+    return inode_bitmap_buffer + (bitmap_block_no * BLOCK_SIZE);
+}
+
+// -----------------------------------------------------------------------------
+
 void import_host_file_into_img_sector(FILE *img, size_t sector_no, size_t sector_count, const char *host_file_path) {
     char *buffer = malloc(SECTOR_SIZE);
 
@@ -240,8 +296,10 @@ void persist_dir_entry(context *ctx, stored_inode *parent_dir, size_t rec_no, st
     size_t offset_in_file = rec_no * sizeof(stored_dir_entry);
 
     size_t block_index = offset_in_file / BLOCK_SIZE;
-    if (block_index >= parent_dir->allocated_blocks)
+    if (block_index >= parent_dir->allocated_blocks) {
+        print_inode(parent_dir, "(parent)", 9999, 0);
         fatal("Cannot write entry %ld ('%s'-->%ld) to dir, requires block #%ld, but inode only has %d blocks", rec_no, entry->name, entry->inode_num, block_index, parent_dir->allocated_blocks);
+    }
     
     size_t abs_block_no = parent_dir->ranges[0].first_block_no + block_index;
     size_t offset_in_block = offset_in_file % BLOCK_SIZE;
@@ -260,38 +318,74 @@ void append_entry_to_directory(context *ctx, stored_inode *parent_dir, inode_no_
     persist_dir_entry(ctx, parent_dir, rec_no, &entry);
     
     parent_dir->file_size += sizeof(stored_dir_entry);
-    if (parent_dir_no != ROOT_DIR_INODE_ID)
-        persist_inode(ctx, parent_dir_no, parent_dir);
+    persist_inode(ctx, parent_dir_no, parent_dir);
 }
 
-void persist_inode(context *ctx, inode_no_t inode_no, stored_inode *inode) {
-    size_t offset_in_file = inode_no * sizeof(stored_inode);
+// ------------------------------------------------------------------------------------
 
-    size_t block_index = offset_in_file / BLOCK_SIZE;
-    size_t allocated = ctx->superblock.inodes_db_inode.allocated_blocks;
-    if (block_index >= allocated)
-        fatal("Cannot write inode %ld to db, requires block #%ld, but we have only %d blocks", inode_no, block_index, allocated);
-    
-    size_t abs_block_no = ctx->superblock.inodes_db_inode.ranges[0].first_block_no + block_index;
-    size_t offset_in_block = offset_in_file % BLOCK_SIZE;
+void persist_inode(context *ctx, inode_no_t inode_no, stored_inode *inode) {
+    size_t offset_in_array = inode_no * sizeof(stored_inode);
+
+    size_t block_index = offset_in_array / BLOCK_SIZE;
+    size_t abs_block_no = ctx->sb.inodes_array_first_block + block_index;
+    size_t offset_in_block = offset_in_array % BLOCK_SIZE;
+
+    if (block_index >= ctx->sb.inodes_array_num_blocks)
+        fatal("Cannot write inode %ld to array, requires block #%ld, but inode array only has %d blocks", inode_no, block_index, ctx->sb.inodes_array_num_blocks);
+
     write_fs_block_part(ctx, abs_block_no, offset_in_block, inode, sizeof(stored_inode));
 
-    size_t min_size = (inode_no + 1) * sizeof(stored_inode);
-    if (ctx->superblock.inodes_db_inode.file_size < min_size)
-        ctx->superblock.inodes_db_inode.file_size = min_size;
+    // No longer updating inodes_db_inode.file_size as inode allocation is managed by inode_bitmap
 }
 
 void load_inode(context *ctx, inode_no_t inode_no, stored_inode *inode) {
-    size_t offset = inode_no * sizeof(stored_inode);
+    size_t offset_in_array = inode_no * sizeof(stored_inode);
 
-    size_t block_index = offset / BLOCK_SIZE;
-    size_t offset_in_block = offset % BLOCK_SIZE;
+    size_t block_index = offset_in_array / BLOCK_SIZE;
+    size_t offset_in_block = offset_in_array % BLOCK_SIZE;
+    uint32_t abs_block = ctx->sb.inodes_array_first_block + block_index;
 
-    uint32_t abs_block =
-        ctx->superblock.inodes_db_inode.ranges[0].first_block_no + block_index;
-
-    char block[BLOCK_SIZE];
-    read_fs_block(ctx, abs_block, block);
-
-    memcpy(inode, block + offset_in_block, sizeof(stored_inode));
+    read_fs_block_part(ctx, abs_block, offset_in_block, inode, sizeof(stored_inode));
 }
+
+stored_inode create_new_inode(stored_superblock *superblock, bool is_file, size_t file_size, inode_no_t *inode_no) {
+    stored_inode n;
+    memset(&n, 0, sizeof(stored_inode));
+
+    // allocate as many blocks as needed
+    int blocks_needed = bytes_to_blocks(file_size);
+    int first_block = block_bitmap_allocate(blocks_needed);
+
+    n.type_perms = is_file ? STORED_INODE_TYPE_FILE : STORED_INODE_TYPE_DIR;
+    n.user_id = 0;
+    n.group_id = 0;
+    n.file_size = 0;
+    n.allocated_blocks = blocks_needed;
+    n.padding = 0;
+    n.created_at = time(NULL);
+    n.modified_at = time(NULL);
+    n.ranges[0].first_block_no = first_block;
+    n.ranges[0].blocks_count = blocks_needed;
+    n.indirect_ranges_block_no = 0;
+    n.double_indirect_block_no = 0;
+    
+    // calculate next inode num
+    *inode_no = inode_bitmap_allocate();
+
+    // print_inode(&n, "new-inode", *inode_no, 1);
+    return n;
+}
+
+void print_inode(stored_inode *inode, const char *name, uint32_t inode_num, int depth) {
+    printf("%*s%-12s inode=%-5u size=%-7u blocks=%-3u type/perms=0x%x rng0=%u,%u\n",
+        depth * 4, "",
+        name,
+        inode_num,
+        inode->file_size,
+        inode->allocated_blocks,
+        inode->type_perms,
+        inode->ranges[0].first_block_no,
+        inode->ranges[0].blocks_count
+    );
+}
+

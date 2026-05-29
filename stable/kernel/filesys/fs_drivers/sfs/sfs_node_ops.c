@@ -1,78 +1,129 @@
 #include "sfs_internal.h"
 #include "../../../klib/string.h"
-#include "../../../logger/logger.h"
-
-MODULE("VFS", LOG_LEVEL_WARN);
 
 
-error_t sfs_node_dir_find_entry(sfs_mount_data *mt, stored_inode *sin, const char *name, uint32_t *rec_no, uint32_t *inode_no) {
-    uint32_t n = 0;
-    stored_dir_entry entry;
-    while (true) {
-        ssize_t bytes = sfs_node_read_file_rec(mt, sin, sizeof(stored_dir_entry), n, &entry);
-        if (bytes == 0 || bytes == ERR_EOF) break;
 
-        log_debug("sfs_node_dir_find_entry(): entry = ['%s' --> %ld]", entry.name, entry.inode_num);
-        if (strlen(entry.name) == 0 || strcmp(entry.name, name) != 0) {
-            n++;
-            continue;
+
+error_t sfs_node_expand_data_blocks(sfs_mount_data *md, stored_inode *sin) {
+    log_trace("sfs_node_expand_data_blocks(node=%p)", sin);
+    // first find the last range (node, indirect, dbl_indirect) and always try to expand on that
+    // if that doesn't work, try allocating new range, wherever this will be
+    // if there is no space on the last doubly indirected block, then return traceable(ERR_NO_SPACE
+    // perform conservative strategy of expanding last range
+
+    error_t err;
+    bool overflow = false;
+    block_no_t block_no;
+
+    if (sin->double_indirect_block_no > 0) {
+        // we need to enlarge this
+        err = sfs_expand_dbl_indirect_block(md, sin->double_indirect_block_no, &overflow, &block_no);
+        if (err) return traceable(err);
+
+    } else if (sin->indirect_ranges_block_no > 0) {
+        // we need to enlarge this, fallback onto the double
+        err = sfs_expand_range_block(md, sin->indirect_ranges_block_no, &overflow, &block_no);
+        if (err) return traceable(err);
+
+        if (overflow) {
+            // we need to grab a new double indirect!
+            if (!md->block_bitmap->ops->find_next_free(md->block_bitmap, &block_no))
+                return traceable(ERR_NO_SPACE_LEFT);
+            sin->double_indirect_block_no = block_no;
+            md->block_bitmap->ops->mark_used(md->block_bitmap, sin->double_indirect_block_no);
+            md->block_cache->ops->fill(md->block_cache, sin->double_indirect_block_no, 0);
+
+            err = sfs_expand_dbl_indirect_block(md, sin->double_indirect_block_no, &overflow, &block_no);
+            if (err) return traceable(err);
         }
 
-        if (rec_no != NULL) *rec_no = n;
-        if (inode_no != NULL) *inode_no = entry.inode_num;
-        return OK;
-    }
-    return ERR_NOT_FOUND;
-}
+    } else {
+        // we need to enlarge built-in ranges, fallback to single, then double indirect.
+        err = sfs_expand_range_array(md, sin->ranges, RANGES_IN_INODE, &overflow, &block_no);
+        if (err) return traceable(err);
 
-error_t sfs_node_dir_set_entry(sfs_mount_data *mt, inode_no_t dir_node_no, stored_inode *dir_node, uint32_t rec_no, const char *name, uint32_t inode_no) {
-    stored_dir_entry entry;
-    strncpy(entry.name, name, sizeof(entry.name));
-    entry.inode_num = inode_no;
+        if (overflow) {
+            // we need to grab a new indirect block
+            if (!md->block_bitmap->ops->find_next_free(md->block_bitmap, &block_no))
+                return traceable(ERR_NO_SPACE_LEFT);
+            sin->indirect_ranges_block_no = block_no;
+            md->block_bitmap->ops->mark_used(md->block_bitmap, sin->indirect_ranges_block_no);
+            md->block_cache->ops->fill(md->block_cache, sin->indirect_ranges_block_no, 0);
 
-    ssize_t bytes = sfs_node_write_file_rec(mt, dir_node, dir_node_no, sizeof(stored_dir_entry), rec_no, &entry);
-    if (bytes < 0) return (error_t)bytes;
-    if ((size_t)bytes < sizeof(stored_dir_entry)) return ERR_CORRUPTION_DETECTED;
-
-    return OK;
-}
-
-error_t sfs_node_dir_add_entry(sfs_mount_data *mt, inode_no_t dir_node_no, stored_inode *dir_node, const char *name, uint32_t inode_no) {
-    uint32_t records = (uint32_t)(dir_node->file_size / sizeof(stored_dir_entry));
-    return sfs_node_dir_set_entry(mt, dir_node_no, dir_node, records, name, inode_no);
-}
-
-error_t sfs_node_dir_is_empty(sfs_mount_data *mt, stored_inode *sin, bool ignore_special_dirs, bool *is_empty) {
-    uint32_t count = 0;
-    uint32_t rec = 0;
-    stored_dir_entry entry;
-    while (true) {
-        ssize_t bytes = sfs_node_read_file_rec(mt, sin, sizeof(stored_dir_entry), rec, &entry);
-        if (bytes == 0 || bytes == ERR_EOF) break;
-        if (stored_dir_entry_is_unused(&entry))
-            continue;
-
-        if (ignore_special_dirs && (strcmp(entry.name, ".") == 0 || strcmp(entry.name, "..") == 0))
-            continue;
-
-        count++;
-        rec++;
+            err = sfs_expand_range_block(md, sin->indirect_ranges_block_no, &overflow, &block_no);
+            if (err) return traceable(err);
+            // there should be no reason for fallback, single indirct should be ok for one block
+        }
     }
 
-    *is_empty = (count == 0);
+    return overflow ? ERR_NO_SPACE_LEFT : OK;
+}
+
+// ---------------------------------------------------------------------
+
+static error_t _release_indirect_and_data_blocks(sfs_mount_data *md, block_no_t indirect_block_no) {
+    error_t err = md->block_cache->ops->read(md->block_cache, indirect_block_no, md->generic_block_buffer);
+    if (err) return traceable(err);
+
+    int ranges_in_block = md->superblock->block_size_in_bytes / sizeof(block_range);
+    sfs_release_block_range_array(md, (block_range *)md->generic_block_buffer, ranges_in_block);
+
+    // we need to also release the indirect block itself
+    md->block_bitmap->ops->mark_free(md->block_bitmap, indirect_block_no);
     return OK;
 }
 
-error_t sfs_inodes_db_append(sfs_mount_data *mt, stored_inode *dir_node, uint32_t *inode_no) {
-    stored_inode *inodes_db;
-    error_t err = mt->inode_cache->ops->get(mt->inode_cache, INODE_DB_INODE_ID, (void **)&inodes_db);
-    if (err) return err;
+static error_t _release_dbl_indirect_and_indirect_blocks(sfs_mount_data *md, block_no_t dbl_indirect_block_no) {
+    error_t err = md->block_cache->ops->read(md->block_cache, dbl_indirect_block_no, md->generic_block_buffer);
+    if (err) return traceable(err);
 
-    uint32_t records = (uint32_t)(inodes_db->file_size / sizeof(stored_inode));
-    ssize_t bytes = sfs_node_write_file_rec(mt, inodes_db, INODE_DB_INODE_ID, sizeof(stored_inode), records, dir_node);
-    if (bytes < 0) return (error_t) bytes;
-    if (bytes != sizeof(stored_inode)) return ERR_CORRUPTION_DETECTED;
+    int ranges_in_block = md->superblock->block_size_in_bytes / sizeof(block_range);
+    block_range *ranges_arr = (block_range *)md->generic_block_buffer;
+    for (int i = 0; i < ranges_in_block; i++) {
+        block_range *range = &ranges_arr[i];
+        if (range->first_block_no == 0)
+            break;
 
-    *inode_no = records;
+        block_no_t indirect_block_no = range->first_block_no;
+        uint32_t count = range->blocks_count;
+        while (count-- > 0) {
+            _release_indirect_and_data_blocks(md, indirect_block_no);
+            indirect_block_no++;
+        }
+    }
+
+    md->block_bitmap->ops->mark_free(md->block_bitmap, dbl_indirect_block_no);
     return OK;
 }
+
+error_t sfs_node_release_all_data_blocks(sfs_mount_data *md, stored_inode *sin) {
+    log_trace("sfs_node_release_all_data_blocks(node=%p)", sin);
+
+    sfs_release_block_range_array(md, sin->ranges, RANGES_IN_INODE);
+    if (sin->indirect_ranges_block_no) {
+        _release_indirect_and_data_blocks(md, sin->indirect_ranges_block_no);
+        sin->indirect_ranges_block_no = 0;
+    }
+    if (sin->double_indirect_block_no) {
+        _release_dbl_indirect_and_indirect_blocks(md, sin->double_indirect_block_no);
+        sin->double_indirect_block_no = 0;
+    }
+
+    sin->allocated_blocks = 0;
+    sin->file_size = 0;
+    return OK;
+}
+
+error_t sfs_node_num_release_all_data_blocks(sfs_mount_data *md, inode_no_t inode_num) {
+    log_trace("sfs_node_num_release_all_data_blocks(node_num=%u)", inode_num);
+
+    stored_inode *sin;
+    error_t err = md->inode_cache->ops->get(md->inode_cache, inode_num, (void **)&sin);
+    if (err) return traceable(err);
+
+    sfs_node_release_all_data_blocks(md, sin);
+
+    md->inode_cache->ops->mark_dirty(md->inode_cache, inode_num);
+    return OK;
+}
+

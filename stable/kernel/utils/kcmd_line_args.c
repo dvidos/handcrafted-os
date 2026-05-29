@@ -43,5 +43,9 @@ const char *kcmd_get(const char *key) {
 }
 
 bool kcmd_has(const char *key) {
-    return kcmd_get(key) != NULL;
+    for (size_t i = 0; i < kcmd_count; i++) {
+        if (strcmp(kcmd_args[i].key, key) == 0)
+            return true;
+    }
+    return false;
 }

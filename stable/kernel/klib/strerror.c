@@ -73,6 +73,7 @@ const char *strerror(error_t err) {
         CASE(ERR_READ_ONLY_SYSTEM);
         CASE(ERR_BROKEN_PIPE);
         CASE(ERR_OUT_OF_RANGE);
+        CASE(ERR_ILLEGAL_SEEK);
     }
 
     sprintfn(unknown_str_buffer, sizeof(unknown_str_buffer), "(unknown error_t: %u)", err);

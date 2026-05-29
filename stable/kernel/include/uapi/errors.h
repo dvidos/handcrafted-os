@@ -59,6 +59,7 @@ typedef enum error_t {
     ERR_READ_ONLY_SYSTEM     = -47,
     ERR_BROKEN_PIPE          = -48,
     ERR_OUT_OF_RANGE         = -49,
+    ERR_ILLEGAL_SEEK         = -50,
     
     // ATA controller
     ERR_IDE_DEVICE_FAULT             = -101,

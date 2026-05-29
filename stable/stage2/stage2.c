@@ -23,7 +23,7 @@ const char *menu_choices = "123456789abcdefghijklmnopqrstuvwxyz";
 uint16_t supported_vbe_modes[30];
 uint16_t supported_vbe_modes_count = 0;
 uint16_t selected_graphics_mode;
-int boot_in_text_mode = 0;
+int boot_in_text_mode;
 int serial_port_initialized = 0;
 uint8_t _reg8_;
 uint16_t _reg16_;
@@ -784,7 +784,7 @@ void edit_kernel_command_line_menu() {
 
 void possibly_interactive_menu() {
     printf("Press any key to enter interactive mode...");
-    uint8_t got_key = get_key_with_timeout(3, 0, 0);
+    uint8_t got_key = get_key_with_timeout(1, 0, 0);
     printf("\r\n");
     if (!got_key) return;
 
@@ -813,7 +813,7 @@ void stage2_main(void) {
     // - enter protected mode and jump to the kernel entry
 
     initialize_serial_port(); // for debugging in QEMU, run with "-serial stdio"
-    strcpy(boot_info.cmdline, "console=serial");
+    strcpy(boot_info.cmdline, ""); // options: shell, dbg, debugger, tests, unit_tests
     run_assembly_interface_tests();
 
     bios_print_str("Loading kernel...\r\n");
@@ -822,6 +822,7 @@ void stage2_main(void) {
     printf("Kernel loaded at 0x%x, boot info at 0x%x\r\n", KERNEL_LOAD_ADDRESS, &boot_info);
 
     // we should already have decided the default graphics mode...
+    boot_in_text_mode = 1;
     discover_graphics_modes();
     discover_memory_map();
 

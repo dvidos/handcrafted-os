@@ -603,16 +603,18 @@ error:
     return traceable(err);
 }
 
-static error_t init_filesystem_stuff(process_t *proc) {
-    log_trace("init_filesystem_stuff(proc=%d)", proc);
+static error_t init_filesystem_stuff(process_t *proc, mount_table_t *mtab) {
+    log_trace("init_filesystem_stuff(proc=%d, mtab=%p)", proc, mtab);
     error_t err;
+
+    proc->vfs_ctx.mtab = mtab;
 
     err = proc_chroot(proc, "/");
     if (err) return err;
     err = proc_chdir(proc, "/");
     if (err) return err;
     
-    err = proc_open(proc, "/dev/tty0", 0);
+    err = proc_open(proc, "/dev/tty0", O_RDWR);
     if (err < 0) return err;
 
     proc_dup2(proc, 0, proc, 1);
@@ -714,7 +716,7 @@ error_t process_create_for_kernel(const char *name, uintptr_t function_to_call, 
     return OK;
 }
 
-error_t process_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, process_t **proc_ptr) {
+error_t process_create_for_spawn(process_t *parent, const char *file_path, char **argv, char **envp, proc_priority_t priority, mount_table_t *mtab, process_t **proc_ptr) {
     ASSERT(file_path != 0); 
     ASSERT(proc_ptr != 0);
     log_trace("process_v2_create_for_spawn(parent=%p, file='%s')", parent, file_path);
@@ -733,8 +735,8 @@ error_t process_create_for_spawn(process_t *parent, const char *file_path, char 
     pd = 0; // from now on, proc_destroy() shall destroy the PD, not us
     
     // prepare filesystem in order to be able to open the executable
-    if (parent == NULL) err = init_filesystem_stuff(child);
-    else err = inherit_filesystem_stuff(child, parent);
+    if (parent == NULL) err = init_filesystem_stuff(child, mtab);
+    else                err = inherit_filesystem_stuff(child, parent);
     if (err) goto failed;
 
     err = vfs_open(&child->vfs_ctx, file_path, 0, &elf);

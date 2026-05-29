@@ -69,12 +69,12 @@ struct backed_cache_ops {
     
     // reads and writes full objects
     error_t (*read)(backed_cache_t *cache, uint64_t key, void *buffer);
-    error_t (*write)(backed_cache_t *cache, uint64_t key, void *buffer);
+    error_t (*write)(backed_cache_t *cache, uint64_t key, const void *buffer);
     error_t (*fill)(backed_cache_t *cache, uint64_t key, char value);
 
     // reads and writes parts of objects
     error_t (*read_part)(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len);
-    error_t (*write_part)(backed_cache_t *cache, uint64_t key, size_t offset, void *part_buffer, size_t part_len);
+    error_t (*write_part)(backed_cache_t *cache, uint64_t key, size_t offset, const void *part_buffer, size_t part_len);
     error_t (*fill_part)(backed_cache_t *cache, uint64_t key, size_t offset, char value, size_t part_len);
 
     error_t (*invalidate)(backed_cache_t *cache, uint64_t key);

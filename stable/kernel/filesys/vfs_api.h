@@ -1,10 +1,12 @@
 #pragma once
 #include "../devices/block/block_device.h"
+#include "vfs_objects/mount_table.h"
 #include "fs_driver.h"
 
 
 typedef struct vfs_context vfs_context_t;
 struct vfs_context {
+    mount_table_t *mtab;
     inode_t root_inode;
     inode_t cwd_inode;
     uint16_t creation_mask;  // e.g. 0022
@@ -16,8 +18,8 @@ struct vfs_context {
 
 // mount management (allocates superblock_t, assigns fs_id, calls driver->mount(sb), inserts mount object into mount table)
 error_t vfs_mount(vfs_context_t *ctx, const char *path, block_device_t *dev, fs_driver_ops_t *driver);
-inode_t vfs_root_inode();
-error_t vfs_sync(void);
+inode_t vfs_root_inode(vfs_context_t *ctx);
+error_t vfs_sync(vfs_context_t *ctx);
 error_t vfs_unmount(vfs_context_t *ctx, const char *path);
 
 // needed for chdir()

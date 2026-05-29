@@ -45,6 +45,9 @@ void logger_append(const char *module_name, const char *file, unsigned line, con
 void logger_append_using_formatter(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const char *prompt, log_formatter_t *formatter, ...);
 void logger_append_hex(const char *module_name, const char *file, unsigned line, const char *proc_name, pid_t pid, log_level_t level, const void *buffer, size_t length, uint32_t start_address);
 
+log_level_t string_to_log_level(const char *level_str, log_level_t default_value);
+
+
 
 typedef struct { const char *name; log_level_t level; } module_log_cfg_t;
 
@@ -75,7 +78,7 @@ typedef struct { const char *name; log_level_t level; } module_log_cfg_t;
     #define traceable(err)     \
         ((err) == OK ? OK : (\
             logger_append(__module_log_configuration__.name, __FILE__, __LINE__, NULL, 0, LOG_LEVEL_WARN, \
-                "%s() { return %s; (%d) }", \
+                "%s() --> %s | %d", \
                 __FUNCTION__, strerror(err), err), \
             (err) \
         ))

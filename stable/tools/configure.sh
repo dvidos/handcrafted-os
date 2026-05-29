@@ -15,23 +15,16 @@ VERSION=0.1.0                              # in case this ever starts getting sh
 GIT_HASH=$(git describe --dirty --always)  # very helpful for debugging
 DATE_BUILT=$(date "+%Y-%m-%d %H:%M")       # decorational mainly
 
-# support subsystems on/off, for easier debugging, smaller sizes etc.
-GUI_SUPPORT=1       # support for graphics
-USB_SUPPORT=1       # support for usb
-NETWORK_SUPPORT=1   # support for network
-SMP_SUPPORT=1       # support for SMP
-
 # compilation mode
 ENABLE_UNIT_TESTS=1   # set to 1 to include & execute unit tests
 ENABLE_ASSERTIONS=1   # set to 1 for assertions to be exercised
-
-DEBUG_VERSION=0       # support for gdb, and other macros
-HOSTED_FLAG=0         # build run for hosted linux, as opposed to standalone
-ASSERTS=1             # whether asserts are run or ignored
 TRACE_RETURNS=1       # whether returned errors generate trace logs
-LOG_LEVEL=INFO        # initial log level TRACE, DEBUG, INFO, WARN, ERROR
-TRACE_SYSCALLS=0      # to trace all syscalls
-TRACE_IPC=0           # to trace IPC between processes
+
+# support subsystems on/off, for easier debugging, smaller sizes etc.
+SUPPORT_GUI=1
+SUPPORT_USB=1
+SUPPORT_NETWORK=1
+SUPPORT_SMP=1
 
 # other filesystem options, supported formats, init ram disk, sizes, etc.
 # various drivers support options, (hardware, fs, network, cpu features, debugging etc)
@@ -52,7 +45,7 @@ STAGE2_STACK_TOP=0x7C00     # at 31KB, right below stage 1
 STAGE2_SECTOR_COUNT=$(($STAGE2_SIZE_KB * 1024 / $SECTOR_SIZE))
 STAGE2_FIRST_SECTOR=$(($STAGE1_SECTOR_COUNT))
 
-KERNEL_SIZE_KB=256          # can go up to 608 KB, but keep an eye for stack!
+KERNEL_SIZE_KB=300          # can go up to 608 KB, but keep an eye out for stack
 KERNEL_LOAD_ADDRESS=0x8000  # at 32KB, below upper memory (640KB), must be < 1MB, to be loaded in real mode.
 KERNEL_STACK_TOP=0x9FC00    # at 639KB, below bios, be aligned to 4 bytes at least!
 KERNEL_SECTOR_COUNT=$(($KERNEL_SIZE_KB * 1024 / $SECTOR_SIZE))

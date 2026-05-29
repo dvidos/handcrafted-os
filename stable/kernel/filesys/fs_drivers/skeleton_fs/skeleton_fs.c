@@ -91,7 +91,7 @@ static error_t _skeleton_fs_rmdir(inode_t *parent, const char *name) {
     return ERR_NOT_IMPLEMENTED;
 }
 
-static error_t _skeleton_fs_create(inode_t *parent, const char *name, int type, inode_t *out) {
+static error_t _skeleton_fs_create(inode_t *parent, const char *name, int type, uid_t uid, gid_t gid, inode_t *out) {
     return ERR_NOT_IMPLEMENTED;
 }
 

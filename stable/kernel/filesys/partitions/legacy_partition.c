@@ -70,7 +70,7 @@ static error_t discover_and_register_extended_partitions(
     int *part_count,
     char *block_buffer
 ) {
-    error_t err = dev->ops->read(dev, current_ebr_lba, 1, block_buffer);
+    error_t err = dev->ops->read_sectors(dev, current_ebr_lba, 1, block_buffer);
     if (err) return err;
 
     // Entry 0: logical partition
@@ -95,7 +95,7 @@ error_t discover_and_register_partitions_with_buffer(block_device_t *dev, char *
     int part_count = 0;
 
     // Read primary MBR
-    error_t err = dev->ops->read(dev, 0, 1, block_buffer);
+    error_t err = dev->ops->read_sectors(dev, 0, 1, block_buffer);
     if (err) return err;
 
     for (int i = 0; i < 4; i++) {

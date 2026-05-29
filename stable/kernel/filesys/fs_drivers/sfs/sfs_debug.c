@@ -1,23 +1,21 @@
 #include "sfs_internal.h"
-#include "../../../logger/logger.h"
-
-MODULE("SFS", LOG_LEVEL_DEBUG);
 
 
 
-void sfs_stored_inode_log_debug(const char *prefix, stored_inode *n) {
+void sfs_stored_inode_formatter(log_write_stream_t *stream, va_list args) {
+    stored_inode *n = va_arg(args, stored_inode *);
     char buffer[64] = {0};
 
-    char type = '?';
+    // stored_inode(size=0, blocks=0, type/perms=0x0 (----------), created=0, modified=0, user=0, group=0, ranges=[0:0, 0:0, 0:0, 0:0], ind_rng=0, dbl_ind_rng=0)
+
+    char type = '-';
     if ((n->type_perms & STORED_INODE_TYPE_FILE)  == STORED_INODE_TYPE_FILE)  type = 'f';
     if ((n->type_perms & STORED_INODE_TYPE_DIR)   == STORED_INODE_TYPE_DIR)   type = 'd';
     if ((n->type_perms & STORED_INODE_TYPE_CHAR)  == STORED_INODE_TYPE_CHAR)  type = 'c';
     if ((n->type_perms & STORED_INODE_TYPE_BLOCK) == STORED_INODE_TYPE_BLOCK) type = 'b';
     if ((n->type_perms & STORED_INODE_TYPE_SYM)   == STORED_INODE_TYPE_SYM)   type = 's';
 
-    log_debug("%s stored_inode(size=%lu, blocks=%lu, type/perms=0x%x (type=%c, perms=%c%c%c|%c%c%c|%c%c%c), created=%lu, modified=%lu, user=%d, group=%d, ranges=[%lu:%lu, %lu:%lu, %lu:%lu, %lu:%lu], indirect=%lu, dbl indirect=%lu)",
-
-        prefix,
+    stream->printf(stream, "(sz=%lu, blk=%lu, type/perms=0x%x (%c%c%c%c%c%c%c%c%c%c), ct=%lu, mt=%lu, u=%d, g=%d, rng=[%lu:%lu, %lu:%lu, %lu:%lu, %lu:%lu], ind=%lu, dbl-ind=%lu)",
         n->file_size, n->allocated_blocks,
 
         n->type_perms, 
@@ -32,7 +30,8 @@ void sfs_stored_inode_log_debug(const char *prefix, stored_inode *n) {
         n->type_perms & STORED_INODE_PERM_OTHERS_W ? 'w' : '-',
         n->type_perms & STORED_INODE_PERM_OTHERS_X ? 'x' : '-',
 
-        n->created_at, n->modified_at, n->user_id, n->user_id,
+        n->created_at, n->modified_at,
+        n->user_id, n->group_id,
         
         n->ranges[0].first_block_no, n->ranges[0].blocks_count,
         n->ranges[1].first_block_no, n->ranges[1].blocks_count,
@@ -42,26 +41,3 @@ void sfs_stored_inode_log_debug(const char *prefix, stored_inode *n) {
         n->double_indirect_block_no
     );
 }
-
-
-error_t sfs_inodes_db_dump_log(sfs_mount_data *mt, uint32_t first_inode_no, uint32_t count) {
-    stored_inode *inodes_db;
-    error_t err = mt->inode_cache->ops->get(mt->inode_cache, INODE_DB_INODE_ID, (void **)&inodes_db);
-    if (err) return err;
-
-    uint32_t records = (uint32_t)(inodes_db->file_size / sizeof(stored_inode));
-    stored_inode si;
-    char prefix[16];
-
-    for (unsigned i = 0; i < count; i++) {
-        ssize_t bytes = sfs_node_read_file_rec(mt, inodes_db, sizeof(stored_inode), first_inode_no + i, &si);
-        if (bytes < 0) return (error_t) bytes;
-        if (bytes != sizeof(stored_inode)) return ERR_CORRUPTION_DETECTED;
-
-        sprintfn(prefix, sizeof(prefix), "inodes_db[%u]", first_inode_no + i);
-        sfs_stored_inode_log_debug(prefix, &si);
-    }
-    return OK;
-}
-
-

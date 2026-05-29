@@ -1,39 +1,23 @@
 # roadmap
 
+* Finalize sfs tests
+* Make all usertests pass, expand them
+* Shape up the shell a bit, so it works ok
+* Minimum editor, edit files, persist from session to session
 
-## debugging improvements
+## idea
 
-See chat with [gemini here](https://gemini.google.com/app/e41922c6044c3e03)
+Maybe make interfaces within the kernel? Things that code can depend on?
+An output stream, or a logger, or a memory allocator, etc.
 
-* ~~implement addresses + symbols array~~
-* ~~implement backtrace() (EBP hopping + symbol names)~~
-* ~~improve panic() with a backtrace~~
-
-To secure code, we need unit terst.
-
-To debug unit tests, it seems we do need visibility, so a stream->printf() seems absolutely necessary.
-
-So, either a magic pointer, or a magic number as the first member...
-
-* create unit tests using assert() / panic(), `make run-tests`
-* improve page fault handler, with better visibility
-* interactive kernel shell, in COM1, where logs go to COM2
-  * ability to print values by address, based on formatters
-
-e.g. 
-
-* Dual UART (COM1/COM2) initialization.
-* ~~i686 EBP-chain backtrace.~~
-* ~~Two-pass Linker script for Symbol/Data mapping.~~
-* pp (Pretty Print) Registry for kernel objects.
 
 
 ## still missing
 
+* IPC
 * signals & handling them
 * soft links on filesystem
 * devfs
-
 
 Then the following efforts are possible
 
@@ -74,6 +58,7 @@ Target set of commands:
 
 ## completed
 
+* ~~Lots of debugging functionality, until we connected vscode debugger~~
 * ~~Make the sfs_tool to generate image~~
 * ~~Make and verify: fork(), execve(), spawn(), wait(), waitpid(), _exit(), elf loader, syscalls~~
 * ~~Make and put the tiniest executables, into the image~~
@@ -91,3 +76,15 @@ Target set of commands:
   * ~~implement attributes, owners, groups~~
 
 * ~~Move from nursery to root, move root to graveyard~~
+
+
+# Abstractions to target at some point
+
+* Logger & appender
+* Physical memory pages pool (with reference counter)
+* Memory region - mappable, assignable, copiable, allocatable, releasable, extendable, etc
+* Random sized heap allocator
+* Output text stream (for debug, etc)
+* Block device (disks, partitions)
+* Screen (output, scroll, color, cursor, etc)
+* File (open/read/write/close) - composability of UI, processes etc?

@@ -25,7 +25,7 @@ error_t proc_chroot(process_t *proc, const char *path) {
 
     // this allows for the very first resolution
     if (strcmp(path, "/") == 0) {
-        proc->vfs_ctx.root_inode = vfs_root_inode();
+        proc->vfs_ctx.root_inode = vfs_root_inode(&proc->vfs_ctx);
         return OK;
     }
 

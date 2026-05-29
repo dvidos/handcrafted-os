@@ -12,7 +12,7 @@ MODULE("UEFI_PART", LOG_LEVEL_WARN);
 
 
 static error_t discover_and_register_with_buffer(block_device_t *dev, char *block_buffer) {
-    error_t err = dev->ops->read(dev, 1, 1, block_buffer);
+    error_t err = dev->ops->read_sectors(dev, 1, 1, block_buffer);
     if (err) return err;
     if (memcmp(block_buffer, "EFI PART", 8) != 0)  // Not a GPT disk
         return OK;
@@ -36,7 +36,7 @@ static error_t discover_and_register_with_buffer(block_device_t *dev, char *bloc
         uint32_t block_no = entries_base_lba + (i * entry_size) / block_size;
         uint32_t offset_in_block = (i * entry_size) % block_size;
 
-        err = dev->ops->read(dev, block_no, 1, block_buffer);
+        err = dev->ops->read_sectors(dev, block_no, 1, block_buffer);
         if (err) return err;
         if (mem_is_zeros(block_buffer + offset_in_block, 16))
             continue;

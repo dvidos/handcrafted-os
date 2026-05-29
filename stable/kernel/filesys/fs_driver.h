@@ -40,7 +40,7 @@ struct fs_driver_ops {
     error_t (*rewinddir)(open_file_t *dir_handle);
     error_t (*closedir)(open_file_t *dir_handle);
 
-    error_t (*create)(inode_t *parent, const char *name, int type, inode_t *out);
+    error_t (*create)(inode_t *parent, const char *name, int type, uid_t uid, gid_t gid, inode_t *out);
     error_t (*unlink)(inode_t *parent, const char *name);
     error_t (*mkdir)(inode_t *parent, const char *name, inode_t *out); // dirs have special create semantics
     error_t (*rmdir)(inode_t *parent, const char *name); // dirs have special delete semantics

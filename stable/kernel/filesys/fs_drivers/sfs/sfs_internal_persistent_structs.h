@@ -26,10 +26,8 @@ typedef struct sfs_mount_data sfs_mount_data;
 #define MAX_BLOCK_SIZE_BYTES               4096  // this is the biggest we support
 
 #define INVALID_BLOCK_NO             0
-#define INVALID_INODE_NO             0xFFFFFFFf
-
-#define INODE_DB_INODE_ID            0xFFFFFFFd  // masquerades as inode id
-#define ROOT_DIR_INODE_ID            0xFFFFFFFe  // masquerades as inode id
+#define INVALID_INODE_NO             0
+#define ROOT_DIR_INODE_ID            1  // by convention, by mkfs
 
 
 /**
@@ -98,6 +96,14 @@ struct stored_dir_entry {
 } __attribute__((packed));
 
 
+/*
+    +------------+---------------+-------------+---------------+---------------------------+
+    | Superblock | Inodes Bitmap |  Inodes     | Blocks Bitmap |  Blocks                   |
+    +------------+---------------+-------------+---------------+---------------------------+
+*/
+
+
+
 /**
  * data written in the first sector (512 bytes) and block of the device
  * kept in memory while mounted
@@ -107,8 +113,8 @@ struct stored_superblock { // must be up to 512 bytes, in order to read from unk
     char magic[4];                 // e.g. "SFS1" version can be in here
     uint16_t direntry_size;        // currently 64 bytes. to ensure same size when mounting
     uint16_t inode_size;           // currently 64 bytes. to ensure same size when mounting
-    uint32_t inodes_db_rec_count;  // how many inodes in inodes_db (includes cleared ones)
-    uint32_t dummy1;
+    uint32_t num_inodes;           // e.g. 512 through 640K
+    uint32_t dummy0;
 
     // offset x010
     uint32_t sector_size;          // typically 512 to 4K, device driven
@@ -117,24 +123,30 @@ struct stored_superblock { // must be up to 512 bytes, in order to read from unk
     uint32_t blocks_in_device;     // typically 2k..10M
 
     // offset 0x020
-    uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
-    uint32_t blocks_bitmap_blocks_count;  // typically 1 through 16 blocks
-    uint32_t dummy2;
-    uint32_t dummy3;
+    uint32_t inodes_per_block;
+    uint32_t ranges_per_block;
+    uint32_t dummy1a;
+    uint32_t dummy1b;
 
     // offset 0x030
-    stored_inode inodes_db_inode; // file with inodes. inode_no is the record number, zero based.
-    // offset 0x070
-    stored_inode root_dir_inode;  // file with the entries for root directory. 
-    // offset 0x0b0
+    uint32_t inodes_bitmap_first_block;
+    uint32_t inodes_bitmap_num_blocks;
+    uint32_t inodes_array_first_block;
+    uint32_t inodes_array_num_blocks;
+
+    // offset 0x040
+    uint32_t blocks_bitmap_first_block;   // typically block 1 (0 is superblock)
+    uint32_t blocks_bitmap_num_blocks;  // typically 1 through 16 blocks
+    uint32_t dummy2a;
+    uint32_t dummy2b;
+
+    // offset 0x050
     char volume_label[32]; 
 
-    // offset 0x0d0
-    char dummy4[512
+    char dummy_filler[512
         -4
         -2*sizeof(uint16_t)
-        -10*sizeof(uint32_t)
-        -2*sizeof(stored_inode)
+        -18*sizeof(uint32_t)
         -32
     ];
 } __attribute__((packed));

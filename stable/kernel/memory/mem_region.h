@@ -54,7 +54,7 @@ typedef struct mem_region {
 
 static inline mem_region_t mem_region_empty() { return (mem_region_t){ .address = 0, .size = 0, .flags = 0 }; }
 static inline mem_region_t mem_region_of(uintptr_t address, size_t size, region_flags_t flags) { return (mem_region_t){ .address = address, .size = size, .flags = flags }; }
-static inline mem_region_t mem_region_kernel_other(uintptr_t address, size_t size, const char *name) { mem_region_t mr = { .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE }; strncpy(mr.name, name, MEM_REGION_NAME_SIZE - 1); return mr; }
+static inline mem_region_t mem_region_kernel_other(uintptr_t address, size_t size, const char *name) { mem_region_t mr = { .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE }; strscpy(mr.name, name, MEM_REGION_NAME_SIZE - 1); return mr; }
 
 static inline bool mem_region_is_empty(mem_region_t *reg) { if (reg == NULL) return true; return (reg->address == 0 && reg->size == 0); }
 const char *mem_region_usage_name(mem_region_t *reg);

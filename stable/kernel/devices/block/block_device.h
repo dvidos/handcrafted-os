@@ -20,8 +20,8 @@ struct block_device {
 };
 
 struct block_device_ops {
-    error_t (*read)(block_device_t *dev, uint64_t lba, uint32_t count, void *buffer);
-    error_t (*write)(block_device_t *dev, uint64_t lba, uint32_t count, const void *buffer);
+    error_t (*read_sectors)(block_device_t *dev, uint64_t lba, uint32_t count, void *buffer);
+    error_t (*write_sectors)(block_device_t *dev, uint64_t lba, uint32_t count, const void *buffer);
     error_t (*flush)(block_device_t *dev);
     
     void (*destroy)(block_device_t *dev);
