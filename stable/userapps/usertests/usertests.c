@@ -37,20 +37,20 @@ void print_test_status(const char *test_name, int passed) {
 int main(int argc, char *argv[]) {
     printf("Starting user applications tests...\n");
 
-    // test_file_open_read();
+    test_file_open_read();
     test_file_create_write_read();
 
-    // test_unlink_link();
-    // test_directory_ops();
-    // test_big_dir();
-    // test_nested_dirs();
-    // test_big_file();
+    test_unlink_link();
+    test_directory_ops();
+    test_big_dir();
+    test_nested_dirs();
+    test_big_file();
 
-    // test_fork_exec_wait();
+    test_fork_exec_wait();
     // test_pipe_communication();
     
-    // test_memory_allocation();
-    // test_sbrk_growth();
+    test_memory_allocation();
+    test_sbrk_growth();
 
     printf("All user applications tests completed.\n");
     return 0;

@@ -380,6 +380,9 @@ static void check_and_run_unit_tests() {
     extern void backed_cache_unit_tests();
     backed_cache_unit_tests();
 
+    extern void bitmap_unit_tests();
+    bitmap_unit_tests();
+
 
     log_info("Finished Unit Tests...");
 #endif // ENABLE_UNIT_TESTS
