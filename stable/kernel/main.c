@@ -246,6 +246,9 @@ static void initialize_physical_memory(boot_info_t *info) {
     pmm_initialize(kmm.machine_max_memory_address, kmm.pmm_bitmap.address, kmm.pmm_bitmap.size);
     for (uint32_t i = 0; i < info->mem.count; i++) {
         e820_memory_entry *entry = &info->mem.entries[i];
+        if (entry->type != MEMORY_TYPE_AVAILABLE)
+            continue;
+        
         pmm_mark_region_available((phys_addr_t)entry->base, (size_t)entry->length);
     }
     pmm_mark_region_reserved(kmm.reserved_start, kmm.reserved_end - kmm.reserved_start);
