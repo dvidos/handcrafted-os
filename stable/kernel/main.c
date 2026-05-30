@@ -383,6 +383,9 @@ static void check_and_run_unit_tests() {
     extern void bitmap_unit_tests();
     bitmap_unit_tests();
 
+    extern void page_allocator_unit_tests();
+    page_allocator_unit_tests();
+
 
     log_info("Finished Unit Tests...");
 #endif // ENABLE_UNIT_TESTS
