@@ -1,9 +1,20 @@
 # roadmap
 
-* Finalize sfs tests
+* ~~Finalize sfs tests~~
 * Make all usertests pass, expand them
 * Shape up the shell a bit, so it works ok
 * Minimum editor, edit files, persist from session to session
+* In order to start a graphics manager:
+  * IPC
+  * Shareable physical memory pages
+
+Two prongs:
+
+1. Depth first: build new things (grahpics, editor) exploratory
+2. Breadth first: cover all bases (e.g. symlinks) before moving on
+
+The former is more fun...
+
 
 ## idea
 
