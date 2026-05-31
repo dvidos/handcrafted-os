@@ -207,6 +207,9 @@ const char *str_block_reason(enum block_reasons reason) {
         CASE(WAIT_USER_INPUT);
         CASE(WAIT_ANY_CHILD);
         CASE(WAIT_SPEC_CHILD);
+        CASE(IPC_WAIT_SEND);
+        CASE(IPC_RECEIVE);
+        CASE(IPC_WAIT_REPLY);
     }
 
     sprintfn(unknown_str_buffer, sizeof(unknown_str_buffer), "(unknown block reason: %u)", reason);

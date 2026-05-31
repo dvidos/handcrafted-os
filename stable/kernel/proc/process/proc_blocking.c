@@ -29,7 +29,7 @@ void proc_sleep(process_t *proc, int milliseconds) {
 }
 
 // this is how the running task can block itself
-void proc_block(process_t *proc, int reason, void *channel) {
+void proc_block(process_t *proc, enum block_reasons reason, void *channel) {
     // we assume the process is in no runlist
     ASSERT(proc == running_proc);
 

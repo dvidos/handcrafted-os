@@ -43,18 +43,39 @@ typedef enum proc_priority {
 
 
 #define MAX_FILE_HANDLES     16
+#define MAX_IPC_MESSAGES      8
 
 // state of a process. corresponding lists exist
 enum process_state { READY, RUNNING, BLOCKED, TERMINATED };
 
 // reasons a process can be blocked
-enum block_reasons { NONE, SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_ANY_CHILD, WAIT_SPEC_CHILD };
+enum block_reasons { NONE, SLEEPING = 1, SEMAPHORE, WAIT_USER_INPUT, WAIT_ANY_CHILD, WAIT_SPEC_CHILD, IPC_RECEIVE, IPC_WAIT_SEND, IPC_WAIT_REPLY };
 
 // flags of the process
 #define MAX_PROCESS_ELF_SECTIONS 4 // good enough even for dynamic executable
 
 const char *str_process_state(enum process_state state);
 const char *str_block_reason(enum block_reasons reason);
+
+
+typedef struct ipc_message {
+    pid_t sender;
+    uint32_t type; // application dependent
+
+    union {
+        struct {
+            uint32_t a1;
+            uint32_t a2;
+            uint32_t a3;
+            uint32_t a4;
+        } args;
+        uint8_t bytes[16];
+        struct {
+            virt_addr_t addr;
+            size_t size;
+        } mem;
+    } payload;
+} ipc_message_t;
 
 
 
@@ -106,6 +127,10 @@ struct process {
     char *cwd_path;
 
     open_file_t *file_handles[MAX_FILE_HANDLES];
+
+    ipc_message_t ipc_messages[MAX_IPC_MESSAGES];
+    int ipc_messages_count;
+    ipc_message_t *ipc_message_reply_ptr;
 };
 
 
@@ -170,7 +195,7 @@ int proc_spawn(process_t *parent, char *path);
 
 // blocking.c
 void proc_sleep(process_t *proc, int milliseconds);  // sleep self for some milliseconds
-void proc_block(process_t *proc, int reason, void *channel); // blocks task, someone else must unblock it
+void proc_block(process_t *proc, enum block_reasons reason, void *channel); // blocks task, someone else must unblock it
 void proc_unblock(process_t *proc);
 
 // file_ops.c
@@ -188,6 +213,13 @@ int proc_dup(process_t *proc, int fd);
 int proc_dup2(process_t *source_proc, int source_fd, process_t *target_proc, int target_fd);
 int proc_pipe(process_t *proc, int fds[]);
 open_file_t *proc_get_open_file(process_t *proc, int handle);
+
+// proc_ipc.c
+error_t proc_send(process_t *proc, pid_t target_pid, ipc_message_t message);
+error_t proc_receive(process_t *proc, pid_t *sender_pid, ipc_message_t *msg);
+error_t proc_send_receive(process_t *proc, pid_t target_pid, ipc_message_t *message);
+error_t proc_reply(process_t *proc, pid_t target_pid, ipc_message_t *response);
+
 
 
 // debug.c
