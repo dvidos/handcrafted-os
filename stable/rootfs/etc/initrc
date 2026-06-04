@@ -11,4 +11,5 @@
 # ... etc
 
 wait    /bin/echo Testing testing, one, two, three
-repeat  /bin/sash -a -p "sash $ "
+repeat  /bin/gui
+# repeat  /bin/sash -a -p "sash $ "

@@ -63,7 +63,7 @@ MODULE("MAIN", LOG_LEVEL_INFO);
 static void print_stage2_boot_info(boot_info_t *info);
 static void initialize_physical_memory(boot_info_t *info);
 static mount_table_t *initialize_storage_and_file_systems();
-static void launch_initial_process(mount_table_t *mt);
+static void launch_initial_process(mount_table_t *mt, boot_info_t *boot);
 static void set_log_level_from_cmdline();
 static void check_and_run_unit_tests();
 
@@ -153,7 +153,7 @@ void kernel_main(boot_info_t* boot)
     logger_add_appender(vconsole_log_appender, console_mgr_get_vconsole(4), LOG_LEVEL_INFO);
 
     // create desired tasks here (init, logic, sh, etc)
-    launch_initial_process(mt);
+    launch_initial_process(mt, boot);
 
     // start_multitasking() will never return
     log_info("Starting multitasking, goodbye from main()");
@@ -161,12 +161,23 @@ void kernel_main(boot_info_t* boot)
     panic("start_multitasking() returned to main");
 }
 
-static void launch_initial_process(mount_table_t *mt) {
+static void launch_initial_process(mount_table_t *mt, boot_info_t *boot) {
     
     process_t *proc;
     error_t err;
+    char framebuffer[96] = {0};
     char *argv[] = { NULL };
-    char *envp[] = { NULL };
+    char *envp[2] = { NULL, NULL };
+
+    if (boot != NULL && boot->fb.fb_addr > 0) {
+        sprintfn(framebuffer, sizeof(framebuffer), "FRAMEBUFFER=addr=0x%x size=%dx%d bpp=%d pitch=%d", 
+            LOW_DWORD(boot->fb.fb_addr),
+            boot->fb.width,
+            boot->fb.height, 
+            boot->fb.bpp, 
+            boot->fb.pitch);
+        envp[0] = framebuffer;
+    }
 
     // ideally init path should be settable by kernel cmd line
     err = process_create_for_spawn(NULL, "/bin/init", argv, envp, PRIORITY_USER_PROGRAM, mt, &proc);

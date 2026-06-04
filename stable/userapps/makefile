@@ -5,6 +5,7 @@ SUBDIRS := \
 	init \
 	sash \
 	coreutils \
+	gui  \
 	usertests
 
 

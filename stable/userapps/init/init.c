@@ -338,8 +338,7 @@ cmd_list_t *load_and_parse_initrc_commands() {
 
 
 // Function to spawn a command from a cmd_entry_t
-pid_t spawn_command(cmd_entry_t *cmd) {
-    char *envp[] = { NULL }; // No environment variables for now
+pid_t spawn_command(cmd_entry_t *cmd, char *envp[]) {
     pid_t pid = spawn(cmd->path, cmd->argv, envp);
     if (pid < 0) {
         syslog_error("Failed to spawn %s", cmd->path);
@@ -359,7 +358,7 @@ pid_t spawn_command(cmd_entry_t *cmd) {
     return pid;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[], char *envp[]) {
     syslog_info("init running...");
 
     cmd_list_t *init_commands = load_and_parse_initrc_commands();
@@ -374,7 +373,7 @@ int main(int argc, char *argv[]) {
     // Initial spawning of commands
     cmd_list_node_t *current = init_commands->head;
     while (current != NULL) {
-        spawn_command(current->command);
+        spawn_command(current->command, envp);
         current = current->next;
     }
 
@@ -401,7 +400,7 @@ int main(int argc, char *argv[]) {
 
                     if (node->command->type == CMD_TYPE_REPEAT) {
                         syslog_info("Respawning repeated command %s", node->command->path);
-                        spawn_command(node->command); // Respawn
+                        spawn_command(node->command, envp); // Respawn
                     }
                     break;
                 }
