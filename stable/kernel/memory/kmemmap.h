@@ -24,9 +24,11 @@ typedef struct kernel_memory_map {
 
 } kernel_memory_map_t;
 
-extern kernel_memory_map_t kmm; // TODO: convert this from global to something else.
-
-void kmm_log_info();
 
 
+void kmm_log_info(kernel_memory_map_t *kmm);
 void kmm_add_identity_mapping(); // a range / page to not clear when releasing
+
+
+
+

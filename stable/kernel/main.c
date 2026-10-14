@@ -18,6 +18,7 @@
 #include "utils/kcmd_line_args.h"
 #include "klib/string.h"
 #include "debugging/kdebug.h"
+#include "debugging/kshell.h"
 #include "memory/physical/physmem.h"
 #include "memory/mem_region.h"
 
@@ -61,20 +62,24 @@ MODULE("MAIN", LOG_LEVEL_INFO);
 
 
 static void print_stage2_boot_info(boot_info_t *info);
-static void initialize_physical_memory(boot_info_t *info);
+static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *kmm);
 static mount_table_t *initialize_storage_and_file_systems();
 static void launch_initial_process(mount_table_t *mt, boot_info_t *boot);
 static void set_log_level_from_cmdline();
 static void check_and_run_unit_tests();
+static void check_and_run_kshell(kernel_memory_map_t *kmm);
 
 
-boot_info_t saved_multiboot_info;
+static boot_info_t saved_multiboot_info;
+static kernel_memory_map_t kernel_mmap;
 
 
 void kernel_main(boot_info_t* boot)
 {
     // interrupts are disabled, nmi is also disabled
     // to allow us to set up our Interrupt Table
+
+    kernel_memory_map_t *kmm = &kernel_mmap;
 
     // initialize in-memory log
     init_logger();
@@ -110,7 +115,7 @@ void kernel_main(boot_info_t* boot)
     init_real_time_clock(15);
 
     log_info("Initializing Physical Memory Manager...");
-    initialize_physical_memory(boot);
+    initialize_physical_memory(boot, kmm);
 
     log_info("Initializing Serial Port 1 for logging...");
     init_serial_port(0);
@@ -120,10 +125,10 @@ void kernel_main(boot_info_t* boot)
     logger_add_appender(serial_log_appender, NULL, LOG_LEVEL_TRACE);
     
     log_info("Initializing Kernel Heap...");
-    init_kernel_heap((void *)kmm.heap.address, kmm.heap.size);
+    init_kernel_heap((void *)kmm->heap.address, kmm->heap.size);
 
     log_info("Initializing virtual memory mapping...");
-    vmm_initialize(kmm.reserved_start, kmm.reserved_end, kmm.mapping_pages.address, kmm.mapping_pages.size);
+    vmm_initialize(kmm->reserved_start, kmm->reserved_end, kmm->mapping_pages.address, kmm->mapping_pages.size);
     
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -140,9 +145,8 @@ void kernel_main(boot_info_t* boot)
     init_multitasking();
     
     check_and_run_unit_tests();
+    check_and_run_kshell(kmm);
     
-    // kshell();
-
     log_info("Giving the console to console manager...");
     logger_remove_appender(screen_log_appender, NULL);
     init_console_mgr(5);
@@ -213,48 +217,49 @@ extern char _segment_zero_data_end[];
 extern char _linker_end_address[];
 
 
-static void populate_kernel_memory_map(boot_info_t *info) {
+static void populate_kernel_memory_map(boot_info_t *info, kernel_memory_map_t *kmm) {
     // find highest memory address of machine, cap at 4GB
-    kmm.machine_max_memory_address = 0;
+    kmm->machine_max_memory_address = 0;
     for (uint32_t i = 0; i < info->mem.count; i++) {
         uint64_t entry_top64 = info->mem.entries[i].base + info->mem.entries[i].length - 1;
-        if (entry_top64 > kmm.machine_max_memory_address)
-            kmm.machine_max_memory_address = entry_top64;
+        if (entry_top64 > kmm->machine_max_memory_address)
+            kmm->machine_max_memory_address = entry_top64;
     }
 
-    kmm.reserved_start = 0;
-    kmm.reserved_end = 64 * MB; // arbitrary, between 8MB..128MB
+    kmm->reserved_start = 0;
+    kmm->reserved_end = 64 * MB; // arbitrary, between 8MB..128MB
     
     // this is our starting point, we no longer limited by real mode.
     phys_addr_t addr = 1 * MB;
 
     // we need a few pages for the kernel: 1x page dir, 2x for temp-map, 32x page tables, 32x extra page tables
-    kmm.mapping_pages = mem_region_kernel_other(addr, (1 + 2 + 32 + 32) * vmm_page_size(), "map_pages");
-    addr += kmm.mapping_pages.size;
+    kmm->mapping_pages = mem_region_kernel_other(addr, (1 + 2 + 32 + 32) * vmm_page_size(), "map_pages");
+    addr += kmm->mapping_pages.size;
 
     // we need area for the pmm to store bitmap, 4GB --> 1M pages --> 132kb -> 32 pages
-    kmm.pmm_bitmap = mem_region_kernel_other(addr, 32 * vmm_page_size(), "pmm_bitmap");
-    addr += kmm.pmm_bitmap.size;
+    kmm->pmm_bitmap = mem_region_kernel_other(addr, 32 * vmm_page_size(), "pmm_bitmap");
+    addr += kmm->pmm_bitmap.size;
 
     // we need heap as well
-    kmm.heap = mem_region_kernel_other(addr, 8 * MB, "heap");
-    addr += kmm.heap.size;
+    kmm->heap = mem_region_kernel_other(addr, 8 * MB, "heap");
+    addr += kmm->heap.size;
 
     // these are fixed
-    kmm.code = mem_region_kernel_other((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start), ".code");
-    kmm.data = mem_region_kernel_other((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start), ".data");
-    kmm.bss = mem_region_kernel_other((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start), ".bss");
-    kmm.rodata = mem_region_kernel_other((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start), ".rodata");
-    kmm.stack = mem_region_kernel_other((phys_addr_t)_segment_rodata_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_rodata_end), "stack");
+    kmm->code = mem_region_kernel_other((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start), ".code");
+    kmm->data = mem_region_kernel_other((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start), ".data");
+    kmm->bss = mem_region_kernel_other((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start), ".bss");
+    kmm->rodata = mem_region_kernel_other((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start), ".rodata");
+    kmm->stack = mem_region_kernel_other((phys_addr_t)_segment_rodata_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_rodata_end), "stack");
 }
 
-static void initialize_physical_memory(boot_info_t *info) {
+static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *kmm) {
 
-    populate_kernel_memory_map(info);
-    kmm_log_info();
+    populate_kernel_memory_map(info, kmm);
+    kmm_log_info(kmm);
+    vmm_set_kernel_map_for_debugging(kmm);
 
     // now we can initialize
-    pmm_initialize(kmm.machine_max_memory_address, kmm.pmm_bitmap.address, kmm.pmm_bitmap.size);
+    pmm_initialize(kmm->machine_max_memory_address, kmm->pmm_bitmap.address, kmm->pmm_bitmap.size);
     for (uint32_t i = 0; i < info->mem.count; i++) {
         e820_memory_entry *entry = &info->mem.entries[i];
         if (entry->type != MEMORY_TYPE_AVAILABLE)
@@ -262,7 +267,7 @@ static void initialize_physical_memory(boot_info_t *info) {
         
         pmm_mark_region_available((phys_addr_t)entry->base, (size_t)entry->length);
     }
-    pmm_mark_region_reserved(kmm.reserved_start, kmm.reserved_end - kmm.reserved_start);
+    pmm_mark_region_reserved(kmm->reserved_start, kmm->reserved_end - kmm->reserved_start);
     pmm_finish_initialization();
 
     log_info("Physical memory manager initialized. %u total pages, %u (%u MB or %u%%) reserved, %u (%u MB or %u%%) available",
@@ -400,4 +405,13 @@ static void check_and_run_unit_tests() {
 
     log_info("Finished Unit Tests...");
 #endif // ENABLE_UNIT_TESTS
+}
+
+static void check_and_run_kshell(kernel_memory_map_t *kmm) {
+    bool shell_wanted = kcmd_has("kshell") || kcmd_has("shell");
+
+    if (shell_wanted) {
+        kshell_set_kernel_map_for_debugging(kmm);
+        kshell();
+    }
 }

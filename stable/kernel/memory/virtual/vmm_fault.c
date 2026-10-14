@@ -3,6 +3,11 @@
 
 #define MAX_PAGE_FAULTS  3
 static int page_fault_num = 0;
+static kernel_memory_map_t *known_kmap;
+
+void vmm_set_kernel_map_for_debugging(kernel_memory_map_t *map) {
+    known_kmap = map;
+}
 
 // handles page faults. 
 // see https://wiki.osdev.org/Exceptions#Page_Fault
@@ -22,16 +27,16 @@ void vmm_page_fault_handler(interrupt_frame_t *frame) {
     __asm__ __volatile__("mov %%cr3, %0" : "=r"(cr3));
 
     char *mem_area = "";
-    if      (mem_region_contains_address(&kmm.code, addr))          mem_area = "kernel code";
-    else if (mem_region_contains_address(&kmm.data, addr))          mem_area = "kernel data";
-    else if (mem_region_contains_address(&kmm.rodata, addr))        mem_area = "kernel rodata";
-    else if (mem_region_contains_address(&kmm.bss, addr))           mem_area = "kernel bss";
-    else if (mem_region_contains_address(&kmm.stack, addr))         mem_area = "kernel stack";
-    else if (mem_region_contains_address(&kmm.mapping_pages, addr)) mem_area = "kernel mapping pages";
-    else if (mem_region_contains_address(&kmm.pmm_bitmap, addr))    mem_area = "kernel pmm bmp";
-    else if (mem_region_contains_address(&kmm.heap, addr))          mem_area = "kernel heap";
-    else if (addr >= kmm.reserved_start && addr < kmm.reserved_end) mem_area = "kernel reserved area";
-    else if (addr >= kmm.reserved_end)                              mem_area = "user memory space";
+    if      (mem_region_contains_address(&known_kmap->code, addr))          mem_area = "kernel code";
+    else if (mem_region_contains_address(&known_kmap->data, addr))          mem_area = "kernel data";
+    else if (mem_region_contains_address(&known_kmap->rodata, addr))        mem_area = "kernel rodata";
+    else if (mem_region_contains_address(&known_kmap->bss, addr))           mem_area = "kernel bss";
+    else if (mem_region_contains_address(&known_kmap->stack, addr))         mem_area = "kernel stack";
+    else if (mem_region_contains_address(&known_kmap->mapping_pages, addr)) mem_area = "kernel mapping pages";
+    else if (mem_region_contains_address(&known_kmap->pmm_bitmap, addr))    mem_area = "kernel pmm bmp";
+    else if (mem_region_contains_address(&known_kmap->heap, addr))          mem_area = "kernel heap";
+    else if (addr >= known_kmap->reserved_start && addr < known_kmap->reserved_end) mem_area = "kernel reserved area";
+    else if (addr >= known_kmap->reserved_end)                              mem_area = "user memory space";
 
     // TODO: make message of type: "Kernel tried reading null pointer, at EIP = XXXX"
     // or "Process /bin/asdf tried writing to null pointer, at EIP = XXXX"
@@ -52,7 +57,7 @@ void vmm_page_fault_handler(interrupt_frame_t *frame) {
     // solution for now is to identity map this, just for fun
     // but, if we had a memory map (the mem_regions), we could identify who errored
     // e.g. stack underflow, or heap overflow, guard, mem-mapped file, etc
-    if (addr >= kmm.reserved_start && addr < kmm.reserved_end) {
+    if (addr >= known_kmap->reserved_start && addr < known_kmap->reserved_end) {
         log_warn("this is kernel space, will attempt identity mapping, but needs fixing");
         error_t err = rmw_map_page(vmm_round_down(addr), vmm_round_down(addr), false, true);
         if (err)

@@ -5,6 +5,7 @@
 #include "../../memory/physical/physmem.h"
 #include "../../memory/mem_region.h"
 #include "../../memory/mem_regions.h"
+#include "../../memory/kmemmap.h"
 #include "../../arch/stack_frames.h"
 
 static inline virt_addr_t vmm_rmw_base_address()               { return 0xFFC00000; } // 4GB - 4MB
@@ -46,6 +47,7 @@ error_t vmm_map_mem_io(phys_addr_t start_addr, size_t length, page_dir_t page_di
 page_dir_t vmm_get_kernel_page_directory();
 
 // to be called upon page fault interrupt
+void vmm_set_kernel_map_for_debugging(kernel_memory_map_t *map);
 void vmm_page_fault_handler(interrupt_frame_t *frame);
 
 // get/set bit 31 of CR0 register

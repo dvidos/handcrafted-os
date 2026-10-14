@@ -45,6 +45,12 @@ static known_formatter known_formatters[] = {
     { NULL, NULL, NULL }
 };
 
+static kernel_memory_map_t *known_map;
+
+void kshell_set_kernel_map_for_debugging(kernel_memory_map_t *map) {
+    known_map = map;
+}
+
 // --------------------------------------------------------------
 
 static void skip_whitespace(char **cmd_ptr) {
@@ -138,19 +144,19 @@ static void shell_addr(char *args) {
         // do the kernel info
         char *region_name = "n/a";
         bool is_data = false;
-        if      (mem_region_contains_address(&kmm.code, addr))          { region_name = "code";              is_data = false; }
-        else if (mem_region_contains_address(&kmm.data, addr))          { region_name = "data";              is_data = true; }
-        else if (mem_region_contains_address(&kmm.rodata, addr))        { region_name = "ro data";           is_data = true; }
-        else if (mem_region_contains_address(&kmm.bss, addr))           { region_name = "bss";               is_data = true; }
-        else if (mem_region_contains_address(&kmm.heap, addr))          { region_name = "heap";              is_data = true; }
-        else if (mem_region_contains_address(&kmm.stack, addr))         { region_name = "stack";             is_data = true; }
-        else if (mem_region_contains_address(&kmm.mapping_pages, addr)) { region_name = "tmp mapping pages"; is_data = false; }
-        else if (mem_region_contains_address(&kmm.pmm_bitmap, addr))    { region_name = "pmm bitmap pages";  is_data = false; }
+        if      (mem_region_contains_address(&known_map->code, addr))          { region_name = "code";              is_data = false; }
+        else if (mem_region_contains_address(&known_map->data, addr))          { region_name = "data";              is_data = true; }
+        else if (mem_region_contains_address(&known_map->rodata, addr))        { region_name = "ro data";           is_data = true; }
+        else if (mem_region_contains_address(&known_map->bss, addr))           { region_name = "bss";               is_data = true; }
+        else if (mem_region_contains_address(&known_map->heap, addr))          { region_name = "heap";              is_data = true; }
+        else if (mem_region_contains_address(&known_map->stack, addr))         { region_name = "stack";             is_data = true; }
+        else if (mem_region_contains_address(&known_map->mapping_pages, addr)) { region_name = "tmp mapping pages"; is_data = false; }
+        else if (mem_region_contains_address(&known_map->pmm_bitmap, addr))    { region_name = "pmm bitmap pages";  is_data = false; }
         shprintf("Kernel region: %s\n", region_name);
 
         const char *symbol_name = is_kernel_space ? kdebug_get_symbol(addr) : NULL;
 
-        if (mem_region_contains_address(&kmm.heap, addr)) {
+        if (mem_region_contains_address(&known_map->heap, addr)) {
             shprintf("Checking heap pointer integrity...\n");
             kcheck((void *)addr, "address");
         }
