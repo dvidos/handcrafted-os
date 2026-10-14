@@ -8,15 +8,6 @@
 MODULE("MEM_MAP", LOG_LEVEL_WARN);
 
 
-static phys_addr_t _util_page_addr = 0;
-
-void mem_region_set_mappable_page_address(phys_addr_t addr) {
-    _util_page_addr = addr;
-}
-phys_addr_t mem_region_get_mappable_page_address() {
-    return _util_page_addr;
-}
-
 // ------------------------------------------------------------
 
 const char *mem_region_usage_name(mem_region_t *reg) {

@@ -7,12 +7,6 @@
 
 
 /**
- * This is a virt address to be used for copying pages, one page at a time
- */
-void mem_region_set_mappable_page_address(phys_addr_t addr);
-phys_addr_t mem_region_get_mappable_page_address();
-
-/**
  * Flags and usage description of a memory region.
  */
 typedef enum region_flags {

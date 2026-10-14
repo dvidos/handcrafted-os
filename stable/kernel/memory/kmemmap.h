@@ -24,7 +24,7 @@ typedef struct kernel_memory_map {
 
 } kernel_memory_map_t;
 
-extern kernel_memory_map_t kmm;
+extern kernel_memory_map_t kmm; // TODO: convert this from global to something else.
 
 void kmm_log_info();
 
