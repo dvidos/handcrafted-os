@@ -1,6 +1,6 @@
 #include "../../include/uapi/base.h"
 #include "../klib/string.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "vt100.h"
 #include "vconsole.h"
 

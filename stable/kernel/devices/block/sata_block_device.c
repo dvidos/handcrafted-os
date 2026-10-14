@@ -1,9 +1,9 @@
 #include "../../include/bits.h"
 #include "../../utils/panic.h"
 #include "../../klib/string.h"
-#include "../../memory/physmem.h"
-#include "../../memory/vmm.h"
-#include "../../memory/kheap.h"
+#include "../../memory/physical/physmem.h"
+#include "../../memory/virtual/vmm.h"
+#include "../../memory/kheap/kheap.h"
 #include "../../logger/logger.h"
 #include "../devices.h"
 

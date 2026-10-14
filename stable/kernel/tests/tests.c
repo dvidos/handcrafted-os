@@ -4,7 +4,7 @@
 #include "../drivers/screen.h"
 #include "framework.h"
 #include "../logger/logger.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 
 MODULE("UNITTEST", LOG_LEVEL_WARN);
 

@@ -51,6 +51,9 @@ KERNEL_C_FILES = \
 	$(wildcard debugging/*.c) \
 	\
 	$(wildcard memory/*.c) \
+	$(wildcard memory/physical/*.c) \
+	$(wildcard memory/virtual/*.c) \
+	$(wildcard memory/kheap/*.c) \
 	$(wildcard drivers/*.c) \
 	\
 	$(wildcard proc/*.c) \

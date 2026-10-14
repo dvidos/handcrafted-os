@@ -5,7 +5,7 @@
 #include "../utils/mutex.h"
 #include "../filesys/vfs_api.h"
 #include "../filesys/fs_driver.h"
-#include "../../memory/vmm.h"
+#include "../../memory/virtual/vmm.h"
 
 /**
  * Virtual memory map of a process (if user process, not kernel task)

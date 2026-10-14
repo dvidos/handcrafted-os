@@ -6,7 +6,7 @@
 #include "../proc/procman/proclist.h"
 #include "../devices/devices.h"
 #include "../devices/tty/console_mgr.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../drivers/clock.h"
 #include "../drivers/timer.h"
 

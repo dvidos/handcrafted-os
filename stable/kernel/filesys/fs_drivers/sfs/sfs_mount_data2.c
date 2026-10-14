@@ -1,6 +1,6 @@
 #include "sfs_internal.h"
 #include "../../../devices/block/block_device.h"
-#include "../../../memory/kheap.h"
+#include "../../../memory/kheap/kheap.h"
 #include "../../../klib/string.h"
 
 

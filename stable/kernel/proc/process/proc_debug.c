@@ -2,7 +2,7 @@
 #include "../procman/proclist.h"
 #include "../../logger/logger.h"
 #include "../../utils/assert.h"
-#include "../../memory/kheap.h"
+#include "../../memory/kheap/kheap.h"
 
 MODULE("PROC_DBG", LOG_LEVEL_DEBUG);
 

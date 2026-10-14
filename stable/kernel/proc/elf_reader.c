@@ -1,8 +1,8 @@
 #include <uapi/errors.h>
 #include "../logger/logger.h"
 #include "../filesys/vfs_api.h"
-#include "../memory/vmm.h"
-#include "../memory/kheap.h"
+#include "../memory/virtual/vmm.h"
+#include "../memory/kheap/kheap.h"
 #include "../klib/string.h"
 #include "../proc/process/process.h"
 #include "../include/uapi/vfs_seek_flags.h"

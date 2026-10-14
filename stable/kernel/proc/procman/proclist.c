@@ -1,7 +1,7 @@
 #include "../process/process.h"
 #include "../multitask.h"
 #include "proclist.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../../klib/string.h"
 
 

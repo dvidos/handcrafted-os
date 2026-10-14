@@ -1,6 +1,6 @@
 #include "../include/ctypes.h"
 #include "../klib/string.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 
 typedef struct {
     int item_size;  // item size in bytes

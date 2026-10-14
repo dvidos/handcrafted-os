@@ -1,7 +1,7 @@
 #include "mem_region.h"
 #include "../klib/string.h"
-#include "../memory/vmm.h"
-#include "../memory/physmem.h"
+#include "../memory/virtual/vmm.h"
+#include "../memory/physical/physmem.h"
 #include "../logger/logger.h"
 #include "../include/va_list.h"
 

@@ -1,7 +1,7 @@
 #include "process.h"
 #include "../../utils/assert.h"
 #include "../../klib/string.h"
-#include "../../memory/kheap.h"
+#include "../../memory/kheap/kheap.h"
 #include "../../filesys/vfs_api.h"
 #include "../../filesys/vfs_objects/mount_table.h"
 

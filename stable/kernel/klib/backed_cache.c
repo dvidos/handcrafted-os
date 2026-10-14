@@ -1,5 +1,5 @@
 #include "backed_cache.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../utils/assert.h"
 #include "../utils/mutex.h"
 #include "../logger/logger.h"

@@ -1,6 +1,6 @@
 #include "../include/ctypes.h"
 #include "../filesys/vfs_api.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../klib/string.h"
 #include "../include/uapi/errors.h"
 #include "../logger/logger.h"

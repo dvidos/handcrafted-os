@@ -4,7 +4,7 @@
 #include "../drivers/kbd_drv.h"
 #include "../drivers/clock.h"
 #include "../drivers/serial.h"
-#include "../memory/vmm.h"
+#include "../memory/virtual/vmm.h"
 #include "pic.h"
 #include "../logger/logger.h"
 #include "../utils/panic.h"

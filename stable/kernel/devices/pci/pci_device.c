@@ -1,7 +1,7 @@
 #include "../../include/bits.h"
 #include "../arch/cpu.h"
 #include "../logger/logger.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../klib/string.h"
 #include "pci_device.h"
 #include "../devices.h"

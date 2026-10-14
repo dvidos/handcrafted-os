@@ -1,7 +1,7 @@
 #pragma once
 #include "../include/ctypes.h"
 #include "../include/uapi/errors.h"
-#include "../memory/physmem.h"
+#include "../memory/physical/physmem.h"
 #include "../memory/mem_region.h"
 
 

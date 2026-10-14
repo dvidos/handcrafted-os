@@ -1,11 +1,11 @@
 #ifndef _VIRTMEM_H
 #define _VIRTMEM_H
 
-#include "../include/ctypes.h"
-#include "../memory/physmem.h"
-#include "../memory/mem_region.h"
-#include "../memory/mem_map.h"
-#include "../arch/stack_frames.h"
+#include "../../include/ctypes.h"
+#include "../../memory/physical/physmem.h"
+#include "../../memory/mem_region.h"
+#include "../../memory/mem_map.h"
+#include "../../arch/stack_frames.h"
 
 static inline virt_addr_t vmm_rmw_base_address()               { return 0xFFC00000; } // 4GB - 4MB
 static inline virt_addr_t vmm_rmw_pd_address()                 { return 0xFFFFF000; } // 4GB - 4KB (very last page)

@@ -1,6 +1,6 @@
 #include "../../fs_driver.h"
 #include "../../../include/uapi/errors.h"
-#include "../../../memory/kheap.h"
+#include "../../../memory/kheap/kheap.h"
 #include "../../../klib/string.h"
 #include "../../../klib/cache.h"
 #include "../../../klib/list.h"

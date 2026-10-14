@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../include/ctypes.h"
-#include "../include/uapi/errors.h"
+#include "../../include/ctypes.h"
+#include "../../include/uapi/errors.h"
 
 
 #define PAGE_SIZE                 4096

@@ -1,5 +1,5 @@
 #include "bitmap.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "string.h"
 
 

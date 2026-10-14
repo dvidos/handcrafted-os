@@ -6,7 +6,7 @@
 #include "../drivers/timer.h"
 #include "../proc/process/process.h"
 #include "../klib/string.h"
-#include "../memory/vmm.h"
+#include "../memory/virtual/vmm.h"
 
 #include "../include/uapi/syscall.h"
 #include "../include/uapi/key_event.h"

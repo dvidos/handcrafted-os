@@ -1,6 +1,6 @@
 #include "../include/ctypes.h"
 #include "../include/uapi/errors.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../klib/path.h"
 #include "../klib/string.h"
 #include "framework.h"

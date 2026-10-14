@@ -1,6 +1,6 @@
 #include "inode.h"
 #include "../../include/uapi/vfs_file_flags.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../klib/string.h"
 #include "../../logger/logger.h"
 

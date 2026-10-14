@@ -1,5 +1,5 @@
 #include "open_file.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../klib/string.h"
 
 MODULE("OPEN_FILE", LOG_LEVEL_DEBUG);

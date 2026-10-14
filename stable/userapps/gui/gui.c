@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 
     while ((token = strtok_r(rest, " ", &rest))) {
         if (strncmp(token, "addr=0x", 7) == 0) {
-            fb.addr = (void *)strtoul(token + 7, 16, NULL);
+            fb.addr = (void *)strtoul(token + 7, 16, NULL); // FIXME: 2nd arg int/ptr
         } else if (strncmp(token, "size=", 5) == 0) {
             char *size_str = token + 5;
             char *x_pos = strchr(size_str, 'x');

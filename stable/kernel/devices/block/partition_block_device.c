@@ -1,6 +1,6 @@
 #include "partition_block_device.h"
 #include "../../include/uapi/errors.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../klib/string.h"
 #include "../../logger/logger.h"
 

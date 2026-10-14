@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../include/ctypes.h"
+#include "../../include/ctypes.h"
 
 // maybe i need a better base abstraction for panic. 
 // dedicated header and source file, not needing the VGA driver.

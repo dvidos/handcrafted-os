@@ -1,6 +1,6 @@
 #include "../include/va_list.h"
 #include "../drivers/screen.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 
 
 int strlen(const char* str) {

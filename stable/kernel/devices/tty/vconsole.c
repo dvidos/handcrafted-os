@@ -1,7 +1,7 @@
 #include "../../include/uapi/base.h"
 #include "../../klib/string.h"
 #include "../../klib/list.h" // For potential future use, though not directly in this implementation
-#include "../../memory/kheap.h" // For kmalloc and kfree
+#include "../../memory/kheap/kheap.h" // For kmalloc and kfree
 #include "../../utils/assert.h"
 #include "../../drivers/kbd_drv.h"
 #include "../../utils/mutex.h"

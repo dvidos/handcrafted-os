@@ -2,7 +2,7 @@
 #include "procman/scheduler.h"
 #include "procman/proclist.h"
 #include "semaphore.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../logger/logger.h"
 #include "../klib/string.h"
 

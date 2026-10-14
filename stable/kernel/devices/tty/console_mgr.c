@@ -5,7 +5,7 @@
 #include "../include/uapi/key_codes.h"
 #include "../include/uapi/key_event.h"
 #include "../proc/process/process.h"
-#include "../memory/kheap.h"
+#include "../memory/kheap/kheap.h"
 #include "../logger/logger.h"
 #include "../arch/cpu.h"
 #include "../klib/string.h"

@@ -29,7 +29,7 @@
 // Mocked Headers / Globals (if needed and not provided by included files)
 #include "../../../klib/path.h"
 #include "../../../klib/string.h"
-#include "../../../memory/kheap.h"
+#include "../../../memory/kheap/kheap.h"
 #include "../../../logger/logger.h"
 #include "../../../utils/assert.h" // Provides assert
 #include "../../../klib/backed_cache.h" // For cache API

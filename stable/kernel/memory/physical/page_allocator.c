@@ -3,7 +3,7 @@
 #include "../utils/panic.h"
 #include "../utils/assert.h"  // Added for unit tests
 #include "../klib/string.h" // Added for unit tests (memset, memcpy)
-#include "../memory/kheap.h" // Added for kmalloc/kfree
+#include "../memory/kheap/kheap.h" // Added for kmalloc/kfree
 
 MODULE("PG_ALLOC", LOG_LEVEL_INFO);
 
