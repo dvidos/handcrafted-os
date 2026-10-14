@@ -64,6 +64,13 @@ static inline void mark_page_free(uint32_t page_no) {
     }
 }
 
+size_t pmm_get_desired_work_area_size() {
+    // we need area to manage allocations (bitmap etc
+    // 4GB --> 1M pages --> 132kb -> 32 pages 
+    // or more if we want to share pages.
+    return 32 * PAGE_SIZE;
+}
+
 void pmm_initialize(uint64_t highest_machine_address, phys_addr_t bitmap_address, size_t bitmap_size_bytes) {
     pmm_data.allocator.allocate_physical_page = pmm_allocate_physical_page;
     pmm_data.allocator.free_physical_page = pmm_free_physical_page;

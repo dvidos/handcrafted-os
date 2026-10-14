@@ -36,6 +36,11 @@ static phys_addr_t vmm_allocate_kernel_mapping_page() {
     return page;
 }
 
+size_t vmm_get_desired_work_area_size() {
+    // we need a few pages for the kernel: 1x page dir, 2x for temp-map, 32x for page tables, 32x extra page tables
+    return (1 + 2 + 32 + 32) * vmm_page_size();
+}
+
 void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_reserved_area_end, phys_addr_t utility_pages_addr, size_t utility_pages_size) {
     log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, uaddr=0x%x, usize=%d)", kernel_reserved_area_start, kernel_reserved_area_end, utility_pages_addr, utility_pages_size);
 

@@ -131,7 +131,7 @@ void kernel_main(boot_info_t* boot)
     init_kernel_heap((void *)region->address, region->size);
 
     log_info("Initializing virtual memory mapping...");
-    region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_MAP_PAGES);
+    region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_VMM_DATA);
     if (region == NULL) panic("No mapping pages in kernel memory map");
     vmm_initialize(kmm->reserved_start, kmm->reserved_end, region->address, region->size);
     
@@ -244,14 +244,17 @@ static void populate_kernel_memory_map(boot_info_t *info, kernel_memory_map_t *k
 
     // this is our starting point, we no longer limited by real mode.
     phys_addr_t addr = 1 * MB;
+    size_t size;
 
-    // we need a few pages for the kernel: 1x page dir, 2x for temp-map, 32x page tables, 32x extra page tables
-    region = mem_region_kernel_other(addr, (1 + 2 + 32 + 32) * vmm_page_size(), "map_pages", REGION_USAGE_MAP_PAGES);
+    // we need area for the pmm to store bitmaps etc, 4GB --> 1M pages --> 132kb -> 32 pages
+    size = ROUND_UP_4K(pmm_get_desired_work_area_size());
+    region = mem_region_kernel_other(addr, size, "pmm_data", REGION_USAGE_PMM_DATA);
     mem_regions_add(&kmm->regions, region);
     addr += region.size;
 
-    // we need area for the pmm to store bitmap, 4GB --> 1M pages --> 132kb -> 32 pages
-    region = mem_region_kernel_other(addr, 32 * vmm_page_size(), "pmm_bitmap", REGION_USAGE_PMM_AREA);
+    // we need a few pages for pages mapping
+    size = ROUND_UP_4K(vmm_get_desired_work_area_size());
+    region = mem_region_kernel_other(addr, size, "vmm_data", REGION_USAGE_VMM_DATA);
     mem_regions_add(&kmm->regions, region);
     addr += region.size;
 
@@ -259,8 +262,6 @@ static void populate_kernel_memory_map(boot_info_t *info, kernel_memory_map_t *k
     region = mem_region_kernel_other(addr, 8 * MB, "heap", REGION_USAGE_HEAP);
     mem_regions_add(&kmm->regions, region);
     addr += region.size;
-
-
 }
 
 static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *kmm) {
@@ -270,7 +271,7 @@ static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *k
     vmm_set_kernel_map_for_debugging(kmm);
 
     // now we can initialize
-    const mem_region_t *region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_PMM_AREA);
+    const mem_region_t *region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_PMM_DATA);
     if (region == NULL) panic("No pmm area in kernel memory map");
     pmm_initialize(kmm->machine_max_memory_address, region->address, region->size);
     for (uint32_t i = 0; i < info->mem.count; i++) {

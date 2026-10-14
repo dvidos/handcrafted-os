@@ -17,6 +17,7 @@ typedef struct pmm_allocator_t {
 } pmm_allocator_t;
 
 
+size_t pmm_get_desired_work_area_size();
 void pmm_initialize(uint64_t highest_machine_address, phys_addr_t bitmap_address, size_t bitmap_size_bytes);
 void pmm_mark_region_available(phys_addr_t start, size_t length);
 void pmm_mark_region_reserved(phys_addr_t start, size_t length);

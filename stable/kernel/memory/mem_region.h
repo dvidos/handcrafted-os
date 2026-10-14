@@ -31,8 +31,8 @@ typedef enum region_flags {
     REGION_USAGE_FILE      = 0x0090, // memory-mapped files
     REGION_USAGE_GUARD     = 0x00a0, // for heap or stack overflows
     REGION_USAGE_ELF       = 0x00b0, // loaded from ELF file
-    REGION_USAGE_MAP_PAGES = 0x00c0, // addresses used for temp page mapping
-    REGION_USAGE_PMM_AREA  = 0x00d0, // pmm bitmap or other memory
+    REGION_USAGE_PMM_DATA  = 0x00c0, // pmm bitmap or other memory
+    REGION_USAGE_VMM_DATA  = 0x00d0, // addresses used for temp page mapping etc
 } region_flags_t;
 
 
