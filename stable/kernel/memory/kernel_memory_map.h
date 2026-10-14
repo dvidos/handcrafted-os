@@ -21,14 +21,11 @@ typedef struct kernel_memory_map {
     // here, we could track the extra identity mapped pages
     // such as those used for DMA, MMIO etc.
 
-
 } kernel_memory_map_t;
 
 
-
 void kmm_log_info(kernel_memory_map_t *kmm);
-void kmm_add_identity_mapping(); // a range / page to not clear when releasing
-
+mem_region_t *kmm_find_region(kernel_memory_map_t *kmm, uintptr_t addr);
 
 
 

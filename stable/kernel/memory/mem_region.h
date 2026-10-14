@@ -55,4 +55,5 @@ const char *mem_region_usage_name(mem_region_t *reg);
 void mem_region_describe_flags(mem_region_t *reg, char *buffer);
 void mem_region_formatter(log_write_stream_t *stream, va_list args);
 bool mem_region_contains_address(mem_region_t *reg, uintptr_t address);
+bool mem_region_has_data(mem_region_t *reg);
 

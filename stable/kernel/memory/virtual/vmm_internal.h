@@ -7,7 +7,7 @@
 #include "../../arch/gdt.h"
 #include "../../memory/physical/physmem.h"
 #include "../../memory/kheap/kheap.h"
-#include "../../memory/kmemmap.h"
+#include "../../memory/kernel_memory_map.h"
 #include "../../memory/mem_region.h"
 #include "vmm.h"
 #include "../../utils/panic.h"

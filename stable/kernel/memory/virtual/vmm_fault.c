@@ -27,14 +27,9 @@ void vmm_page_fault_handler(interrupt_frame_t *frame) {
     __asm__ __volatile__("mov %%cr3, %0" : "=r"(cr3));
 
     char *mem_area = "";
-    if      (mem_region_contains_address(&known_kmap->code, addr))          mem_area = "kernel code";
-    else if (mem_region_contains_address(&known_kmap->data, addr))          mem_area = "kernel data";
-    else if (mem_region_contains_address(&known_kmap->rodata, addr))        mem_area = "kernel rodata";
-    else if (mem_region_contains_address(&known_kmap->bss, addr))           mem_area = "kernel bss";
-    else if (mem_region_contains_address(&known_kmap->stack, addr))         mem_area = "kernel stack";
-    else if (mem_region_contains_address(&known_kmap->mapping_pages, addr)) mem_area = "kernel mapping pages";
-    else if (mem_region_contains_address(&known_kmap->pmm_bitmap, addr))    mem_area = "kernel pmm bmp";
-    else if (mem_region_contains_address(&known_kmap->heap, addr))          mem_area = "kernel heap";
+
+    mem_region_t *region = kmm_find_region(known_kmap, addr);
+    if      (region != NULL) mem_area = region->name;
     else if (addr >= known_kmap->reserved_start && addr < known_kmap->reserved_end) mem_area = "kernel reserved area";
     else if (addr >= known_kmap->reserved_end)                              mem_area = "user memory space";
 

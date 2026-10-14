@@ -10,7 +10,7 @@
 #include "drivers/clock.h"
 #include "drivers/serial.h"
 #include "devices/tty/console_mgr.h"
-#include "memory/kmemmap.h"
+#include "memory/kernel_memory_map.h"
 #include "memory/virtual/vmm.h"
 #include "memory/kheap/kheap.h"
 #include "logger/logger.h"

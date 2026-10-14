@@ -52,3 +52,9 @@ void mem_region_formatter(log_write_stream_t *stream, va_list args) {
 bool mem_region_contains_address(mem_region_t *reg, uintptr_t address) {
     return address >= reg->address && address < reg->address + reg->size;
 }
+
+bool mem_region_has_data(mem_region_t *reg) {
+    int usage = reg->flags & REGION_USAGE_MASK;
+    return (usage & REGION_USAGE_DATA) || (usage & REGION_USAGE_STACK) || (usage & REGION_USAGE_HEAP) || (usage & REGION_USAGE_SHMEM);
+}
+

@@ -8,7 +8,7 @@
 #include "../memory/physical/physmem.h"
 #include "../memory/mem_regions.h"
 #include "../memory/mem_region.h"
-#include "../memory/kmemmap.h"
+#include "../memory/kernel_memory_map.h"
 #include "../filesys/vfs_api.h"
 #include "../filesys/vfs_objects/open_file.h"
 #include "../filesys/vfs_objects/inode.h"
@@ -144,14 +144,11 @@ static void shell_addr(char *args) {
         // do the kernel info
         char *region_name = "n/a";
         bool is_data = false;
-        if      (mem_region_contains_address(&known_map->code, addr))          { region_name = "code";              is_data = false; }
-        else if (mem_region_contains_address(&known_map->data, addr))          { region_name = "data";              is_data = true; }
-        else if (mem_region_contains_address(&known_map->rodata, addr))        { region_name = "ro data";           is_data = true; }
-        else if (mem_region_contains_address(&known_map->bss, addr))           { region_name = "bss";               is_data = true; }
-        else if (mem_region_contains_address(&known_map->heap, addr))          { region_name = "heap";              is_data = true; }
-        else if (mem_region_contains_address(&known_map->stack, addr))         { region_name = "stack";             is_data = true; }
-        else if (mem_region_contains_address(&known_map->mapping_pages, addr)) { region_name = "tmp mapping pages"; is_data = false; }
-        else if (mem_region_contains_address(&known_map->pmm_bitmap, addr))    { region_name = "pmm bitmap pages";  is_data = false; }
+        mem_region_t *region = kmm_find_region(known_map, addr);
+        if (region != NULL) {
+            region_name = region->name;
+            is_data = mem_region_has_data(region);
+        }
         shprintf("Kernel region: %s\n", region_name);
 
         const char *symbol_name = is_kernel_space ? kdebug_get_symbol(addr) : NULL;

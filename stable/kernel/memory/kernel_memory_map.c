@@ -1,4 +1,4 @@
-#include "kmemmap.h"
+#include "kernel_memory_map.h"
 #include "../logger/logger.h"
 
 MODULE("KMM", LOG_LEVEL_INFO);
@@ -43,7 +43,7 @@ void kmm_log_info(kernel_memory_map_t *kmm) {
         kmm->reserved_start / MB, kmm->reserved_end / MB);
 
     log_info("- regions");
-    kmm_log_info_region(NULL);
+    kmm_log_info_region(NULL); // title
     kmm_log_info_region(&kmm->code);
     kmm_log_info_region(&kmm->data);
     kmm_log_info_region(&kmm->bss);
@@ -52,4 +52,16 @@ void kmm_log_info(kernel_memory_map_t *kmm) {
     kmm_log_info_region(&kmm->mapping_pages);
     kmm_log_info_region(&kmm->pmm_bitmap);
     kmm_log_info_region(&kmm->heap);
+}
+
+mem_region_t *kmm_find_region(kernel_memory_map_t *kmm, uintptr_t addr) {
+    if      (mem_region_contains_address(&kmm->code, addr))          { return &kmm->code; }
+    else if (mem_region_contains_address(&kmm->data, addr))          { return &kmm->data; }
+    else if (mem_region_contains_address(&kmm->rodata, addr))        { return &kmm->rodata; }
+    else if (mem_region_contains_address(&kmm->bss, addr))           { return &kmm->bss; }
+    else if (mem_region_contains_address(&kmm->heap, addr))          { return &kmm->heap; }
+    else if (mem_region_contains_address(&kmm->stack, addr))         { return &kmm->stack; }
+    else if (mem_region_contains_address(&kmm->mapping_pages, addr)) { return &kmm->mapping_pages; }
+    else if (mem_region_contains_address(&kmm->pmm_bitmap, addr))    { return &kmm->pmm_bitmap; }
+    else return NULL;
 }

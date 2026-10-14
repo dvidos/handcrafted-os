@@ -4,12 +4,12 @@
 
 The `kernel/memory` directory is dedicated to the core memory management functionalities of the operating system. It implements a multi-layered approach to handle both physical and virtual memory, providing dynamic allocation services to the rest of the kernel and managing the address spaces for processes. The main components are the Physical Memory Manager (PMM), Virtual Memory Manager (VMM), and Kernel Heap (KHeap).
 
-*   **Physical Memory Manager (PMM) (`physmem.c`, `physmem.h`, `kmemmap.c`, `kmemmap.h`):**
+*   **Physical Memory Manager (PMM) (`physmem.c`, `physmem.h`, `kmemmap.c`, `kernel_memory_map.h`):**
     *   **Purpose:** Manages raw physical memory pages. It is the lowest layer, directly interacting with RAM.
     *   **Mechanism:** Uses a bitmap (`pmm_data.bitmap`) where each bit represents the status (used/free) of a 4KB physical page.
     *   **Initialization:** `pmm_initialize` identifies available RAM from the E820 map, marks kernel code/data, and the PMM's own bitmap as reserved, and the rest as free. `pmm_mark_region_available` and `pmm_mark_region_reserved` are used during this phase.
     *   **Allocation/Deallocation:** Provides `pmm_allocate_physical_page` (single page) and `pmm_allocate_consecutive_pages` (contiguous block) and corresponding `pmm_free_*` functions.
-    *   **Kernel Memory Map (`kmemmap.c`, `kmemmap.h`):** Defines `kernel_memory_map_t` (exposed as `kmm`), which is a static structure holding crucial memory region information for the kernel (code, data, bss, heap, stack, PMM bitmap, reserved areas). `kmm_log_info` helps debug these regions.
+    *   **Kernel Memory Map (`kmemmap.c`, `kernel_memory_map.h`):** Defines `kernel_memory_map_t` (exposed as `kmm`), which is a static structure holding crucial memory region information for the kernel (code, data, bss, heap, stack, PMM bitmap, reserved areas). `kmm_log_info` helps debug these regions.
 *   **Virtual Memory Manager (VMM) (`vmm.c`, `vmm.h`, `vmm_internal.h`, `vmm_cpu.c`, `vmm_debug.c`, `vmm_fault.c`, `vmm_low.c`):**
     *   **Purpose:** Manages virtual address spaces, translating virtual addresses to physical addresses using the CPU's paging unit.
     *   **Mechanism:** Implements an x86 2-level paging scheme (Page Directories and Page Tables).
@@ -41,7 +41,7 @@ kernel/memory/
 ├── kheap.c
 ├── kheap.h
 ├── kmemmap.c
-├── kmemmap.h
+├── kernel_memory_map.h
 ├── mem_map.c
 ├── mem_regions.h
 ├── mem_region.c
@@ -66,7 +66,7 @@ kernel/memory/
 │   ├── physmem.c            # Core PMM logic (bitmap management)
 │   ├── physmem.h
 │   ├── kmemmap.c            # Kernel Memory Map (static regions)
-│   └── kmemmap.h
+│   └── kernel_memory_map.h
 ├── vmm/                     # Virtual Memory Manager
 │   ├── vmm.c                # Core VMM logic (initialization, PD management)
 │   ├── vmm.h

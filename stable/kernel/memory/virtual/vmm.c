@@ -5,7 +5,7 @@
 #include "../arch/gdt.h"
 #include "../physical/physmem.h"
 #include "vmm.h"
-#include "../kmemmap.h"
+#include "../kernel_memory_map.h"
 #include "../utils/panic.h"
 #include "../utils/mutex.h"
 #include "../memory/kheap/kheap.h"

@@ -5,7 +5,7 @@
 #include "../../memory/physical/physmem.h"
 #include "../../memory/mem_region.h"
 #include "../../memory/mem_regions.h"
-#include "../../memory/kmemmap.h"
+#include "../../memory/kernel_memory_map.h"
 #include "../../arch/stack_frames.h"
 
 static inline virt_addr_t vmm_rmw_base_address()               { return 0xFFC00000; } // 4GB - 4MB
