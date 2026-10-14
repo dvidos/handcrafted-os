@@ -125,7 +125,7 @@ virt_addr_t vmm_get_kernel_area_end() {
 static bool vmm_address_owned_by_kernel(virt_addr_t vaddr) {
     if (vaddr >= kinfo.reserved_area_start && vaddr < kinfo.reserved_area_end)
         return true;
-    if (mem_map_contains_address(&kinfo.extra_identity_mappings, vaddr))
+    if (mem_regions_contains(&kinfo.extra_identity_mappings, vaddr))
         return true;
 
     return false;
@@ -230,7 +230,7 @@ error_t vmm_map_mem_io(virt_addr_t start_addr, size_t size, page_dir_t page_dir_
 
     // this is for a device, so mark accordingly
     log_info("vmm_map_mem_io(start=0x%x, size=%d, page_dir=0x%x)", start_addr, size, page_dir_addr);
-    mem_map_add_region(&kinfo.extra_identity_mappings, mem_region_of(start_addr, size, REGION_WRITE_ENABLE));
+    mem_regions_add(&kinfo.extra_identity_mappings, mem_region_of(start_addr, size, REGION_WRITE_ENABLE));
     return OK;
 }
 
@@ -285,7 +285,7 @@ void vmm_destroy_user_page_directory(page_dir_t page_dir_address) {
     log_trace("vmm_destroy_user_page_directory(0x%x)", page_dir_address);
 
     // log_info("kernel extra mappings");
-    // log_info_fmt(mem_map_formatter, "kmapping", &kinfo.extra_identity_mappings);
+    // log_info_fmt(mem_regions_formatter, "kmapping", &kinfo.extra_identity_mappings);
     // log_info("Pd to be destroyed");
     // log_info_fmt(vmm_pagedir_log_formatter, "pd destr", page_dir_address);
 

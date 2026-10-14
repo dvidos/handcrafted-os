@@ -27,7 +27,7 @@ The `kernel/memory` directory is dedicated to the core memory management functio
 *   **Memory Regions (`mem_region.c`, `mem_region.h`):**
     *   **Purpose:** A generic structure (`mem_region_t`) to describe a contiguous range of memory (address, size, flags, usage name).
     *   **Usage:** Used by PMM (`kmemmap`) and VMM to describe various segments of memory, aiding in debugging and policy enforcement.
-    *   **Memory Map (`mem_map.c`, `mem_map.h`):** A collection of `mem_region_t` objects (`mem_map_t`), primarily used to describe the layout of a kernel or process's address space.
+    *   **Memory Map (`mem_map.c`, `mem_regions.h`):** A collection of `mem_region_t` objects (`mem_map_t`), primarily used to describe the layout of a kernel or process's address space.
 
 In essence, the `kernel/memory` subsystem is a robust, layered memory manager providing foundational services for the entire operating system, ensuring memory safety, protection, and efficient resource allocation.
 
@@ -43,7 +43,7 @@ kernel/memory/
 ├── kmemmap.c
 ├── kmemmap.h
 ├── mem_map.c
-├── mem_map.h
+├── mem_regions.h
 ├── mem_region.c
 ├── mem_region.h
 ├── physmem.c
@@ -82,7 +82,7 @@ kernel/memory/
 │   ├── mem_region.c         # Memory region description
 │   ├── mem_region.h
 │   ├── mem_map.c            # Collection of memory regions
-│   └── mem_map.h
+│   └── mem_regions.h
 └── README.md                # Documentation for the memory subsystem
 ```
 

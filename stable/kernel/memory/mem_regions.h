@@ -12,18 +12,18 @@
  */
 #define MEM_MAP_MAX_REGIONS   12
 
-typedef struct mem_map {
+typedef struct mem_regions {
     mem_region_t regions[12];
     int count;
     const char *name; // optional, helps debugging
-} mem_map_t;
+} mem_regions_t;
 
 
 
-void mem_map_add_region(mem_map_t *map, mem_region_t region);
-bool mem_map_contains_address(mem_map_t *map, uintptr_t address);
-const mem_region_t *mem_map_get_containing_region(mem_map_t *map, uintptr_t address);
-uintptr_t mem_map_get_top_address(mem_map_t *map);
-void mem_map_formatter(log_write_stream_t *stream, va_list args);
+void mem_regions_add(mem_regions_t *map, mem_region_t region);
+bool mem_regions_contains(mem_regions_t *map, uintptr_t address);
+const mem_region_t *mem_regions_find_region(mem_regions_t *map, uintptr_t address);
+uintptr_t mem_regions_top_address(mem_regions_t *map);
+void mem_regions_formatter(log_write_stream_t *stream, va_list args);
 
 

@@ -6,7 +6,7 @@
 #include "../proc/elf_reader.h"
 #include "../memory/virtual/vmm.h"
 #include "../memory/physical/physmem.h"
-#include "../memory/mem_map.h"
+#include "../memory/mem_regions.h"
 #include "../memory/mem_region.h"
 #include "../memory/kmemmap.h"
 #include "../filesys/vfs_api.h"
@@ -38,7 +38,7 @@ static known_formatter known_formatters[] = {
     { "if", "Interrupt frame struct", interrupt_frame_log_formatter },
     { "cf", "C frame struct", c_frame_log_formatter },
     // { "of", "open_file_t struct", open_file_log_formatter },
-    { "mm", "mem_map_t struct", mem_map_formatter },
+    { "mm", "mem_regions_t struct", mem_regions_formatter },
     { "mr", "mem_regiot_t struct", mem_region_formatter },
     { "pd", "page directory", vmm_pagedir_log_formatter },
     { "elfs", "elf_segment_t struct", elf_segment_formatter },

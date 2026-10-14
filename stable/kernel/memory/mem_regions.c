@@ -8,8 +8,8 @@
 MODULE("MEM_MAP", LOG_LEVEL_WARN);
 
 
-void mem_map_formatter(log_write_stream_t *stream, va_list args) {
-    mem_map_t *map = va_arg(args, mem_map_t *);
+void mem_regions_formatter(log_write_stream_t *stream, va_list args) {
+    mem_regions_t *map = va_arg(args, mem_regions_t *);
     char flags[64];
     
     if (map->name)
@@ -37,7 +37,7 @@ void mem_map_formatter(log_write_stream_t *stream, va_list args) {
     }
 }
 
-void mem_map_add_region(mem_map_t *map, mem_region_t reg) {
+void mem_regions_add(mem_regions_t *map, mem_region_t reg) {
     if (map->count >= MEM_MAP_MAX_REGIONS) {
         log_error("Memory map full, cannot add region");
         return;
@@ -47,7 +47,7 @@ void mem_map_add_region(mem_map_t *map, mem_region_t reg) {
     map->count += 1;
 }
 
-uintptr_t mem_map_get_top_address(mem_map_t *map) {
+uintptr_t mem_regions_top_address(mem_regions_t *map) {
     uintptr_t last = 0;
 
     for (int i = 0; i < map->count; i++) {
@@ -59,7 +59,7 @@ uintptr_t mem_map_get_top_address(mem_map_t *map) {
     return last;
 }
 
-bool mem_map_contains_address(mem_map_t *map, uintptr_t address) {
+bool mem_regions_contains(mem_regions_t *map, uintptr_t address) {
     for (int i = 0; i < map->count; i++) {
         if (mem_region_contains_address(&map->regions[i], address))
             return true;
@@ -67,7 +67,7 @@ bool mem_map_contains_address(mem_map_t *map, uintptr_t address) {
     return false;
 }
 
-const mem_region_t *mem_map_get_containing_region(mem_map_t *map, uintptr_t address) {
+const mem_region_t *mem_regions_find_region(mem_regions_t *map, uintptr_t address) {
     for (int i = 0; i < map->count; i++) {
         if (mem_region_contains_address(&map->regions[i], address))
             return &map->regions[i];

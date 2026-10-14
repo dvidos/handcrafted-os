@@ -31,7 +31,7 @@ struct kinfo {
     phys_addr_t reserved_area_start;
     phys_addr_t reserved_area_end;
     
-    mem_map_t extra_identity_mappings; // we'll see (for example PCI pages added on demand)
+    mem_regions_t extra_identity_mappings; // we'll see (for example PCI pages added on demand)
 
     // area for mapping page table entryies and such
     phys_addr_t mapping_pages_addr;
