@@ -26,9 +26,9 @@ void vmm_page_fault_handler(interrupt_frame_t *frame) {
     page_dir_t cr3 = 0;
     __asm__ __volatile__("mov %%cr3, %0" : "=r"(cr3));
 
-    char *mem_area = "";
+    const char *mem_area = "";
 
-    mem_region_t *region = kmm_find_region(known_kmap, addr);
+    const mem_region_t *region = mem_regions_find_region(&known_kmap->regions, addr);
     if      (region != NULL) mem_area = region->name;
     else if (addr >= known_kmap->reserved_start && addr < known_kmap->reserved_end) mem_area = "kernel reserved area";
     else if (addr >= known_kmap->reserved_end)                              mem_area = "user memory space";

@@ -31,6 +31,8 @@ typedef enum region_flags {
     REGION_USAGE_FILE      = 0x0090, // memory-mapped files
     REGION_USAGE_GUARD     = 0x00a0, // for heap or stack overflows
     REGION_USAGE_ELF       = 0x00b0, // loaded from ELF file
+    REGION_USAGE_MAP_PAGES = 0x00c0, // addresses used for temp page mapping
+    REGION_USAGE_PMM_AREA  = 0x00d0, // pmm bitmap or other memory
 } region_flags_t;
 
 
@@ -48,12 +50,12 @@ typedef struct mem_region {
 
 static inline mem_region_t mem_region_empty() { return (mem_region_t){ .address = 0, .size = 0, .flags = 0 }; }
 static inline mem_region_t mem_region_of(uintptr_t address, size_t size, region_flags_t flags) { return (mem_region_t){ .address = address, .size = size, .flags = flags }; }
-static inline mem_region_t mem_region_kernel_other(uintptr_t address, size_t size, const char *name) { mem_region_t mr = { .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE }; strscpy(mr.name, name, MEM_REGION_NAME_SIZE - 1); return mr; }
+static inline mem_region_t mem_region_kernel_other(uintptr_t address, size_t size, const char *name, region_flags_t usage) { mem_region_t mr = { .address = address, .size = size, .flags = REGION_SUPERVISOR_ONLY | REGION_WRITE_ENABLE | (usage & REGION_USAGE_MASK)}; strscpy(mr.name, name, MEM_REGION_NAME_SIZE - 1); return mr; }
 
 static inline bool mem_region_is_empty(mem_region_t *reg) { if (reg == NULL) return true; return (reg->address == 0 && reg->size == 0); }
 const char *mem_region_usage_name(mem_region_t *reg);
 void mem_region_describe_flags(mem_region_t *reg, char *buffer);
 void mem_region_formatter(log_write_stream_t *stream, va_list args);
-bool mem_region_contains_address(mem_region_t *reg, uintptr_t address);
-bool mem_region_has_data(mem_region_t *reg);
+bool mem_region_contains_address(const mem_region_t *reg, uintptr_t address);
+bool mem_region_has_data(const mem_region_t *reg);
 

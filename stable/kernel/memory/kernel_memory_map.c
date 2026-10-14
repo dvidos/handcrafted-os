@@ -5,26 +5,6 @@ MODULE("KMM", LOG_LEVEL_INFO);
 
 
 
-static void kmm_log_info_region(mem_region_t *reg) {
-    char flags[64];
-
-    if (reg == NULL) {
-        log_info("    From        To                Size    KB  Flags             Usage");
-    } else {
-        mem_region_describe_flags(reg, flags);
-
-        log_info("    0x%08x  0x%08x  %10lu  %4d  %-16s  %s",
-            reg->address,
-            reg->address + reg->size - 1,
-            reg->size,
-            reg->size / 1024,
-            flags,
-            mem_region_usage_name(reg)
-        );
-    }
-}
-
-
 void kmm_log_info(kernel_memory_map_t *kmm) {
     log_info("Kernel memory map");
 
@@ -43,25 +23,7 @@ void kmm_log_info(kernel_memory_map_t *kmm) {
         kmm->reserved_start / MB, kmm->reserved_end / MB);
 
     log_info("- regions");
-    kmm_log_info_region(NULL); // title
-    kmm_log_info_region(&kmm->code);
-    kmm_log_info_region(&kmm->data);
-    kmm_log_info_region(&kmm->bss);
-    kmm_log_info_region(&kmm->rodata);
-    kmm_log_info_region(&kmm->stack);
-    kmm_log_info_region(&kmm->mapping_pages);
-    kmm_log_info_region(&kmm->pmm_bitmap);
-    kmm_log_info_region(&kmm->heap);
-}
-
-mem_region_t *kmm_find_region(kernel_memory_map_t *kmm, uintptr_t addr) {
-    if      (mem_region_contains_address(&kmm->code, addr))          { return &kmm->code; }
-    else if (mem_region_contains_address(&kmm->data, addr))          { return &kmm->data; }
-    else if (mem_region_contains_address(&kmm->rodata, addr))        { return &kmm->rodata; }
-    else if (mem_region_contains_address(&kmm->bss, addr))           { return &kmm->bss; }
-    else if (mem_region_contains_address(&kmm->heap, addr))          { return &kmm->heap; }
-    else if (mem_region_contains_address(&kmm->stack, addr))         { return &kmm->stack; }
-    else if (mem_region_contains_address(&kmm->mapping_pages, addr)) { return &kmm->mapping_pages; }
-    else if (mem_region_contains_address(&kmm->pmm_bitmap, addr))    { return &kmm->pmm_bitmap; }
-    else return NULL;
+    for (int i = 0; i < kmm->regions.count; i++) {
+        log_info_fmt(mem_region_formatter, "  - ", &kmm->regions.regions[i]);
+    }
 }

@@ -142,9 +142,9 @@ static void shell_addr(char *args) {
         shprintf("This is a kernel space pointer\n");
 
         // do the kernel info
-        char *region_name = "n/a";
+        const char *region_name = "n/a";
         bool is_data = false;
-        mem_region_t *region = kmm_find_region(known_map, addr);
+        const mem_region_t *region = mem_regions_find_region(&known_map->regions, addr);
         if (region != NULL) {
             region_name = region->name;
             is_data = mem_region_has_data(region);
@@ -152,8 +152,8 @@ static void shell_addr(char *args) {
         shprintf("Kernel region: %s\n", region_name);
 
         const char *symbol_name = is_kernel_space ? kdebug_get_symbol(addr) : NULL;
-
-        if (mem_region_contains_address(&known_map->heap, addr)) {
+        region = mem_regions_find_by_usage(&known_map->regions, REGION_USAGE_HEAP);
+        if (region != NULL && mem_region_contains_address(region, addr)) {
             shprintf("Checking heap pointer integrity...\n");
             kcheck((void *)addr, "address");
         }

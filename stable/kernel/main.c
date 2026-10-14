@@ -80,6 +80,7 @@ void kernel_main(boot_info_t* boot)
     // to allow us to set up our Interrupt Table
 
     kernel_memory_map_t *kmm = &kernel_mmap;
+    const mem_region_t *region;
 
     // initialize in-memory log
     init_logger();
@@ -125,10 +126,14 @@ void kernel_main(boot_info_t* boot)
     logger_add_appender(serial_log_appender, NULL, LOG_LEVEL_TRACE);
     
     log_info("Initializing Kernel Heap...");
-    init_kernel_heap((void *)kmm->heap.address, kmm->heap.size);
+    region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_HEAP);
+    if (region == NULL) panic("No heap in kernel memory map");
+    init_kernel_heap((void *)region->address, region->size);
 
     log_info("Initializing virtual memory mapping...");
-    vmm_initialize(kmm->reserved_start, kmm->reserved_end, kmm->mapping_pages.address, kmm->mapping_pages.size);
+    region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_MAP_PAGES);
+    if (region == NULL) panic("No mapping pages in kernel memory map");
+    vmm_initialize(kmm->reserved_start, kmm->reserved_end, region->address, region->size);
     
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -218,6 +223,8 @@ extern char _linker_end_address[];
 
 
 static void populate_kernel_memory_map(boot_info_t *info, kernel_memory_map_t *kmm) {
+    mem_region_t region;
+
     // find highest memory address of machine, cap at 4GB
     kmm->machine_max_memory_address = 0;
     for (uint32_t i = 0; i < info->mem.count; i++) {
@@ -229,27 +236,31 @@ static void populate_kernel_memory_map(boot_info_t *info, kernel_memory_map_t *k
     kmm->reserved_start = 0;
     kmm->reserved_end = 64 * MB; // arbitrary, between 8MB..128MB
     
+    mem_regions_add(&kmm->regions, mem_region_kernel_other((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start), ".code", REGION_USAGE_CODE));
+    mem_regions_add(&kmm->regions, mem_region_kernel_other((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start), ".data", REGION_USAGE_DATA));
+    mem_regions_add(&kmm->regions, mem_region_kernel_other((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start), ".bss", REGION_USAGE_BSS));
+    mem_regions_add(&kmm->regions, mem_region_kernel_other((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start), ".rodata", REGION_USAGE_RODATA));
+    mem_regions_add(&kmm->regions, mem_region_kernel_other((phys_addr_t)_segment_rodata_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_rodata_end), "stack", REGION_USAGE_STACK));
+
     // this is our starting point, we no longer limited by real mode.
     phys_addr_t addr = 1 * MB;
 
     // we need a few pages for the kernel: 1x page dir, 2x for temp-map, 32x page tables, 32x extra page tables
-    kmm->mapping_pages = mem_region_kernel_other(addr, (1 + 2 + 32 + 32) * vmm_page_size(), "map_pages");
-    addr += kmm->mapping_pages.size;
+    region = mem_region_kernel_other(addr, (1 + 2 + 32 + 32) * vmm_page_size(), "map_pages", REGION_USAGE_MAP_PAGES);
+    mem_regions_add(&kmm->regions, region);
+    addr += region.size;
 
     // we need area for the pmm to store bitmap, 4GB --> 1M pages --> 132kb -> 32 pages
-    kmm->pmm_bitmap = mem_region_kernel_other(addr, 32 * vmm_page_size(), "pmm_bitmap");
-    addr += kmm->pmm_bitmap.size;
+    region = mem_region_kernel_other(addr, 32 * vmm_page_size(), "pmm_bitmap", REGION_USAGE_PMM_AREA);
+    mem_regions_add(&kmm->regions, region);
+    addr += region.size;
 
     // we need heap as well
-    kmm->heap = mem_region_kernel_other(addr, 8 * MB, "heap");
-    addr += kmm->heap.size;
+    region = mem_region_kernel_other(addr, 8 * MB, "heap", REGION_USAGE_HEAP);
+    mem_regions_add(&kmm->regions, region);
+    addr += region.size;
 
-    // these are fixed
-    kmm->code = mem_region_kernel_other((phys_addr_t)&_segment_text_start, (size_t)(_segment_text_end - _segment_text_start), ".code");
-    kmm->data = mem_region_kernel_other((phys_addr_t)&_segment_init_data_start, (size_t)(_segment_init_data_end- _segment_init_data_start), ".data");
-    kmm->bss = mem_region_kernel_other((phys_addr_t)&_segment_zero_data_start, (size_t)(_segment_zero_data_end - _segment_zero_data_start), ".bss");
-    kmm->rodata = mem_region_kernel_other((phys_addr_t)&_segment_rodata_start, (size_t)(_segment_rodata_end - _segment_rodata_start), ".rodata");
-    kmm->stack = mem_region_kernel_other((phys_addr_t)_segment_rodata_end, (size_t)(KERNEL_STACK_TOP - (size_t)&_segment_rodata_end), "stack");
+
 }
 
 static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *kmm) {
@@ -259,7 +270,9 @@ static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *k
     vmm_set_kernel_map_for_debugging(kmm);
 
     // now we can initialize
-    pmm_initialize(kmm->machine_max_memory_address, kmm->pmm_bitmap.address, kmm->pmm_bitmap.size);
+    const mem_region_t *region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_PMM_AREA);
+    if (region == NULL) panic("No pmm area in kernel memory map");
+    pmm_initialize(kmm->machine_max_memory_address, region->address, region->size);
     for (uint32_t i = 0; i < info->mem.count; i++) {
         e820_memory_entry *entry = &info->mem.entries[i];
         if (entry->type != MEMORY_TYPE_AVAILABLE)

@@ -74,3 +74,11 @@ const mem_region_t *mem_regions_find_region(mem_regions_t *map, uintptr_t addres
     }
     return NULL;
 }
+
+const mem_region_t *mem_regions_find_by_usage(mem_regions_t *map, region_flags_t usage) {
+    for (int i = 0; i < map->count; i++) {
+        if ((map->regions[i].flags & REGION_USAGE_MASK) == usage)
+            return &map->regions[i];
+    }
+    return NULL;
+}

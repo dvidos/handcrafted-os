@@ -47,13 +47,31 @@ void mem_region_formatter(log_write_stream_t *stream, va_list args) {
         flags,
         mem_region_usage_name(reg)
     );
+
+    /*
+    Sample
+    if (reg == NULL) {
+        log_info("    From        To                Size    KB  Flags             Usage");
+    } else {
+        mem_region_describe_flags(reg, flags);
+
+        log_info("    0x%08x  0x%08x  %10lu  %4d  %-16s  %s",
+            reg->address,
+            reg->address + reg->size - 1,
+            reg->size,
+            reg->size / 1024,
+            flags,
+            mem_region_usage_name(reg)
+        );
+    }
+    */    
 }
 
-bool mem_region_contains_address(mem_region_t *reg, uintptr_t address) {
+bool mem_region_contains_address(const mem_region_t *reg, uintptr_t address) {
     return address >= reg->address && address < reg->address + reg->size;
 }
 
-bool mem_region_has_data(mem_region_t *reg) {
+bool mem_region_has_data(const mem_region_t *reg) {
     int usage = reg->flags & REGION_USAGE_MASK;
     return (usage & REGION_USAGE_DATA) || (usage & REGION_USAGE_STACK) || (usage & REGION_USAGE_HEAP) || (usage & REGION_USAGE_SHMEM);
 }

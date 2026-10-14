@@ -1,5 +1,6 @@
 #pragma once
 #include "mem_region.h"
+#include "mem_regions.h"
 
 
 typedef struct kernel_memory_map {
@@ -8,24 +9,14 @@ typedef struct kernel_memory_map {
     phys_addr_t reserved_end;
     uint64_t machine_max_memory_address;
 
-    // these regions for debugging etc
-    mem_region_t code;
-    mem_region_t data;
-    mem_region_t rodata;
-    mem_region_t bss;
-    mem_region_t stack;
-    mem_region_t mapping_pages;
-    mem_region_t pmm_bitmap;
-    mem_region_t heap;
-
-    // here, we could track the extra identity mapped pages
-    // such as those used for DMA, MMIO etc.
+    // regions on the map
+    mem_regions_t regions;
 
 } kernel_memory_map_t;
 
 
 void kmm_log_info(kernel_memory_map_t *kmm);
-mem_region_t *kmm_find_region(kernel_memory_map_t *kmm, uintptr_t addr);
+
 
 
 
