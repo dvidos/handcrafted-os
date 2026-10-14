@@ -15,7 +15,7 @@ typedef struct kernel_memory_map {
 } kernel_memory_map_t;
 
 
-void kmm_log_info(kernel_memory_map_t *kmm);
+void kernel_memory_map_formatter(log_write_stream_t *stream, va_list args);
 
 
 

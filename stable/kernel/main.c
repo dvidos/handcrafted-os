@@ -266,7 +266,7 @@ static void populate_kernel_memory_map(boot_info_t *info, kernel_memory_map_t *k
 static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *kmm) {
 
     populate_kernel_memory_map(info, kmm);
-    kmm_log_info(kmm);
+    log_info_fmt(kernel_memory_map_formatter, "", kmm);
     vmm_set_kernel_map_for_debugging(kmm);
 
     // now we can initialize

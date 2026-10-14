@@ -15,7 +15,7 @@ void mem_regions_formatter(log_write_stream_t *stream, va_list args) {
     if (map->name)
         stream->printf(stream, "%s", map->name);
 
-    stream->printf(stream, "    No        From          To        Size    KB  Flags             Usage");
+    stream->printf(stream, "  No        From          To        Size    KB  Flags             Usage");
     // |  No     Address          To        Size    KB  Flags             Usage
     // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
     // |  nn  0x12345678  0x12345678  1234567890  1234  1234567890123456  code
@@ -25,7 +25,7 @@ void mem_regions_formatter(log_write_stream_t *stream, va_list args) {
         mem_region_t *reg = &map->regions[i];
         mem_region_describe_flags(reg, flags);
 
-        stream->printf(stream, "    %2d  0x%08x  0x%08x  %10lu  %4d  %-16s  %s",
+        stream->printf(stream, "  %2d  0x%08x  0x%08x  %10lu  %4d  %-16s  %s",
             i,
             reg->address,
             reg->address + reg->size - 1,
