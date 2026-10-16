@@ -1,31 +1,29 @@
-#include "../utils/panic.h"
-#include "../arch/cpu.h"
-#include "../logger/logger.h"
+#include "../../utils/panic.h"
+#include "../../arch/cpu.h"
+#include "../../logger/logger.h"
 #include "physmem.h"
 
-// 4GB of memory / 4K page size --> 1M pages
-// 1M pages / 32 bits in an uint32_t  => 32K uint32_t numbers.
-// 4K page size / 4 bytes that a uint32_t takes -> 1K uint32_t per page
-// so, using 32 pages, we can have a "used" bit for each page in memory
-// the initialization process is:
-// - mark everything used.
-// - mark availabile memory (e820) as free
-// - mark things we know (kernel, kheap, the used pages bitmap etc) as used
-// - mark the pages of the bitmap as used
 
 MODULE("PMM2", LOG_LEVEL_WARN);
 
 #define PAGE_SIZE   4096
 
+
+// bits 15, 14 are special, bits 13-0 used for counting
+// alternatively, we could store the "is_system", "is_kernel" info elsewhere, in a bitmap
+#define PAGE_SYSTEM_RESERVED    (uint16_t)((uint16_t)1 << 15)
+#define PAGE_KERNEL_RESERVED    (uint16_t)((uint16_t)1 << 14)
+#define PAGE_COUNTER_MASK       (uint16_t)((uint16_t)0x3FFF)   // 16383 processes to share the memory
+
+
 struct pmm_data_t {
     
-    // we need to know the address of the 32 pages that contain the "used" bitmap
-    // 32K uint32_t long, or 32 pages of 4K each
     uint32_t total_pages;
     uint32_t free_pages;
-    uint32_t *bitmap; 
-    uint32_t bitmap_uint_count;
-    uint32_t next_allocation_page_hint;
+
+    uint16_t *page_data; // the new way of dealing with pages, using counters
+
+    uint32_t last_allocated_page_hint;
     pmm_allocator_t allocator;
 };
 
@@ -33,6 +31,8 @@ static struct pmm_data_t pmm_data;
 
 static inline uint32_t round_up_4k(uint32_t address) { return ((address + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE; }
 static inline uint32_t round_down_4k(uint32_t address) { return (address / PAGE_SIZE) * PAGE_SIZE; }
+
+// -------------------------------------------------------------------------------
 
 static inline uint32_t page_no_for_address(phys_addr_t address) {
     return address / PAGE_SIZE;
@@ -42,130 +42,172 @@ static inline phys_addr_t address_of_page(uint32_t page_no) {
     return page_no * PAGE_SIZE;
 }
 
-static inline bool is_page_used(uint32_t page_no) {
-    return pmm_data.bitmap[page_no / 32] & ((uint32_t)1 << (page_no % 32));
+static inline bool is_page_system_reserved(uint32_t page_no) {
+    return (pmm_data.page_data[page_no] & PAGE_SYSTEM_RESERVED);
+}
+
+static inline void set_page_system_reserved(uint32_t page_no) {
+    pmm_data.page_data[page_no] |= PAGE_SYSTEM_RESERVED;
+}
+
+static inline void set_page_system_available(uint32_t page_no) {
+    pmm_data.page_data[page_no] &= ~PAGE_SYSTEM_RESERVED;
+}
+
+static inline bool is_page_kernel_reserved(uint32_t page_no) {
+    return (pmm_data.page_data[page_no] & PAGE_KERNEL_RESERVED);
+}
+
+static inline void set_page_kernel_reserved(uint32_t page_no) {
+    pmm_data.page_data[page_no] |= PAGE_KERNEL_RESERVED;
+}
+
+static inline bool is_page_allocated(uint32_t page_no) {
+    return (pmm_data.page_data[page_no] & PAGE_COUNTER_MASK) > 0;
 }
 
 static inline bool is_page_free(uint32_t page_no) {
-    return !is_page_used(page_no);
+    return !is_page_allocated(page_no);
+}
+
+static inline bool is_page_user_allocatable(uint32_t page_no) {
+    return pmm_data.page_data[page_no] == 0; // must not have any bit turned on.
+}
+
+static inline uint16_t get_page_counter(uint32_t page_no) {
+    return (pmm_data.page_data[page_no] & PAGE_COUNTER_MASK);
+}
+
+static inline void update_page_counter(uint32_t page_no, int delta) {
+    register uint16_t pd = pmm_data.page_data[page_no];
+    pd = (pd & ~PAGE_COUNTER_MASK) | ((pd & PAGE_COUNTER_MASK) + delta);
+    pmm_data.page_data[page_no] = pd;
 }
 
 static inline void mark_page_used(uint32_t page_no) {
-    if (is_page_used(page_no))
+    if (is_page_allocated(page_no))
         return;
-    pmm_data.bitmap[page_no / 32] |= ((uint32_t)1 << (page_no % 32));
+    update_page_counter(page_no, +1);
     pmm_data.free_pages--;
 }
 
 static inline void mark_page_free(uint32_t page_no) {
-    if (is_page_used(page_no)) {
-        pmm_data.bitmap[page_no / 32] &= ~((uint32_t)1 << (page_no % 32));
-        pmm_data.free_pages++;
-    }
+    if (is_page_free(page_no))
+        return;
+    update_page_counter(page_no, -1);
+    pmm_data.free_pages++;
 }
 
-size_t pmm_get_desired_work_area_size() {
-    // we need area to manage allocations (bitmap etc
-    // 4GB --> 1M pages --> 132kb -> 32 pages 
-    // or more if we want to share pages.
-    return 32 * PAGE_SIZE;
+// --------------------------------------------------------------------------------
+
+static size_t desired_work_area_size(uint64_t machine_max_memory_address) {
+    // if we wanted to keep 2 bytes per page, with 2-3 bits for flags and the rest for counter
+    // - RESERVED (e.g. kernel code pages cannot be reserved or released)
+    
+    size_t bytes_per_page = 2; // 2 flags and 14 bits of counter = 16383 procs
+    uint32_t pages_to_track = (uint32_t)((machine_max_memory_address + (PAGE_SIZE-1)) / (uint64_t)PAGE_SIZE);
+    size_t bytes_needed = pages_to_track * bytes_per_page;
+    size_t pages_needed = round_up_4k(bytes_needed) / PAGE_SIZE;
+
+    return pages_needed * PAGE_SIZE;
 }
 
-void pmm_initialize(uint64_t highest_machine_address, phys_addr_t bitmap_address, size_t bitmap_size_bytes) {
+size_t pmm_get_desired_work_area_size(uint64_t machine_max_memory_address) {
+    return desired_work_area_size(machine_max_memory_address);
+}
+
+void pmm_initialize(uint64_t highest_machine_address, phys_addr_t workarea_address, size_t workarea_bytes) {
+    size_t bytes_needed = desired_work_area_size(highest_machine_address);
+    if (workarea_bytes < bytes_needed)
+        panic("PMM work area only %lu bytes, %lu needed", workarea_bytes, bytes_needed);
+    
+    log_info("Machine memory %lu MB / %lu pages, reserving %lu MB / %lu pages for physical page tracking",
+        (uint32_t)(highest_machine_address / MB),
+        (uint32_t)(highest_machine_address / PAGE_SIZE),
+        bytes_needed / MB,
+        bytes_needed / PAGE_SIZE
+    );
+
     pmm_data.allocator.allocate_physical_page = pmm_allocate_physical_page;
     pmm_data.allocator.free_physical_page = pmm_free_physical_page;
 
-    // this phys mem manager supports up to 4 GB of physical memory. 
-    if (highest_machine_address > 4 * GB)
-        highest_machine_address = 0xFFFFFFFF;
+    pmm_data.total_pages = (uint32_t)((highest_machine_address + (PAGE_SIZE-1)) / PAGE_SIZE);
+    pmm_data.page_data = (uint16_t *)workarea_address;
+    pmm_data.last_allocated_page_hint = 0;
 
-    // 4GB of memory would give us 1M of pages, 32k integers of 32 bit, taking 128 KB bytes
-    if (bitmap_size_bytes < 128 * KB)
-        panic("pmm needs at least 128 KB for bitmap of 4GB");
 
-    pmm_data.total_pages = (uint32_t)((highest_machine_address + 4095) / PAGE_SIZE);
-    pmm_data.bitmap = (uint32_t *)bitmap_address;
-    pmm_data.bitmap_uint_count = (pmm_data.total_pages + 31) / 32;
-    pmm_data.next_allocation_page_hint = 0;
 
     // initially mark everything as unusable
-    for (uint32_t i = 0; i < pmm_data.bitmap_uint_count; i++)
-        pmm_data.bitmap[i] = 0xFFFFFFFF; // used, or unusable
+    for (uint32_t i = 0; i < pmm_data.total_pages; i++)
+        set_page_system_reserved(i);
     
     pmm_data.free_pages = 0;
 }
 
-void pmm_mark_region_available(phys_addr_t start, size_t length) {
+void pmm_mark_region_system_available(phys_addr_t start, size_t length) {
     if (length == 0)
         return;
     
     start = round_down_4k(start);
     length = round_up_4k(length);
     uint64_t end = start + length;
-    for (uint64_t addr = start; addr < end; addr += PAGE_SIZE)
-        mark_page_free(page_no_for_address(addr));
+    for (uint64_t addr = start; addr < end; addr += PAGE_SIZE) {
+        uint32_t page = page_no_for_address(addr);
+        set_page_system_available(page);
+    }
 }
 
-void pmm_mark_region_reserved(phys_addr_t start, size_t length) {
+void pmm_mark_region_kernel_reserved(phys_addr_t start, size_t length) {
     if (length == 0)
         return;
     
     start = round_down_4k(start);
     length = round_up_4k(length);
     uint64_t end = start + length;
-    for (uint64_t addr = start; addr < end; addr += PAGE_SIZE)
-        mark_page_used(page_no_for_address(addr));
+    for (uint64_t addr = start; addr < end; addr += PAGE_SIZE) {
+        uint32_t page = page_no_for_address(addr);
+        set_page_kernel_reserved(page);
+    }
 }
 
 void pmm_finish_initialization() {
-    // mark the pages of the bitmap as reserved
-    phys_addr_t bitmap_start = (phys_addr_t)pmm_data.bitmap;
-    phys_addr_t bitmap_end = (phys_addr_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count);
-    for (phys_addr_t addr = bitmap_start; addr < bitmap_end; addr += PAGE_SIZE)
-        mark_page_used(page_no_for_address(addr));
+    // the pages of the PMM workarea are assumed to have been already reserved by the kernel
 
-    // page zero is invalid, null pointers also.
-    mark_page_used(0);
+    // zero page invalid, similar to pointers at address zero (null)
+    set_page_system_reserved(0);
 }
 
-phys_addr_t _find_next_free_page() {
-    uint32_t index = pmm_data.next_allocation_page_hint / 32;
-    for (uint32_t times = 0; times < pmm_data.bitmap_uint_count; times++) {
-        if (pmm_data.bitmap[index] == 0xFFFFFFFF) {
-            if (++index >= pmm_data.bitmap_uint_count)
-                index = 0;
-            continue;
-        }
+static uint32_t _find_next_free_page_no() {
+    uint32_t page_no = pmm_data.last_allocated_page_hint + 1;
+    if (page_no >= pmm_data.total_pages)
+        page_no = 0;
 
-        for (int bit = 0; bit < 32; bit++) {
-            uint32_t page_no = index * 32 + bit;
-            if (page_no >= pmm_data.total_pages)
-                continue; // last bits of the last uint32 may not participate
+    for (uint32_t times = 0; times < pmm_data.total_pages; times++) {
 
-            if (pmm_data.bitmap[index] & (uint32_t)1 << bit)
-                continue;
-            
-            pmm_data.next_allocation_page_hint = (page_no + 1) % pmm_data.total_pages;
+        if (is_page_user_allocatable(page_no)) {
+            pmm_data.last_allocated_page_hint = page_no;
             return page_no;
         }
 
-        if (++index >= pmm_data.bitmap_uint_count)
-            index = 0;
+        // try next page
+        page_no++;
+        if (page_no >= pmm_data.total_pages)
+            page_no = 0;
     }
 
-    return INVALID_PAGE;
+    return 0; // NULL / invalid
 }
 
 phys_addr_t pmm_allocate_physical_page() { 
     phys_addr_t addr = 0;
     
-    int page_no = _find_next_free_page();
-    if (page_no != INVALID_PAGE) {
-        mark_page_used(page_no);
-        addr = address_of_page(page_no);
-    }
+    int page_no = _find_next_free_page_no();
+    if (page_no == 0)
+        return 0; // not found
 
-    return addr;
+
+    mark_page_used(page_no);
+    return address_of_page(page_no);
 }
 
 bool pmm_is_page_used(phys_addr_t addr) { 
@@ -174,7 +216,8 @@ bool pmm_is_page_used(phys_addr_t addr) {
     uint32_t page_no = page_no_for_address(addr);
     if (page_no >= pmm_data.total_pages)
         panic("Freeing page outside of total pages (page_no=%u)", page_no);
-    return is_page_used(page_no);
+    
+    return is_page_allocated(page_no);
 }
 
 bool pmm_is_page_free(phys_addr_t addr) { 
@@ -184,15 +227,23 @@ bool pmm_is_page_free(phys_addr_t addr) {
 void pmm_free_physical_page(phys_addr_t addr) { 
     if (addr != round_down_4k(addr))
         panic("Freeing physical address not aligned to 4k (0x%x)", addr);
+
     uint32_t page_no = page_no_for_address(addr);
+
     if (page_no >= pmm_data.total_pages)
         panic("Freeing page outside of total pages (page_no=%u)", page_no);
-    if (!is_page_used(page_no))
+    if (!is_page_allocated(page_no))
         panic("Attempt to free a non-allocated page (page_no=%u, addr=0x%08x)", page_no, addr);
-    if (addr >= (phys_addr_t)pmm_data.bitmap && addr < (phys_addr_t)(pmm_data.bitmap + pmm_data.bitmap_uint_count))
-        panic("Attempt to free page in the used pages bitmap");
+    if (is_page_system_reserved(page_no))
+        panic("Attempt to free a system reserved page (page_no=%u)", page_no);
+    if (is_page_kernel_reserved(page_no))
+        panic("Attempt to free a kernel reserved page (page_no=%u)", page_no);
     
-    mark_page_free(page_no_for_address(addr));
+    // for now, till we implement retain/release
+    if (get_page_counter(page_no) != 1)
+        panic("Attempt to free a page with counter unequal to 1 (page_no=%u)", page_no);
+
+    mark_page_free(page_no);
 }
 
 phys_addr_t pmm_allocate_consecutive_pages(size_t total_bytes) {
@@ -201,11 +252,11 @@ phys_addr_t pmm_allocate_consecutive_pages(size_t total_bytes) {
 
     phys_addr_t addr = 0;
     int pages_needed = round_up_4k(total_bytes) / PAGE_SIZE;
-    uint32_t starting_page = pmm_data.next_allocation_page_hint;
+    uint32_t starting_page = pmm_data.last_allocated_page_hint;
     uint32_t iterations_left = pmm_data.total_pages;
 
     while (iterations_left-- > 0) {
-        uint32_t first_page = _find_next_free_page();
+        uint32_t first_page = _find_next_free_page_no();
         if (first_page == INVALID_PAGE)
             break;
         if (first_page + pages_needed > pmm_data.total_pages)
@@ -253,45 +304,35 @@ uint32_t pmm_used_pages() {
     return pmm_data.total_pages - pmm_data.free_pages;
 }
 
-pmm_allocator_t pmm_get_pmm_allocator() {
-    return pmm_data.allocator;
+pmm_allocator_t *pmm_get_pmm_allocator() {
+    return &pmm_data.allocator;
 }
 
-void pmm_debug_bitmap_ranges() {
-    uint32_t start_page = 0;
-    bool current_used = (pmm_data.bitmap[0] & 1) != 0; // first page
-    
-    log_info("Physical memory manager bitmap ranges");
-    for (uint32_t i = 1; i < pmm_data.total_pages; i++) {
-        uint32_t word = pmm_data.bitmap[i / 32];
-        bool used = (word >> (i % 32)) & 1;
+void pmm_data_formatter(log_write_stream_t *stream, va_list args) {
+    // we'll use our own internal data
 
-        if (used != current_used) {
-            // Print the previous range
-            uint64_t start_addr = (uint64_t)start_page * PAGE_SIZE;
-            uint64_t end_addr = (uint64_t)i * PAGE_SIZE;
-            log_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
-                   current_used ? "used" : "free",
-                   start_addr,
-                   end_addr - 1, 
-                   (uint32_t)((end_addr - start_addr) / 1024),
-                   (uint32_t)((end_addr - start_addr) / (1024 * 1024))
-                );
-
-            // Start new range
-            start_page = i;
-            current_used = used;
-        }
+    stream->printf(stream, "Physical memory manager data");
+    uint32_t sys_reserved = 0;
+    uint32_t kern_reserved = 0;
+    uint32_t user_allocated = 0;
+    uint32_t user_allocatable = 0;
+    for (uint32_t i = 0; i < pmm_data.total_pages; i++) {
+        if (is_page_system_reserved(i))
+            sys_reserved++;
+        if (is_page_kernel_reserved(i))
+            kern_reserved++;
+        if (is_page_allocated(i))
+            user_allocated++;
+        if (is_page_user_allocatable(i))
+            user_allocatable++;
     }
 
-    // Print the last range
-    uint64_t start_addr = (uint64_t)start_page * PAGE_SIZE;
-    uint64_t end_addr = (uint64_t)pmm_data.total_pages * PAGE_SIZE;
-    log_info("  %s: 0x%08llx - 0x%08llx, %u KB or %u MB",
-            current_used ? "used" : "free",
-            start_addr,
-            end_addr - 1, 
-            (uint32_t)((end_addr - start_addr) / 1024),
-            (uint32_t)((end_addr - start_addr) / (1024 * 1024))
-        );
+    // Status                   Pages        KB        MB
+    // 12345678901234567890  12345678  12345678  12345678
+    stream->printf(stream, "  Page Status              Pages        KB        MB");
+    stream->printf(stream, "  %-20s  %8u  %8u  %8u", "System reserved", sys_reserved, sys_reserved * 4, (sys_reserved + 255) / 256);
+    stream->printf(stream, "  %-20s  %8u  %8u  %8u", "Kernel reserved", kern_reserved, kern_reserved * 4, (kern_reserved + 255) / 256);
+    stream->printf(stream, "  %-20s  %8u  %8u  %8u", "User allocated", user_allocated, user_allocated * 4, (user_allocated + 255) / 256);
+    stream->printf(stream, "  %-20s  %8u  %8u  %8u", "User allocatable", user_allocatable, user_allocatable * 4, (user_allocatable + 255) / 256);
+    stream->printf(stream, "  %-20s  %8u  %8u  %8u", "Total", pmm_data.total_pages, pmm_data.total_pages * 4, (pmm_data.total_pages + 255) / 256);
 }

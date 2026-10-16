@@ -22,7 +22,7 @@ static inline uint32_t vmm_page_offset(uint32_t address)       { return address 
 
 // initialize virtual memory paging.
 size_t vmm_get_desired_work_area_size();
-void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_reserved_area_end, phys_addr_t utility_pages_addr, size_t utility_pages_size);
+void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_reserved_area_end, phys_addr_t utility_pages_addr, size_t utility_pages_size, pmm_allocator_t *phys_allocator);
 
 // used for loading processes and fork()
 virt_addr_t vmm_get_kernel_area_end();

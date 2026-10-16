@@ -24,6 +24,8 @@ MODULE("VMM", LOG_LEVEL_INFO);
 // this to be included in every page directory we create,
 // so that kernel structures and code are always available.
 struct kinfo {
+    pmm_allocator_t *phys_allocator;
+
     bool paging_enabled;
     page_dir_t page_directory; 
 

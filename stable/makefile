@@ -75,7 +75,7 @@ run-sata: image
 		-drive format=raw,file=os.img,if=none,id=disk0 \
 		-device ahci,id=ahci0 \
 		-device ide-hd,drive=disk0,bus=ahci0.0 \
-		-serial stdio -m 4G
+		-serial stdio -m 2G
 
 # ATA / IDE drive
 run-ide: image  

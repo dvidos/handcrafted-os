@@ -41,15 +41,18 @@ size_t vmm_get_desired_work_area_size() {
     return (1 + 2 + 32 + 32) * vmm_page_size();
 }
 
-void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_reserved_area_end, phys_addr_t utility_pages_addr, size_t utility_pages_size) {
+void vmm_initialize(phys_addr_t kernel_reserved_area_start, phys_addr_t kernel_reserved_area_end, phys_addr_t utility_pages_addr, size_t utility_pages_size, 
+                    pmm_allocator_t *phys_allocator) {
     log_trace("vmm_initialize(kstart=0x%x, kend=0x%x, uaddr=0x%x, usize=%d)", kernel_reserved_area_start, kernel_reserved_area_end, utility_pages_addr, utility_pages_size);
 
+    ASSERT(phys_allocator != NULL);
     ASSERT(kernel_reserved_area_end > kernel_reserved_area_start);
     ASSERT(utility_pages_addr > 0);
     ASSERT(vmm_is_page_aligned(utility_pages_size));
     ASSERT(vmm_round_down(utility_pages_size) / vmm_page_size() >= 4);
 
     memset(&kinfo, 0, sizeof(kinfo));
+    kinfo.phys_allocator = phys_allocator; // continue this.
 
     kinfo.reserved_area_start = kernel_reserved_area_start;
     kinfo.reserved_area_end = kernel_reserved_area_end;

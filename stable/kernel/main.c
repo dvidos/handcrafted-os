@@ -133,7 +133,7 @@ void kernel_main(boot_info_t* boot)
     log_info("Initializing virtual memory mapping...");
     region = mem_regions_find_by_usage(&kmm->regions, REGION_USAGE_VMM_DATA);
     if (region == NULL) panic("No mapping pages in kernel memory map");
-    vmm_initialize(kmm->reserved_start, kmm->reserved_end, region->address, region->size);
+    vmm_initialize(kmm->reserved_start, kmm->reserved_end, region->address, region->size, pmm_get_pmm_allocator());
     
     log_info("Enabling interrupts & NMI...");
     sti();
@@ -247,7 +247,7 @@ static void populate_kernel_memory_map(boot_info_t *info, kernel_memory_map_t *k
     size_t size;
 
     // we need area for the pmm to store bitmaps etc, 4GB --> 1M pages --> 132kb -> 32 pages
-    size = ROUND_UP_4K(pmm_get_desired_work_area_size());
+    size = ROUND_UP_4K(pmm_get_desired_work_area_size(kmm->machine_max_memory_address));
     region = mem_region_kernel_other(addr, size, "pmm_data", REGION_USAGE_PMM_DATA);
     mem_regions_add(&kmm->regions, region);
     addr += region.size;
@@ -279,18 +279,12 @@ static void initialize_physical_memory(boot_info_t *info, kernel_memory_map_t *k
         if (entry->type != MEMORY_TYPE_AVAILABLE)
             continue;
         
-        pmm_mark_region_available((phys_addr_t)entry->base, (size_t)entry->length);
+        pmm_mark_region_system_available((phys_addr_t)entry->base, (size_t)entry->length);
     }
-    pmm_mark_region_reserved(kmm->reserved_start, kmm->reserved_end - kmm->reserved_start);
+    pmm_mark_region_kernel_reserved(kmm->reserved_start, kmm->reserved_end - kmm->reserved_start);
     pmm_finish_initialization();
 
-    log_info("Physical memory manager initialized. %u total pages, %u (%u MB or %u%%) reserved, %u (%u MB or %u%%) available",
-        pmm_total_pages(), 
-        pmm_used_pages(), (pmm_used_pages() * 4) / 1024, pmm_total_pages() == 0 ? 0 : (pmm_used_pages() * 100) / pmm_total_pages(),
-        pmm_free_pages(), (pmm_free_pages() * 4) / 1024, pmm_total_pages() == 0 ? 0 : (pmm_free_pages() * 100) / pmm_total_pages()
-    );
-
-    pmm_debug_bitmap_ranges();
+    log_info_fmt(pmm_data_formatter, "", NULL);
 }
 
 static void print_stage2_boot_info(boot_info_t *info) {

@@ -1,7 +1,14 @@
 # roadmap
 
-* ~~Finalize sfs tests~~
+## Immediate next steps:
+* make PMM support retain/release page, for shared memory
+* make VMM support shared memory
+
+
+## Later
+
 * Make all usertests pass, expand them
+* Make all kernel unit tests pass
 * Shape up the shell a bit, so it works ok
 * Minimum editor, edit files, persist from session to session
 * In order to start a graphics manager:

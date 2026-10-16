@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../include/ctypes.h"
+#include "../../logger/logger.h"
 
 // maybe i need a better base abstraction for panic. 
 // dedicated header and source file, not needing the VGA driver.
@@ -17,10 +18,10 @@ typedef struct pmm_allocator_t {
 } pmm_allocator_t;
 
 
-size_t pmm_get_desired_work_area_size();
-void pmm_initialize(uint64_t highest_machine_address, phys_addr_t bitmap_address, size_t bitmap_size_bytes);
-void pmm_mark_region_available(phys_addr_t start, size_t length);
-void pmm_mark_region_reserved(phys_addr_t start, size_t length);
+size_t pmm_get_desired_work_area_size(uint64_t machine_max_memory_address);
+void pmm_initialize(uint64_t highest_machine_address, phys_addr_t workarea_address, size_t workarea_bytes);
+void pmm_mark_region_system_available(phys_addr_t start, size_t length);
+void pmm_mark_region_kernel_reserved(phys_addr_t start, size_t length);
 void pmm_finish_initialization();
 
 phys_addr_t pmm_allocate_physical_page();
@@ -36,8 +37,8 @@ uint32_t pmm_total_pages();
 uint32_t pmm_free_pages();
 uint32_t pmm_used_pages();
 
-pmm_allocator_t pmm_get_pmm_allocator();
-void pmm_debug_bitmap_ranges();
+pmm_allocator_t *pmm_get_pmm_allocator();
+void pmm_data_formatter(log_write_stream_t *stream, va_list args);
 
 
 
